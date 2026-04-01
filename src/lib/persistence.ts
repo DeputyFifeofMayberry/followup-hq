@@ -10,7 +10,7 @@ import {
 } from './sample-data';
 import type { AppSnapshot, PersistenceMode } from '../types';
 
-const LOCAL_SNAPSHOT_KEY = 'followup-hq:snapshot:v1';
+const LOCAL_SNAPSHOT_KEY = 'followup-hq-app-snapshot';
 
 function buildFallbackSnapshot(): AppSnapshot {
   return {
@@ -32,12 +32,13 @@ function buildFallbackSnapshot(): AppSnapshot {
   };
 }
 
-function canUseBrowserStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+export function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-function readBrowserSnapshot(): AppSnapshot | null {
-  if (!canUseBrowserStorage()) return null;
+export function readLocalSnapshot(): AppSnapshot | null {
+  if (typeof window === 'undefined') return null;
+
   try {
     const raw = window.localStorage.getItem(LOCAL_SNAPSHOT_KEY);
     if (!raw) return null;
@@ -47,79 +48,76 @@ function readBrowserSnapshot(): AppSnapshot | null {
   }
 }
 
-function writeBrowserSnapshot(snapshot: AppSnapshot): void {
-  if (!canUseBrowserStorage()) return;
+export function writeLocalSnapshot(snapshot: AppSnapshot): void {
+  if (typeof window === 'undefined') return;
+
   try {
     window.localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify(snapshot));
   } catch {
-    // Ignore quota / serialization issues and keep the main persistence path alive.
+    // Ignore local cache failures. Supabase remains the source of truth.
   }
 }
 
-export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
-export async function loadSnapshot(): Promise<{ snapshot: AppSnapshot; mode: PersistenceMode; lastSyncedAt?: string }> {
-  const browserSnapshot = readBrowserSnapshot();
-
+export async function loadSnapshot(): Promise<{ snapshot: AppSnapshot; mode: PersistenceMode }> {
   const {
     data: { session },
     error: sessionError,
   } = await supabase.auth.getSession();
 
   if (sessionError) {
-    if (browserSnapshot) return { snapshot: browserSnapshot, mode: 'browser' };
+    const local = readLocalSnapshot();
+    if (local) return { snapshot: local, mode: 'browser' };
     throw sessionError;
   }
 
   const user = session?.user;
   if (!user) {
-    if (browserSnapshot) return { snapshot: browserSnapshot, mode: 'browser' };
+    const local = readLocalSnapshot();
+    if (local) return { snapshot: local, mode: 'browser' };
     throw new Error('No authenticated user.');
   }
 
   const { data, error } = await supabase
     .from('app_snapshots')
-    .select('snapshot, updated_at')
+    .select('snapshot')
     .eq('user_id', user.id)
     .maybeSingle();
 
   if (error) {
-    if (browserSnapshot) return { snapshot: browserSnapshot, mode: 'browser' };
+    const local = readLocalSnapshot();
+    if (local) return { snapshot: local, mode: 'browser' };
     throw error;
   }
 
   if (!data?.snapshot) {
-    const snapshot = browserSnapshot ?? buildFallbackSnapshot();
-    const insertedAt = new Date().toISOString();
+    const snapshot = readLocalSnapshot() ?? buildFallbackSnapshot();
 
     const { error: insertError } = await supabase.from('app_snapshots').insert({
       user_id: user.id,
       snapshot,
-      updated_at: insertedAt,
+      updated_at: new Date().toISOString(),
     });
 
     if (insertError) {
-      if (browserSnapshot) return { snapshot: browserSnapshot, mode: 'browser' };
-      throw insertError;
+      writeLocalSnapshot(snapshot);
+      return { snapshot, mode: 'browser' };
     }
 
-    writeBrowserSnapshot(snapshot);
-    return { snapshot, mode: 'supabase', lastSyncedAt: insertedAt };
+    writeLocalSnapshot(snapshot);
+    return { snapshot, mode: 'supabase' };
   }
 
   const snapshot = data.snapshot as AppSnapshot;
-  writeBrowserSnapshot(snapshot);
+  writeLocalSnapshot(snapshot);
+
   return {
     snapshot,
     mode: 'supabase',
-    lastSyncedAt: data.updated_at ?? undefined,
   };
 }
 
-export async function saveSnapshot(snapshot: AppSnapshot): Promise<{ mode: PersistenceMode; lastSyncedAt: string }> {
-  writeBrowserSnapshot(snapshot);
+export async function saveSnapshot(snapshot: AppSnapshot): Promise<PersistenceMode> {
+  writeLocalSnapshot(snapshot);
 
   const {
     data: { session },
@@ -127,24 +125,23 @@ export async function saveSnapshot(snapshot: AppSnapshot): Promise<{ mode: Persi
   } = await supabase.auth.getSession();
 
   if (sessionError) {
-    return { mode: 'browser', lastSyncedAt: new Date().toISOString() };
+    return 'browser';
   }
 
   const user = session?.user;
   if (!user) {
-    return { mode: 'browser', lastSyncedAt: new Date().toISOString() };
+    return 'browser';
   }
 
-  const savedAt = new Date().toISOString();
   const { error } = await supabase.from('app_snapshots').upsert({
     user_id: user.id,
     snapshot,
-    updated_at: savedAt,
+    updated_at: new Date().toISOString(),
   });
 
   if (error) {
-    throw error;
+    return 'browser';
   }
 
-  return { mode: 'supabase', lastSyncedAt: savedAt };
+  return 'supabase';
 }

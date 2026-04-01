@@ -136,6 +136,17 @@ const defaultOutlookConnection: OutlookConnectionState = {
   syncCursorByFolder: { inbox: {}, sentitems: {} },
 };
 
+const SAVE_DEBOUNCE_MS = 500;
+let persistTimer: number | undefined;
+let persistInFlight = false;
+let persistPending = false;
+let latestPersistRequestId = 0;
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+
 function normalizeItems(items: FollowUpItem[]): FollowUpItem[] {
   return items.map(normalizeItem).sort((a, b) => new Date(b.lastTouchDate).getTime() - new Date(a.lastTouchDate).getTime());
 }
@@ -216,56 +227,60 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-const PERSIST_DEBOUNCE_MS = 450;
-let persistTimer: ReturnType<typeof setTimeout> | undefined;
-let persistInFlight = false;
-let persistRequested = false;
-let latestPersistRevision = 0;
+function runPersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  if (persistInFlight) {
+    persistPending = true;
+    return;
+  }
 
-function flushPersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  if (persistInFlight || !persistRequested) return;
-
-  persistRequested = false;
   persistInFlight = true;
-  const revision = latestPersistRevision;
+  persistPending = false;
+  const requestId = ++latestPersistRequestId;
   const snapshot = buildSnapshot(get());
 
+  set({ syncState: 'saving', saveError: '' });
+
   void saveSnapshot(snapshot)
-    .then(({ mode, lastSyncedAt }) => {
-      const hasNewerChangesWaiting = persistRequested || revision !== latestPersistRevision;
-      set({
-        persistenceMode: mode,
-        saveError: '',
-        syncState: hasNewerChangesWaiting ? 'saving' : 'saved',
-        lastSyncedAt,
-      });
+    .then((mode) => {
+      if (requestId === latestPersistRequestId) {
+        set({
+          persistenceMode: mode,
+          saveError: mode === 'browser' ? 'Supabase save unavailable. Cached in this browser for now.' : '',
+          syncState: mode === 'browser' ? 'error' : 'saved',
+          lastSyncedAt: nowIso(),
+        });
+      }
     })
     .catch((error) => {
-      const hasNewerChangesWaiting = persistRequested || revision !== latestPersistRevision;
-      if (hasNewerChangesWaiting) {
-        set({ syncState: 'saving' });
-        return;
+      if (requestId === latestPersistRequestId) {
+        set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' });
       }
-      set({
-        saveError: error instanceof Error ? error.message : 'Failed to save data.',
-        syncState: 'error',
-      });
     })
     .finally(() => {
       persistInFlight = false;
-      if (persistRequested) flushPersist(get, set);
+      if (persistPending) {
+        persistPending = false;
+        runPersist(get, set);
+      }
     });
 }
 
 function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  latestPersistRevision += 1;
-  persistRequested = true;
+  if (typeof window !== 'undefined' && persistTimer !== undefined) {
+    window.clearTimeout(persistTimer);
+  }
+
   set({ syncState: 'saving', saveError: '' });
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
+
+  if (typeof window === 'undefined') {
+    runPersist(get, set);
+    return;
+  }
+
+  persistTimer = window.setTimeout(() => {
     persistTimer = undefined;
-    flushPersist(get, set);
-  }, PERSIST_DEBOUNCE_MS);
+    runPersist(get, set);
+  }, SAVE_DEBOUNCE_MS);
 }
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
@@ -361,7 +376,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
-      const { snapshot, mode, lastSyncedAt } = await loadSnapshot();
+      const { snapshot, mode } = await loadSnapshot();
       const baseItems = snapshot.items?.length ? normalizeItems(snapshot.items) : normalizeItems(starterItems);
       const contacts = snapshot.contacts?.length ? snapshot.contacts : starterContacts;
       const companies = snapshot.companies?.length ? snapshot.companies : starterCompanies;
@@ -386,7 +401,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         droppedEmailImports,
         saveError: '',
         syncState: 'saved',
-        lastSyncedAt: lastSyncedAt ?? todayIso(),
+        lastSyncedAt: nowIso(),
         outlookConnection: {
           ...defaultOutlookConnection,
           ...(snapshot.outlookConnection ?? {}),

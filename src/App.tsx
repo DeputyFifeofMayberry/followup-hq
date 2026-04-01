@@ -125,15 +125,19 @@ function LoginScreen() {
 
       <div className="login-layout">
         <section className="login-brand-panel">
-          <div className="login-brand-badge">Construction follow-up command center</div>
-          <div className="login-brand-copy">
-            <h1>Professional follow-up control for active construction work.</h1>
-            <p>
-              Keep emails, field issues, commitments, and project actions in one clean system built for execution.
-            </p>
+          <div className="login-brand-header">
+            <div className="login-brand-badge">Construction follow-up command center</div>
+            <div className="login-brand-copy">
+              <h1>Professional follow-up control for active construction work.</h1>
+              <p>
+                Keep emails, field issues, commitments, and project actions in one clean system built for execution.
+              </p>
+            </div>
           </div>
 
-          <FollowUpHQMark />
+          <div className="login-hero-panel">
+            <FollowUpHQMark />
+          </div>
 
           <div className="login-brand-points">
             <div className="login-point-card">

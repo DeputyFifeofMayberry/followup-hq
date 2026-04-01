@@ -521,7 +521,7 @@ select, select * {
     radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.16), transparent 28%),
     linear-gradient(135deg, #0f172a 0%, #111827 48%, #1e293b 100%);
   color: #e2e8f0;
-  padding: 2rem;
+  padding: clamp(1rem, 2vw, 2rem);
 }
 
 .login-bg-grid {
@@ -531,14 +531,14 @@ select, select * {
     linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
   background-size: 32px 32px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 92%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.88), transparent 94%);
 }
 
 .login-bg-glow {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(50px);
-  opacity: 0.4;
+  filter: blur(56px);
+  opacity: 0.42;
 }
 
 .login-bg-glow-one {
@@ -560,28 +560,35 @@ select, select * {
 .login-layout {
   position: relative;
   z-index: 1;
-  width: min(1320px, 100%);
-  min-height: calc(100vh - 4rem);
+  width: min(1380px, 100%);
+  min-height: calc(100vh - 2 * clamp(1rem, 2vw, 2rem));
   margin: 0 auto;
   display: grid;
-  gap: 1.5rem;
-  align-items: stretch;
+  gap: clamp(1rem, 1.7vw, 1.75rem);
+  align-items: center;
 }
 
 .login-brand-panel,
 .login-card {
   border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, 0.74);
+  backdrop-filter: blur(18px);
   box-shadow: 0 24px 70px rgba(2, 6, 23, 0.35);
 }
 
 .login-brand-panel {
   border-radius: 2rem;
-  padding: 1.5rem;
+  padding: clamp(1.25rem, 1.9vw, 2rem);
   display: grid;
-  gap: 1.5rem;
+  gap: 1.25rem;
   align-content: start;
+  min-height: 100%;
+}
+
+.login-brand-header {
+  display: grid;
+  gap: 1rem;
+  max-width: 44rem;
 }
 
 .login-brand-badge,
@@ -607,32 +614,41 @@ select, select * {
 }
 
 .login-brand-copy h1 {
-  max-width: 10ch;
-  font-size: clamp(2.4rem, 4vw, 4.4rem);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  max-width: 11ch;
+  font-size: clamp(2.55rem, 4.1vw, 4.75rem);
+  line-height: 0.94;
+  letter-spacing: -0.045em;
   color: #f8fafc;
 }
 
 .login-brand-copy p,
 .login-card-copy p {
-  margin: 0.85rem 0 0;
+  margin: 0.9rem 0 0;
   font-size: 1rem;
   line-height: 1.65;
   color: #94a3b8;
+  max-width: 44rem;
+}
+
+.login-hero-panel {
+  border-radius: 1.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  padding: clamp(0.65rem, 1vw, 0.9rem);
 }
 
 .login-hero-mark {
   width: 100%;
+  max-width: 760px;
   height: auto;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  margin: 0 auto;
+  border-radius: 1.25rem;
 }
 
 .login-brand-points {
   display: grid;
   gap: 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .login-point-card,
@@ -643,7 +659,7 @@ select, select * {
   border-radius: 1.15rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(255, 255, 255, 0.04);
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1rem;
   color: #cbd5e1;
 }
 
@@ -653,6 +669,11 @@ select, select * {
   color: #fb923c;
 }
 
+.login-point-card div,
+.login-security-strip span {
+  line-height: 1.55;
+}
+
 .login-card-wrap {
   display: grid;
   align-items: center;
@@ -660,7 +681,9 @@ select, select * {
 
 .login-card {
   border-radius: 2rem;
-  padding: 1.5rem;
+  padding: clamp(1.25rem, 1.9vw, 2rem);
+  width: min(100%, 480px);
+  margin-left: auto;
 }
 
 .login-card-topbar {
@@ -679,7 +702,7 @@ select, select * {
 }
 
 .login-card-copy h2 {
-  font-size: 2rem;
+  font-size: clamp(1.9rem, 3vw, 2.2rem);
   line-height: 1;
   letter-spacing: -0.04em;
   color: #f8fafc;
@@ -781,14 +804,28 @@ select, select * {
   color: #94a3b8;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1100px) {
   .login-layout {
-    grid-template-columns: minmax(0, 1.2fr) minmax(420px, 480px);
+    grid-template-columns: minmax(0, 1.45fr) minmax(420px, 0.82fr);
   }
 
-  .login-brand-panel,
+  .login-card-wrap {
+    min-height: 100%;
+  }
+
   .login-card {
-    padding: 2rem;
+    align-self: center;
+  }
+}
+
+@media (max-width: 1099px) {
+  .login-brand-points {
+    grid-template-columns: 1fr;
+  }
+
+  .login-card {
+    margin-left: 0;
+    width: 100%;
   }
 }
 
@@ -799,14 +836,24 @@ select, select * {
 
   .login-layout {
     min-height: calc(100vh - 2rem);
+    align-items: start;
+  }
+
+  .login-brand-panel,
+  .login-card {
+    border-radius: 1.5rem;
   }
 
   .login-brand-copy h1 {
     max-width: 100%;
-    font-size: 2.4rem;
+    font-size: 2.45rem;
   }
 
   .login-card-copy h2 {
     font-size: 1.75rem;
+  }
+
+  .login-hero-panel {
+    padding: 0.5rem;
   }
 }

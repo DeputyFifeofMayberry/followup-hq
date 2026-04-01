@@ -136,17 +136,6 @@ const defaultOutlookConnection: OutlookConnectionState = {
   syncCursorByFolder: { inbox: {}, sentitems: {} },
 };
 
-const SAVE_DEBOUNCE_MS = 500;
-let persistTimer: number | undefined;
-let persistInFlight = false;
-let persistPending = false;
-let latestPersistRequestId = 0;
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-
 function normalizeItems(items: FollowUpItem[]): FollowUpItem[] {
   return items.map(normalizeItem).sort((a, b) => new Date(b.lastTouchDate).getTime() - new Date(a.lastTouchDate).getTime());
 }
@@ -227,60 +216,59 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-function runPersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  if (persistInFlight) {
-    persistPending = true;
-    return;
-  }
-
-  persistInFlight = true;
-  persistPending = false;
-  const requestId = ++latestPersistRequestId;
-  const snapshot = buildSnapshot(get());
-
-  set({ syncState: 'saving', saveError: '' });
-
-  void saveSnapshot(snapshot)
-    .then((mode) => {
-      if (requestId === latestPersistRequestId) {
-        set({
-          persistenceMode: mode,
-          saveError: mode === 'browser' ? 'Supabase save unavailable. Cached in this browser for now.' : '',
-          syncState: mode === 'browser' ? 'error' : 'saved',
-          lastSyncedAt: nowIso(),
-        });
-      }
-    })
-    .catch((error) => {
-      if (requestId === latestPersistRequestId) {
-        set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' });
-      }
-    })
-    .finally(() => {
-      persistInFlight = false;
-      if (persistPending) {
-        persistPending = false;
-        runPersist(get, set);
-      }
-    });
-}
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+let persistInFlight = false;
+let persistQueued = false;
+let latestPersistRequest = 0;
+let latestCompletedPersist = 0;
 
 function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  if (typeof window !== 'undefined' && persistTimer !== undefined) {
-    window.clearTimeout(persistTimer);
-  }
-
+  latestPersistRequest += 1;
+  persistQueued = true;
   set({ syncState: 'saving', saveError: '' });
 
-  if (typeof window === 'undefined') {
-    runPersist(get, set);
-    return;
+  if (persistTimer) {
+    clearTimeout(persistTimer);
   }
 
-  persistTimer = window.setTimeout(() => {
-    persistTimer = undefined;
-    runPersist(get, set);
-  }, SAVE_DEBOUNCE_MS);
+  persistTimer = setTimeout(() => {
+    void flushPersist(get, set);
+  }, 400);
+}
+
+async function flushPersist(get: () => AppState, set: (partial: Partial<AppState>) => void): Promise<void> {
+  if (persistInFlight || !persistQueued) return;
+
+  persistQueued = false;
+  persistInFlight = true;
+  const requestId = latestPersistRequest;
+  const snapshot = buildSnapshot(get());
+
+  try {
+    const mode = await saveSnapshot(snapshot);
+    latestCompletedPersist = Math.max(latestCompletedPersist, requestId);
+    if (requestId >= latestPersistRequest) {
+      set({
+        persistenceMode: mode,
+        saveError: '',
+        syncState: 'saved',
+        lastSyncedAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    if (requestId >= latestCompletedPersist) {
+      set({
+        persistenceMode: 'browser',
+        saveError: error instanceof Error ? error.message : 'Failed to save data to Supabase. Latest changes are cached in this browser.',
+        syncState: 'error',
+      });
+    }
+  } finally {
+    persistInFlight = false;
+    if (persistQueued) {
+      void flushPersist(get, set);
+    }
+  }
 }
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
@@ -377,13 +365,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (get().hydrated) return;
     try {
       const { snapshot, mode } = await loadSnapshot();
-      const baseItems = snapshot.items?.length ? normalizeItems(snapshot.items) : normalizeItems(starterItems);
-      const contacts = snapshot.contacts?.length ? snapshot.contacts : starterContacts;
-      const companies = snapshot.companies?.length ? snapshot.companies : starterCompanies;
-      const projects = deriveProjects(baseItems, snapshot.projects?.length ? snapshot.projects : starterProjects);
+      const baseItems = Array.isArray(snapshot.items) ? normalizeItems(snapshot.items) : normalizeItems(starterItems);
+      const contacts = Array.isArray(snapshot.contacts) ? snapshot.contacts : starterContacts;
+      const companies = Array.isArray(snapshot.companies) ? snapshot.companies : starterCompanies;
+      const projects = deriveProjects(baseItems, Array.isArray(snapshot.projects) ? snapshot.projects : starterProjects);
       const items = attachProjects(baseItems, projects);
       const intakeSignals = snapshot.intakeSignals ?? starterSignals;
-      const intakeDocuments = (snapshot.intakeDocuments?.length ? snapshot.intakeDocuments : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
+      const intakeDocuments = (Array.isArray(snapshot.intakeDocuments) ? snapshot.intakeDocuments : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
       set({
@@ -401,7 +389,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         droppedEmailImports,
         saveError: '',
         syncState: 'saved',
-        lastSyncedAt: nowIso(),
+        lastSyncedAt: new Date().toISOString(),
         outlookConnection: {
           ...defaultOutlookConnection,
           ...(snapshot.outlookConnection ?? {}),

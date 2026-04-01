@@ -8,10 +8,11 @@ import type { SavedViewKey } from '../types';
 type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
 
 export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void }) {
-  const { items, contacts, companies } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, hydrated } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
+    hydrated: s.hydrated,
   })));
 
   const stats = useMemo(() => {
@@ -27,6 +28,22 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTracke
       { label: 'High-risk items', value: overdue, helper: 'Overdue, at risk, or critical', icon: Building2, action: () => onOpenTrackerView('At risk') },
     ];
   }, [items, contacts.length, companies.length, onOpenTrackerView, onOpenWorkspace]);
+
+  if (!hydrated) {
+    return (
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="animate-pulse">
+              <div className="h-4 w-28 rounded bg-slate-200" />
+              <div className="mt-3 h-10 w-16 rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
+            </div>
+          </div>
+        ))}
+      </section>
+    );
+  }
 
   return (
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

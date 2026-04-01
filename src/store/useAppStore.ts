@@ -216,59 +216,12 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-let persistTimer: ReturnType<typeof setTimeout> | undefined;
-let persistInFlight = false;
-let persistQueued = false;
-let latestPersistRequest = 0;
-let latestCompletedPersist = 0;
-
 function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  latestPersistRequest += 1;
-  persistQueued = true;
   set({ syncState: 'saving', saveError: '' });
-
-  if (persistTimer) {
-    clearTimeout(persistTimer);
-  }
-
-  persistTimer = setTimeout(() => {
-    void flushPersist(get, set);
-  }, 400);
-}
-
-async function flushPersist(get: () => AppState, set: (partial: Partial<AppState>) => void): Promise<void> {
-  if (persistInFlight || !persistQueued) return;
-
-  persistQueued = false;
-  persistInFlight = true;
-  const requestId = latestPersistRequest;
   const snapshot = buildSnapshot(get());
-
-  try {
-    const mode = await saveSnapshot(snapshot);
-    latestCompletedPersist = Math.max(latestCompletedPersist, requestId);
-    if (requestId >= latestPersistRequest) {
-      set({
-        persistenceMode: mode,
-        saveError: '',
-        syncState: 'saved',
-        lastSyncedAt: new Date().toISOString(),
-      });
-    }
-  } catch (error) {
-    if (requestId >= latestCompletedPersist) {
-      set({
-        persistenceMode: 'browser',
-        saveError: error instanceof Error ? error.message : 'Failed to save data to Supabase. Latest changes are cached in this browser.',
-        syncState: 'error',
-      });
-    }
-  } finally {
-    persistInFlight = false;
-    if (persistQueued) {
-      void flushPersist(get, set);
-    }
-  }
+  void saveSnapshot(snapshot)
+    .then((mode) => set({ persistenceMode: mode, saveError: '', syncState: 'saved', lastSyncedAt: todayIso() }))
+    .catch((error) => set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' }));
 }
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
@@ -335,14 +288,14 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
-  items: normalizeItems(starterItems),
-  contacts: starterContacts,
-  companies: starterCompanies,
-  projects: starterProjects,
-  intakeSignals: starterSignals,
-  intakeDocuments: starterIntakeDocuments,
+  items: [],
+  contacts: [],
+  companies: [],
+  projects: [],
+  intakeSignals: [],
+  intakeDocuments: [],
   dismissedDuplicatePairs: [],
-  selectedId: starterItems[0]?.id ?? null,
+  selectedId: null,
   search: '',
   projectFilter: 'All',
   statusFilter: 'All',
@@ -357,7 +310,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   saveError: '',
   syncState: 'checking',
   lastSyncedAt: undefined,
-  duplicateReviews: refreshDuplicates(normalizeItems(starterItems), []),
+  duplicateReviews: [],
   outlookConnection: defaultOutlookConnection,
   outlookMessages: [],
   droppedEmailImports: [],
@@ -365,13 +318,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (get().hydrated) return;
     try {
       const { snapshot, mode } = await loadSnapshot();
-      const baseItems = Array.isArray(snapshot.items) ? normalizeItems(snapshot.items) : normalizeItems(starterItems);
-      const contacts = Array.isArray(snapshot.contacts) ? snapshot.contacts : starterContacts;
-      const companies = Array.isArray(snapshot.companies) ? snapshot.companies : starterCompanies;
-      const projects = deriveProjects(baseItems, Array.isArray(snapshot.projects) ? snapshot.projects : starterProjects);
+      const hasItems = Object.prototype.hasOwnProperty.call(snapshot, 'items');
+      const hasContacts = Object.prototype.hasOwnProperty.call(snapshot, 'contacts');
+      const hasCompanies = Object.prototype.hasOwnProperty.call(snapshot, 'companies');
+      const hasProjects = Object.prototype.hasOwnProperty.call(snapshot, 'projects');
+      const hasSignals = Object.prototype.hasOwnProperty.call(snapshot, 'intakeSignals');
+      const hasDocuments = Object.prototype.hasOwnProperty.call(snapshot, 'intakeDocuments');
+
+      const baseItems = hasItems ? normalizeItems(snapshot.items ?? []) : normalizeItems(starterItems);
+      const contacts = hasContacts ? (snapshot.contacts ?? []) : starterContacts;
+      const companies = hasCompanies ? (snapshot.companies ?? []) : starterCompanies;
+      const projects = deriveProjects(baseItems, hasProjects ? (snapshot.projects ?? []) : starterProjects);
       const items = attachProjects(baseItems, projects);
-      const intakeSignals = snapshot.intakeSignals ?? starterSignals;
-      const intakeDocuments = (Array.isArray(snapshot.intakeDocuments) ? snapshot.intakeDocuments : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
+      const intakeSignals = hasSignals ? (snapshot.intakeSignals ?? []) : starterSignals;
+      const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
       set({
@@ -389,7 +349,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         droppedEmailImports,
         saveError: '',
         syncState: 'saved',
-        lastSyncedAt: new Date().toISOString(),
+        lastSyncedAt: todayIso(),
         outlookConnection: {
           ...defaultOutlookConnection,
           ...(snapshot.outlookConnection ?? {}),

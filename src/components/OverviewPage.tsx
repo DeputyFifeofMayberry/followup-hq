@@ -11,7 +11,7 @@ interface OverviewPageProps {
 }
 
 export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
-  const { items, contacts, companies, projects, intakeSignals, droppedEmailImports, intakeDocuments, setSelectedId, setActiveView } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, projects, intakeSignals, droppedEmailImports, intakeDocuments, hydrated, setSelectedId, setActiveView } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
@@ -19,6 +19,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
     intakeSignals: s.intakeSignals,
     intakeDocuments: s.intakeDocuments,
     droppedEmailImports: s.droppedEmailImports,
+    hydrated: s.hydrated,
     setSelectedId: s.setSelectedId,
     setActiveView: s.setActiveView,
   })));
@@ -111,7 +112,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
           <button onClick={() => { setActiveView('Needs nudge'); onOpenWorkspace('tracker'); }} className="action-btn">Open tracker</button>
         </div>
         <div className="overview-priority-list">
-          {priorityItems.map((item) => (
+          {!hydrated ? <div className="text-sm text-slate-500">Loading priorities…</div> : priorityItems.map((item) => (
             <button key={item.id} onClick={() => { setSelectedId(item.id); onOpenWorkspace('tracker'); }} className="overview-priority-row">
               <div>
                 <div className="overview-priority-title">{item.title}</div>
@@ -124,7 +125,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
               </div>
             </button>
           ))}
-          {priorityItems.length === 0 ? <div className="text-sm text-slate-500">Nothing urgent right now.</div> : null}
+          {hydrated && priorityItems.length === 0 ? <div className="text-sm text-slate-500">Nothing urgent right now.</div> : null}
         </div>
       </section>
 
@@ -137,7 +138,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
             </div>
           </div>
           <div className="space-y-3">
-            {projectSummary.map((project) => (
+            {!hydrated ? <div className="text-sm text-slate-500">Loading project snapshot…</div> : projectSummary.map((project) => (
               <button key={project.project} onClick={() => onOpenWorkspace('projects')} className="overview-summary-row">
                 <div>
                   <div className="font-medium text-slate-900">{project.project}</div>
@@ -157,7 +158,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
             </div>
           </div>
           <div className="space-y-3">
-            {contactSummary.map((contact) => (
+            {!hydrated ? <div className="text-sm text-slate-500">Loading contacts waiting board…</div> : contactSummary.map((contact) => (
               <button key={contact.id} onClick={() => onOpenWorkspace('relationships')} className="overview-summary-row">
                 <div>
                   <div className="font-medium text-slate-900">{contact.label}</div>
@@ -177,7 +178,7 @@ export function OverviewPage({ onOpenWorkspace }: OverviewPageProps) {
             </div>
           </div>
           <div className="space-y-3">
-            {companySummary.map((company) => (
+            {!hydrated ? <div className="text-sm text-slate-500">Loading company risk board…</div> : companySummary.map((company) => (
               <button key={company.id} onClick={() => onOpenWorkspace('relationships')} className="overview-summary-row">
                 <div>
                   <div className="font-medium text-slate-900">{company.label}</div>

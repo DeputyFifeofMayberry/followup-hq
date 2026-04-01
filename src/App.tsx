@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, HardHat, LayoutDashboard, ListTodo, LockKeyhole, Mail, Plus, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, HardHat, LayoutDashboard, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
 
-import { DailyReviewBoard } from './components/DailyReviewBoard';
-import { DashboardBoard } from './components/DashboardBoard';
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { Header } from './components/Header';
@@ -13,12 +11,12 @@ import { ImportWizardModal } from './components/ImportWizardModal';
 import { IntakePanel } from './components/IntakePanel';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { ItemFormModal } from './components/ItemFormModal';
+import { OverviewPage } from './components/OverviewPage';
 import { MergeModal } from './components/MergeModal';
 import { PersistenceBanner } from './components/PersistenceBanner';
 import { ProjectCommandCenter } from './components/ProjectCommandCenter';
 import { RelationshipBoard } from './components/RelationshipBoard';
 import { SavedViewsBar } from './components/SavedViewsBar';
-import { StatsGrid } from './components/StatsGrid';
 import { TouchLogModal } from './components/TouchLogModal';
 import { TrackerTable } from './components/TrackerTable';
 import { ControlBar } from './components/ControlBar';
@@ -223,47 +221,6 @@ function LoginScreen() {
   );
 }
 
-function QuickActionsCard({ onOpenTrackerView }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void }) {
-  const { openCreateModal, openImportModal, openCreateTaskModal } = useAppStore(
-    useShallow((s) => ({
-      openCreateModal: s.openCreateModal,
-      openImportModal: s.openImportModal,
-      openCreateTaskModal: s.openCreateTaskModal,
-    })),
-  );
-
-  return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-950">Quick actions</h2>
-          <p className="mt-1 text-sm text-slate-500">Keep the common actions one click away.</p>
-        </div>
-        <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
-          <Plus className="h-5 w-5" />
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3">
-        <button onClick={openCreateModal} className="primary-btn justify-start">
-          Add follow-up
-        </button>
-        <button onClick={openCreateTaskModal} className="action-btn justify-start">
-          Add task
-        </button>
-        <button onClick={openImportModal} className="action-btn justify-start">
-          Import CSV / Excel issues
-        </button>
-        <button onClick={() => onOpenTrackerView('Needs nudge')} className="action-btn justify-start">
-          Open nudge queue
-        </button>
-        <button onClick={() => onOpenTrackerView('Today')} className="action-btn justify-start">
-          Run daily review
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function OverviewWorkspace({
   onOpenTrackerView,
   onOpenWorkspace,
@@ -271,16 +228,7 @@ function OverviewWorkspace({
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
 }) {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
-        <StatsGrid onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} />
-        <QuickActionsCard onOpenTrackerView={onOpenTrackerView} />
-      </div>
-      <DailyReviewBoard />
-      <DashboardBoard onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} />
-    </div>
-  );
+  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} />;
 }
 
 function TrackerWorkspace() {

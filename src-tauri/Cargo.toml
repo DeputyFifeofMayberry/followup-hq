@@ -1,0 +1,21 @@
+[package]
+name = "followup_hq"
+version = "0.1.0"
+description = "Desktop follow-up command center"
+authors = ["OpenAI"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2.0.2", features = [] }
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.1.1", features = [] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

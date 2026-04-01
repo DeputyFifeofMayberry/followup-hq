@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, ArrowDownToLine, BriefcaseBusiness, LayoutDashboard, Plus, Users } from 'lucide-react';
+import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, HardHat, LayoutDashboard, LockKeyhole, Mail, Plus, ShieldCheck, Users } from 'lucide-react';
 
 import { DailyReviewBoard } from './components/DailyReviewBoard';
 import { DashboardBoard } from './components/DashboardBoard';
@@ -37,6 +37,63 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutD
   { key: 'relationships', label: 'Relationships', icon: Users },
 ];
 
+function FollowUpHQMark() {
+  return (
+    <svg viewBox="0 0 720 520" role="img" aria-label="FollowUp HQ construction themed logo" className="login-hero-mark">
+      <defs>
+        <linearGradient id="heroSteel" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor="#f8fafc" />
+          <stop offset="100%" stopColor="#cbd5e1" />
+        </linearGradient>
+        <linearGradient id="heroAccent" x1="0%" x2="100%" y1="0%" y2="0%">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#f97316" />
+        </linearGradient>
+        <linearGradient id="heroDark" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </linearGradient>
+      </defs>
+
+      <rect x="52" y="58" width="616" height="404" rx="36" fill="rgba(15,23,42,0.16)" />
+      <rect x="38" y="44" width="616" height="404" rx="36" fill="url(#heroDark)" stroke="rgba(248,250,252,0.12)" />
+
+      <g opacity="0.2">
+        <path d="M84 366 210 246l72 68 122-132 64 57 85-81" fill="none" stroke="#38bdf8" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M86 396h520" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
+        <path d="M120 154h122" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
+        <path d="M120 182h86" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
+      </g>
+
+      <g transform="translate(80 88)">
+        <rect x="0" y="54" width="188" height="222" rx="28" fill="#111827" stroke="rgba(255,255,255,0.08)" />
+        <rect x="22" y="78" width="144" height="18" rx="9" fill="#1f2937" />
+        <rect x="22" y="112" width="110" height="14" rx="7" fill="#334155" />
+        <rect x="22" y="144" width="144" height="14" rx="7" fill="#334155" />
+        <rect x="22" y="176" width="90" height="14" rx="7" fill="#334155" />
+        <rect x="22" y="210" width="126" height="32" rx="16" fill="#0ea5e9" opacity="0.85" />
+
+        <path d="M58 42c6-40 36-64 81-64 45 0 74 24 81 64" fill="#f59e0b" />
+        <path d="M44 42h174" stroke="#fdba74" strokeWidth="13" strokeLinecap="round" />
+        <path d="M79 42v38M137 42v38M194 42v38" stroke="#fcd34d" strokeWidth="10" strokeLinecap="round" />
+        <path d="M158 35c18 8 27 25 29 53" fill="none" stroke="#6b7280" strokeWidth="7" strokeLinecap="round" />
+        <rect x="178" y="85" width="26" height="82" rx="13" fill="url(#heroSteel)" transform="rotate(17 178 85)" />
+      </g>
+
+      <g transform="translate(308 150)">
+        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">FollowUp</text>
+        <text x="2" y="206" fontSize="96" fontWeight="800" fill="url(#heroAccent)" letterSpacing="1">HQ</text>
+        <path d="M2 228h244" stroke="#fb923c" strokeWidth="10" strokeLinecap="round" />
+        <path d="M284 42h104" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+        <path d="M336 42v96" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+        <path d="M292 138h88" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+        <path d="M352 154h72" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+        <circle cx="426" cy="154" r="18" fill="#f59e0b" />
+      </g>
+    </svg>
+  );
+}
+
 function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,54 +118,99 @@ function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
-      <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center">
-        <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-slate-950">Sign in</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Sign in to load and save your Follow Up HQ data from Supabase.
+    <div className="login-shell">
+      <div className="login-bg-grid" />
+      <div className="login-bg-glow login-bg-glow-one" />
+      <div className="login-bg-glow login-bg-glow-two" />
+
+      <div className="login-layout">
+        <section className="login-brand-panel">
+          <div className="login-brand-badge">Construction follow-up command center</div>
+          <div className="login-brand-copy">
+            <h1>Professional follow-up control for active construction work.</h1>
+            <p>
+              Keep emails, field issues, commitments, and project actions in one clean system built for execution.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <div className="mb-1 text-sm font-medium text-slate-700">Email</div>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-500"
-                placeholder="you@example.com"
-                autoComplete="email"
-                required
-              />
-            </label>
+          <FollowUpHQMark />
 
-            <label className="block">
-              <div className="mb-1 text-sm font-medium text-slate-700">Password</div>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-500"
-                placeholder="Password"
-                autoComplete="current-password"
-                required
-              />
-            </label>
+          <div className="login-brand-points">
+            <div className="login-point-card">
+              <HardHat className="h-5 w-5" />
+              <div>Track field issues, RFIs, and owner commitments with less clutter.</div>
+            </div>
+            <div className="login-point-card">
+              <Building2 className="h-5 w-5" />
+              <div>Organize work by project, owner, urgency, and next touch date.</div>
+            </div>
+            <div className="login-point-card">
+              <ShieldCheck className="h-5 w-5" />
+              <div>Secure cloud-backed access through your FollowUp HQ account.</div>
+            </div>
+          </div>
+        </section>
 
-            {errorMessage ? (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {errorMessage}
-              </div>
-            ) : null}
+        <section className="login-card-wrap">
+          <div className="login-card">
+            <div className="login-card-topbar">
+              <div className="login-chip">FollowUp HQ</div>
+              <div className="login-chip login-chip-muted">Secure sign-in</div>
+            </div>
 
-            <button type="submit" disabled={submitting} className="primary-btn w-full justify-center">
-              {submitting ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-        </div>
+            <div className="login-card-copy">
+              <h2>Sign in</h2>
+              <p>Access your live follow-up data, project board, and saved workspace.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="login-form">
+              <label className="login-field">
+                <span className="login-field-label">Email</span>
+                <div className="login-input-wrap">
+                  <Mail className="login-input-icon h-5 w-5" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="login-input"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </label>
+
+              <label className="login-field">
+                <span className="login-field-label">Password</span>
+                <div className="login-input-wrap">
+                  <LockKeyhole className="login-input-icon h-5 w-5" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="login-input"
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+              </label>
+
+              {errorMessage ? (
+                <div className="login-error">{errorMessage}</div>
+              ) : null}
+
+              <button type="submit" disabled={submitting} className="login-submit-btn">
+                {submitting ? 'Signing in...' : 'Sign in to FollowUp HQ'}
+              </button>
+            </form>
+
+            <div className="login-security-strip">
+              <CheckCircle2 className="h-5 w-5" />
+              <span>Secure Supabase authentication and cloud-backed persistence.</span>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

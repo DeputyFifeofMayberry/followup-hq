@@ -216,12 +216,56 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
-  set({ syncState: 'saving', saveError: '' });
+const PERSIST_DEBOUNCE_MS = 450;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+let persistInFlight = false;
+let persistRequested = false;
+let latestPersistRevision = 0;
+
+function flushPersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  if (persistInFlight || !persistRequested) return;
+
+  persistRequested = false;
+  persistInFlight = true;
+  const revision = latestPersistRevision;
   const snapshot = buildSnapshot(get());
+
   void saveSnapshot(snapshot)
-    .then((mode) => set({ persistenceMode: mode, saveError: '', syncState: 'saved', lastSyncedAt: todayIso() }))
-    .catch((error) => set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' }));
+    .then(({ mode, lastSyncedAt }) => {
+      const hasNewerChangesWaiting = persistRequested || revision !== latestPersistRevision;
+      set({
+        persistenceMode: mode,
+        saveError: '',
+        syncState: hasNewerChangesWaiting ? 'saving' : 'saved',
+        lastSyncedAt,
+      });
+    })
+    .catch((error) => {
+      const hasNewerChangesWaiting = persistRequested || revision !== latestPersistRevision;
+      if (hasNewerChangesWaiting) {
+        set({ syncState: 'saving' });
+        return;
+      }
+      set({
+        saveError: error instanceof Error ? error.message : 'Failed to save data.',
+        syncState: 'error',
+      });
+    })
+    .finally(() => {
+      persistInFlight = false;
+      if (persistRequested) flushPersist(get, set);
+    });
+}
+
+function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  latestPersistRevision += 1;
+  persistRequested = true;
+  set({ syncState: 'saving', saveError: '' });
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = undefined;
+    flushPersist(get, set);
+  }, PERSIST_DEBOUNCE_MS);
 }
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
@@ -317,7 +361,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
-      const { snapshot, mode } = await loadSnapshot();
+      const { snapshot, mode, lastSyncedAt } = await loadSnapshot();
       const baseItems = snapshot.items?.length ? normalizeItems(snapshot.items) : normalizeItems(starterItems);
       const contacts = snapshot.contacts?.length ? snapshot.contacts : starterContacts;
       const companies = snapshot.companies?.length ? snapshot.companies : starterCompanies;
@@ -342,7 +386,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         droppedEmailImports,
         saveError: '',
         syncState: 'saved',
-        lastSyncedAt: todayIso(),
+        lastSyncedAt: lastSyncedAt ?? todayIso(),
         outlookConnection: {
           ...defaultOutlookConnection,
           ...(snapshot.outlookConnection ?? {}),

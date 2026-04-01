@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CloudAlert, CloudCog, CloudUpload, Database, HardDriveDownload, TriangleAlert, UserRound } from 'lucide-react';
+import { BadgeCheck, CloudAlert, CloudCog, CloudUpload, Database, HardDriveDownload, LogOut, TriangleAlert, UserRound } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatDateTime } from '../lib/utils';
+import { signOut } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 
 export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
@@ -14,6 +15,7 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     lastSyncedAt: s.lastSyncedAt,
   })));
   const [email, setEmail] = useState<string>('');
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -32,27 +34,36 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     };
   }, []);
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const status = useMemo(() => {
     if (!hydrated || syncState === 'checking' || persistenceMode === 'loading') {
-      return { label: 'Checking connection', detail: 'Loading workspace from Supabase.', icon: CloudCog };
+      return { label: 'Checking connection', detail: 'Loading workspace from saved storage.', icon: CloudCog };
     }
     if (saveError || syncState === 'error') {
-      return { label: 'Sync issue', detail: saveError || 'Changes are not confirmed in Supabase.', icon: CloudAlert };
+      return { label: 'Sync issue', detail: saveError || 'Recent changes are not confirmed yet.', icon: CloudAlert };
     }
     if (syncState === 'saving') {
-      return { label: 'Saving to Supabase', detail: 'Recent changes are being pushed online.', icon: CloudUpload };
+      return { label: 'Saving changes', detail: 'Latest edits are being written now.', icon: CloudUpload };
     }
     if (persistenceMode === 'supabase') {
       return {
         label: 'Supabase connected',
-        detail: lastSyncedAt ? `Last synced ${formatDateTime(lastSyncedAt)}` : 'Connected and ready to sync.',
+        detail: lastSyncedAt ? `Last confirmed save ${formatDateTime(lastSyncedAt)}` : 'Connected and ready to sync.',
         icon: BadgeCheck,
       };
     }
     if (persistenceMode === 'tauri-sqlite') {
       return { label: 'Desktop storage active', detail: 'Using local desktop storage.', icon: Database };
     }
-    return { label: 'Browser fallback active', detail: 'Using browser storage fallback.', icon: HardDriveDownload };
+    return { label: 'Browser backup active', detail: 'Changes are cached in this browser on this device.', icon: HardDriveDownload };
   }, [hydrated, syncState, persistenceMode, saveError, lastSyncedAt]);
 
   const StatusIcon = status.icon;
@@ -66,9 +77,20 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
         </div>
         <div className="mt-1 text-slate-500">{status.detail}</div>
         {email ? (
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
-            <UserRound className="h-3.5 w-3.5" />
-            {email}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+              <UserRound className="h-3.5 w-3.5" />
+              {email}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              {signingOut ? 'Signing out...' : 'Sign out'}
+            </button>
           </div>
         ) : null}
         {saveError ? (
@@ -98,9 +120,20 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           ) : null}
         </div>
         {email ? (
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
-            <UserRound className="h-4 w-4" />
-            Signed in as {email}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+              <UserRound className="h-4 w-4" />
+              Signed in as {email}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-4 w-4" />
+              {signingOut ? 'Signing out...' : 'Sign out'}
+            </button>
           </div>
         ) : null}
       </div>

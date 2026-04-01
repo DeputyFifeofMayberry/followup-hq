@@ -122,6 +122,11 @@ export function ItemFormModal() {
       setShowAddProject(true);
       return;
     }
+    if (value === '__none__') {
+      setShowAddProject(false);
+      setForm((prev) => ({ ...prev, projectId: '', project: 'General' }));
+      return;
+    }
     const selected = projects.find((project) => project.id === value);
     setShowAddProject(false);
     setForm((prev) => ({ ...prev, projectId: selected?.id ?? '', project: selected?.name ?? 'General' }));
@@ -154,7 +159,8 @@ export function ItemFormModal() {
           </div>
           <div className="field-block">
             <label className="field-label">Project</label>
-            <select value={form.projectId || ''} onChange={(event) => handleProjectSelect(event.target.value)} className="field-input">
+            <select value={showAddProject ? '__add__' : (form.projectId || '__none__')} onChange={(event) => handleProjectSelect(event.target.value)} className="field-input">
+              <option value="__none__">General</option>
               <option value="__add__">+ Add project</option>
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, FileEdit, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
@@ -30,10 +30,15 @@ export function ItemDetailPanel() {
 
   const item = items.find((entry) => entry.id === selectedId) ?? null;
   const [noteDraft, setNoteDraft] = useState('');
+  const [nextActionDraft, setNextActionDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
 
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item?.notes]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, showActivity ? 50 : 6) : []), [item, showActivity]);
+
+  useEffect(() => {
+    setNextActionDraft(item?.nextAction ?? '');
+  }, [item?.id, item?.nextAction]);
 
   if (!item) {
     return (
@@ -69,7 +74,16 @@ export function ItemDetailPanel() {
       <div className="followup-detail-body">
         <div className="detail-card">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div>
-          <textarea value={item.nextAction} onChange={(event) => updateItem(item.id, { nextAction: event.target.value })} className="field-textarea mt-2" placeholder="Enter the next move here" />
+          <textarea
+            value={nextActionDraft}
+            onChange={(event) => setNextActionDraft(event.target.value)}
+            onBlur={() => {
+              if (nextActionDraft === item.nextAction) return;
+              updateItem(item.id, { nextAction: nextActionDraft });
+            }}
+            className="field-textarea mt-2"
+            placeholder="Enter the next move here"
+          />
         </div>
 
         <div className="detail-card">

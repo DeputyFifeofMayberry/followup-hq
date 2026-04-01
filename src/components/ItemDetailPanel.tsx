@@ -11,7 +11,6 @@ export function ItemDetailPanel() {
     items,
     contacts,
     companies,
-    updateItem,
     deleteItem,
     openEditModal,
     openTouchModal,
@@ -21,7 +20,6 @@ export function ItemDetailPanel() {
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
-    updateItem: s.updateItem,
     deleteItem: s.deleteItem,
     openEditModal: s.openEditModal,
     openTouchModal: s.openTouchModal,
@@ -36,9 +34,9 @@ export function ItemDetailPanel() {
 
   if (!item) {
     return (
-      <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="text-lg font-semibold text-slate-950">Item details</div>
-        <p className="mt-2 text-sm text-slate-500">Select a follow-up to see details, running notes, and recent activity.</p>
+      <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6 xl:self-start">
+        <div className="text-lg font-semibold text-slate-950">Selected follow-up</div>
+        <p className="mt-2 text-sm text-slate-500">Select a record from the tracker to keep its notes, dates, and recent activity visible while you work the list.</p>
       </aside>
     );
   }
@@ -47,7 +45,7 @@ export function ItemDetailPanel() {
   const company = companies.find((entry) => entry.id === item.companyId);
 
   return (
-    <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <aside className="tracker-detail-panel space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6 xl:self-start">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected follow-up</div>
@@ -65,8 +63,13 @@ export function ItemDetailPanel() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-        <div className="rounded-2xl border border-slate-200 p-3">
+      <div className="rounded-2xl border border-slate-200 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div>
+        <div className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.nextAction || 'No next action written yet.'}</div>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="rounded-2xl border border-slate-200 p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">At a glance</div>
           <div className="mt-2 space-y-1 text-sm text-slate-700">
             <div><span className="font-medium text-slate-900">Project:</span> {item.project}</div>
@@ -75,40 +78,33 @@ export function ItemDetailPanel() {
             <div><span className="font-medium text-slate-900">Next touch:</span> {formatDate(item.nextTouchDate)}</div>
             {item.promisedDate ? <div><span className="font-medium text-slate-900">Promised:</span> {formatDate(item.promisedDate)}</div> : null}
             {item.waitingOn ? <div><span className="font-medium text-slate-900">Waiting on:</span> {item.waitingOn}</div> : null}
-            <div><span className="font-medium text-slate-900">Source:</span> {item.source}</div>
-            <div><span className="font-medium text-slate-900">Source ref:</span> {item.sourceRef || '—'}</div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Relationships</div>
-          <div className="mt-2 space-y-1 text-sm text-slate-700">
-            <div><span className="font-medium text-slate-900">Contact:</span> {contact?.name ?? '—'}</div>
-            <div><span className="font-medium text-slate-900">Company:</span> {company?.name ?? '—'}</div>
-            <div><span className="font-medium text-slate-900">Who owes next move:</span> {item.owesNextAction}</div>
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Context</div>
+          <div className="mt-2 space-y-2 text-sm text-slate-700">
+            <div><span className="font-medium text-slate-900">Summary:</span> {item.summary || 'No summary entered.'}</div>
+            {contact ? <div><span className="font-medium text-slate-900">Contact:</span> {contact.name}</div> : null}
+            {company ? <div><span className="font-medium text-slate-900">Company:</span> {company.name}</div> : null}
+            {item.sourceRef ? <div><span className="font-medium text-slate-900">Source ref:</span> {item.sourceRef}</div> : null}
           </div>
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="text-sm font-semibold text-slate-900">Summary</div>
-        <div className="mt-2 text-sm text-slate-600">{item.summary || 'No summary entered yet.'}</div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="text-sm font-semibold text-slate-900">Next action</div>
-        <textarea value={item.nextAction} onChange={(event) => updateItem(item.id, { nextAction: event.target.value })} className="field-textarea mt-2" />
       </div>
 
       <div className="rounded-2xl border border-slate-200 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-slate-900">Running notes</div>
-            <div className="text-xs text-slate-500">Each note is stamped automatically so you get a clean running log.</div>
+            <div className="text-xs text-slate-500">Add updates here without leaving the selected record.</div>
           </div>
-          <div className="text-xs text-slate-500">{noteEntries.length} entr{noteEntries.length === 1 ? 'y' : 'ies'}</div>
         </div>
-        <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
+        <textarea
+          value={noteDraft}
+          onChange={(event) => setNoteDraft(event.target.value)}
+          className="field-textarea mt-3"
+          placeholder="Type a note, update, or phone call summary…"
+        />
         <div className="mt-3 flex justify-end">
           <button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="primary-btn">Add note</button>
         </div>

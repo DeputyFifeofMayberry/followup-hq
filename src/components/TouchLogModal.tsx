@@ -19,6 +19,12 @@ export function TouchLogModal() {
   const [waitingOn, setWaitingOn] = useState('');
 
   useEffect(() => {
+    if (!touchModalOpen) return;
+    document.body.classList.add('modal-open');
+    return () => document.body.classList.remove('modal-open');
+  }, [touchModalOpen]);
+
+  useEffect(() => {
     if (!touchModalOpen || !item) return;
     setSummary('');
     setStatus('');

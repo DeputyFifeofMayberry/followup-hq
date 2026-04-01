@@ -16,7 +16,6 @@ import { MergeModal } from './components/MergeModal';
 import { PersistenceBanner } from './components/PersistenceBanner';
 import { ProjectCommandCenter } from './components/ProjectCommandCenter';
 import { RelationshipBoard } from './components/RelationshipBoard';
-import { SavedViewsBar } from './components/SavedViewsBar';
 import { TouchLogModal } from './components/TouchLogModal';
 import { TrackerTable } from './components/TrackerTable';
 import { ControlBar } from './components/ControlBar';
@@ -235,7 +234,6 @@ function TrackerWorkspace() {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_420px]">
       <div className="space-y-6">
-        <SavedViewsBar />
         <ControlBar />
         <TrackerTable />
         <DuplicateReviewPanel />

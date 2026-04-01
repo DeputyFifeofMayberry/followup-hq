@@ -54,6 +54,12 @@ export function TaskFormModal() {
 
   useEffect(() => {
     if (!taskModal.open) return;
+    document.body.classList.add('modal-open');
+    return () => document.body.classList.remove('modal-open');
+  }, [taskModal.open]);
+
+  useEffect(() => {
+    if (!taskModal.open) return;
     setDraft(existing ? existing : blankTask());
   }, [existing, taskModal.open]);
 

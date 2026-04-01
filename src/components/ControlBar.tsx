@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, Plus, Search, Send, TriangleAlert, Zap } from 'lucide-react';
+import { CheckCircle2, Clock3, Plus, Search, Send, TriangleAlert, X, Zap } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -48,6 +48,19 @@ export function ControlBar() {
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
 
   const viewItems = useMemo(() => applySavedView(items, activeView), [items, activeView]);
+  const filteredCount = useMemo(() => {
+    const lowered = search.trim().toLowerCase();
+    return viewItems.filter((item) => {
+      const haystack = [item.id, item.title, item.project, item.owner, item.nextAction, item.summary, item.tags.join(' '), item.threadKey ?? '']
+        .join(' ')
+        .toLowerCase();
+      const matchesSearch = !lowered || haystack.includes(lowered);
+      const matchesProject = projectFilter === 'All' || item.project === projectFilter;
+      const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+      return matchesSearch && matchesProject && matchesStatus;
+    }).length;
+  }, [activeView, items, projectFilter, search, statusFilter, viewItems]);
+
   const stats = useMemo(() => ({
     total: viewItems.length,
     overdue: viewItems.filter(isOverdue).length,
@@ -63,8 +76,18 @@ export function ControlBar() {
   ];
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm tracker-control-panel xl:sticky xl:top-6 xl:self-start">
       <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold text-slate-950">Follow-up workspace</div>
+            <div className="mt-1 text-sm text-slate-500">Filter the queue, select one record, and work it without hunting around the screen.</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">{filteredCount}</span> shown
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           {statButtons.map(({ key, label, count, icon: Icon }) => (
             <button
@@ -83,55 +106,67 @@ export function ControlBar() {
           ))}
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <label className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="tracker-filter-grid">
+          <label className="field-block">
+            <span className="field-label">Search follow-ups</span>
+            <div className="search-input-wrap">
+              <Search className="pointer-events-none search-input-icon h-4 w-4 text-slate-400" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by title, project, owner, tags, next action"
-                className="h-11 w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                placeholder="Search title, project, owner, company, tags, notes, or next action"
+                className="tracker-search-input"
               />
-            </label>
+              {search ? (
+                <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search">
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </label>
 
+          <label className="field-block">
+            <span className="field-label">Project filter</span>
             <select
               value={projectFilter}
               onChange={(event) => setProjectFilter(event.target.value)}
-              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+              className="field-input"
             >
               {projects.map((project) => (
                 <option key={project} value={project}>{project}</option>
               ))}
             </select>
+          </label>
 
+          <label className="field-block">
+            <span className="field-label">Status filter</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+              className="field-input"
             >
               {statuses.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
-          </div>
+          </label>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button onClick={openCreateModal} className="primary-btn"><Plus className="h-4 w-4" />Add follow-up</button>
-            <button onClick={() => selectedItem && openEditModal(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Edit</button>
-            <button onClick={() => selectedItem && openTouchModal()} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Log touch</button>
-            <button onClick={() => selectedItem && markNudged(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Mark nudged</button>
-            <button onClick={() => selectedItem && snoozeItem(selectedItem.id, 2)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Snooze 2d</button>
-            <button onClick={() => selectedItem && cycleEscalation(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Escalate</button>
-            <button
-              onClick={() => selectedItem && updateItem(selectedItem.id, { status: selectedItem.status === 'Closed' ? 'Needs action' : 'Closed' })}
-              disabled={!selectedItem}
-              className="action-btn disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {selectedItem?.status === 'Closed' ? 'Reopen' : 'Close'}
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={openCreateModal} className="primary-btn"><Plus className="h-4 w-4" />Add follow-up</button>
+          <button onClick={() => selectedItem && openEditModal(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Edit</button>
+          <button onClick={() => selectedItem && openTouchModal()} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Log touch</button>
+          <button onClick={() => selectedItem && markNudged(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Mark nudged</button>
+          <button onClick={() => selectedItem && snoozeItem(selectedItem.id, 2)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Snooze 2d</button>
+          <button onClick={() => selectedItem && cycleEscalation(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Escalate</button>
+          <button
+            onClick={() => selectedItem && updateItem(selectedItem.id, { status: selectedItem.status === 'Closed' ? 'Needs action' : 'Closed' })}
+            disabled={!selectedItem}
+            className="action-btn disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {selectedItem?.status === 'Closed' ? 'Reopen' : 'Close'}
+          </button>
         </div>
 
         {selectedItem ? (
@@ -144,7 +179,7 @@ export function ControlBar() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            Select a row to unlock quick actions for nudge, snooze, escalate, touch log, and closeout.
+            Select a row to unlock quick actions and keep the detail panel locked on the active item.
           </div>
         )}
       </div>

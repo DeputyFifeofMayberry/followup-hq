@@ -2,9 +2,40 @@ import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { FollowUpFormInput } from '../types';
-import { buildDefaultForm, buildItemFromForm, fromDateInputValue, toDateInputValue } from '../lib/utils';
+import { buildItemFromForm, fromDateInputValue, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 
+
+function buildDefaultForm(): FollowUpFormInput {
+  const now = new Date().toISOString();
+  const nextTouch = new Date(Date.now() + 3 * 86400000).toISOString();
+  return {
+    title: '',
+    source: 'Email',
+    project: 'General',
+    projectId: '',
+    owner: 'Jared',
+    status: 'Needs action',
+    priority: 'Medium',
+    dueDate: now,
+    promisedDate: '',
+    nextTouchDate: nextTouch,
+    nextAction: '',
+    summary: '',
+    tags: [],
+    sourceRef: '',
+    waitingOn: '',
+    notes: '',
+    category: 'General',
+    owesNextAction: 'Unknown',
+    escalationLevel: 'None',
+    cadenceDays: 3,
+    contactId: '',
+    companyId: '',
+    threadKey: '',
+    draftFollowUp: '',
+  };
+}
 const stopSpacebarBubble = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
   if (event.key === ' ') event.stopPropagation();
 };

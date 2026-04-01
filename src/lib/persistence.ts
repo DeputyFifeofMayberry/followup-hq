@@ -7,6 +7,7 @@ import {
   starterItems,
   starterProjects,
   starterSignals,
+  starterTasks,
 } from './sample-data';
 import type { AppSnapshot, PersistenceMode } from '../types';
 
@@ -15,6 +16,7 @@ const BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 function buildFallbackSnapshot(): AppSnapshot {
   return {
     items: starterItems,
+    tasks: starterTasks,
     contacts: starterContacts,
     companies: starterCompanies,
     projects: starterProjects,

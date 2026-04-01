@@ -1,4 +1,4 @@
-import type { CompanyRecord, ContactRecord, FollowUpItem, IntakeDocumentRecord, IntakeSignal, ProjectRecord } from '../types';
+import type { CompanyRecord, ContactRecord, FollowUpItem, IntakeDocumentRecord, IntakeSignal, ProjectRecord, TaskRecord } from '../types';
 
 const today = new Date();
 const day = (offset: number) => {
@@ -254,5 +254,76 @@ export const starterIntakeDocuments: IntakeDocumentRecord[] = [
     uploadedAt: day(-1),
     notes: 'Reference file for closeout coordination.',
     tags: ['Notes', 'Closeout'],
+  },
+];
+
+
+export const starterTasks: TaskRecord[] = [
+  {
+    id: 'TSK-001',
+    title: 'Draft serial letter follow-up summary for B995',
+    project: 'B995 Weld Shop',
+    projectId: 'PRJ-001',
+    owner: 'Jared',
+    status: 'To do',
+    priority: 'High',
+    dueDate: day(1),
+    startDate: day(0),
+    summary: 'Prepare a short internal write-up so the next Government response can be answered quickly.',
+    nextStep: 'Pull the latest email chain and draft a one-page summary with open questions.',
+    notes: 'Keep this internal. This is support work for the open follow-up with the KO.',
+    tags: ['Internal', 'Letter', 'B995'],
+    linkedFollowUpId: 'FUP-001',
+    companyId: 'CO-004',
+    createdAt: day(-1),
+    updatedAt: day(-1),
+    timeline: [
+      { id: 'tt1', at: day(-1), type: 'created', summary: 'Task created from follow-up planning.' },
+    ],
+  },
+  {
+    id: 'TSK-002',
+    title: 'Review B880 closeout punch list before daily update',
+    project: 'B880 Chillers',
+    projectId: 'PRJ-002',
+    owner: 'Andrew',
+    status: 'In progress',
+    priority: 'Medium',
+    dueDate: day(2),
+    startDate: day(0),
+    summary: 'Make sure the remaining closeout items and evidence are current before reporting status upward.',
+    nextStep: 'Compare the current closeout list to the latest commissioning evidence and mark gaps.',
+    notes: 'This is an internal prep task, not an outside-party follow-up.',
+    tags: ['Closeout', 'Internal'],
+    companyId: 'CO-004',
+    createdAt: day(-3),
+    updatedAt: day(-1),
+    timeline: [
+      { id: 'tt2', at: day(-3), type: 'created', summary: 'Task created for closeout prep.' },
+      { id: 'tt3', at: day(-1), type: 'status_changed', summary: 'Moved to in progress.' },
+    ],
+  },
+  {
+    id: 'TSK-003',
+    title: 'Build fire watch cost backup for sprinkler options email',
+    project: 'B995 Weld Shop',
+    projectId: 'PRJ-001',
+    owner: 'Jared',
+    status: 'Waiting on input',
+    priority: 'High',
+    dueDate: day(3),
+    startDate: day(0),
+    summary: 'Assemble a clean internal backup so the team can issue direction fast once labor/cost numbers are confirmed.',
+    nextStep: 'Get estimated fire watch hours and plug them into the backup sheet.',
+    notes: 'Link this to the sprinkler outage follow-up so the support work is easy to find later.',
+    tags: ['Cost', 'Fire Watch'],
+    linkedFollowUpId: 'FUP-002',
+    contactId: 'CT-003',
+    companyId: 'CO-002',
+    createdAt: day(-2),
+    updatedAt: day(0),
+    timeline: [
+      { id: 'tt4', at: day(-2), type: 'created', summary: 'Task created for internal backup work.' },
+    ],
   },
 ];

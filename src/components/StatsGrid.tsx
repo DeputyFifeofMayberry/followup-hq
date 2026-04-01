@@ -1,4 +1,4 @@
-import { AlertTriangle, Building2, Clock3, Users } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, Clock3, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { isOverdue, needsNudge } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -7,9 +7,10 @@ import type { SavedViewKey } from '../types';
 
 type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
 
-export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void }) {
-  const { items, contacts, companies, hydrated } = useAppStore(useShallow((s) => ({
+export function StatsGrid({ onOpenTrackerView, onOpenWorkspace, onOpenTasks }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void; onOpenTasks: () => void }) {
+  const { items, tasks, contacts, companies, hydrated } = useAppStore(useShallow((s) => ({
     items: s.items,
+    tasks: s.tasks,
     contacts: s.contacts,
     companies: s.companies,
     hydrated: s.hydrated,
@@ -21,13 +22,16 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTracke
     const overdue = items.filter((item) => isOverdue(item) || item.status === 'At risk' || item.escalationLevel === 'Critical').length;
     const linkedRelationships = items.filter((item) => item.contactId || item.companyId).length;
 
+    const openTasks = tasks.filter((task) => task.status !== 'Done').length;
+    const dueSoonTasks = tasks.filter((task) => task.status !== 'Done' && new Date(task.dueDate).getTime() - Date.now() <= 3 * 86400000).length;
+
     return [
-      { label: 'Open follow-ups', value: open, helper: 'The live master list', icon: Clock3, action: () => onOpenTrackerView('All') },
+      { label: 'Open follow-ups', value: open, helper: 'Outside-facing accountability', icon: Clock3, action: () => onOpenTrackerView('All') },
       { label: 'Needs nudge', value: nudge, helper: 'Due for a touchpoint now', icon: AlertTriangle, action: () => onOpenTrackerView('Needs nudge') },
+      { label: 'Open tasks', value: openTasks, helper: `${dueSoonTasks} due within 3 days`, icon: CheckCircle2, action: onOpenTasks },
       { label: 'Contacts / companies', value: `${contacts.length}/${companies.length}`, helper: `${linkedRelationships} linked items`, icon: Users, action: () => onOpenWorkspace('relationships') },
-      { label: 'High-risk items', value: overdue, helper: 'Overdue, at risk, or critical', icon: Building2, action: () => onOpenTrackerView('At risk') },
     ];
-  }, [items, contacts.length, companies.length, onOpenTrackerView, onOpenWorkspace]);
+  }, [items, tasks, contacts.length, companies.length, onOpenTasks, onOpenTrackerView, onOpenWorkspace]);
 
   if (!hydrated) {
     return (

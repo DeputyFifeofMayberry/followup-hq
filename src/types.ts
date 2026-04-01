@@ -10,6 +10,9 @@ export type FollowUpStatus =
 
 export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 
+export type TaskStatus = 'To do' | 'In progress' | 'Waiting on input' | 'Blocked' | 'Done';
+export type TaskPriority = FollowUpPriority;
+
 export type TimelineEventType =
   | 'created'
   | 'touched'
@@ -141,6 +144,48 @@ export interface FollowUpItem {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+}
+
+
+export interface TaskRecord {
+  id: string;
+  title: string;
+  project: string;
+  projectId?: string;
+  owner: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string;
+  startDate?: string;
+  completedAt?: string;
+  summary: string;
+  nextStep: string;
+  notes: string;
+  tags: string[];
+  linkedFollowUpId?: string;
+  contactId?: string;
+  companyId?: string;
+  createdAt: string;
+  updatedAt: string;
+  timeline: TimelineEvent[];
+}
+
+export interface TaskFormInput {
+  title: string;
+  project: string;
+  projectId?: string;
+  owner: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string;
+  startDate?: string;
+  summary: string;
+  nextStep: string;
+  notes: string;
+  tags: string[];
+  linkedFollowUpId?: string;
+  contactId?: string;
+  companyId?: string;
 }
 
 export interface IntakeSignal {
@@ -402,6 +447,7 @@ export interface OutlookThreadSuggestion {
 
 export interface AppSnapshot {
   items: FollowUpItem[];
+  tasks: TaskRecord[];
   contacts: ContactRecord[];
   companies: CompanyRecord[];
   projects: ProjectRecord[];

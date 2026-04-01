@@ -232,13 +232,15 @@ function OverviewWorkspace({
 
 function TrackerWorkspace() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_420px]">
-      <div className="space-y-6">
-        <ControlBar />
-        <TrackerTable />
-        <DuplicateReviewPanel />
+    <div className="space-y-5">
+      <ControlBar />
+      <div className="tracker-main-grid">
+        <div className="space-y-5">
+          <TrackerTable />
+          <DuplicateReviewPanel />
+        </div>
+        <ItemDetailPanel />
       </div>
-      <ItemDetailPanel />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { CalendarClock, FileEdit, Trash2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { useShallow } from 'zustand/react/shallow';
 
 export function ItemDetailPanel() {
   const {
@@ -11,6 +11,7 @@ export function ItemDetailPanel() {
     items,
     contacts,
     companies,
+    updateItem,
     deleteItem,
     openEditModal,
     openTouchModal,
@@ -20,11 +21,13 @@ export function ItemDetailPanel() {
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
+    updateItem: s.updateItem,
     deleteItem: s.deleteItem,
     openEditModal: s.openEditModal,
     openTouchModal: s.openTouchModal,
     addRunningNote: s.addRunningNote,
   })));
+
   const item = items.find((entry) => entry.id === selectedId) ?? null;
   const [noteDraft, setNoteDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
@@ -34,9 +37,9 @@ export function ItemDetailPanel() {
 
   if (!item) {
     return (
-      <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6 xl:self-start">
+      <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="text-lg font-semibold text-slate-950">Selected follow-up</div>
-        <p className="mt-2 text-sm text-slate-500">Select a record from the tracker to keep its notes, dates, and recent activity visible while you work the list.</p>
+        <p className="mt-2 text-sm text-slate-500">Select a row in the tracker to see the summary, next action, notes, and recent activity here.</p>
       </aside>
     );
   }
@@ -45,8 +48,8 @@ export function ItemDetailPanel() {
   const company = companies.find((entry) => entry.id === item.companyId);
 
   return (
-    <aside className="tracker-detail-panel space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6 xl:self-start">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="followup-detail-head">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected follow-up</div>
           <div className="mt-1 text-xl font-semibold text-slate-950">{item.title}</div>
@@ -63,80 +66,86 @@ export function ItemDetailPanel() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div>
-        <div className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.nextAction || 'No next action written yet.'}</div>
-      </div>
-
-      <div className="grid gap-3">
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">At a glance</div>
-          <div className="mt-2 space-y-1 text-sm text-slate-700">
-            <div><span className="font-medium text-slate-900">Project:</span> {item.project}</div>
-            <div><span className="font-medium text-slate-900">Owner:</span> {item.owner}</div>
-            <div><span className="font-medium text-slate-900">Due:</span> {formatDate(item.dueDate)}</div>
-            <div><span className="font-medium text-slate-900">Next touch:</span> {formatDate(item.nextTouchDate)}</div>
-            {item.promisedDate ? <div><span className="font-medium text-slate-900">Promised:</span> {formatDate(item.promisedDate)}</div> : null}
-            {item.waitingOn ? <div><span className="font-medium text-slate-900">Waiting on:</span> {item.waitingOn}</div> : null}
-          </div>
+      <div className="followup-detail-body">
+        <div className="detail-card">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div>
+          <textarea value={item.nextAction} onChange={(event) => updateItem(item.id, { nextAction: event.target.value })} className="field-textarea mt-2" placeholder="Enter the next move here" />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Context</div>
-          <div className="mt-2 space-y-2 text-sm text-slate-700">
-            <div><span className="font-medium text-slate-900">Summary:</span> {item.summary || 'No summary entered.'}</div>
-            {contact ? <div><span className="font-medium text-slate-900">Contact:</span> {contact.name}</div> : null}
-            {company ? <div><span className="font-medium text-slate-900">Company:</span> {company.name}</div> : null}
-            {item.sourceRef ? <div><span className="font-medium text-slate-900">Source ref:</span> {item.sourceRef}</div> : null}
-          </div>
+        <div className="detail-card">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Summary</div>
+          <div className="mt-2 text-sm text-slate-600">{item.summary || 'No summary entered yet.'}</div>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="detail-card detail-facts-grid">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Running notes</div>
-            <div className="text-xs text-slate-500">Add updates here without leaving the selected record.</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project</div>
+            <div className="mt-1 text-sm text-slate-900">{item.project}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner</div>
+            <div className="mt-1 text-sm text-slate-900">{item.owner}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due</div>
+            <div className="mt-1 text-sm text-slate-900">{formatDate(item.dueDate)}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div>
+            <div className="mt-1 text-sm text-slate-900">{formatDate(item.nextTouchDate)}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</div>
+            <div className="mt-1 text-sm text-slate-900">{contact?.name ?? '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div>
+            <div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div>
           </div>
         </div>
-        <textarea
-          value={noteDraft}
-          onChange={(event) => setNoteDraft(event.target.value)}
-          className="field-textarea mt-3"
-          placeholder="Type a note, update, or phone call summary…"
-        />
-        <div className="mt-3 flex justify-end">
-          <button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="primary-btn">Add note</button>
-        </div>
-        <div className="mt-4 space-y-3">
-          {noteEntries.map((entry) => (
-            <div key={entry.id} className="rounded-2xl bg-slate-50 p-3">
-              <div className="text-xs font-medium text-slate-500">{formatDateTime(entry.at)}</div>
-              <div className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{entry.text}</div>
+
+        <div className="detail-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">Running notes</div>
+              <div className="text-xs text-slate-500">Stamped automatically so the note trail stays clean.</div>
             </div>
-          ))}
-          {noteEntries.length === 0 ? <div className="text-sm text-slate-500">No notes yet.</div> : null}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Recent activity</div>
-            <div className="text-xs text-slate-500">Keep this compact unless you need the full history.</div>
+            <div className="text-xs text-slate-500">{noteEntries.length} entr{noteEntries.length === 1 ? 'y' : 'ies'}</div>
           </div>
-          <button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show fewer' : 'Show more'}</button>
-        </div>
-        <div className="timeline-list mt-3">
-          {activityEntries.map((entry) => (
-            <div key={entry.id} className="timeline-row">
-              <div className="timeline-dot" />
-              <div>
-                <div className="text-sm font-medium text-slate-900">{entry.summary}</div>
-                <div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div>
+          <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
+          <div className="mt-3 flex justify-end">
+            <button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="action-btn">Add note</button>
+          </div>
+          <div className="mt-4 space-y-3">
+            {noteEntries.map((entry) => (
+              <div key={entry.id} className="rounded-2xl bg-slate-50 p-3">
+                <div className="text-xs font-medium text-slate-500">{formatDateTime(entry.at)}</div>
+                <div className="mt-1 note-pre-wrap text-sm text-slate-700">{entry.text}</div>
               </div>
+            ))}
+            {noteEntries.length === 0 ? <div className="text-sm text-slate-500">No notes yet.</div> : null}
+          </div>
+        </div>
+
+        <div className="detail-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">Recent activity</div>
+              <div className="text-xs text-slate-500">Compact by default.</div>
             </div>
-          ))}
+            <button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show fewer' : 'Show more'}</button>
+          </div>
+          <div className="timeline-list mt-3">
+            {activityEntries.map((entry) => (
+              <div key={entry.id} className="timeline-row">
+                <div className="timeline-dot" />
+                <div>
+                  <div className="text-sm font-medium text-slate-900">{entry.summary}</div>
+                  <div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </aside>

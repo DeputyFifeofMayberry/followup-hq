@@ -1,13 +1,13 @@
-import { AlertTriangle, Building2, CheckCircle2, Clock3, Users } from 'lucide-react';
+import { AlertTriangle, Building2, Clock3, ListTodo, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { isOverdue, needsNudge } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { SavedViewKey } from '../types';
 
-type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships';
 
-export function StatsGrid({ onOpenTrackerView, onOpenWorkspace, onOpenTasks }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void; onOpenTasks: () => void }) {
+export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void }) {
   const { items, tasks, contacts, companies, hydrated } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -23,20 +23,20 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace, onOpenTasks }: {
     const linkedRelationships = items.filter((item) => item.contactId || item.companyId).length;
 
     const openTasks = tasks.filter((task) => task.status !== 'Done').length;
-    const dueSoonTasks = tasks.filter((task) => task.status !== 'Done' && new Date(task.dueDate).getTime() - Date.now() <= 3 * 86400000).length;
 
     return [
-      { label: 'Open follow-ups', value: open, helper: 'Outside-facing accountability', icon: Clock3, action: () => onOpenTrackerView('All') },
+      { label: 'Open follow-ups', value: open, helper: 'The live master list', icon: Clock3, action: () => onOpenTrackerView('All') },
+      { label: 'Open tasks', value: openTasks, helper: 'Internal work list', icon: ListTodo, action: () => onOpenWorkspace('tasks') },
       { label: 'Needs nudge', value: nudge, helper: 'Due for a touchpoint now', icon: AlertTriangle, action: () => onOpenTrackerView('Needs nudge') },
-      { label: 'Open tasks', value: openTasks, helper: `${dueSoonTasks} due within 3 days`, icon: CheckCircle2, action: onOpenTasks },
       { label: 'Contacts / companies', value: `${contacts.length}/${companies.length}`, helper: `${linkedRelationships} linked items`, icon: Users, action: () => onOpenWorkspace('relationships') },
+      { label: 'High-risk items', value: overdue, helper: 'Overdue, at risk, or critical', icon: Building2, action: () => onOpenTrackerView('At risk') },
     ];
-  }, [items, tasks, contacts.length, companies.length, onOpenTasks, onOpenTrackerView, onOpenWorkspace]);
+  }, [items, tasks, contacts.length, companies.length, onOpenTrackerView, onOpenWorkspace]);
 
   if (!hydrated) {
     return (
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="animate-pulse">
               <div className="h-4 w-28 rounded bg-slate-200" />
@@ -50,7 +50,7 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace, onOpenTasks }: {
   }
 
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (

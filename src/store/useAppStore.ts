@@ -25,9 +25,8 @@ import type {
   PersistenceMode,
   ProjectRecord,
   SavedViewKey,
-  TaskRecord,
+  TaskItem,
   TaskStatus,
-  TaskFormInput,
   TimelineEvent,
 } from '../types';
 
@@ -56,15 +55,14 @@ interface TaskModalState {
 
 interface AppState {
   items: FollowUpItem[];
-  tasks: TaskRecord[];
   contacts: ContactRecord[];
   companies: CompanyRecord[];
   projects: ProjectRecord[];
+  tasks: TaskItem[];
   intakeSignals: AppSnapshot['intakeSignals'];
   intakeDocuments: IntakeDocumentRecord[];
   dismissedDuplicatePairs: string[];
   selectedId: string | null;
-  selectedTaskId: string | null;
   search: string;
   projectFilter: string;
   statusFilter: 'All' | FollowUpStatus;
@@ -75,6 +73,9 @@ interface AppState {
   mergeModal: MergeModalState;
   draftModal: DraftModalState;
   taskModal: TaskModalState;
+  selectedTaskId: string | null;
+  taskOwnerFilter: string;
+  taskStatusFilter: 'All' | TaskStatus;
   hydrated: boolean;
   persistenceMode: PersistenceMode;
   saveError: string;
@@ -86,7 +87,6 @@ interface AppState {
   droppedEmailImports: DroppedEmailImport[];
   initializeApp: () => Promise<void>;
   setSelectedId: (id: string) => void;
-  setSelectedTaskId: (id: string | null) => void;
   setSearch: (value: string) => void;
   setProjectFilter: (value: string) => void;
   setStatusFilter: (value: 'All' | FollowUpStatus) => void;
@@ -102,6 +102,9 @@ interface AppState {
   closeMergeModal: () => void;
   openDraftModal: (id: string) => void;
   closeDraftModal: () => void;
+  setSelectedTaskId: (id: string | null) => void;
+  setTaskOwnerFilter: (value: string) => void;
+  setTaskStatusFilter: (value: 'All' | TaskStatus) => void;
   openCreateTaskModal: () => void;
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;
@@ -110,6 +113,9 @@ interface AppState {
   deleteItem: (id: string) => void;
   addTouchLog: (payload: { id: string; summary: string; status?: FollowUpStatus; dueDate?: string; nextTouchDate?: string; promisedDate?: string; waitingOn?: string }) => void;
   addRunningNote: (id: string, note: string) => void;
+  addTask: (task: TaskItem) => void;
+  updateTask: (id: string, patch: Partial<TaskItem>) => void;
+  deleteTask: (id: string) => void;
   importItems: (rows: ImportPreviewRow[]) => void;
   addDroppedEmailImports: (imports: DroppedEmailImport[]) => void;
   removeDroppedEmailImport: (id: string) => void;
@@ -123,9 +129,6 @@ interface AppState {
   cycleEscalation: (id: string) => void;
   updateDraftForItem: (id: string, draft: string) => void;
   generateDraftForItem: (id: string) => void;
-  addTask: (task: TaskRecord) => void;
-  updateTask: (id: string, patch: Partial<TaskRecord>) => void;
-  deleteTask: (id: string) => void;
   addProject: (input: Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateProject: (id: string, patch: Partial<ProjectRecord>) => void;
   deleteProject: (id: string) => void;
@@ -159,39 +162,37 @@ function normalizeItems(items: FollowUpItem[]): FollowUpItem[] {
   return items.map(normalizeItem).sort((a, b) => new Date(b.lastTouchDate).getTime() - new Date(a.lastTouchDate).getTime());
 }
 
-function normalizeTask(task: TaskRecord): TaskRecord {
-  const now = todayIso();
+function normalizeTask(task: TaskItem): TaskItem {
   const status = task.status || 'To do';
-  const completedAt = status === 'Done' ? task.completedAt || now : undefined;
+  const updatedAt = todayIso();
   return {
     ...task,
     project: (task.project || 'General').trim() || 'General',
-    projectId: task.projectId || undefined,
     owner: (task.owner || 'Unassigned').trim() || 'Unassigned',
     title: task.title.trim(),
-    summary: task.summary.trim(),
-    nextStep: task.nextStep.trim(),
-    notes: task.notes,
+    summary: (task.summary || '').trim(),
+    nextStep: (task.nextStep || '').trim(),
+    notes: (task.notes || '').trim(),
     tags: [...new Set((task.tags || []).map((tag) => tag.trim()).filter(Boolean))],
-    dueDate: task.dueDate || now,
+    dueDate: task.dueDate || undefined,
     startDate: task.startDate || undefined,
-    status,
     linkedFollowUpId: task.linkedFollowUpId || undefined,
     contactId: task.contactId || undefined,
     companyId: task.companyId || undefined,
-    createdAt: task.createdAt || now,
-    updatedAt: task.updatedAt || now,
-    completedAt,
-    timeline: task.timeline || [],
+    status,
+    completedAt: status === 'Done' ? (task.completedAt || updatedAt) : undefined,
+    createdAt: task.createdAt || updatedAt,
+    updatedAt,
   };
 }
 
-function normalizeTasks(tasks: TaskRecord[]): TaskRecord[] {
+function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
   return tasks.map(normalizeTask).sort((a, b) => {
-    const aDone = a.status === 'Done';
-    const bDone = b.status === 'Done';
-    if (aDone !== bDone) return aDone ? 1 : -1;
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+    const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+    if (a.status === 'Done' && b.status !== 'Done') return 1;
+    if (a.status !== 'Done' && b.status === 'Done') return -1;
+    return aDue - bDue || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 }
 
@@ -199,31 +200,27 @@ function stampProject(project: ProjectRecord, patch: Partial<ProjectRecord> = {}
   return { ...project, ...patch, updatedAt: todayIso() };
 }
 
-function deriveProjects(items: FollowUpItem[], tasks: TaskRecord[], existing: ProjectRecord[] = []): ProjectRecord[] {
+function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): ProjectRecord[] {
   const byId = new Map(existing.map((project) => [project.id, project]));
   const byName = new Map(existing.map((project) => [project.name.toLowerCase(), project]));
-  const records = [
-    ...items.map((item) => ({ project: item.project, projectId: item.projectId, owner: item.owner })),
-    ...tasks.map((task) => ({ project: task.project, projectId: task.projectId, owner: task.owner })),
-  ];
-  records.forEach((record) => {
-    const name = (record.project || 'General').trim() || 'General';
-    const existingById = record.projectId ? byId.get(record.projectId) : undefined;
+  items.forEach((item) => {
+    const name = (item.project || 'General').trim() || 'General';
+    const existingById = item.projectId ? byId.get(item.projectId) : undefined;
     const existingByName = byName.get(name.toLowerCase());
     if (existingById) {
-      byId.set(existingById.id, stampProject(existingById, { name, owner: record.owner || existingById.owner }));
+      byId.set(existingById.id, stampProject(existingById, { name, owner: item.owner || existingById.owner }));
       byName.set(name.toLowerCase(), byId.get(existingById.id)!);
       return;
     }
     if (existingByName) {
-      byId.set(existingByName.id, stampProject(existingByName, { owner: existingByName.owner || record.owner || 'Unassigned' }));
+      byId.set(existingByName.id, stampProject(existingByName, { owner: existingByName.owner || item.owner || 'Unassigned' }));
       return;
     }
     const created = {
       id: createId('PRJ'),
       name,
-      owner: record.owner || 'Unassigned',
-      status: 'Active',
+      owner: item.owner || 'Unassigned',
+      status: name === 'General' ? 'Active' : 'Active',
       notes: '',
       tags: [],
       createdAt: todayIso(),
@@ -240,14 +237,6 @@ function attachProjects(items: FollowUpItem[], projects: ProjectRecord[]): Follo
     const name = resolveProjectName(item.projectId, item.project, projects);
     const project = item.projectId ? projects.find((entry) => entry.id === item.projectId) : projects.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
     return normalizeItem({ ...item, projectId: project?.id ?? item.projectId, project: project?.name ?? name });
-  }));
-}
-
-function attachTaskProjects(tasks: TaskRecord[], projects: ProjectRecord[]): TaskRecord[] {
-  return normalizeTasks(tasks.map((task) => {
-    const name = resolveProjectName(task.projectId, task.project, projects);
-    const project = task.projectId ? projects.find((entry) => entry.id === task.projectId) : projects.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
-    return normalizeTask({ ...task, projectId: project?.id ?? task.projectId, project: project?.name ?? name });
   }));
 }
 
@@ -268,13 +257,13 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildSnapshot(state: Pick<AppState, 'items' | 'tasks' | 'contacts' | 'companies' | 'projects' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages'>): AppSnapshot {
+function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages'>): AppSnapshot {
   return {
     items: state.items,
-    tasks: state.tasks,
     contacts: state.contacts,
     companies: state.companies,
     projects: state.projects,
+    tasks: state.tasks,
     intakeSignals: state.intakeSignals,
     intakeDocuments: state.intakeDocuments,
     dismissedDuplicatePairs: state.dismissedDuplicatePairs,
@@ -357,15 +346,14 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
 
 export const useAppStore = create<AppState>()((set, get) => ({
   items: [],
-  tasks: [],
   contacts: [],
   companies: [],
   projects: [],
+  tasks: [],
   intakeSignals: [],
   intakeDocuments: [],
   dismissedDuplicatePairs: [],
   selectedId: null,
-  selectedTaskId: null,
   search: '',
   projectFilter: 'All',
   statusFilter: 'All',
@@ -376,6 +364,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   mergeModal: { open: false, baseId: null, candidateId: null },
   draftModal: { open: false, itemId: null },
   taskModal: { open: false, mode: 'create', taskId: null },
+  selectedTaskId: null,
+  taskOwnerFilter: 'All',
+  taskStatusFilter: 'All',
   hydrated: false,
   persistenceMode: 'loading',
   saveError: '',
@@ -393,27 +384,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const hasContacts = Object.prototype.hasOwnProperty.call(snapshot, 'contacts');
       const hasCompanies = Object.prototype.hasOwnProperty.call(snapshot, 'companies');
       const hasProjects = Object.prototype.hasOwnProperty.call(snapshot, 'projects');
+      const hasTasks = Object.prototype.hasOwnProperty.call(snapshot, 'tasks');
       const hasSignals = Object.prototype.hasOwnProperty.call(snapshot, 'intakeSignals');
       const hasDocuments = Object.prototype.hasOwnProperty.call(snapshot, 'intakeDocuments');
-      const hasTasks = Object.prototype.hasOwnProperty.call(snapshot, 'tasks');
 
       const baseItems = hasItems ? normalizeItems(snapshot.items ?? []) : normalizeItems(starterItems);
-      const baseTasks = hasTasks ? normalizeTasks(snapshot.tasks ?? []) : normalizeTasks(starterTasks);
       const contacts = hasContacts ? (snapshot.contacts ?? []) : starterContacts;
       const companies = hasCompanies ? (snapshot.companies ?? []) : starterCompanies;
-      const projects = deriveProjects(baseItems, baseTasks, hasProjects ? (snapshot.projects ?? []) : starterProjects);
+      const projects = deriveProjects(baseItems, hasProjects ? (snapshot.projects ?? []) : starterProjects);
       const items = attachProjects(baseItems, projects);
-      const tasks = attachTaskProjects(baseTasks, projects);
+      const tasks = normalizeTasks((hasTasks ? (snapshot.tasks ?? []) : starterTasks).map((task) => ({ ...task, project: resolveProjectName(task.projectId, task.project, projects) })));
       const intakeSignals = hasSignals ? (snapshot.intakeSignals ?? []) : starterSignals;
       const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
       set({
         items,
-        tasks,
         contacts,
         companies,
         projects,
+        tasks,
         intakeSignals,
         intakeDocuments,
         dismissedDuplicatePairs,
@@ -445,7 +435,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
   },
   setSelectedId: (id) => set({ selectedId: id }),
-  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setSearch: (value) => set({ search: value }),
   setProjectFilter: (value) => set({ projectFilter: value }),
   setStatusFilter: (value) => set({ statusFilter: value }),
@@ -461,6 +450,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   closeMergeModal: () => set({ mergeModal: { open: false, baseId: null, candidateId: null } }),
   openDraftModal: (id) => set({ draftModal: { open: true, itemId: id }, selectedId: id }),
   closeDraftModal: () => set({ draftModal: { open: false, itemId: null } }),
+  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+  setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
+  setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
   openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null } }),
   openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
   closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null } }),
@@ -477,8 +469,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         if (promiseChanged) timeline.unshift(buildTouchEvent('Promised date updated.', 'touched'));
         return applyItemRules(normalizeItem({ ...item, ...normalizedPatch, timeline }));
       });
-      const projects = deriveProjects(items, state.tasks, state.projects);
-      return { items: attachProjects(items, projects), tasks: attachTaskProjects(state.tasks, projects), projects, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
+      const projects = deriveProjects(items, state.projects);
+      return { items: attachProjects(items, projects), projects, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
     });
     queuePersist(get, set);
   },
@@ -486,11 +478,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) => {
       const normalized = applyItemRules(normalizeItem({ ...item, project: resolveProjectName(item.projectId, item.project, state.projects) }));
       const items = normalizeItems([normalized, ...state.items]);
-      const projects = deriveProjects(items, state.tasks, state.projects);
+      const projects = deriveProjects(items, state.projects);
       return {
         items: attachProjects(items, projects),
         projects,
-        tasks: attachTaskProjects(state.tasks, projects),
         selectedId: normalized.id,
         itemModal: { open: false, mode: 'create', itemId: null },
         duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
@@ -501,12 +492,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
   deleteItem: (id) => {
     set((state) => {
       const nextItems = normalizeItems(state.items.filter((item) => item.id !== id));
-      const projects = deriveProjects(nextItems, state.tasks, state.projects);
+      const projects = deriveProjects(nextItems, state.projects);
       const dismissedDuplicatePairs = state.dismissedDuplicatePairs.filter((pairKey) => !pairKey.split('::').includes(id));
       return {
         items: attachProjects(nextItems, projects),
         projects,
-        tasks: attachTaskProjects(state.tasks.map((task) => task.linkedFollowUpId === id ? normalizeTask({ ...task, linkedFollowUpId: undefined }) : task), projects),
         intakeDocuments: state.intakeDocuments.map((doc) => doc.linkedFollowUpId === id ? { ...doc, linkedFollowUpId: undefined, disposition: 'Unprocessed' } : doc),
         dismissedDuplicatePairs,
         selectedId: state.selectedId === id ? nextItems[0]?.id ?? null : state.selectedId,
@@ -524,6 +514,28 @@ export const useAppStore = create<AppState>()((set, get) => ({
         timeline: [buildTouchEvent('Added a running note entry.', 'note'), ...item.timeline],
       }));
       return { items, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
+    });
+    queuePersist(get, set);
+  },
+  addTask: (task) => {
+    set((state) => {
+      const normalized = normalizeTask({ ...task, project: resolveProjectName(task.projectId, task.project, state.projects) });
+      const tasks = normalizeTasks([normalized, ...state.tasks]);
+      const projects = deriveProjects(state.items, state.projects);
+      return { tasks, projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null } };
+    });
+    queuePersist(get, set);
+  },
+  updateTask: (id, patch) => {
+    set((state) => ({
+      tasks: normalizeTasks(state.tasks.map((task) => (task.id === id ? normalizeTask({ ...task, ...patch, project: resolveProjectName(patch.projectId, patch.project, state.projects) }) : task))),
+    }));
+    queuePersist(get, set);
+  },
+  deleteTask: (id) => {
+    set((state) => {
+      const tasks = normalizeTasks(state.tasks.filter((task) => task.id !== id));
+      return { tasks, selectedTaskId: state.selectedTaskId === id ? tasks[0]?.id ?? null : state.selectedTaskId, taskModal: state.taskModal.taskId === id ? { open: false, mode: 'create', taskId: null } : state.taskModal };
     });
     queuePersist(get, set);
   },
@@ -712,61 +724,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
     queuePersist(get, set);
   },
-
-  addTask: (task) => {
-    set((state) => {
-      const normalized = normalizeTask({ ...task, project: resolveProjectName(task.projectId, task.project, state.projects) });
-      const tasks = normalizeTasks([normalized, ...state.tasks]);
-      const projects = deriveProjects(state.items, tasks, state.projects);
-      return {
-        tasks: attachTaskProjects(tasks, projects),
-        items: attachProjects(state.items, projects),
-        projects,
-        selectedTaskId: normalized.id,
-        taskModal: { open: false, mode: 'create', taskId: null },
-      };
-    });
-    queuePersist(get, set);
-  },
-  updateTask: (id, patch) => {
-    set((state) => {
-      const tasks = normalizeTasks(state.tasks.map((task) => {
-        if (task.id !== id) return task;
-        const nextStatus = patch.status ?? task.status;
-        const timeline = [...task.timeline];
-        if (patch.status && patch.status !== task.status) {
-          timeline.unshift(buildTouchEvent(`Task status changed from ${task.status} to ${patch.status}.`, 'status_changed'));
-        }
-        if (patch.dueDate && patch.dueDate !== task.dueDate) {
-          timeline.unshift(buildTouchEvent('Task due date updated.', 'touched'));
-        }
-        return normalizeTask({
-          ...task,
-          ...patch,
-          status: nextStatus,
-          completedAt: nextStatus === 'Done' ? patch.completedAt ?? task.completedAt ?? todayIso() : undefined,
-          updatedAt: todayIso(),
-          timeline,
-        });
-      }));
-      const projects = deriveProjects(state.items, tasks, state.projects);
-      return { tasks: attachTaskProjects(tasks, projects), items: attachProjects(state.items, projects), projects };
-    });
-    queuePersist(get, set);
-  },
-  deleteTask: (id) => {
-    set((state) => {
-      const tasks = normalizeTasks(state.tasks.filter((task) => task.id !== id));
-      const projects = deriveProjects(state.items, tasks, state.projects);
-      return {
-        tasks: attachTaskProjects(tasks, projects),
-        items: attachProjects(state.items, projects),
-        projects,
-        selectedTaskId: state.selectedTaskId === id ? tasks[0]?.id ?? null : state.selectedTaskId,
-      };
-    });
-    queuePersist(get, set);
-  },
   addProject: (input) => {
     const id = createId('PRJ');
     const record: ProjectRecord = {
@@ -787,11 +744,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const items = original && patch.name && patch.name !== original.name
         ? attachProjects(state.items.map((item) => item.projectId === id ? normalizeItem({ ...item, project: renamedTo }) : item), projects)
         : attachProjects(state.items, projects);
-      const tasks = original && patch.name && patch.name !== original.name
-        ? attachTaskProjects(state.tasks.map((task) => task.projectId === id ? normalizeTask({ ...task, project: renamedTo, updatedAt: todayIso() }) : task), projects)
-        : attachTaskProjects(state.tasks, projects);
       const intakeDocuments = state.intakeDocuments.map((doc) => doc.projectId === id ? { ...doc, project: renamedTo } : doc);
-      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, tasks, intakeDocuments };
+      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, intakeDocuments };
     });
     queuePersist(get, set);
   },
@@ -804,9 +758,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const existingProjects = state.projects.some((project) => project.id === general.id) ? state.projects : [...state.projects, general];
       const projects = existingProjects.filter((project) => project.id !== id);
       const items = attachProjects(state.items.map((item) => item.projectId === id ? normalizeItem({ ...item, projectId: general.id, project: general.name }) : item), projects);
-      const tasks = attachTaskProjects(state.tasks.map((task) => task.projectId === id ? normalizeTask({ ...task, projectId: general.id, project: general.name, updatedAt: todayIso() }) : task), projects);
       const intakeDocuments = state.intakeDocuments.map((doc) => doc.projectId === id ? { ...doc, projectId: general.id, project: general.name } : doc);
-      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, tasks, intakeDocuments };
+      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, intakeDocuments };
     });
     queuePersist(get, set);
   },
@@ -866,7 +819,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) => ({
       contacts: state.contacts.filter((contact) => contact.id !== id),
       items: withItemUpdate(state.items, '', (item) => item).map((item) => (item.contactId === id ? normalizeItem({ ...item, contactId: undefined }) : item)),
-      tasks: state.tasks.map((task) => (task.contactId === id ? normalizeTask({ ...task, contactId: undefined, updatedAt: todayIso() }) : task)),
     }));
     queuePersist(get, set);
   },
@@ -885,7 +837,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       companies: state.companies.filter((company) => company.id !== id),
       contacts: state.contacts.map((contact) => (contact.companyId === id ? { ...contact, companyId: undefined } : contact)),
       items: state.items.map((item) => (item.companyId === id ? normalizeItem({ ...item, companyId: undefined }) : item)),
-      tasks: state.tasks.map((task) => (task.companyId === id ? normalizeTask({ ...task, companyId: undefined, updatedAt: todayIso() }) : task)),
     }));
     queuePersist(get, set);
   },

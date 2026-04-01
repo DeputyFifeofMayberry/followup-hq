@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, HardHat, LayoutDashboard, LockKeyhole, Mail, Plus, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, HardHat, LayoutDashboard, ListTodo, LockKeyhole, Mail, Plus, ShieldCheck, Users } from 'lucide-react';
 
 import { DailyReviewBoard } from './components/DailyReviewBoard';
 import { DashboardBoard } from './components/DashboardBoard';
@@ -22,6 +22,8 @@ import { StatsGrid } from './components/StatsGrid';
 import { TouchLogModal } from './components/TouchLogModal';
 import { TrackerTable } from './components/TrackerTable';
 import { ControlBar } from './components/ControlBar';
+import { TaskWorkspace } from './components/TaskWorkspace';
+import { TaskFormModal } from './components/TaskFormModal';
 
 import { supabase } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
@@ -32,7 +34,7 @@ type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'projects' | '
 const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'tracker', label: 'Follow Ups', icon: Activity },
-  { key: 'tasks', label: 'Tasks', icon: ClipboardList },
+  { key: 'tasks', label: 'Tasks', icon: ListTodo },
   { key: 'intake', label: 'Intake', icon: ArrowDownToLine },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
   { key: 'relationships', label: 'Relationships', icon: Users },
@@ -221,12 +223,12 @@ function LoginScreen() {
   );
 }
 
-function QuickActionsCard({ onOpenTrackerView, onOpenTasks }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenTasks: () => void }) {
-  const { openCreateModal, openCreateTaskModal, openImportModal } = useAppStore(
+function QuickActionsCard({ onOpenTrackerView }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void }) {
+  const { openCreateModal, openImportModal, openCreateTaskModal } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
-      openCreateTaskModal: s.openCreateTaskModal,
       openImportModal: s.openImportModal,
+      openCreateTaskModal: s.openCreateTaskModal,
     })),
   );
 
@@ -245,7 +247,7 @@ function QuickActionsCard({ onOpenTrackerView, onOpenTasks }: { onOpenTrackerVie
         <button onClick={openCreateModal} className="primary-btn justify-start">
           Add follow-up
         </button>
-        <button onClick={() => { onOpenTasks(); openCreateTaskModal(); }} className="action-btn justify-start">
+        <button onClick={openCreateTaskModal} className="action-btn justify-start">
           Add task
         </button>
         <button onClick={openImportModal} className="action-btn justify-start">
@@ -265,17 +267,15 @@ function QuickActionsCard({ onOpenTrackerView, onOpenTasks }: { onOpenTrackerVie
 function OverviewWorkspace({
   onOpenTrackerView,
   onOpenWorkspace,
-  onOpenTasks,
 }: {
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
-  onOpenTasks: () => void;
 }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
-        <StatsGrid onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} onOpenTasks={onOpenTasks} />
-        <QuickActionsCard onOpenTrackerView={onOpenTrackerView} onOpenTasks={onOpenTasks} />
+        <StatsGrid onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} />
+        <QuickActionsCard onOpenTrackerView={onOpenTrackerView} />
       </div>
       <DailyReviewBoard />
       <DashboardBoard onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace} />
@@ -337,7 +337,7 @@ function MainApp() {
       case 'relationships':
         return <RelationshipBoard />;
       default:
-        return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={setWorkspace} onOpenTasks={() => setWorkspace('tasks')} />;
+        return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={setWorkspace} />;
     }
   }, [workspace]);
 

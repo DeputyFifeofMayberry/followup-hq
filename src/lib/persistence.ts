@@ -16,7 +16,6 @@ const BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 function buildFallbackSnapshot(): AppSnapshot {
   return {
     items: starterItems,
-    tasks: starterTasks,
     contacts: starterContacts,
     companies: starterCompanies,
     projects: starterProjects,
@@ -31,6 +30,7 @@ function buildFallbackSnapshot(): AppSnapshot {
       syncCursorByFolder: { inbox: {}, sentitems: {} },
     },
     outlookMessages: [],
+    tasks: starterTasks,
   };
 }
 

@@ -1,25 +1,14 @@
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { applySavedView, escalationTone, formatDate, fromDateInputValue, isOverdue, needsNudge, priorityTone, sortByProjectThenDue, statusTone, toDateInputValue } from '../lib/utils';
+import { applySavedView, formatDate, fromDateInputValue, isOverdue, needsNudge, priorityTone, sortByProjectThenDue, statusTone, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
+import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 
 export function TrackerTable({ personalMode = false }: { personalMode?: boolean }) {
-  const {
-    items,
-    contacts,
-    companies,
-    selectedId,
-    setSelectedId,
-    search,
-    projectFilter,
-    statusFilter,
-    activeView,
-    duplicateReviews,
-    updateItem,
-  } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, search, projectFilter, statusFilter, activeView, updateItem } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
@@ -29,12 +18,9 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     projectFilter: s.projectFilter,
     statusFilter: s.statusFilter,
     activeView: s.activeView,
-    duplicateReviews: s.duplicateReviews,
     updateItem: s.updateItem,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
-
-  const owners = useMemo(() => Array.from(new Set(items.map((item) => item.owner))).sort(), [items]);
 
   const filteredItems = useMemo(() => {
     const viewedItems = applySavedView(items, activeView);
@@ -52,19 +38,13 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => [
     {
       accessorKey: 'title',
-      header: 'Item',
+      header: 'Follow-up',
       cell: ({ row }) => {
         const item = row.original;
-        const duplicateCount = duplicateReviews.find((review) => review.itemId === item.id)?.candidates.length ?? 0;
-        const company = companies.find((entry) => entry.id === item.companyId)?.name;
         return (
           <div className="space-y-1">
             <div className="font-medium text-slate-900">{item.title}</div>
-            <div className="text-xs text-slate-500">
-              {item.id} • {item.project}
-              {company ? ` • ${company}` : ''}
-              {duplicateCount > 0 ? ` • ${duplicateCount} dupes` : ''}
-            </div>
+            <div className="text-xs text-slate-500">{item.project} • {personalMode ? item.owner : `${item.owner} • ${item.id}`}</div>
           </div>
         );
       },
@@ -73,11 +53,10 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <select value={row.original.status} onChange={(event) => updateItem(row.original.id, { status: event.target.value as FollowUpItem['status'] })} className="field-input !w-[180px] !py-1.5 text-xs">
+        <div onClick={(e) => e.stopPropagation()}>
+          <select value={row.original.status} onChange={(event) => updateItem(row.original.id, { status: event.target.value as FollowUpItem['status'] })} className="field-input !w-[170px] !py-1.5 text-xs">
             <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
           </select>
-          {needsNudge(row.original) ? <Badge variant="warn">Nudge</Badge> : null}
         </div>
       ),
     },
@@ -85,45 +64,25 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
       accessorKey: 'priority',
       header: 'Priority',
       cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()}>
           <select value={row.original.priority} onChange={(event) => updateItem(row.original.id, { priority: event.target.value as FollowUpItem['priority'] })} className="field-input !w-[120px] !py-1.5 text-xs">
             <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
           </select>
-          <Badge variant={escalationTone(row.original.escalationLevel)}>{row.original.escalationLevel}</Badge>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'owner',
-      header: personalMode ? 'Contact / Waiting on' : 'Owner / Waiting on',
-      cell: ({ row }) => (
-        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-          {personalMode ? (
-            <div className="rounded-xl bg-slate-100 px-2 py-1.5 text-xs text-slate-700">{row.original.owner || '—'}</div>
-          ) : (
-            <select value={row.original.owner} onChange={(event) => updateItem(row.original.id, { owner: event.target.value })} className="field-input !w-[170px] !py-1.5 text-xs">
-              {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-              <option value="Unassigned">Unassigned</option>
-            </select>
-          )}
-          <input value={row.original.waitingOn ?? ''} onChange={(event) => updateItem(row.original.id, { waitingOn: event.target.value })} placeholder="Waiting on" className="field-input !w-[170px] !py-1.5 text-xs" />
         </div>
       ),
     },
     {
       accessorKey: 'dueDate',
-      header: 'Dates',
+      header: 'Due',
       cell: ({ row }) => {
         const item = row.original;
         return (
-          <div className="space-y-2 text-sm" onClick={(e) => e.stopPropagation()}>
-            <label className="text-xs text-slate-500">Due
-              <input type="date" value={toDateInputValue(item.dueDate)} onChange={(event) => updateItem(item.id, { dueDate: fromDateInputValue(event.target.value) })} className="field-input !mt-1 !w-[160px] !py-1.5 text-xs" />
-            </label>
-            <label className="text-xs text-slate-500">Next touch
-              <input type="date" value={toDateInputValue(item.nextTouchDate)} onChange={(event) => updateItem(item.id, { nextTouchDate: fromDateInputValue(event.target.value) })} className="field-input !mt-1 !w-[160px] !py-1.5 text-xs" />
-            </label>
-            {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
+          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+            <input type="date" value={toDateInputValue(item.dueDate)} onChange={(event) => updateItem(item.id, { dueDate: fromDateInputValue(event.target.value) })} className="field-input !w-[150px] !py-1.5 text-xs" />
+            <div className="flex gap-1">
+              {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
+              {needsNudge(item) ? <Badge variant="warn">Nudge</Badge> : null}
+            </div>
           </div>
         );
       },
@@ -131,26 +90,11 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     {
       id: 'nextAction',
       header: 'Next action',
-      cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <textarea
-            defaultValue={row.original.nextAction}
-            onBlur={(event) => updateItem(row.original.id, { nextAction: event.target.value })}
-            className="field-textarea !min-h-[64px] !w-[260px] text-xs"
-          />
-        </div>
-      ),
+      cell: ({ row }) => <div className="text-xs text-slate-600 max-w-[240px] truncate">{row.original.nextAction || 'No next action set'}</div>,
     },
-  ], [duplicateReviews, companies, owners, updateItem, personalMode]);
+  ], [contacts, companies, updateItem, personalMode]);
 
-  const table = useReactTable({
-    data: filteredItems,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
   const groupedByProject = useMemo(() => {
     const ordered = sortByProjectThenDue(filteredItems);
@@ -161,12 +105,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   }, [filteredItems]);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <h2 className="text-lg font-semibold text-slate-950">Master follow-up tracker</h2>
-        <p className="mt-1 text-sm text-slate-500">Inline-edit status, owner, dates, and next action directly from the grid.</p>
-      </div>
-
+    <AppShellCard className="p-0">
       {activeView === 'By project' ? (
         <div className="space-y-4 p-4">
           {Object.entries(groupedByProject).map(([project, projectItems]) => (
@@ -176,14 +115,10 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
                 {projectItems.map((item) => {
                   const active = item.id === selectedId;
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedId(item.id)}
-                      className={active ? 'tracker-project-row tracker-project-row-active' : 'tracker-project-row'}
-                    >
+                    <button key={item.id} onClick={() => setSelectedId(item.id)} className={active ? 'tracker-project-row tracker-project-row-active' : 'tracker-project-row'}>
                       <div>
                         <div className="font-medium text-slate-900">{item.title}</div>
-                        <div className="mt-1 text-xs text-slate-500">{item.owner} • Due {formatDate(item.dueDate)} • Next touch {formatDate(item.nextTouchDate)}</div>
+                        <div className="mt-1 text-xs text-slate-500">{item.owner} • Due {formatDate(item.dueDate)}</div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant={statusTone(item.status)}>{item.status}</Badge>
@@ -195,7 +130,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
               </div>
             </div>
           ))}
-          {filteredItems.length === 0 ? <div className="px-4 py-6 text-sm text-slate-500">No items match the current filters.</div> : null}
+          {filteredItems.length === 0 ? <EmptyState title="No items found" message="Adjust your filters or create a new follow-up." /> : null}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -204,7 +139,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50">
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th key={header.id} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
@@ -215,24 +150,18 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
               {table.getRowModel().rows.map((row) => {
                 const active = row.original.id === selectedId;
                 return (
-                  <tr
-                    key={row.id}
-                    onClick={() => setSelectedId(row.original.id)}
-                    className={active ? 'cursor-pointer border-b border-slate-200 bg-sky-50/60' : 'cursor-pointer border-b border-slate-200 hover:bg-slate-50'}
-                  >
+                  <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'cursor-pointer border-b border-slate-200 bg-sky-50/60' : 'cursor-pointer border-b border-slate-200 hover:bg-slate-50'}>
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-4 align-top text-sm text-slate-700">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+                      <td key={cell.id} className="px-4 py-3 align-top text-sm text-slate-700">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                     ))}
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {filteredItems.length === 0 ? <div className="px-4 py-6 text-sm text-slate-500">No items match the current filters.</div> : null}
+          {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust your filters or create a new follow-up." /></div> : null}
         </div>
       )}
-    </section>
+    </AppShellCard>
   );
 }

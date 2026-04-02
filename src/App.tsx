@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, PanelRight, Plus, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Plus, Search, ShieldCheck, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
@@ -20,27 +20,23 @@ import { TaskWorkspace } from './components/TaskWorkspace';
 import { ExportWorkspace } from './components/ExportWorkspace';
 import { OutlookPanel } from './components/OutlookPanel';
 import { UniversalCapture } from './components/UniversalCapture';
-import { PersonalAgendaBoard } from './components/PersonalAgendaBoard';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
-import type { AppUserRole } from './types';
 import type { AppMode } from './types';
+import { SegmentedControl } from './components/ui/AppPrimitives';
 
-type WorkspaceKey = 'today' | 'followups' | 'tasks' | 'overview' | 'outlook' | 'projects' | 'relationships' | 'exports';
+type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 
-type NavGroup = 'main' | 'more';
-
-const navItems: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard; group: NavGroup; roles: AppUserRole[] }> = [
-  { key: 'today', label: 'Today', icon: ListChecks, group: 'main', roles: ['user', 'manager', 'admin'] },
-  { key: 'followups', label: 'Follow Ups', icon: Activity, group: 'main', roles: ['user', 'manager', 'admin'] },
-  { key: 'tasks', label: 'Tasks', icon: ListTodo, group: 'main', roles: ['user', 'manager', 'admin'] },
-  { key: 'projects', label: 'Projects', icon: BriefcaseBusiness, group: 'more', roles: ['manager', 'admin'] },
-  { key: 'relationships', label: 'Relationships', icon: Users, group: 'more', roles: ['manager', 'admin'] },
-  { key: 'outlook', label: 'Email Intake', icon: Mail, group: 'more', roles: ['user', 'manager', 'admin'] },
-  { key: 'exports', label: 'Exports', icon: FileSpreadsheet, group: 'more', roles: ['manager', 'admin'] },
-  { key: 'overview', label: 'Admin Overview', icon: LayoutDashboard, group: 'more', roles: ['admin'] },
+const navItems: Array<{ key: WorkspaceKey; label: string; icon: typeof ListChecks }> = [
+  { key: 'worklist', label: 'Worklist', icon: ListChecks },
+  { key: 'followups', label: 'Follow Ups', icon: Activity },
+  { key: 'tasks', label: 'Tasks', icon: ListTodo },
+  { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
+  { key: 'relationships', label: 'Relationships', icon: Users },
+  { key: 'outlook', label: 'Intake', icon: Inbox },
+  { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
 ];
 
 function FollowUpHQMark() {
@@ -275,12 +271,11 @@ function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
 
 function MainApp() {
   const initializeApp = useAppStore((s) => s.initializeApp);
-  const { setActiveView, setProjectFilter, setSelectedId, setSelectedTaskId } = useAppStore(
+  const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
     useShallow((s) => ({
       setActiveView: s.setActiveView,
       setProjectFilter: s.setProjectFilter,
       setSelectedId: s.setSelectedId,
-      setSelectedTaskId: s.setSelectedTaskId,
     })),
   );
   const { openCreateModal, openCreateTaskModal, items, tasks, selectedId } = useAppStore(
@@ -293,15 +288,13 @@ function MainApp() {
     })),
   );
 
-  const [workspace, setWorkspace] = useState<WorkspaceKey>('today');
+  const [workspace, setWorkspace] = useState<WorkspaceKey>('worklist');
   const [appMode, setAppMode] = useState<AppMode>(() => {
     if (typeof window === 'undefined') return 'personal';
     const saved = window.localStorage.getItem('followup-hq:app-mode');
     return saved === 'team' ? 'team' : 'personal';
   });
   const [showCommand, setShowCommand] = useState(false);
-  const [showMore, setShowMore] = useState(false);
-  const [role] = useState<AppUserRole>('user');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -335,223 +328,101 @@ function MainApp() {
     openTrackerView(view, project);
   }, [openTrackerView, setSelectedId]);
 
-  const openTaskItem = useCallback((taskId: string) => {
-    setSelectedTaskId(taskId);
-    setWorkspace('tasks');
-  }, [setSelectedTaskId]);
-
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
-  const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed');
-  const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done');
-  const combinedCleanup = cleanupFollowUps.length + cleanupTasks.length;
+  const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed').length;
+  const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done').length;
+  const combinedCleanup = cleanupFollowUps + cleanupTasks;
 
-  const progressToday = useMemo(() => {
-    const today = new Date().toDateString();
-    const touched = items.filter((item) => item.timeline.some((entry) => new Date(entry.at).toDateString() === today && entry.type === 'touched')).length;
-    const closed = items.filter((item) => item.status === 'Closed' && item.lastActionAt && new Date(item.lastActionAt).toDateString() === today).length;
-    const tasksDone = tasks.filter((task) => task.status === 'Done' && task.completedAt && new Date(task.completedAt).toDateString() === today).length;
-    const advancedWaiting = items.filter((item) => item.timeline.some((entry) => new Date(entry.at).toDateString() === today && /waiting|nudged/i.test(entry.summary))).length;
-    return { touched, closed, tasksDone, advancedWaiting };
-  }, [items, tasks]);
+  const navCounts: Partial<Record<WorkspaceKey, number>> = {
+    worklist: items.filter((item) => item.status !== 'Closed' && new Date(item.dueDate).getTime() <= Date.now() + 86400000).length,
+    followups: items.filter((item) => item.status !== 'Closed').length,
+    tasks: tasks.filter((task) => task.status !== 'Done').length,
+    outlook: combinedCleanup,
+  };
 
   const workspaceBody = useMemo(() => {
     switch (workspace) {
       case 'followups':
         return <TrackerWorkspace personalMode={appMode === 'personal'} />;
-      case 'today':
-        {
-        const activeFollowUps = items.filter((item) => item.status !== 'Closed');
-        const waitingTooLong = activeFollowUps.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > 7 * 86400000);
-        const dueToday = activeFollowUps.filter((item) => new Date(item.dueDate).toDateString() === new Date().toDateString());
-        const noNextAction = [...activeFollowUps.filter((item) => !item.nextAction.trim()), ...tasks.filter((task) => task.status !== 'Done' && !task.nextStep.trim())];
-        const likelyNudges = activeFollowUps.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > Math.max(2, item.cadenceDays) * 86400000);
-        return (
-          <div className="workspace-master-detail workspace-master-detail-today">
-            <section className="workspace-list-panel">
-              <div className="workspace-list-head">
-                <div>
-                  <div className="workspace-list-title">Start my day</div>
-                  <p className="workspace-list-subtitle">Work the highest-risk records first, then clear intake cleanup.</p>
-                </div>
-                <div className="workspace-kpi-strip">
-                  <div className="workspace-kpi-card"><span>Overdue</span><strong>{activeFollowUps.filter((item) => new Date(item.dueDate).getTime() < Date.now()).length}</strong></div>
-                  <div className="workspace-kpi-card"><span>Due today</span><strong>{dueToday.length}</strong></div>
-                  <div className="workspace-kpi-card"><span>Waiting too long</span><strong>{waitingTooLong.length}</strong></div>
-                  <div className="workspace-kpi-card"><span>Likely nudges</span><strong>{likelyNudges.length}</strong></div>
-                  <div className="workspace-kpi-card"><span>No next action</span><strong>{noNextAction.length}</strong></div>
-                </div>
-              </div>
-              <div className="workspace-action-row">
-                <button onClick={() => openTrackerView('Overdue')} className="action-btn">Review overdue</button>
-                <button onClick={() => openTrackerView('Needs nudge')} className="action-btn">Review nudges</button>
-                <button onClick={() => setWorkspace('tasks')} className="action-btn">Review blocked</button>
-                <button onClick={openCreateModal} className="action-btn">New follow-up</button>
-                <button onClick={openCreateTaskModal} className="action-btn">New task</button>
-              </div>
-              <div className="workspace-list-content">
-                <div className="section-note-row">
-                  <div className="section-note-head">Intake needing review</div>
-                  <div className="section-note-count">{combinedCleanup}</div>
-                </div>
-                <div className="space-y-2">
-                  {cleanupFollowUps.slice(0, 3).map((item) => (
-                    <button key={item.id} onClick={() => openTrackerItem(item.id)} className="workspace-list-row">
-                      {item.title} · {(item.cleanupReasons || []).join(', ')}
-                    </button>
-                  ))}
-                  {cleanupTasks.slice(0, 2).map((task) => (
-                    <button key={task.id} onClick={() => openTaskItem(task.id)} className="workspace-list-row">
-                      {task.title} · {(task.cleanupReasons || []).join(', ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </section>
-            <div className="workspace-inspector-panel">
-              <PersonalAgendaBoard />
-              <section className="inspector-stats">
-                <div className="workspace-list-title">Progress today</div>
-                <div className="inspector-stats-grid">
-                  <div className="inspector-stat">Touched <strong>{progressToday.touched}</strong></div>
-                  <div className="inspector-stat">Closed <strong>{progressToday.closed}</strong></div>
-                  <div className="inspector-stat">Tasks done <strong>{progressToday.tasksDone}</strong></div>
-                  <div className="inspector-stat">Waiting advanced <strong>{progressToday.advancedWaiting}</strong></div>
-                </div>
-              </section>
-            </div>
-          </div>
-        );
-      }
       case 'tasks':
         return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} />;
       case 'exports':
         return <ExportWorkspace />;
       case 'outlook':
-        return <OutlookPanel showAdvanced={role === 'admin'} />;
+        return <OutlookPanel showAdvanced={false} />;
       case 'projects':
         return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} />;
       case 'relationships':
         return <RelationshipBoard />;
       default:
-        return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'queue' ? 'today' : value === 'tracker' ? 'followups' : value as WorkspaceKey)} />;
+        return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
     }
-  }, [workspace, openTaskItem, openTrackerItem, openTrackerView, selectedItem?.project, selectedId, combinedCleanup, cleanupFollowUps, cleanupTasks, progressToday]);
+  }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
   const commands = [
     { label: 'New follow-up', run: () => openCreateModal() },
     { label: 'New task', run: () => openCreateTaskModal() },
-    { label: 'Open today', run: () => setWorkspace('today') },
-    { label: 'Open queue', run: () => setWorkspace('today') },
-    ...(appMode === 'team' ? [{ label: 'Search follow-ups', run: () => setWorkspace('followups') }, { label: 'Search tasks', run: () => setWorkspace('tasks') }, { label: 'Open projects', run: () => setWorkspace('projects') }] : []),
-    { label: 'Open intake review', run: () => setWorkspace('outlook') },
+    { label: 'Open worklist', run: () => setWorkspace('worklist') },
+    { label: 'Open follow-ups', run: () => setWorkspace('followups') },
+    { label: 'Open tasks', run: () => setWorkspace('tasks') },
+    { label: 'Open intake', run: () => setWorkspace('outlook') },
   ];
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    today: {
-      title: 'Today execution',
-      purpose: 'Run today’s follow-ups and tasks from one unified worklist.',
-      health: `${progressToday.touched + progressToday.tasksDone} actions completed today`,
-      actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }, { label: 'New task', run: openCreateTaskModal }],
-    },
-    followups: {
-      title: 'Follow Ups',
-      purpose: 'Scan and execute follow-ups with fast inline edits and a focused inspector.',
-      health: `${items.filter((item) => item.status !== 'Closed').length} active follow-ups`,
-      actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }],
-    },
-    tasks: {
-      title: 'Tasks',
-      purpose: 'Work internal execution tasks with tight scan, status, and ownership controls.',
-      health: `${tasks.filter((task) => task.status !== 'Done').length} open tasks`,
-      actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }],
-    },
-    overview: { title: 'Admin Overview', purpose: 'Monitor system health and throughput.', health: `${items.length + tasks.length} tracked records`, actions: [] },
-    outlook: { title: 'Email Intake', purpose: 'Review Outlook ingestion and low-confidence capture cleanup.', health: `${combinedCleanup} items need cleanup`, actions: [] },
-    projects: { title: 'Projects', purpose: 'Track project-level workload, risk, and execution outcomes.', health: `${items.length} linked follow-ups`, actions: [] },
-    relationships: { title: 'Relationships', purpose: 'Manage contact relationships and connected execution history.', health: `${items.length} connected threads`, actions: [] },
-    exports: { title: 'Exports', purpose: 'Generate operational exports for reporting and coordination.', health: 'Export-ready data', actions: [] },
+    worklist: { title: 'Worklist', purpose: 'Decide what to do next in one action-first queue.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
+    followups: { title: 'Follow Ups', purpose: 'Scan follow-up records quickly and handle details in the side panel.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
+    tasks: { title: 'Tasks', purpose: 'Process internal execution tasks with clean, compact rows.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
+    outlook: { title: 'Intake', purpose: 'Review ingested captures and clean up ambiguous entries.', health: `${combinedCleanup} need cleanup`, actions: [] },
+    projects: { title: 'Projects', purpose: 'Track project-level workload and risk by execution pressure.', health: `${items.length} linked follow-ups`, actions: [] },
+    relationships: { title: 'Relationships', purpose: 'Manage relationship pressure across contacts and companies.', health: `${items.length} connected threads`, actions: [] },
+    exports: { title: 'Exports', purpose: 'Generate operational reports and exports.', health: 'Export-ready data', actions: [] },
   };
-
   const currentMeta = workspaceMeta[workspace];
 
   return (
     <div className="app-shell text-slate-900">
       <div className="app-shell-layout">
         <aside className="app-nav-rail">
-            <div className="app-brand-block">
-              <div className="app-brand-eyebrow">Daily execution workspace</div>
-              <div className="app-brand-title">FollowUp HQ</div>
-            </div>
-            <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-              <button onClick={() => setAppMode('personal')} className={appMode === 'personal' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Personal</button>
-              <button onClick={() => setAppMode('team')} className={appMode === 'team' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Team</button>
-            </div>
-            <div className="grid gap-2">
-              {navItems.filter((item) => item.group === 'main' && item.roles.includes(role) && (appMode === 'team' || item.key === 'today')).map(({ key, label, icon: Icon }) => (
-                <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
-                  <div className="flex items-center gap-3 text-sm font-medium text-slate-900"><Icon className="h-4 w-4" />{label}</div>
-                </button>
-              ))}
-              <button onClick={() => setShowMore((value) => !value)} className={showMore ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
-                <div className="flex items-center gap-3 text-sm font-medium text-slate-900"><PanelRight className="h-4 w-4" />More</div>
-              </button>
-            </div>
-            {showMore ? (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">More</div>
-              <div className="mt-2 grid gap-2">
-                  {navItems.filter((item) => item.roles.includes(role) && ((appMode === 'personal' && ['followups', 'tasks', 'outlook'].includes(item.key)) || (appMode === 'team' && item.group === 'more'))).map(({ key, label, icon: Icon }) => (
-                  <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
-                    <div className="flex items-center gap-3 text-sm font-medium text-slate-900"><Icon className="h-4 w-4" />{label}</div>
-                  </button>
-                ))}
-              </div>
-              </div>
-            ) : null}
-            <div className="mt-4 grid gap-2">
-              <button onClick={() => setShowCommand(true)} className="action-btn justify-start"><Command className="h-4 w-4" />Command palette</button>
-            </div>
-          </aside>
-
-          <main className="app-main-pane">
-            <header className="workspace-header">
-              <div>
-                <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
-                <h1>{currentMeta.title}</h1>
-                <p>{currentMeta.purpose}</p>
-              </div>
-              <div className="workspace-header-meta">
-                <div className="workspace-health-pill">{currentMeta.health}</div>
-                <div className="workspace-header-actions">
-                  {currentMeta.actions.map((action) => (
-                    <button key={action.label} onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
-                      {action.primary ? <Plus className="h-4 w-4" /> : null}
-                      {action.label}
-                    </button>
-                  ))}
+          <div className="app-brand-block">
+            <div className="app-brand-eyebrow">Daily execution workspace</div>
+            <div className="app-brand-title">FollowUp HQ</div>
+          </div>
+          <div className="grid gap-2">
+            {navItems.map(({ key, label, icon: Icon }) => (
+              <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : 'saved-view-card nav-card'}>
+                <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
+                  <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
+                  {navCounts[key] ? <span className="nav-pill">{navCounts[key]}</span> : null}
                 </div>
-              </div>
-            </header>
-            <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
-            {workspaceBody}
-          </main>
-        </div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-4"><button onClick={() => setShowCommand(true)} className="action-btn justify-start w-full"><Command className="h-4 w-4" />Command palette</button></div>
+        </aside>
+
+        <main className="app-main-pane">
+          <header className="workspace-header workspace-header-tight">
+            <div>
+              <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
+              <h1>{currentMeta.title}</h1>
+              <p>{currentMeta.purpose}</p>
+            </div>
+            <div className="workspace-header-meta">
+              <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
+              <div className="workspace-health-pill">{currentMeta.health}</div>
+              <div className="workspace-header-actions">{currentMeta.actions.map((action) => <button key={action.label} onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>{action.primary ? <Plus className="h-4 w-4" /> : null}{action.label}</button>)}</div>
+            </div>
+          </header>
+          <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+          {workspaceBody}
+        </main>
+      </div>
 
       {showCommand ? (
         <div className="modal-backdrop" onClick={() => setShowCommand(false)}>
           <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="text-lg font-semibold text-slate-900">Command palette</div>
-              <button onClick={() => setShowCommand(false)} className="action-btn">Close</button>
-            </div>
-            <div className="space-y-2">
-              {commands.map((command) => (
-                <button key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}>
-                  <span>{command.label}</span>
-                  <Search className="h-4 w-4" />
-                </button>
-              ))}
-            </div>
+            <div className="modal-header"><div className="text-lg font-semibold text-slate-900">Command palette</div><button onClick={() => setShowCommand(false)} className="action-btn">Close</button></div>
+            <div className="space-y-2">{commands.map((command) => <button key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>)}</div>
           </div>
         </div>
       ) : null}

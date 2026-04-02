@@ -12,6 +12,8 @@ export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 
 export type TaskStatus = 'To do' | 'In progress' | 'Blocked' | 'Done';
 export type TaskPriority = FollowUpPriority;
+export type AppUserRole = 'user' | 'manager' | 'admin';
+export type VisibilityScope = 'private' | 'team' | 'company';
 
 export type TimelineEventType =
   | 'created'
@@ -119,6 +121,27 @@ export interface TimelineEvent {
   summary: string;
 }
 
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actorUserId: string;
+  actorDisplayName: string;
+  action: 'assignment_changed' | 'status_changed' | 'due_date_changed' | 'closed' | 'reopened' | 'escalated' | 'claimed' | 'unclaimed' | 'created' | 'updated';
+  field?: string;
+  from?: string;
+  to?: string;
+  summary: string;
+}
+
+export interface TeamMember {
+  id: string;
+  displayName: string;
+  email?: string;
+  teamId: string;
+  role: AppUserRole;
+  active: boolean;
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;
@@ -169,6 +192,16 @@ export interface FollowUpItem {
   recommendedAction?: RecommendedAction;
   lastCompletedAction?: string;
   lastActionAt?: string;
+  assigneeUserId?: string;
+  assigneeDisplayName?: string;
+  createdByUserId?: string;
+  createdByDisplayName?: string;
+  updatedByUserId?: string;
+  updatedByDisplayName?: string;
+  visibilityScope?: VisibilityScope;
+  teamId?: string;
+  watchers?: string[];
+  auditHistory?: AuditEntry[];
 }
 
 
@@ -198,6 +231,16 @@ export interface TaskItem {
   recommendedAction?: RecommendedAction;
   lastCompletedAction?: string;
   lastActionAt?: string;
+  assigneeUserId?: string;
+  assigneeDisplayName?: string;
+  createdByUserId?: string;
+  createdByDisplayName?: string;
+  updatedByUserId?: string;
+  updatedByDisplayName?: string;
+  visibilityScope?: VisibilityScope;
+  teamId?: string;
+  watchers?: string[];
+  auditHistory?: AuditEntry[];
 }
 
 export interface TaskFormInput {
@@ -652,4 +695,6 @@ export interface AppSnapshot {
   forwardedCandidates: ForwardedIntakeCandidate[];
   forwardedLedger: ForwardedIngestionLedgerEntry[];
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
+  teamMembers?: TeamMember[];
+  currentUserId?: string;
 }

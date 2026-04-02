@@ -39,6 +39,7 @@ import type {
   ForwardedRoutingAuditEntry,
   ForwardedEmailProviderPayload,
   ForwardedRuleAction,
+  AuditEntry,
 } from '../types';
 
 interface ItemModalState {
@@ -200,6 +201,8 @@ function normalizeTask(task: TaskItem): TaskItem {
     ...task,
     project: (task.project || 'General').trim() || 'General',
     owner: (task.owner || 'Unassigned').trim() || 'Unassigned',
+    assigneeUserId: task.assigneeUserId || undefined,
+    assigneeDisplayName: (task.assigneeDisplayName || task.owner || 'Unassigned').trim() || 'Unassigned',
     title: task.title.trim(),
     summary: (task.summary || '').trim(),
     nextStep: (task.nextStep || '').trim(),
@@ -219,6 +222,14 @@ function normalizeTask(task: TaskItem): TaskItem {
     recommendedAction: task.recommendedAction || (task.needsCleanup ? 'Review cleanup' : undefined),
     lastCompletedAction: task.lastCompletedAction || undefined,
     lastActionAt: task.lastActionAt || undefined,
+    createdByUserId: task.createdByUserId || 'user-seed',
+    createdByDisplayName: task.createdByDisplayName || 'System',
+    updatedByUserId: task.updatedByUserId || task.createdByUserId || 'user-seed',
+    updatedByDisplayName: task.updatedByDisplayName || task.createdByDisplayName || 'System',
+    visibilityScope: task.visibilityScope || 'team',
+    teamId: task.teamId || 'team-default',
+    watchers: task.watchers || [],
+    auditHistory: task.auditHistory || [],
   };
 }
 
@@ -318,6 +329,10 @@ function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'com
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
   return normalizeItems(items.map((item) => (item.id === id ? updater(item) : item)));
+}
+
+function makeAuditEntry(input: Omit<AuditEntry, 'id' | 'at'>): AuditEntry {
+  return { id: createId('AUD'), at: todayIso(), ...input };
 }
 
 
@@ -605,12 +620,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const items = withItemUpdate(state.items, id, (item) => {
         const statusChanged = normalizedPatch.status && normalizedPatch.status !== item.status;
         const dueChanged = normalizedPatch.dueDate && normalizedPatch.dueDate !== item.dueDate;
+        const assigneeChanged = (normalizedPatch.assigneeUserId && normalizedPatch.assigneeUserId !== item.assigneeUserId)
+          || (normalizedPatch.assigneeDisplayName && normalizedPatch.assigneeDisplayName !== item.assigneeDisplayName);
         const promiseChanged = normalizedPatch.promisedDate !== undefined && normalizedPatch.promisedDate !== item.promisedDate;
         const timeline: TimelineEvent[] = [...item.timeline];
+        const auditHistory = [...(item.auditHistory ?? [])];
         if (statusChanged) timeline.unshift(buildTouchEvent(`Status changed from ${item.status} to ${normalizedPatch.status}.`, 'status_changed'));
         if (dueChanged) timeline.unshift(buildTouchEvent('Due date updated.', 'touched'));
         if (promiseChanged) timeline.unshift(buildTouchEvent('Promised date updated.', 'touched'));
-        return applyItemRules(normalizeItem({ ...item, ...normalizedPatch, timeline }));
+        if (statusChanged) {
+          auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'status_changed', field: 'status', from: item.status, to: normalizedPatch.status, summary: `Status changed to ${normalizedPatch.status}.` }));
+        }
+        if (dueChanged) {
+          auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'due_date_changed', field: 'dueDate', from: item.dueDate, to: normalizedPatch.dueDate, summary: 'Due date updated.' }));
+        }
+        if (assigneeChanged) {
+          auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'assignment_changed', field: 'assignee', from: item.assigneeDisplayName || item.owner, to: normalizedPatch.assigneeDisplayName || item.assigneeDisplayName || item.owner, summary: 'Ownership reassigned.' }));
+        }
+        return applyItemRules(normalizeItem({ ...item, ...normalizedPatch, timeline, auditHistory, updatedByUserId: 'user-current', updatedByDisplayName: 'Current user' }));
       });
       const projects = deriveProjects(items, state.projects);
       return { items: attachProjects(items, projects), projects, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
@@ -619,7 +646,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   addItem: (item) => {
     set((state) => {
-      const normalized = applyItemRules(normalizeItem({ ...item, project: resolveProjectName(item.projectId, item.project, state.projects) }));
+      const normalized = applyItemRules(normalizeItem({
+        ...item,
+        project: resolveProjectName(item.projectId, item.project, state.projects),
+        assigneeDisplayName: item.assigneeDisplayName || item.owner,
+        auditHistory: [makeAuditEntry({ actorUserId: item.createdByUserId || 'user-current', actorDisplayName: item.createdByDisplayName || 'Current user', action: 'created', summary: 'Record created.' }), ...(item.auditHistory || [])],
+      }));
       const items = normalizeItems([normalized, ...state.items]);
       const projects = deriveProjects(items, state.projects);
       return {
@@ -663,7 +695,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   addTask: (task) => {
     set((state) => {
-      const normalized = normalizeTask({ ...task, project: resolveProjectName(task.projectId, task.project, state.projects) });
+      const normalized = normalizeTask({
+        ...task,
+        project: resolveProjectName(task.projectId, task.project, state.projects),
+        assigneeDisplayName: task.assigneeDisplayName || task.owner,
+        auditHistory: [makeAuditEntry({ actorUserId: task.createdByUserId || 'user-current', actorDisplayName: task.createdByDisplayName || 'Current user', action: 'created', summary: 'Task created.' }), ...(task.auditHistory || [])],
+      });
       const tasks = normalizeTasks([normalized, ...state.tasks]);
       const projects = deriveProjects(state.items, state.projects);
       return { tasks, projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null };
@@ -672,7 +709,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   updateTask: (id, patch) => {
     set((state) => ({
-      tasks: normalizeTasks(state.tasks.map((task) => (task.id === id ? normalizeTask({ ...task, ...patch, project: resolveProjectName(patch.projectId, patch.project, state.projects) }) : task))),
+      tasks: normalizeTasks(state.tasks.map((task) => {
+        if (task.id !== id) return task;
+        const auditHistory = [...(task.auditHistory || [])];
+        if (patch.status && patch.status !== task.status) {
+          auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'status_changed', field: 'status', from: task.status, to: patch.status, summary: `Task status moved to ${patch.status}.` }));
+        }
+        if (patch.assigneeDisplayName && patch.assigneeDisplayName !== task.assigneeDisplayName) {
+          auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'assignment_changed', field: 'assignee', from: task.assigneeDisplayName || task.owner, to: patch.assigneeDisplayName, summary: 'Task reassigned.' }));
+        }
+        return normalizeTask({ ...task, ...patch, project: resolveProjectName(patch.projectId, patch.project, state.projects), auditHistory, updatedByUserId: 'user-current', updatedByDisplayName: 'Current user' });
+      })),
     }));
     queuePersist(get, set);
   },

@@ -159,7 +159,7 @@ export function UniversalCapture({
         <WandSparkles className="h-4 w-4 text-slate-600" />
         <div className="text-sm font-semibold text-slate-900">Capture Bar</div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Tokens: p: o: due: pri: wait: #task #followup. Enter save · Cmd/Ctrl+Enter save+open · Esc clear.</p>
+      <p className="mt-1 text-xs text-slate-500">Natural language works here. Enter save · Cmd/Ctrl+Enter save+open · Esc clear.</p>
       <div className="mt-2 flex gap-2">
         <input
           value={text}
@@ -184,7 +184,7 @@ export function UniversalCapture({
               saveDraft(false, false);
             }
           }}
-          placeholder="p:B995 o:Jared due:2026-04-10 #followup Waiting on Alex pricing"
+          placeholder="Waiting on Alex pricing for B995. Need follow-up by Friday."
           className="field-input"
         />
         <button onClick={() => saveDraft(false, false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">Save</button>
@@ -196,12 +196,32 @@ export function UniversalCapture({
             <span>Instant preview</span>
             <span className={needsCleanup ? 'text-amber-700' : 'text-emerald-700'}>{needsCleanup ? 'Needs cleanup' : 'Ready'}</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1" onClick={() => setParsedOverride({ ...parsed, kind: parsed.kind === 'followup' ? 'task' : 'followup' })}>Type: {parsed.kind}</button>
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1" onClick={() => setParsedOverride({ ...parsed, project: window.prompt('Project', parsed.project || '') || parsed.project })}>Project: {parsed.project || 'Unset'}</button>
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1" onClick={() => setParsedOverride({ ...parsed, owner: window.prompt('Owner', parsed.owner || '') || parsed.owner })}>Owner: {parsed.owner || 'Unset'}</button>
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1" onClick={() => setParsedOverride({ ...parsed, dueDate: window.prompt('Due date (YYYY-MM-DD)', parsed.dueDate?.slice(0, 10) || '') || parsed.dueDate })}>Due: {parsed.dueDate ? parsed.dueDate.slice(0, 10) : 'Unset'}</button>
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1" onClick={() => setParsedOverride({ ...parsed, waitingOn: window.prompt('Waiting on', parsed.waitingOn || '') || parsed.waitingOn })}>Waiting: {parsed.waitingOn || 'None'}</button>
+          <div className="grid gap-2 text-xs md:grid-cols-5">
+            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Type</div>
+              <select className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.kind} onChange={(event) => setParsedOverride({ ...parsed, kind: event.target.value as 'task' | 'followup' })}>
+                <option value="followup">Follow-up</option>
+                <option value="task">Task</option>
+              </select>
+            </label>
+            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Project</div>
+              <input className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.project || ''} onChange={(event) => setParsedOverride({ ...parsed, project: event.target.value })} placeholder="Unset" />
+            </label>
+            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Owner</div>
+              <input className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.owner || ''} onChange={(event) => setParsedOverride({ ...parsed, owner: event.target.value })} placeholder="Unset" />
+            </label>
+            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Due</div>
+              <input type="date" className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.dueDate?.slice(0, 10) || ''} onChange={(event) => setParsedOverride({ ...parsed, dueDate: event.target.value || undefined })} />
+            </label>
+            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Priority</div>
+              <select className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.priority} onChange={(event) => setParsedOverride({ ...parsed, priority: event.target.value as FollowUpItem['priority'] })}>
+                <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+              </select>
+            </label>
           </div>
           {needsCleanup ? (
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">

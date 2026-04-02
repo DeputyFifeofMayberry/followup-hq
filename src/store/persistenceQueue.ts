@@ -1,5 +1,5 @@
-import type { AppSnapshot } from '../types';
-import { saveSnapshot } from '../lib/persistence';
+import type { PersistedPayload } from '../lib/persistence';
+import { savePersistedPayload } from '../lib/persistence';
 import { todayIso } from '../lib/utils';
 
 interface QueueConfig {
@@ -9,7 +9,7 @@ interface QueueConfig {
 }
 
 interface QueueHandlers {
-  getSnapshot: () => AppSnapshot;
+  getPayload: () => PersistedPayload;
   onSaving: () => void;
   onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string) => void;
   onError: (message: string) => void;
@@ -25,18 +25,18 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
 
   const flush = async (attempt = 0): Promise<void> => {
-    const snapshot = handlers.getSnapshot();
-    const snapshotJson = JSON.stringify(snapshot);
+    const payload = handlers.getPayload();
+    const payloadJson = JSON.stringify(payload);
 
-    if (snapshotJson === lastSavedJson) {
+    if (payloadJson === lastSavedJson) {
       handlers.onSaved(lastMode, todayIso());
       return;
     }
 
     try {
-      const mode = await saveSnapshot(snapshot);
+      const { mode } = await savePersistedPayload(payload);
       lastMode = mode;
-      lastSavedJson = snapshotJson;
+      lastSavedJson = payloadJson;
       handlers.onSaved(mode, todayIso());
     } catch (error) {
       if (attempt < maxRetries) {

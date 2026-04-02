@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
@@ -9,7 +9,7 @@ import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { Header } from './components/Header';
 import { ImportWizardModal } from './components/ImportWizardModal';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
-import { ItemFormModal } from './components/ItemFormModal';
+import { CreateWorkModal } from './components/CreateWorkModal';
 import { OverviewPage } from './components/OverviewPage';
 import { MergeModal } from './components/MergeModal';
 import { ProjectCommandCenter } from './components/ProjectCommandCenter';
@@ -18,7 +18,6 @@ import { TouchLogModal } from './components/TouchLogModal';
 import { TrackerTable } from './components/TrackerTable';
 import { ControlBar } from './components/ControlBar';
 import { TaskWorkspace } from './components/TaskWorkspace';
-import { TaskFormModal } from './components/TaskFormModal';
 import { ExportWorkspace } from './components/ExportWorkspace';
 import { WorkQueueBoard } from './components/WorkQueueBoard';
 import { OutlookPanel } from './components/OutlookPanel';
@@ -309,20 +308,20 @@ function MainApp() {
     void initializeApp();
   }, [initializeApp]);
 
-  const openTrackerView = (view: SavedViewKey, project = 'All') => {
+  const openTrackerView = useCallback((view: SavedViewKey, project = 'All') => {
     setActiveView(view);
     setProjectFilter(project);
     setWorkspace('tracker');
-  };
+  }, [setActiveView, setProjectFilter]);
 
-  const openTrackerItem = (itemId: string, view: SavedViewKey = 'All', project = 'All') => {
+  const openTrackerItem = useCallback((itemId: string, view: SavedViewKey = 'All', project = 'All') => {
     setSelectedId(itemId);
     openTrackerView(view, project);
-  };
-  const openTaskItem = (taskId: string) => {
+  }, [openTrackerView, setSelectedId]);
+  const openTaskItem = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
     setWorkspace('tasks');
-  };
+  }, [setSelectedTaskId]);
 
   const workspaceBody = useMemo(() => {
     switch (workspace) {
@@ -343,7 +342,7 @@ function MainApp() {
       default:
         return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={setWorkspace} />;
     }
-  }, [workspace, openTaskItem, openTrackerItem]);
+  }, [workspace, openTaskItem, openTrackerItem, openTrackerView]);
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
@@ -371,7 +370,7 @@ function MainApp() {
             </div>
             <div className="mt-4">
               <button onClick={() => setShowUtilities((current) => !current)} className="saved-view-card w-full justify-between">
-                <span className="text-sm font-medium text-slate-900">More</span>
+                <span className="text-sm font-medium text-slate-900">Utilities/Admin</span>
                 <ChevronDown className={showUtilities ? 'h-4 w-4 rotate-180 transition-transform' : 'h-4 w-4 transition-transform'} />
               </button>
               {showUtilities ? (
@@ -392,10 +391,10 @@ function MainApp() {
               ) : null}
             </div>
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Command</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Today actions</div>
               <div className="mt-2 grid gap-2">
-                <button onClick={openCreateModal} className="action-btn justify-start">Create follow-up</button>
-                <button onClick={openCreateTaskModal} className="action-btn justify-start">Create task</button>
+                <button onClick={openCreateModal} className="action-btn justify-start">Create work</button>
+                <button onClick={openCreateTaskModal} className="action-btn justify-start">Create task mode</button>
               </div>
             </div>
           </aside>
@@ -408,12 +407,11 @@ function MainApp() {
         </div>
       </div>
 
-      <ItemFormModal />
+      <CreateWorkModal />
       <TouchLogModal />
       <ImportWizardModal />
       <MergeModal />
       <FollowUpDraftModal />
-      <TaskFormModal />
     </div>
   );
 }

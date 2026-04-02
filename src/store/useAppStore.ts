@@ -9,6 +9,7 @@ import { getDefaultOutlookSettings } from '../lib/outlookGraph';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
 import { getDefaultForwardedRules } from '../lib/intakeRules';
+import type { UniversalCaptureDraft } from '../lib/universalCapture';
 import type {
   AppSnapshot,
   CompanyRecord,
@@ -83,6 +84,7 @@ interface AppState {
   mergeModal: MergeModalState;
   draftModal: DraftModalState;
   taskModal: TaskModalState;
+  createWorkDraft: UniversalCaptureDraft | null;
   selectedTaskId: string | null;
   taskOwnerFilter: string;
   taskStatusFilter: 'All' | TaskStatus;
@@ -121,6 +123,7 @@ interface AppState {
   setTaskOwnerFilter: (value: string) => void;
   setTaskStatusFilter: (value: 'All' | TaskStatus) => void;
   openCreateTaskModal: () => void;
+  openCreateFromCapture: (draft: UniversalCaptureDraft) => void;
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;
   updateItem: (id: string, patch: Partial<FollowUpItem>) => void;
@@ -468,6 +471,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   mergeModal: { open: false, baseId: null, candidateId: null },
   draftModal: { open: false, itemId: null },
   taskModal: { open: false, mode: 'create', taskId: null },
+  createWorkDraft: null,
   selectedTaskId: null,
   taskOwnerFilter: 'All',
   taskStatusFilter: 'All',
@@ -558,9 +562,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setProjectFilter: (value) => set({ projectFilter: value }),
   setStatusFilter: (value) => set({ statusFilter: value }),
   setActiveView: (value) => set({ activeView: value }),
-  openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null } }),
+  openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
   openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
-  closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null } }),
+  closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
   openTouchModal: () => set({ touchModalOpen: true }),
   closeTouchModal: () => set({ touchModalOpen: false }),
   openImportModal: () => set({ importModalOpen: true }),
@@ -572,9 +576,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
   setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
-  openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null } }),
+  openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null }, itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
+  openCreateFromCapture: (draft) => set({
+    createWorkDraft: draft,
+    itemModal: draft.kind === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
+    taskModal: draft.kind === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
+  }),
   openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
-  closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null } }),
+  closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
   updateItem: (id, patch) => {
     set((state) => {
       const normalizedPatch = syncProjectNamePatch(patch, state.projects);
@@ -603,6 +612,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         projects,
         selectedId: normalized.id,
         itemModal: { open: false, mode: 'create', itemId: null },
+        createWorkDraft: null,
         duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
       };
     });
@@ -641,7 +651,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const normalized = normalizeTask({ ...task, project: resolveProjectName(task.projectId, task.project, state.projects) });
       const tasks = normalizeTasks([normalized, ...state.tasks]);
       const projects = deriveProjects(state.items, state.projects);
-      return { tasks, projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null } };
+      return { tasks, projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null };
     });
     queuePersist(get, set);
   },
@@ -1052,7 +1062,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     try {
       set((state) => ({ outlookConnection: { ...state.outlookConnection, syncStatus: 'syncing', lastError: undefined } }));
       const graph = await import('../lib/outlookGraph');
-      let connection = await ensureValidOutlookAccessToken(get().outlookConnection);
+      const connection = await ensureValidOutlookAccessToken(get().outlookConnection);
       set({ outlookConnection: connection });
 
       const existingMessages = get().outlookMessages;

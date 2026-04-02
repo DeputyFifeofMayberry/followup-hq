@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileEdit, Save, Trash2 } from 'lucide-react';
+import { FileEdit, Save, Send, SquareCheckBig, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
-import { escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone } from '../lib/utils';
+import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 
 export function ItemDetailPanel() {
@@ -15,6 +15,9 @@ export function ItemDetailPanel() {
     deleteItem,
     openEditModal,
     addRunningNote,
+    addTask,
+    addTouchLog,
+    openDraftModal,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
     items: s.items,
@@ -24,6 +27,9 @@ export function ItemDetailPanel() {
     deleteItem: s.deleteItem,
     openEditModal: s.openEditModal,
     addRunningNote: s.addRunningNote,
+    addTask: s.addTask,
+    addTouchLog: s.addTouchLog,
+    openDraftModal: s.openDraftModal,
   })));
 
   const item = items.find((entry) => entry.id === selectedId) ?? null;
@@ -63,6 +69,28 @@ export function ItemDetailPanel() {
           </div>
         </div>
         <div className="detail-actions-row">
+          <button onClick={() => addTouchLog({ id: item.id, summary: 'Quick touch logged from selected follow-up.', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Touch + bump</button>
+          <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft</button>
+          <button onClick={() => addTask({
+            id: createId('TSK'),
+            title: `Task: ${item.title}`,
+            project: item.project,
+            projectId: item.projectId,
+            owner: item.owner,
+            status: 'To do',
+            priority: item.priority,
+            dueDate: item.nextTouchDate || item.dueDate,
+            startDate: todayIso(),
+            summary: item.summary,
+            nextStep: item.nextAction || 'Complete next step.',
+            notes: '',
+            tags: ['From follow-up'],
+            linkedFollowUpId: item.id,
+            contactId: item.contactId,
+            companyId: item.companyId,
+            createdAt: todayIso(),
+            updatedAt: todayIso(),
+          })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create task</button>
           <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />Edit</button>
           <button onClick={() => { if (window.confirm('Delete this follow-up? This cannot be undone.')) deleteItem(item.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
         </div>

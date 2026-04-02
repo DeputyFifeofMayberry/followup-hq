@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, BellRing, CheckCircle2, ClipboardList, Clock3, ListTodo } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
-import { formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
+import { buildTouchEvent, createId, formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
 
 interface QueueCard {
   id: string;
@@ -18,6 +18,9 @@ interface QueueCard {
   onSnooze?: () => void;
   onNudged?: () => void;
   onEscalate?: () => void;
+  onCreateTask?: () => void;
+  onLogTouch?: () => void;
+  onDraft?: () => void;
 }
 
 export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp: (id: string) => void; onOpenTask: (id: string) => void }) {
@@ -34,6 +37,8 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
     forwardedCandidates,
     approveForwardedCandidate,
     rejectForwardedCandidate,
+    addTask,
+    openDraftModal,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -47,10 +52,13 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
     forwardedCandidates: s.forwardedCandidates,
     approveForwardedCandidate: s.approveForwardedCandidate,
     rejectForwardedCandidate: s.rejectForwardedCandidate,
+    addTask: s.addTask,
+    openDraftModal: s.openDraftModal,
   })));
 
   const [ownerFilter, setOwnerFilter] = useState<string>('All');
   const [timeMode, setTimeMode] = useState<'morning' | 'afternoon'>('morning');
+  const [focusIndex, setFocusIndex] = useState(0);
 
   const owners = useMemo(
     () => ['All', ...Array.from(new Set([...items.map((item) => item.owner), ...tasks.map((task) => task.owner)])).sort()],
@@ -80,6 +88,32 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
           onSnooze: () => snoozeItem(item.id, 2),
           onNudged: () => markNudged(item.id),
           onEscalate: () => cycleEscalation(item.id),
+          onCreateTask: () => addTask({
+            id: createId('TSK'),
+            title: `Task: ${item.title}`,
+            project: item.project,
+            projectId: item.projectId,
+            owner: item.owner,
+            status: 'To do',
+            priority: item.priority,
+            dueDate: item.nextTouchDate || item.dueDate,
+            startDate: todayIso(),
+            summary: item.summary || item.nextAction,
+            nextStep: item.nextAction || 'Complete this follow-up task.',
+            notes: '',
+            tags: ['From follow-up'],
+            linkedFollowUpId: item.id,
+            contactId: item.contactId,
+            companyId: item.companyId,
+            createdAt: todayIso(),
+            updatedAt: todayIso(),
+          }),
+          onLogTouch: () => updateItem(item.id, {
+            lastTouchDate: todayIso(),
+            nextTouchDate: item.cadenceDays ? new Date(Date.now() + item.cadenceDays * 86400000).toISOString() : item.nextTouchDate,
+            timeline: [buildTouchEvent('Quick touch logged from Today queue.'), ...item.timeline],
+          }),
+          onDraft: () => openDraftModal(item.id),
         } satisfies QueueCard;
       });
 
@@ -107,14 +141,15 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
       .filter((card) => ownerFilter === 'All' || card.owner === ownerFilter)
       .sort((a, b) => b.score - a.score)
       .slice(timeMode === 'morning' ? 0 : 5, timeMode === 'morning' ? 10 : 15);
-  }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, updateItem, timeMode, snoozeItem, markNudged, cycleEscalation]);
+  }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, updateItem, timeMode, snoozeItem, markNudged, cycleEscalation, addTask, openDraftModal]);
   const pendingIntake = forwardedCandidates.filter((candidate) => candidate.status === 'pending').slice(0, 4);
+  const focused = queue[focusIndex] ?? null;
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
-        <h2 className="text-lg font-semibold text-slate-950">One work-this-now queue</h2>
-        <p className="mt-1 text-sm text-slate-500">Single execution list across follow-ups and tasks. Use this to answer: what are my next moves today?</p>
+        <h2 className="text-lg font-semibold text-slate-950">Today execution queue</h2>
+        <p className="mt-1 text-sm text-slate-500">Recommended next moves across follow-ups and tasks, ordered for fast daily execution.</p>
       </div>
 
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_auto_auto]">
@@ -132,6 +167,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
         <div className="flex flex-wrap gap-2">
           <button onClick={openCreateModal} className="action-btn">New follow-up</button>
           <button onClick={openCreateTaskModal} className="action-btn">New task</button>
+          <button onClick={() => setFocusIndex((idx) => Math.min(queue.length - 1, idx + 1))} className="action-btn">Next in triage</button>
           <button onClick={() => setOwnerFilter('All')} className="action-btn">Reset filters</button>
         </div>
       </div>
@@ -160,8 +196,8 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
             </div>
           </div>
         ) : null}
-        {queue.map((card) => (
-          <div key={`${card.kind}-${card.id}`} className="rounded-2xl border border-slate-200 p-4">
+        {queue.map((card, index) => (
+          <div key={`${card.kind}-${card.id}`} className={index === focusIndex ? 'rounded-2xl border-2 border-slate-900 p-4' : 'rounded-2xl border border-slate-200 p-4'}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{card.kind}</div>
@@ -173,6 +209,9 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
                 {card.onDone ? <button onClick={card.onDone} className="action-btn"><CheckCircle2 className="h-4 w-4" />Done</button> : null}
                 {card.onNudged ? <button onClick={card.onNudged} className="action-btn">Nudged</button> : null}
                 {card.onSnooze ? <button onClick={card.onSnooze} className="action-btn">Snooze 2d</button> : null}
+                {card.onLogTouch ? <button onClick={card.onLogTouch} className="action-btn">Touch + bump</button> : null}
+                {card.onCreateTask ? <button onClick={card.onCreateTask} className="action-btn">Create task</button> : null}
+                {card.onDraft ? <button onClick={card.onDraft} className="action-btn">Draft follow-up</button> : null}
                 {card.onEscalate ? <button onClick={card.onEscalate} className="action-btn">Escalate</button> : null}
               </div>
             </div>
@@ -184,6 +223,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
       <div className="grid gap-3 border-t border-slate-200 p-4 md:grid-cols-3">
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ListTodo className="mb-2 h-4 w-4" />Today: close commitments first, then execution tasks.</div>
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ClipboardList className="mb-2 h-4 w-4" />Check blocked handoffs before adding new work.</div>
+        <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">{focused ? `Focused triage: ${focused.title}` : 'No focused item in triage.'}</div>
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { WandSparkles } from 'lucide-react';
+import { AlertTriangle, CircleCheck, Sparkles, WandSparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { getRecentEntryContext } from '../lib/dataEntryDefaults';
 import { parseUniversalCapture } from '../lib/universalCapture';
@@ -50,6 +50,7 @@ export function UniversalCapture({
     };
   }, [parsedOverride, text, contextProject, contextOwner]);
 
+  const confidence = parsed.title.trim().length > 12 && parsed.cleanupReasons.length === 0 ? 'high' : parsed.cleanupReasons.length >= 2 ? 'low' : 'medium';
   const canDirectSave = !!text.trim() && !!parsed.title.trim();
   const needsCleanup = parsed.cleanupReasons.length > 0;
 
@@ -154,12 +155,20 @@ export function UniversalCapture({
   };
 
   return (
-    <section className="sticky top-2 z-20 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <WandSparkles className="h-4 w-4 text-slate-600" />
-        <div className="text-sm font-semibold text-slate-900">Capture Bar</div>
+    <section className="smart-composer-shell">
+      <div className="smart-composer-head">
+        <div className="flex flex-wrap items-center gap-2">
+          <WandSparkles className="h-4 w-4 text-slate-600" />
+          <div className="text-sm font-semibold text-slate-900">Smart Composer</div>
+          <span className="smart-composer-kbd">Enter save</span>
+          <span className="smart-composer-kbd">⌘/Ctrl+Enter save+open</span>
+        </div>
+        <div className={`smart-composer-state ${needsCleanup ? 'smart-composer-state-warn' : 'smart-composer-state-ready'}`}>
+          {needsCleanup ? <AlertTriangle className="h-4 w-4" /> : <CircleCheck className="h-4 w-4" />}
+          {needsCleanup ? 'Needs cleanup' : 'Ready to save'}
+        </div>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Natural language works here. Enter save · Cmd/Ctrl+Enter save+open · Esc clear.</p>
+      <p className="mt-1 text-xs text-slate-500">Type naturally. Parse chips show what the system inferred and what needs correction.</p>
       <div className="mt-2 flex gap-2">
         <input
           value={text}
@@ -185,16 +194,19 @@ export function UniversalCapture({
             }
           }}
           placeholder="Waiting on Alex pricing for B995. Need follow-up by Friday."
-          className="field-input"
+          className="field-input smart-composer-input"
         />
         <button onClick={() => saveDraft(false, false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">Save</button>
+        <button onClick={() => saveDraft(true, true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Save + Open</button>
       </div>
 
       {text.trim() ? (
         <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            <span>Instant preview</span>
-            <span className={needsCleanup ? 'text-amber-700' : 'text-emerald-700'}>{needsCleanup ? 'Needs cleanup' : 'Ready'}</span>
+            <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Instant parse preview</span>
+            <span className={confidence === 'high' ? 'text-emerald-700' : confidence === 'medium' ? 'text-sky-700' : 'text-amber-700'}>
+              {confidence} confidence
+            </span>
           </div>
           <div className="grid gap-2 text-xs md:grid-cols-5">
             <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2">

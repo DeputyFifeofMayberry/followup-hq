@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
+import { buildCandidate, buildMessageSignature, evaluateOutlookMessage, upsertLedgerEntry, buildAudit, findSimilarRecentCandidate } from '../lib/outlookTriage';
+import { getDefaultOutlookTriageRules } from '../lib/outlookRules';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
 import { isTauriRuntime, loadSnapshot, saveSnapshot } from '../lib/persistence';
@@ -28,6 +30,11 @@ import type {
   TaskItem,
   TaskStatus,
   TimelineEvent,
+  OutlookAutomationAuditEntry,
+  OutlookIngestionLedgerEntry,
+  OutlookTriageCandidate,
+  OutlookTriageRule,
+  OutlookTriageRuleAction,
 } from '../types';
 
 interface ItemModalState {
@@ -85,6 +92,10 @@ interface AppState {
   outlookConnection: OutlookConnectionState;
   outlookMessages: OutlookMessage[];
   droppedEmailImports: DroppedEmailImport[];
+  outlookTriageRules: OutlookTriageRule[];
+  outlookIngestionLedger: OutlookIngestionLedgerEntry[];
+  outlookTriageCandidates: OutlookTriageCandidate[];
+  outlookAutomationAudit: OutlookAutomationAuditEntry[];
   initializeApp: () => Promise<void>;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;
@@ -149,6 +160,13 @@ interface AppState {
   importOutlookMessage: (messageId: string) => void;
   disconnectOutlook: () => void;
   clearOutlookError: () => void;
+  approveTriageCandidate: (candidateId: string, asType?: 'task' | 'follow-up') => void;
+  rejectTriageCandidate: (candidateId: string) => void;
+  linkTriageCandidateToExisting: (candidateId: string, itemId: string) => void;
+  addOutlookRuleFromCandidate: (candidateId: string, action: OutlookTriageRuleAction) => void;
+  addManualOutlookRule: (rule: Omit<OutlookTriageRule, 'id' | 'createdAt' | 'updatedAt' | 'source'>) => void;
+  updateOutlookRule: (ruleId: string, patch: Partial<OutlookTriageRule>) => void;
+  deleteOutlookRule: (ruleId: string) => void;
 }
 
 const defaultOutlookConnection: OutlookConnectionState = {
@@ -257,7 +275,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages'>): AppSnapshot {
+function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'outlookTriageRules' | 'outlookIngestionLedger' | 'outlookTriageCandidates' | 'outlookAutomationAudit'>): AppSnapshot {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -270,6 +288,10 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
     droppedEmailImports: state.droppedEmailImports,
     outlookConnection: state.outlookConnection,
     outlookMessages: state.outlookMessages,
+    outlookTriageRules: state.outlookTriageRules,
+    outlookIngestionLedger: state.outlookIngestionLedger,
+    outlookTriageCandidates: state.outlookTriageCandidates,
+    outlookAutomationAudit: state.outlookAutomationAudit,
   };
 }
 
@@ -344,6 +366,84 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
   };
 }
 
+
+
+function buildFollowUpFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): FollowUpItem {
+  const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
+  return normalizeItem({
+    id: createId(),
+    title: message.subject || '(no subject)',
+    source: 'Email',
+    project,
+    projectId,
+    owner,
+    status: message.folder === 'sentitems' ? 'Waiting on external' : 'Needs action',
+    priority: message.flagStatus === 'flagged' || message.importance === 'high' ? 'High' : 'Medium',
+    dueDate: dueDateBase,
+    promisedDate: undefined,
+    lastTouchDate: todayIso(),
+    nextTouchDate: addDaysIso(todayIso(), 2),
+    nextAction: message.folder === 'sentitems' ? 'Review thread status and send a follow-up if no reply has come in.' : 'Read the message and assign ownership.',
+    summary: message.bodyPreview,
+    tags: ['Outlook', message.folder === 'sentitems' ? 'Sent' : 'Inbox', ...(message.categories ?? [])],
+    sourceRef: message.sourceRef,
+    sourceRefs: [message.sourceRef, message.webLink ?? '', message.conversationId ?? '', message.internetMessageId ?? ''].filter(Boolean),
+    mergedItemIds: [],
+    waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
+    notes: [`Outlook conversation: ${message.conversationId ?? 'n/a'}`, `From: ${message.from}`].join('\n'),
+    timeline: [buildTouchEvent('Created by Outlook auto-triage.', 'imported')],
+    category: 'Coordination',
+    owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
+    escalationLevel: 'None',
+    cadenceDays: 3,
+    threadKey: message.conversationId,
+    draftFollowUp: '',
+  });
+}
+
+function buildTaskFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): TaskItem {
+  return {
+    id: createId('TSK'),
+    title: message.subject || '(no subject)',
+    project,
+    projectId,
+    owner,
+    status: 'To do',
+    priority: message.importance === 'high' || message.flagStatus === 'flagged' ? 'High' : 'Medium',
+    dueDate: addDaysIso(todayIso(), 1),
+    summary: message.bodyPreview,
+    nextStep: 'Review email and execute the requested action.',
+    notes: `Created by Outlook auto-triage from ${message.sourceRef}`,
+    tags: ['Outlook', ...(message.categories ?? [])],
+    createdAt: todayIso(),
+    updatedAt: todayIso(),
+  };
+}
+
+function noReplyContext(messages: OutlookMessage[]): Record<string, { noReply: boolean; noReplyDays: number }> {
+  const grouped = new Map<string, OutlookMessage[]>();
+  messages.forEach((message) => {
+    const key = message.conversationId ?? '';
+    if (!key) return;
+    grouped.set(key, [...(grouped.get(key) ?? []), message]);
+  });
+  const out: Record<string, { noReply: boolean; noReplyDays: number }> = {};
+  grouped.forEach((thread, conversationId) => {
+    const latestSent = thread.filter((message) => message.folder === 'sentitems' && message.sentDateTime).sort((a, b) => new Date(b.sentDateTime ?? 0).getTime() - new Date(a.sentDateTime ?? 0).getTime())[0];
+    if (!latestSent?.sentDateTime) {
+      out[conversationId] = { noReply: false, noReplyDays: 0 };
+      return;
+    }
+    const sentAt = new Date(latestSent.sentDateTime).getTime();
+    const hasReply = thread.some((message) => message.folder === 'inbox' && new Date(message.receivedDateTime ?? 0).getTime() > sentAt);
+    out[conversationId] = {
+      noReply: !hasReply,
+      noReplyDays: Math.max(0, Math.floor((Date.now() - sentAt) / 86400000)),
+    };
+  });
+  return out;
+}
+
 export const useAppStore = create<AppState>()((set, get) => ({
   items: [],
   contacts: [],
@@ -376,6 +476,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   outlookConnection: defaultOutlookConnection,
   outlookMessages: [],
   droppedEmailImports: [],
+  outlookTriageRules: getDefaultOutlookTriageRules(),
+  outlookIngestionLedger: [],
+  outlookTriageCandidates: [],
+  outlookAutomationAudit: [],
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
@@ -398,6 +502,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
+      const outlookTriageRules = snapshot.outlookTriageRules?.length ? snapshot.outlookTriageRules : getDefaultOutlookTriageRules();
+      const outlookIngestionLedger = snapshot.outlookIngestionLedger ?? [];
+      const outlookTriageCandidates = snapshot.outlookTriageCandidates ?? [];
+      const outlookAutomationAudit = snapshot.outlookAutomationAudit ?? [];
       set({
         items,
         contacts,
@@ -413,6 +521,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
         hydrated: true,
         persistenceMode: mode,
         droppedEmailImports,
+        outlookTriageRules,
+        outlookIngestionLedger,
+        outlookTriageCandidates,
+        outlookAutomationAudit,
         saveError: '',
         syncState: 'saved',
         lastSyncedAt: todayIso(),
@@ -992,7 +1104,62 @@ export const useAppStore = create<AppState>()((set, get) => ({
         syncCursorByFolder: nextCursor,
         lastSyncMode: usedDelta ? 'delta' : 'initial',
       };
-      set({ outlookConnection: syncedConnection, outlookMessages: deduped });
+      const state = get();
+      const changedMessages = deduped.filter((message) => {
+        const existing = state.outlookIngestionLedger.find((entry) => entry.messageId === message.id);
+        if (!existing) return true;
+        return existing.messageSignature !== buildMessageSignature(message);
+      });
+
+      let items = state.items;
+      let tasks = state.tasks;
+      let ledger = state.outlookIngestionLedger;
+      let candidates = state.outlookTriageCandidates;
+      let audit = state.outlookAutomationAudit;
+      const threadNoReply = noReplyContext(deduped);
+
+      changedMessages.forEach((message) => {
+        const output = evaluateOutlookMessage(message, {
+          rules: state.outlookTriageRules,
+          ledger,
+          items,
+          tasks,
+          existingCandidates: candidates,
+          internalDomains: ['followuphq.com'],
+          noReplyAfterSentByConversation: threadNoReply,
+        });
+
+        let createdTaskId: string | undefined;
+        let createdFollowUpId: string | undefined;
+
+        if (output.decision === 'auto-task') {
+          const task = buildTaskFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
+          tasks = normalizeTasks([task, ...tasks]);
+          createdTaskId = task.id;
+        } else if (output.decision === 'auto-follow-up') {
+          const item = buildFollowUpFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
+          items = normalizeItems([item, ...items]);
+          createdFollowUpId = item.id;
+        } else if (output.decision === 'review') {
+          const existing = findSimilarRecentCandidate(candidates, message);
+          if (!existing) {
+            candidates = [buildCandidate(message, output), ...candidates];
+          }
+        }
+
+        ledger = upsertLedgerEntry(ledger, message, output, { linkedTaskId: createdTaskId, linkedFollowUpId: createdFollowUpId });
+        audit = [buildAudit(message, output, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...audit].slice(0, 500);
+      });
+
+      set({
+        outlookConnection: syncedConnection,
+        outlookMessages: deduped,
+        items,
+        tasks,
+        outlookIngestionLedger: ledger,
+        outlookTriageCandidates: candidates,
+        outlookAutomationAudit: audit,
+      });
       queuePersist(get, set);
     } catch (error) {
       set((state) => ({
@@ -1008,47 +1175,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
   importOutlookMessage: (messageId) => {
     const message = get().outlookMessages.find((entry) => entry.id === messageId);
     if (!message) return;
-    const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
-    const item: FollowUpItem = normalizeItem({
-      id: createId(),
-      title: message.subject || '(no subject)',
-      source: 'Email',
-      project: 'General',
-      owner: 'Jared',
-      status: message.folder === 'sentitems' ? 'Waiting on external' : 'Needs action',
-      priority: message.flagStatus === 'flagged' || message.importance === 'high' ? 'High' : 'Medium',
-      dueDate: dueDateBase,
-      promisedDate: undefined,
-      lastTouchDate: todayIso(),
-      nextTouchDate: addDaysIso(todayIso(), 2),
-      nextAction: message.folder === 'sentitems' ? 'Review thread status and send a follow-up if no reply has come in.' : 'Read the message, decide ownership, and convert it into a tracked follow-up.',
-      summary: message.bodyPreview,
-      tags: ['Outlook', message.folder === 'sentitems' ? 'Sent' : 'Inbox', ...(message.categories ?? [])],
-      sourceRef: message.sourceRef,
-      sourceRefs: [message.sourceRef, message.webLink ?? '', message.conversationId ?? '', message.internetMessageId ?? ''],
-      mergedItemIds: [],
-      waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
-      notes: [
-        `Outlook conversation: ${message.conversationId ?? 'n/a'}`,
-        `From: ${message.from}`,
-        message.toRecipients.length ? `To: ${message.toRecipients.join('; ')}` : '',
-        message.ccRecipients.length ? `CC: ${message.ccRecipients.join('; ')}` : '',
-        message.webLink ? `Web link: ${message.webLink}` : '',
-      ].filter(Boolean).join('\n'),
-      timeline: [buildTouchEvent(`Imported from Outlook ${message.folder} sync.`, 'imported')],
-      category: 'Coordination',
-      owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
-      escalationLevel: 'None',
-      cadenceDays: 3,
-      threadKey: message.conversationId,
-      draftFollowUp: '',
-    });
-    set((state) => {
-      const items = normalizeItems([item, ...state.items]);
+    const state = get();
+    const alreadyLinked = state.outlookIngestionLedger.find((entry) => entry.messageId === messageId && (entry.linkedFollowUpId || entry.linkedTaskId));
+    const openConflict = state.items.some((item) => item.status !== 'Closed' && item.threadKey && message.conversationId && item.threadKey === message.conversationId);
+    if (alreadyLinked || openConflict) return;
+
+    const item = buildFollowUpFromOutlookMessage(message, 'Jared', 'General');
+    set((inner) => {
+      const items = normalizeItems([item, ...inner.items]);
       return {
         items,
         selectedId: item.id,
-        duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
+        duplicateReviews: refreshDuplicates(items, inner.dismissedDuplicatePairs),
+        outlookIngestionLedger: upsertLedgerEntry(
+          inner.outlookIngestionLedger,
+          message,
+          {
+            decision: 'auto-follow-up',
+            confidence: 100,
+            suggestedType: 'follow-up',
+            reasons: ['Decision: manual import from Outlook workspace'],
+            blockingReasons: [],
+            duplicateInfo: [],
+            matchedRuleIds: [],
+          },
+          { linkedFollowUpId: item.id },
+        ),
       };
     });
     queuePersist(get, set);
@@ -1061,6 +1213,87 @@ export const useAppStore = create<AppState>()((set, get) => ({
     queuePersist(get, set);
   },
   clearOutlookError: () => set((state) => ({ outlookConnection: { ...state.outlookConnection, lastError: undefined, syncStatus: state.outlookConnection.mailboxLinked ? 'connected' : 'idle' } })),
+  approveTriageCandidate: (candidateId, asType) => {
+    set((state) => {
+      const candidate = state.outlookTriageCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate || candidate.status !== 'pending') return state;
+      const message = state.outlookMessages.find((entry) => entry.id === candidate.messageId);
+      if (!message) return state;
+      const type = asType ?? candidate.suggestedType;
+      if (type === 'task') {
+        const task = buildTaskFromOutlookMessage(message, candidate.suggestedOwner ?? 'Jared', candidate.suggestedProject ?? 'General', candidate.suggestedProjectId);
+        return {
+          tasks: normalizeTasks([task, ...state.tasks]),
+          outlookTriageCandidates: state.outlookTriageCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdTaskId: task.id, updatedAt: todayIso() } : entry),
+          outlookIngestionLedger: upsertLedgerEntry(state.outlookIngestionLedger, message, { decision: 'auto-task', confidence: candidate.confidence, suggestedType: 'task', reasons: ['Decision: approved from review queue'], blockingReasons: [], duplicateInfo: [], matchedRuleIds: [] }, { linkedTaskId: task.id }),
+        };
+      }
+      const item = buildFollowUpFromOutlookMessage(message, candidate.suggestedOwner ?? 'Jared', candidate.suggestedProject ?? 'General', candidate.suggestedProjectId);
+      const items = normalizeItems([item, ...state.items]);
+      return {
+        items,
+        duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
+        outlookTriageCandidates: state.outlookTriageCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdFollowUpId: item.id, updatedAt: todayIso() } : entry),
+        outlookIngestionLedger: upsertLedgerEntry(state.outlookIngestionLedger, message, { decision: 'auto-follow-up', confidence: candidate.confidence, suggestedType: 'follow-up', reasons: ['Decision: approved from review queue'], blockingReasons: [], duplicateInfo: [], matchedRuleIds: [] }, { linkedFollowUpId: item.id }),
+      };
+    });
+    queuePersist(get, set);
+  },
+  rejectTriageCandidate: (candidateId) => {
+    set((state) => ({
+      outlookTriageCandidates: state.outlookTriageCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'rejected', updatedAt: todayIso() } : entry),
+    }));
+    queuePersist(get, set);
+  },
+  linkTriageCandidateToExisting: (candidateId, itemId) => {
+    set((state) => ({
+      outlookTriageCandidates: state.outlookTriageCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'converted', linkedExistingItemId: itemId, updatedAt: todayIso() } : entry),
+    }));
+    queuePersist(get, set);
+  },
+  addOutlookRuleFromCandidate: (candidateId, action) => {
+    set((state) => {
+      const candidate = state.outlookTriageCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      const message = state.outlookMessages.find((entry) => entry.id === candidate.messageId);
+      const sender = message?.from.match(/<([^>]+)>/)?.[1] ?? message?.from ?? '';
+      const senderDomain = sender.includes('@') ? sender.split('@')[1] : undefined;
+      const rule: OutlookTriageRule = {
+        id: createId('OTR'),
+        name: `From candidate: ${candidate.sourceMessageSubject.slice(0, 40)}`,
+        enabled: true,
+        priority: (state.outlookTriageRules.at(-1)?.priority ?? 100) + 10,
+        source: 'user',
+        conditions: {
+          folder: candidate.sourceMessageFolder,
+          senderDomain,
+          subjectContains: candidate.sourceMessageSubject.slice(0, 24),
+          projectMatchRequired: Boolean(candidate.suggestedProject),
+        },
+        action,
+        createdAt: todayIso(),
+        updatedAt: todayIso(),
+      };
+      return { outlookTriageRules: [...state.outlookTriageRules, rule] };
+    });
+    queuePersist(get, set);
+  },
+  addManualOutlookRule: (ruleInput) => {
+    set((state) => ({
+      outlookTriageRules: [...state.outlookTriageRules, { ...ruleInput, id: createId('OTR'), source: 'user', createdAt: todayIso(), updatedAt: todayIso() }],
+    }));
+    queuePersist(get, set);
+  },
+  updateOutlookRule: (ruleId, patch) => {
+    set((state) => ({
+      outlookTriageRules: state.outlookTriageRules.map((rule) => rule.id === ruleId ? { ...rule, ...patch, updatedAt: todayIso() } : rule),
+    }));
+    queuePersist(get, set);
+  },
+  deleteOutlookRule: (ruleId) => {
+    set((state) => ({ outlookTriageRules: state.outlookTriageRules.filter((rule) => rule.id !== ruleId) }));
+    queuePersist(get, set);
+  },
 }));
 
 export const useAppStoreShallow = useShallow;

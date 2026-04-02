@@ -444,6 +444,106 @@ export interface OutlookThreadSuggestion {
   webLink?: string;
 }
 
+
+
+export type OutlookTriageSuggestedType = 'task' | 'follow-up';
+
+export type OutlookTriageRuleAction =
+  | 'ignore'
+  | 'review-task'
+  | 'review-follow-up'
+  | 'auto-task'
+  | 'auto-follow-up'
+  | 'boost-confidence'
+  | 'block-auto-create';
+
+export interface OutlookTriageRuleCondition {
+  folder?: OutlookFolderName;
+  senderEmailContains?: string;
+  senderDomain?: string;
+  recipientDomain?: string;
+  categoryContains?: string;
+  flagged?: boolean;
+  projectMatchRequired?: boolean;
+  threadHasNoReplyAfterSent?: boolean;
+  minConfidence?: number;
+  senderKind?: 'internal' | 'external';
+  subjectContains?: string;
+  bodyContains?: string;
+}
+
+export interface OutlookTriageRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  priority: number;
+  source: 'system' | 'user';
+  conditions: OutlookTriageRuleCondition;
+  action: OutlookTriageRuleAction;
+  confidenceBoost?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OutlookTriageDecision = 'auto-task' | 'auto-follow-up' | 'review' | 'ignore' | 'blocked';
+
+export interface OutlookIngestionLedgerEntry {
+  id: string;
+  messageId: string;
+  internetMessageId?: string;
+  conversationId?: string;
+  folder: OutlookFolderName;
+  messageSignature: string;
+  triageResult: OutlookTriageDecision;
+  linkedFollowUpId?: string;
+  linkedTaskId?: string;
+  lastEvaluatedAt: string;
+  lastDecisionReason: string;
+}
+
+export type OutlookTriageCandidateStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'converted';
+
+export interface OutlookTriageCandidate {
+  id: string;
+  messageId: string;
+  internetMessageId?: string;
+  conversationId?: string;
+  sourceMessageIds: string[];
+  suggestedType: OutlookTriageSuggestedType;
+  suggestedProject?: string;
+  suggestedProjectId?: string;
+  suggestedOwner?: string;
+  suggestedPriority?: FollowUpPriority | TaskPriority;
+  suggestedDueDate?: string;
+  suggestedWaitingOn?: string;
+  confidence: number;
+  reasons: string[];
+  blockingReasons: string[];
+  duplicateInfo: string[];
+  status: OutlookTriageCandidateStatus;
+  sourceMessageSubject: string;
+  sourceMessageFrom: string;
+  sourceMessageFolder: OutlookFolderName;
+  createdTaskId?: string;
+  createdFollowUpId?: string;
+  linkedExistingItemId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OutlookAutomationAuditEntry {
+  id: string;
+  messageId: string;
+  conversationId?: string;
+  matchedRuleIds: string[];
+  signalsUsed: string[];
+  confidence: number;
+  result: OutlookTriageDecision;
+  reasons: string[];
+  createdTaskId?: string;
+  createdFollowUpId?: string;
+  createdAt: string;
+}
 export interface AppSnapshot {
   items: FollowUpItem[];
   contacts: ContactRecord[];
@@ -456,4 +556,8 @@ export interface AppSnapshot {
   outlookConnection: OutlookConnectionState;
   outlookMessages: OutlookMessage[];
   tasks: TaskItem[];
+  outlookTriageRules: OutlookTriageRule[];
+  outlookIngestionLedger: OutlookIngestionLedgerEntry[];
+  outlookTriageCandidates: OutlookTriageCandidate[];
+  outlookAutomationAudit: OutlookAutomationAuditEntry[];
 }

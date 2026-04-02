@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getDefaultOutlookSettings } from './outlookGraph';
+import { getDefaultOutlookTriageRules } from './outlookRules';
 import {
   starterCompanies,
   starterContacts,
@@ -31,6 +32,10 @@ function buildFallbackSnapshot(): AppSnapshot {
     },
     outlookMessages: [],
     tasks: starterTasks,
+    outlookTriageRules: getDefaultOutlookTriageRules(),
+    outlookIngestionLedger: [],
+    outlookTriageCandidates: [],
+    outlookAutomationAudit: [],
   };
 }
 

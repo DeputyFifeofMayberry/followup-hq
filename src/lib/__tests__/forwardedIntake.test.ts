@@ -56,3 +56,12 @@ export function runForwardedIntakeSelfChecks(): void {
   });
   assert(['ignore', 'blocked'].includes(newsletterRouted.decision), 'newsletter should be ignored/blocked');
 }
+
+
+try {
+  runForwardedIntakeSelfChecks();
+  console.log('forwarded intake self-checks passed');
+} catch (error) {
+  console.error('forwarded intake self-checks failed');
+  throw error;
+}

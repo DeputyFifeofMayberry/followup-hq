@@ -446,103 +446,151 @@ export interface OutlookThreadSuggestion {
 
 
 
-export type OutlookTriageSuggestedType = 'task' | 'follow-up';
-
-export type OutlookTriageRuleAction =
-  | 'ignore'
-  | 'review-task'
-  | 'review-follow-up'
-  | 'auto-task'
-  | 'auto-follow-up'
-  | 'boost-confidence'
-  | 'block-auto-create';
-
-export interface OutlookTriageRuleCondition {
-  folder?: OutlookFolderName;
-  senderEmailContains?: string;
-  senderDomain?: string;
-  recipientDomain?: string;
-  categoryContains?: string;
-  flagged?: boolean;
-  projectMatchRequired?: boolean;
-  threadHasNoReplyAfterSent?: boolean;
-  minConfidence?: number;
-  senderKind?: 'internal' | 'external';
-  subjectContains?: string;
-  bodyContains?: string;
+export interface ForwardedEmailCommandHints {
+  type?: 'task' | 'followup' | 'reference';
+  project?: string;
+  owner?: string;
+  dueDate?: string;
+  priority?: FollowUpPriority | TaskPriority;
+  waitingOn?: string;
+  tags: string[];
 }
 
-export interface OutlookTriageRule {
+export interface ForwardedEmailAttachmentMeta {
+  fileName: string;
+  contentType?: string;
+  sizeBytes?: number;
+}
+
+export type ForwardedEmailStatus = 'received' | 'parsed' | 'candidate_created' | 'ignored' | 'errored';
+
+export interface ForwardedEmailRecord {
+  id: string;
+  receivedAt: string;
+  forwardingAddress: string;
+  forwardingAlias: string;
+  originalSubject: string;
+  normalizedSubject: string;
+  originalSender: string;
+  originalRecipients: string[];
+  cc: string[];
+  originalSentAt?: string;
+  bodyText: string;
+  htmlBody?: string;
+  attachments: ForwardedEmailAttachmentMeta[];
+  parsedProjectHints: string[];
+  parsedCommandHints: ForwardedEmailCommandHints;
+  parseQuality: 'strong' | 'partial' | 'weak';
+  parseWarnings: string[];
+  parserConfidence: number;
+  dedupeSignature: string;
+  sourceMessageIdentifiers: string[];
+  rawForwardingMarkers: string[];
+  status: ForwardedEmailStatus;
+}
+
+export type ForwardedRuleAction =
+  | 'ignore'
+  | 'review-task'
+  | 'review-followup'
+  | 'review-reference'
+  | 'allow-auto-task'
+  | 'allow-auto-followup'
+  | 'block-auto-create'
+  | 'boost-confidence'
+  | 'set-owner'
+  | 'set-project'
+  | 'set-default-priority';
+
+export interface ForwardedRuleCondition {
+  forwardingAlias?: string;
+  senderEmailContains?: string;
+  senderDomain?: string;
+  subjectContains?: string;
+  bodyContains?: string;
+  projectHintPresent?: boolean;
+  commandTag?: string;
+  attachmentPresent?: boolean;
+  senderKind?: 'internal' | 'external';
+  minParserConfidence?: number;
+  maxRecipientCount?: number;
+  threadSignatureContains?: string;
+}
+
+export interface ForwardedEmailRule {
   id: string;
   name: string;
   enabled: boolean;
   priority: number;
   source: 'system' | 'user';
-  conditions: OutlookTriageRuleCondition;
-  action: OutlookTriageRuleAction;
+  conditions: ForwardedRuleCondition;
+  action: ForwardedRuleAction;
+  value?: string;
   confidenceBoost?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export type OutlookTriageDecision = 'auto-task' | 'auto-follow-up' | 'review' | 'ignore' | 'blocked';
+export type ForwardedRoutingDecision = 'auto-task' | 'auto-followup' | 'review' | 'reference' | 'ignore' | 'blocked';
 
-export interface OutlookIngestionLedgerEntry {
+export interface ForwardedIngestionLedgerEntry {
   id: string;
-  messageId: string;
-  internetMessageId?: string;
-  conversationId?: string;
-  folder: OutlookFolderName;
-  messageSignature: string;
-  triageResult: OutlookTriageDecision;
-  linkedFollowUpId?: string;
+  forwardedEmailId: string;
+  dedupeSignature: string;
+  normalizedSubject: string;
+  sender: string;
+  sentAt?: string;
+  sourceMessageIds: string[];
   linkedTaskId?: string;
-  lastEvaluatedAt: string;
-  lastDecisionReason: string;
+  linkedFollowUpId?: string;
+  lastRoutingDecision: ForwardedRoutingDecision;
+  evaluatedAt: string;
 }
 
-export type OutlookTriageCandidateStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'converted';
-
-export interface OutlookTriageCandidate {
+export interface ForwardedIntakeCandidate {
   id: string;
-  messageId: string;
-  internetMessageId?: string;
-  conversationId?: string;
-  sourceMessageIds: string[];
-  suggestedType: OutlookTriageSuggestedType;
-  suggestedProject?: string;
-  suggestedProjectId?: string;
-  suggestedOwner?: string;
-  suggestedPriority?: FollowUpPriority | TaskPriority;
-  suggestedDueDate?: string;
-  suggestedWaitingOn?: string;
+  forwardedEmailId: string;
+  normalizedSubject: string;
+  originalSender: string;
+  forwardingAlias: string;
+  parsedProject?: string;
+  suggestedType: 'task' | 'followup' | 'reference';
   confidence: number;
   reasons: string[];
-  blockingReasons: string[];
-  duplicateInfo: string[];
-  status: OutlookTriageCandidateStatus;
-  sourceMessageSubject: string;
-  sourceMessageFrom: string;
-  sourceMessageFolder: OutlookFolderName;
+  warnings: string[];
+  duplicateWarnings: string[];
+  parsedCommands: string[];
+  parseQuality: ForwardedEmailRecord['parseQuality'];
+  status: 'pending' | 'approved' | 'rejected' | 'reference' | 'linked';
   createdTaskId?: string;
   createdFollowUpId?: string;
-  linkedExistingItemId?: string;
+  linkedItemId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface OutlookAutomationAuditEntry {
+export interface ForwardedRoutingAuditEntry {
   id: string;
-  messageId: string;
-  conversationId?: string;
-  matchedRuleIds: string[];
-  signalsUsed: string[];
+  forwardedEmailId: string;
+  ruleIds: string[];
+  signals: string[];
   confidence: number;
-  result: OutlookTriageDecision;
+  result: ForwardedRoutingDecision;
   reasons: string[];
   createdTaskId?: string;
   createdFollowUpId?: string;
   createdAt: string;
+}
+export interface ForwardedEmailProviderPayload {
+  provider: 'mock' | 'postmark' | 'sendgrid' | 'mailgun' | 'other';
+  receivedAt?: string;
+  forwardingAddress: string;
+  envelopeFrom?: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  headers?: Record<string, string>;
+  attachments?: ForwardedEmailAttachmentMeta[];
 }
 export interface AppSnapshot {
   items: FollowUpItem[];
@@ -556,8 +604,9 @@ export interface AppSnapshot {
   outlookConnection: OutlookConnectionState;
   outlookMessages: OutlookMessage[];
   tasks: TaskItem[];
-  outlookTriageRules: OutlookTriageRule[];
-  outlookIngestionLedger: OutlookIngestionLedgerEntry[];
-  outlookTriageCandidates: OutlookTriageCandidate[];
-  outlookAutomationAudit: OutlookAutomationAuditEntry[];
+  forwardedEmails: ForwardedEmailRecord[];
+  forwardedRules: ForwardedEmailRule[];
+  forwardedCandidates: ForwardedIntakeCandidate[];
+  forwardedLedger: ForwardedIngestionLedgerEntry[];
+  forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
 }

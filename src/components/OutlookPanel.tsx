@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Copy, ExternalLink, Mail, RefreshCw, ShieldCheck, Unplug, Wrench } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from './Badge';
 import { formatDateTime } from '../lib/utils';
 import { isTauriRuntime } from '../lib/persistence';
@@ -30,6 +30,7 @@ export function OutlookPanel() {
 
   const [callbackUrl, setCallbackUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const processedCallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!outlookConnection.authSession || !isTauriRuntime()) return;
@@ -38,10 +39,11 @@ export function OutlookPanel() {
       try {
         const api = await import('@tauri-apps/api/core');
         const pendingCallback = await api.invoke<string | null>('read_outlook_loopback_callback');
-        if (!pendingCallback || cancelled) return;
+        if (!pendingCallback || cancelled || processedCallbackRef.current === pendingCallback) return;
+        processedCallbackRef.current = pendingCallback;
         window.clearInterval(interval);
         if (!cancelled) {
-          setCallbackUrl(pendingCallback);
+          setCallbackUrl((current) => (current === pendingCallback ? current : pendingCallback));
           await completeOutlookAuth(pendingCallback);
           await api.invoke('clear_outlook_loopback_callback');
         }

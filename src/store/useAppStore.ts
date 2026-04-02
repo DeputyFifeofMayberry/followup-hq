@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
-import { buildCandidate, buildMessageSignature, evaluateOutlookMessage, upsertLedgerEntry, buildAudit, findSimilarRecentCandidate } from '../lib/outlookTriage';
-import { getDefaultOutlookTriageRules } from '../lib/outlookRules';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
 import { isTauriRuntime, loadSnapshot, saveSnapshot } from '../lib/persistence';
@@ -409,7 +407,7 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
 
 
 
-function buildFollowUpFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): FollowUpItem {
+function buildFollowUpFromOutlookImport(message: OutlookMessage, owner: string, project: string, projectId?: string): FollowUpItem {
   const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
   return normalizeItem({
     id: createId(),
@@ -432,7 +430,7 @@ function buildFollowUpFromOutlookMessage(message: OutlookMessage, owner: string,
     mergedItemIds: [],
     waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
     notes: [`Outlook conversation: ${message.conversationId ?? 'n/a'}`, `From: ${message.from}`].join('\n'),
-    timeline: [buildTouchEvent('Created by Outlook auto-triage.', 'imported')],
+    timeline: [buildTouchEvent('Created from Outlook mailbox import.', 'imported')],
     category: 'Coordination',
     owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
     escalationLevel: 'None',
@@ -440,49 +438,6 @@ function buildFollowUpFromOutlookMessage(message: OutlookMessage, owner: string,
     threadKey: message.conversationId,
     draftFollowUp: '',
   });
-}
-
-function buildTaskFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): TaskItem {
-  return {
-    id: createId('TSK'),
-    title: message.subject || '(no subject)',
-    project,
-    projectId,
-    owner,
-    status: 'To do',
-    priority: message.importance === 'high' || message.flagStatus === 'flagged' ? 'High' : 'Medium',
-    dueDate: addDaysIso(todayIso(), 1),
-    summary: message.bodyPreview,
-    nextStep: 'Review email and execute the requested action.',
-    notes: `Created by Outlook auto-triage from ${message.sourceRef}`,
-    tags: ['Outlook', ...(message.categories ?? [])],
-    createdAt: todayIso(),
-    updatedAt: todayIso(),
-  };
-}
-
-function noReplyContext(messages: OutlookMessage[]): Record<string, { noReply: boolean; noReplyDays: number }> {
-  const grouped = new Map<string, OutlookMessage[]>();
-  messages.forEach((message) => {
-    const key = message.conversationId ?? '';
-    if (!key) return;
-    grouped.set(key, [...(grouped.get(key) ?? []), message]);
-  });
-  const out: Record<string, { noReply: boolean; noReplyDays: number }> = {};
-  grouped.forEach((thread, conversationId) => {
-    const latestSent = thread.filter((message) => message.folder === 'sentitems' && message.sentDateTime).sort((a, b) => new Date(b.sentDateTime ?? 0).getTime() - new Date(a.sentDateTime ?? 0).getTime())[0];
-    if (!latestSent?.sentDateTime) {
-      out[conversationId] = { noReply: false, noReplyDays: 0 };
-      return;
-    }
-    const sentAt = new Date(latestSent.sentDateTime).getTime();
-    const hasReply = thread.some((message) => message.folder === 'inbox' && new Date(message.receivedDateTime ?? 0).getTime() > sentAt);
-    out[conversationId] = {
-      noReply: !hasReply,
-      noReplyDays: Math.max(0, Math.floor((Date.now() - sentAt) / 86400000)),
-    };
-  });
-  return out;
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -1148,61 +1103,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
         syncCursorByFolder: nextCursor,
         lastSyncMode: usedDelta ? 'delta' : 'initial',
       };
-      const state = get();
-      const changedMessages = deduped.filter((message) => {
-        const existing = state.outlookIngestionLedger.find((entry) => entry.messageId === message.id);
-        if (!existing) return true;
-        return existing.messageSignature !== buildMessageSignature(message);
-      });
-
-      let items = state.items;
-      let tasks = state.tasks;
-      let ledger = state.outlookIngestionLedger;
-      let candidates = state.outlookTriageCandidates;
-      let audit = state.outlookAutomationAudit;
-      const threadNoReply = noReplyContext(deduped);
-
-      changedMessages.forEach((message) => {
-        const output = evaluateOutlookMessage(message, {
-          rules: state.outlookTriageRules,
-          ledger,
-          items,
-          tasks,
-          existingCandidates: candidates,
-          internalDomains: ['followuphq.com'],
-          noReplyAfterSentByConversation: threadNoReply,
-        });
-
-        let createdTaskId: string | undefined;
-        let createdFollowUpId: string | undefined;
-
-        if (output.decision === 'auto-task') {
-          const task = buildTaskFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
-          tasks = normalizeTasks([task, ...tasks]);
-          createdTaskId = task.id;
-        } else if (output.decision === 'auto-follow-up') {
-          const item = buildFollowUpFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
-          items = normalizeItems([item, ...items]);
-          createdFollowUpId = item.id;
-        } else if (output.decision === 'review') {
-          const existing = findSimilarRecentCandidate(candidates, message);
-          if (!existing) {
-            candidates = [buildCandidate(message, output), ...candidates];
-          }
-        }
-
-        ledger = upsertLedgerEntry(ledger, message, output, { linkedTaskId: createdTaskId, linkedFollowUpId: createdFollowUpId });
-        audit = [buildAudit(message, output, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...audit].slice(0, 500);
-      });
 
       set({
         outlookConnection: syncedConnection,
         outlookMessages: deduped,
-        items,
-        tasks,
-        outlookIngestionLedger: ledger,
-        outlookTriageCandidates: candidates,
-        outlookAutomationAudit: audit,
       });
       queuePersist(get, set);
     } catch (error) {
@@ -1220,31 +1124,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const message = get().outlookMessages.find((entry) => entry.id === messageId);
     if (!message) return;
     const state = get();
-    const alreadyLinked = state.outlookIngestionLedger.find((entry) => entry.messageId === messageId && (entry.linkedFollowUpId || entry.linkedTaskId));
     const openConflict = state.items.some((item) => item.status !== 'Closed' && item.threadKey && message.conversationId && item.threadKey === message.conversationId);
-    if (alreadyLinked || openConflict) return;
+    if (openConflict) return;
 
-    const item = buildFollowUpFromOutlookMessage(message, 'Jared', 'General');
+    const item = buildFollowUpFromOutlookImport(message, 'Jared', 'General');
     set((inner) => {
       const items = normalizeItems([item, ...inner.items]);
       return {
         items,
         selectedId: item.id,
         duplicateReviews: refreshDuplicates(items, inner.dismissedDuplicatePairs),
-        outlookIngestionLedger: upsertLedgerEntry(
-          inner.outlookIngestionLedger,
-          message,
-          {
-            decision: 'auto-follow-up',
-            confidence: 100,
-            suggestedType: 'follow-up',
-            reasons: ['Decision: manual import from Outlook workspace'],
-            blockingReasons: [],
-            duplicateInfo: [],
-            matchedRuleIds: [],
-          },
-          { linkedFollowUpId: item.id },
-        ),
       };
     });
     queuePersist(get, set);

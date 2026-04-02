@@ -45,7 +45,7 @@ export function ForwardingIntakeWorkspace() {
   const [payloadText, setPayloadText] = useState(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
   const [manualRuleSubject, setManualRuleSubject] = useState('');
 
-  const pending = forwardedCandidates.filter((candidate) => candidate.status === 'pending');
+  const pending = (forwardedCandidates ?? []).filter((candidate) => candidate.status === 'pending');
 
   return (
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
@@ -65,7 +65,7 @@ export function ForwardingIntakeWorkspace() {
               window.alert('Invalid JSON payload');
             }
           }}>Ingest payload</button>
-          <Badge variant="neutral">{forwardedEmails.length} received</Badge>
+          <Badge variant="neutral">{(forwardedEmails ?? []).length} received</Badge>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export function ForwardingIntakeWorkspace() {
           }}>Add rule</button>
         </div>
         <div className="space-y-2">
-          {forwardedRules.slice().sort((a, b) => a.priority - b.priority).map((rule) => (
+          {(forwardedRules ?? []).slice().sort((a, b) => a.priority - b.priority).map((rule) => (
             <div key={rule.id} className="rounded-xl border border-slate-200 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm"><span className="font-medium text-slate-900">{rule.name}</span><span className="text-slate-500"> • {rule.action} • p{rule.priority}</span></div>

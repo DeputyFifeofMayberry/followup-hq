@@ -18,12 +18,16 @@ export function UniversalCapture() {
   const [draft, setDraft] = useState(() => parseUniversalCapture(''));
   const [confirmation, setConfirmation] = useState<string>('');
   const [hint, setHint] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [dateUnknown, setDateUnknown] = useState(false);
 
   const requiresReview = (entry: typeof draft) => entry.confidence < 0.55 || entry.title.trim().length < 3 || (entry.kind === 'followup' && !entry.nextAction && !entry.waitingOn);
 
   const openReview = () => {
     if (!text.trim()) return;
     setDraft(parseUniversalCapture(text));
+    setDateUnknown(false);
+    setShowAdvanced(false);
     setOpen(true);
   };
 
@@ -59,7 +63,7 @@ export function UniversalCapture() {
         owner: entry.owner || base.owner,
         status: (entry.status as typeof base.status) || base.status,
         priority: entry.priority,
-        dueDate: entry.dueDate || base.dueDate,
+        dueDate: dateUnknown ? undefined : (entry.dueDate || base.dueDate),
         nextStep: entry.nextStep || entry.title,
         summary: entry.rawText,
         createdAt: todayIso(),
@@ -69,8 +73,10 @@ export function UniversalCapture() {
       addTask(task);
       setConfirmation(`Saved task: ${task.title}`);
     }
-    setOpen(false);
-    setText('');
+      setOpen(false);
+      setText('');
+      setShowAdvanced(false);
+      setDateUnknown(false);
   };
 
   const canQuickSave = useMemo(() => {
@@ -113,6 +119,12 @@ export function UniversalCapture() {
         <button onClick={submitCapture} disabled={!text.trim()} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{canQuickSave ? 'Quick save' : 'Review & save'}</button>
         <button onClick={openReview} className="action-btn">Details</button>
       </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button onClick={() => setText('waiting on vendor response next week')} className="action-btn">Waiting on external</button>
+        <button onClick={() => setText('internal task tomorrow')} className="action-btn">Internal task</button>
+        <button onClick={() => setText('follow up with owner friday')} className="action-btn">Needs nudge</button>
+        <button onClick={() => setText('task due this week')} className="action-btn">Due this week</button>
+      </div>
       {confirmation ? <div className="mt-2 text-xs font-medium text-emerald-700">{confirmation}</div> : null}
       {hint ? <div className="mt-1 text-xs font-medium text-amber-700">{hint}</div> : null}
 
@@ -131,13 +143,21 @@ export function UniversalCapture() {
                 <select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as 'followup' | 'task' })} className="field-input"><option value="followup">Follow-up</option><option value="task">Task</option></select>
               </label>
               <label className="field-block"><span className="field-label">Title</span><input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="field-input" /></label>
+              <label className="field-block"><span className="field-label">Due date</span><input type="date" value={draft.dueDate ? new Date(draft.dueDate).toISOString().slice(0,10) : ''} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value ? new Date(`${event.target.value}T12:00:00`).toISOString() : undefined })} className="field-input" /></label>
+              <label className="field-block flex items-end"><button type="button" onClick={() => setDateUnknown((current) => !current)} className={dateUnknown ? 'saved-view-card saved-view-card-active w-full justify-center' : 'saved-view-card w-full justify-center'}>{dateUnknown ? 'Date not sure yet' : 'Mark date unknown'}</button></label>
+            </div>
+            <div className="mt-3">
+              <button onClick={() => setShowAdvanced((current) => !current)} className="action-btn">{showAdvanced ? 'Hide advanced details' : 'Show advanced details'}</button>
+            </div>
+            {showAdvanced ? (
+            <div className="form-grid-two mt-3">
               <label className="field-block"><span className="field-label">Project</span><input value={draft.project ?? ''} onChange={(event) => setDraft({ ...draft, project: event.target.value })} className="field-input" /></label>
               <label className="field-block"><span className="field-label">Owner</span><input value={draft.owner ?? ''} onChange={(event) => setDraft({ ...draft, owner: event.target.value })} className="field-input" /></label>
               <label className="field-block"><span className="field-label">Priority</span><select value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: event.target.value as typeof draft.priority })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label>
-              <label className="field-block"><span className="field-label">Due date</span><input type="date" value={draft.dueDate ? new Date(draft.dueDate).toISOString().slice(0,10) : ''} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value ? new Date(`${event.target.value}T12:00:00`).toISOString() : undefined })} className="field-input" /></label>
               {draft.kind === 'followup' ? <label className="field-block field-block-span-2"><span className="field-label">Waiting on / Next action</span><input value={draft.waitingOn ?? draft.nextAction ?? ''} onChange={(event) => setDraft({ ...draft, waitingOn: event.target.value, nextAction: event.target.value })} className="field-input" /></label> : null}
               {draft.kind === 'task' ? <label className="field-block field-block-span-2"><span className="field-label">Next step</span><input value={draft.nextStep ?? ''} onChange={(event) => setDraft({ ...draft, nextStep: event.target.value })} className="field-input" /></label> : null}
             </div>
+            ) : null}
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="action-btn">Cancel</button>
               <button onClick={() => save(draft)} className="primary-btn">Save {draft.kind === 'followup' ? 'follow-up' : 'task'}</button>

@@ -12,7 +12,6 @@ import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { ItemFormModal } from './components/ItemFormModal';
 import { OverviewPage } from './components/OverviewPage';
 import { MergeModal } from './components/MergeModal';
-import { PersistenceBanner } from './components/PersistenceBanner';
 import { ProjectCommandCenter } from './components/ProjectCommandCenter';
 import { RelationshipBoard } from './components/RelationshipBoard';
 import { TouchLogModal } from './components/TouchLogModal';
@@ -398,9 +397,6 @@ function MainApp() {
                 <button onClick={openCreateModal} className="action-btn justify-start">Create follow-up</button>
                 <button onClick={openCreateTaskModal} className="action-btn justify-start">Create task</button>
               </div>
-            </div>
-            <div className="mt-4">
-              <PersistenceBanner compact />
             </div>
           </aside>
 

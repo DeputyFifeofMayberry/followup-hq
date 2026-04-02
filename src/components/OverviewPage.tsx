@@ -13,7 +13,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
-type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
@@ -60,6 +60,12 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
       .sort((a, b) => new Date(a.nextTouchDate).getTime() - new Date(b.nextTouchDate).getTime())
       .slice(0, 5);
   }, [items]);
+  const queueNowCount = useMemo(() => {
+    const followUps = items.filter((item) => item.status !== 'Closed' && (needsNudge(item) || isOverdue(item))).length;
+    const taskNow = tasks.filter((task) => task.status !== 'Done' && !!task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 86400000).length;
+    const triageNow = intakeDocuments.filter((doc) => doc.disposition === 'Unprocessed').length;
+    return followUps + taskNow + triageNow;
+  }, [items, tasks, intakeDocuments]);
 
   const documentCounts = useMemo(
     () =>
@@ -221,6 +227,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
             <button onClick={() => onOpenWorkspace('projects')} className="action-btn justify-start">
               <BriefcaseBusiness className="h-4 w-4" />
               Open projects
+            </button>
+            <button onClick={() => onOpenWorkspace('queue')} className="action-btn justify-start">
+              <BellRing className="h-4 w-4" />
+              Open work-this-now queue ({queueNowCount})
             </button>
             <button onClick={() => onOpenWorkspace('relationships')} className="action-btn justify-start">
               <Users className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, FileEdit, Trash2 } from 'lucide-react';
+import { FileEdit, Save, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone } from '../lib/utils';
@@ -14,7 +14,6 @@ export function ItemDetailPanel() {
     updateItem,
     deleteItem,
     openEditModal,
-    openTouchModal,
     addRunningNote,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
@@ -24,7 +23,6 @@ export function ItemDetailPanel() {
     updateItem: s.updateItem,
     deleteItem: s.deleteItem,
     openEditModal: s.openEditModal,
-    openTouchModal: s.openTouchModal,
     addRunningNote: s.addRunningNote,
   })));
 
@@ -33,7 +31,7 @@ export function ItemDetailPanel() {
   const [nextActionDraft, setNextActionDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
 
-  const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item?.notes]);
+  const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, showActivity ? 50 : 6) : []), [item, showActivity]);
 
   useEffect(() => {
@@ -66,7 +64,6 @@ export function ItemDetailPanel() {
         </div>
         <div className="detail-actions-row">
           <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />Edit</button>
-          <button onClick={openTouchModal} className="action-btn"><CalendarClock className="h-4 w-4" />Touch log</button>
           <button onClick={() => { if (window.confirm('Delete this follow-up? This cannot be undone.')) deleteItem(item.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
         </div>
       </div>
@@ -77,13 +74,15 @@ export function ItemDetailPanel() {
           <textarea
             value={nextActionDraft}
             onChange={(event) => setNextActionDraft(event.target.value)}
-            onBlur={() => {
-              if (nextActionDraft === item.nextAction) return;
-              updateItem(item.id, { nextAction: nextActionDraft });
-            }}
             className="field-textarea mt-2"
             placeholder="Enter the next move here"
           />
+          <div className="mt-3 flex justify-end">
+            <button onClick={() => updateItem(item.id, { nextAction: nextActionDraft })} className="action-btn">
+              <Save className="h-4 w-4" />
+              Save next action
+            </button>
+          </div>
         </div>
 
         <div className="detail-card">

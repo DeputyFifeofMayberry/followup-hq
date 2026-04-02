@@ -19,6 +19,23 @@ export function RelationshipBoard() {
   const contactSummary = useMemo(() => buildContactSummary(items, contacts, companies), [items, contacts, companies]);
   const companySummary = useMemo(() => buildCompanySummary(items, companies), [items, companies]);
   const ownerSummary = useMemo(() => buildOwnerSummary(items), [items]);
+  const bottlenecks = useMemo(() => {
+    return contacts
+      .map((contact) => {
+        const waitingItems = items.filter((item) => item.contactId === contact.id && item.status !== 'Closed' && !!item.waitingOn);
+        const overdueWaiting = waitingItems.filter((item) => new Date(item.dueDate).getTime() < Date.now()).length;
+        return {
+          id: contact.id,
+          name: contact.name,
+          waitingCount: waitingItems.length,
+          overdueWaiting,
+          responseRisk: overdueWaiting * 2 + Math.max(0, waitingItems.length - overdueWaiting),
+        };
+      })
+      .filter((entry) => entry.waitingCount > 0)
+      .sort((a, b) => b.responseRisk - a.responseRisk)
+      .slice(0, 5);
+  }, [contacts, items]);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -48,6 +65,19 @@ export function RelationshipBoard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <div className="mb-3 text-sm font-semibold text-slate-900">Likely bottlenecks</div>
+            <div className="space-y-2">
+              {bottlenecks.map((entry) => (
+                <div key={entry.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                  <div className="font-medium text-slate-900">{entry.name}</div>
+                  <div className="mt-1 text-xs text-slate-500">Waiting: {entry.waitingCount} • Overdue waits: {entry.overdueWaiting}</div>
+                </div>
+              ))}
+              {bottlenecks.length === 0 ? <div className="text-sm text-slate-500">No contact bottlenecks right now.</div> : null}
             </div>
           </div>
 

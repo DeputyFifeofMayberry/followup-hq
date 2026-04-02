@@ -6,6 +6,7 @@ import { formatDateTime, sourceTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { IntakeDocumentKind } from '../types';
+import { addDaysIso, buildTouchEvent, createId, todayIso } from '../lib/utils';
 
 function detectDocumentKind(fileName: string): IntakeDocumentKind {
   if (/\.(xlsx|xls|csv)$/i.test(fileName)) return 'Spreadsheet';
@@ -30,6 +31,8 @@ export function IntakePanel() {
     updateIntakeDocument,
     setIntakeDocumentDisposition,
     deleteIntakeDocument,
+    addItem,
+    addTask,
     projects,
   } = useAppStore(useShallow((s) => ({
     intakeSignals: s.intakeSignals,
@@ -44,6 +47,8 @@ export function IntakePanel() {
     updateIntakeDocument: s.updateIntakeDocument,
     setIntakeDocumentDisposition: s.setIntakeDocumentDisposition,
     deleteIntakeDocument: s.deleteIntakeDocument,
+    addItem: s.addItem,
+    addTask: s.addTask,
     projects: s.projects,
   })));
   const [dragActive, setDragActive] = useState(false);
@@ -85,6 +90,64 @@ export function IntakePanel() {
   }
 
   const unprocessedDocs = intakeDocuments.filter((doc) => doc.disposition === 'Unprocessed');
+
+  const convertDocToFollowUp = (docId: string) => {
+    const doc = intakeDocuments.find((entry) => entry.id === docId);
+    if (!doc) return;
+    const project = projects.find((entry) => entry.id === doc.projectId);
+    const now = todayIso();
+    const followUpId = createId();
+    addItem({
+      id: followUpId,
+      title: `Review ${doc.name}`,
+      source: doc.kind === 'Spreadsheet' ? 'Excel' : 'Notes',
+      project: project?.name ?? doc.project ?? 'General',
+      projectId: doc.projectId,
+      owner: doc.owner || 'Unassigned',
+      status: 'Needs action',
+      priority: 'Medium',
+      dueDate: addDaysIso(now, 2),
+      lastTouchDate: now,
+      nextTouchDate: addDaysIso(now, 1),
+      nextAction: `Open ${doc.name}, extract decisions, and route actions.`,
+      summary: doc.notes || `Generated from intake document ${doc.name}.`,
+      tags: [...doc.tags, 'Intake'],
+      sourceRef: doc.sourceRef || `Intake:${doc.id}`,
+      sourceRefs: [doc.sourceRef || `Intake:${doc.id}`],
+      mergedItemIds: [],
+      notes: doc.notes || '',
+      timeline: [buildTouchEvent(`Converted intake document ${doc.name} into follow-up.`, 'imported')],
+      category: 'General',
+      owesNextAction: 'Internal',
+      escalationLevel: 'None',
+      cadenceDays: 3,
+      draftFollowUp: '',
+    });
+    setIntakeDocumentDisposition(doc.id, 'Converted to follow-up', followUpId);
+  };
+
+  const convertDocToTask = (docId: string) => {
+    const doc = intakeDocuments.find((entry) => entry.id === docId);
+    if (!doc) return;
+    const project = projects.find((entry) => entry.id === doc.projectId);
+    addTask({
+      id: createId('TSK'),
+      title: `Process ${doc.name}`,
+      project: project?.name ?? doc.project ?? 'General',
+      projectId: doc.projectId,
+      owner: doc.owner || 'Unassigned',
+      status: 'To do',
+      priority: 'Medium',
+      dueDate: addDaysIso(todayIso(), 2),
+      summary: doc.notes || 'Task created from intake triage.',
+      nextStep: 'Extract actions and distribute to owners.',
+      notes: `Created from intake document ${doc.name}.`,
+      tags: [...doc.tags, 'Intake'],
+      createdAt: todayIso(),
+      updatedAt: todayIso(),
+    });
+    setIntakeDocumentDisposition(doc.id, 'Reference only');
+  };
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -200,6 +263,8 @@ export function IntakePanel() {
                     <div className="mt-1 text-xs text-slate-500">{doc.kind} • {doc.disposition} • Uploaded {formatDateTime(doc.uploadedAt)}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <button onClick={() => convertDocToFollowUp(doc.id)} className="action-btn"><PlusCircle className="h-4 w-4" />To follow-up</button>
+                    <button onClick={() => convertDocToTask(doc.id)} className="action-btn"><PlusCircle className="h-4 w-4" />To task</button>
                     <button onClick={() => setIntakeDocumentDisposition(doc.id, 'Reference only')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Reference</button>
                     <button onClick={() => setIntakeDocumentDisposition(doc.id, 'Archived')} className="action-btn"><Archive className="h-4 w-4" />Archive</button>
                     <button onClick={() => { if (window.confirm('Delete this intake document record?')) deleteIntakeDocument(doc.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>

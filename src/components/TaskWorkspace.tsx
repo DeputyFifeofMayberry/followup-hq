@@ -1,8 +1,10 @@
-import { CheckCircle2, Clock3, Link2, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { CheckCircle2, Clock3, Link2, ListTodo, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { formatDate } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
+
+type TaskMode = 'today' | 'thisWeek' | 'blocked' | 'followUpLinked';
 
 function toneForStatus(status: string): string {
   switch (status) {
@@ -41,9 +43,11 @@ export function TaskWorkspace() {
     setSelectedTaskId,
     setTaskOwnerFilter,
     setTaskStatusFilter,
+    setSelectedId,
     openCreateTaskModal,
     openEditTaskModal,
     deleteTask,
+    updateTask,
   } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     items: s.items,
@@ -54,21 +58,53 @@ export function TaskWorkspace() {
     setSelectedTaskId: s.setSelectedTaskId,
     setTaskOwnerFilter: s.setTaskOwnerFilter,
     setTaskStatusFilter: s.setTaskStatusFilter,
+    setSelectedId: s.setSelectedId,
     openCreateTaskModal: s.openCreateTaskModal,
     openEditTaskModal: s.openEditTaskModal,
     deleteTask: s.deleteTask,
+    updateTask: s.updateTask,
   })));
+
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'due' | 'priority' | 'updated'>('due');
+  const [mode, setMode] = useState<TaskMode>('today');
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
 
-  const filteredTasks = useMemo(() => tasks.filter((task) => {
-    const ownerMatch = taskOwnerFilter === 'All' || task.owner === taskOwnerFilter;
-    const statusMatch = taskStatusFilter === 'All' || task.status === taskStatusFilter;
-    return ownerMatch && statusMatch;
-  }), [tasks, taskOwnerFilter, taskStatusFilter]);
+  const filteredTasks = useMemo(() => {
+    const now = Date.now();
+    const weekEnd = now + 7 * 86400000;
+    const withFilters = tasks.filter((task) => {
+      const ownerMatch = taskOwnerFilter === 'All' || task.owner === taskOwnerFilter;
+      const statusMatch = taskStatusFilter === 'All' || task.status === taskStatusFilter;
+      const textMatch = [task.title, task.project, task.summary, task.nextStep, task.notes, task.tags.join(' ')].join(' ').toLowerCase().includes(search.toLowerCase());
+      const modeMatch = mode === 'today'
+        ? task.status !== 'Done' && !!task.dueDate && new Date(task.dueDate).getTime() <= now + 86400000
+        : mode === 'thisWeek'
+          ? task.status !== 'Done' && !!task.dueDate && new Date(task.dueDate).getTime() <= weekEnd
+          : mode === 'blocked'
+            ? task.status === 'Blocked'
+            : !!task.linkedFollowUpId;
+      return ownerMatch && statusMatch && textMatch && modeMatch;
+    });
+
+    return [...withFilters].sort((a, b) => {
+      if (sortBy === 'priority') {
+        const rank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+        return rank[b.priority] - rank[a.priority];
+      }
+      if (sortBy === 'updated') {
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }
+      const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDue - bDue;
+    });
+  }, [tasks, taskOwnerFilter, taskStatusFilter, search, sortBy, mode]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
   const linkedFollowUp = selectedTask?.linkedFollowUpId ? items.find((item) => item.id === selectedTask.linkedFollowUpId) : null;
+  const childTasks = selectedTask?.linkedFollowUpId ? tasks.filter((task) => task.linkedFollowUpId === selectedTask.linkedFollowUpId && task.id !== selectedTask.id) : [];
 
   const summary = useMemo(() => ({
     open: tasks.filter((task) => task.status !== 'Done').length,
@@ -107,24 +143,48 @@ export function TaskWorkspace() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">Tasks</h2>
-              <p className="mt-1 text-sm text-slate-500">Keep internal execution work separate from external follow-ups.</p>
+              <p className="mt-1 text-sm text-slate-500">Work by mode: today, this week, blocked, or linked to a follow-up.</p>
             </div>
             <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_180px]">
-            <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-0 focus:border-slate-400">
+          <div className="grid gap-2 md:grid-cols-4">
+            {[
+              { key: 'today', label: 'Today' },
+              { key: 'thisWeek', label: 'Due this week' },
+              { key: 'blocked', label: 'Blocked by' },
+              { key: 'followUpLinked', label: 'From follow-ups' },
+            ].map((entry) => (
+              <button key={entry.key} onClick={() => setMode(entry.key as TaskMode)} className={mode === entry.key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
+                {entry.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px_180px]">
+            <label className="field-block">
+              <span className="field-label">Search tasks</span>
+              <div className="search-field-wrap">
+                <Search className="search-field-icon h-4 w-4" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, project, next step, notes" className="field-input search-field-input" />
+              </div>
+            </label>
+            <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">
               {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
             </select>
-            <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as any)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-0 focus:border-slate-400">
+            <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">
               {['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}
             </select>
-            <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-500">{filteredTasks.length} visible</div>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="field-input">
+              <option value="due">Sort: due date</option>
+              <option value="priority">Sort: priority</option>
+              <option value="updated">Sort: recently updated</option>
+            </select>
           </div>
 
           <div className="space-y-3">
             {filteredTasks.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No tasks match the current filters.</div>
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No tasks match the current filters and work mode.</div>
             ) : filteredTasks.map((task) => (
               <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`w-full rounded-3xl border p-4 text-left transition ${selectedTask?.id === task.id ? 'border-slate-900 bg-slate-950 text-white' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -141,6 +201,25 @@ export function TaskWorkspace() {
                   <div><span className="font-medium">Owner:</span> {task.owner}</div>
                   <div><span className="font-medium">Due:</span> {formatDate(task.dueDate)}</div>
                   <div><span className="font-medium">Next:</span> {task.nextStep || '—'}</div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      updateTask(task.id, { status: 'Done' });
+                    }}
+                    className="action-btn !px-2.5 !py-1.5 text-xs"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />Quick complete
+                  </button>
+                  {task.linkedFollowUpId ? (
+                    <button onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedId(task.linkedFollowUpId!);
+                    }} className="action-btn !px-2.5 !py-1.5 text-xs">
+                      Jump to linked follow-up
+                    </button>
+                  ) : null}
                 </div>
               </button>
             ))}
@@ -163,23 +242,19 @@ export function TaskWorkspace() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div>
-                  <div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.status}</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Due date</div>
-                  <div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.dueDate)}</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Priority</div>
-                  <div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.priority}</div>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Linked follow-up</div>
-                  <div className="mt-2 text-sm font-medium text-slate-900">{linkedFollowUp ? linkedFollowUp.title : 'Not linked yet'}</div>
-                </div>
+                <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.status}</div></div>
+                <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Due date</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.dueDate)}</div></div>
+                <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Priority</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.priority}</div></div>
+                <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Linked follow-up</div><div className="mt-2 text-sm font-medium text-slate-900">{linkedFollowUp ? linkedFollowUp.title : 'Not linked yet'}</div></div>
               </div>
+
+              {linkedFollowUp ? (
+                <div className="rounded-2xl border border-slate-200 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connected workflow</div>
+                  <div className="mt-2 text-sm text-slate-700">This task came from follow-up <span className="font-medium text-slate-900">{linkedFollowUp.title}</span>.</div>
+                  <div className="mt-1 text-sm text-slate-700">{childTasks.length} sibling task{childTasks.length === 1 ? '' : 's'} linked to this same follow-up.</div>
+                </div>
+              ) : null}
 
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Summary</div>
@@ -194,13 +269,6 @@ export function TaskWorkspace() {
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Notes</div>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedTask.notes || 'No notes yet.'}</p>
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Tags</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedTask.tags.length ? selectedTask.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{tag}</span>) : <span className="text-sm text-slate-500">No tags yet.</span>}
-                </div>
               </div>
 
               <div>

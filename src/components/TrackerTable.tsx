@@ -18,11 +18,6 @@ export function TrackerTable() {
     statusFilter,
     activeView,
     duplicateReviews,
-    openEditModal,
-    openTouchModal,
-    markNudged,
-    snoozeItem,
-    cycleEscalation,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -34,11 +29,6 @@ export function TrackerTable() {
     statusFilter: s.statusFilter,
     activeView: s.activeView,
     duplicateReviews: s.duplicateReviews,
-    openEditModal: s.openEditModal,
-    openTouchModal: s.openTouchModal,
-    markNudged: s.markNudged,
-    snoozeItem: s.snoozeItem,
-    cycleEscalation: s.cycleEscalation,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
 
@@ -129,23 +119,7 @@ export function TrackerTable() {
       header: 'Next action',
       cell: ({ row }) => <div className="max-w-[320px] text-sm text-slate-600">{row.original.nextAction}</div>,
     },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const item = row.original;
-        return (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={(event) => { event.stopPropagation(); setSelectedId(item.id); openEditModal(item.id); }} className="action-btn !px-2.5 !py-1.5 text-xs">Edit</button>
-            <button onClick={(event) => { event.stopPropagation(); setSelectedId(item.id); openTouchModal(); }} className="action-btn !px-2.5 !py-1.5 text-xs">Touch</button>
-            <button onClick={(event) => { event.stopPropagation(); markNudged(item.id); }} className="action-btn !px-2.5 !py-1.5 text-xs">Nudge</button>
-            <button onClick={(event) => { event.stopPropagation(); snoozeItem(item.id, 2); }} className="action-btn !px-2.5 !py-1.5 text-xs">Snooze</button>
-            <button onClick={(event) => { event.stopPropagation(); cycleEscalation(item.id); }} className="action-btn !px-2.5 !py-1.5 text-xs">Escalate</button>
-          </div>
-        );
-      },
-    },
-  ], [duplicateReviews, companies, cycleEscalation, markNudged, openEditModal, openTouchModal, setSelectedId, snoozeItem]);
+  ], [duplicateReviews, companies]);
 
   const table = useReactTable({
     data: filteredItems,
@@ -168,7 +142,7 @@ export function TrackerTable() {
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">Master follow-up tracker</h2>
-        <p className="mt-1 text-sm text-slate-500">Work the queue directly here with quick actions, filters, and one-click row commands.</p>
+        <p className="mt-1 text-sm text-slate-500">Select rows here, then run actions from the control bar for a cleaner workflow.</p>
       </div>
 
       {activeView === 'By project' ? (

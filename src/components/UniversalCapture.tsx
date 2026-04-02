@@ -1,5 +1,6 @@
 import { WandSparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { getRecentEntryContext } from '../lib/dataEntryDefaults';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { addDaysIso, createId, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -34,21 +35,24 @@ export function UniversalCapture() {
 
   const parsed = useMemo(() => parsedOverride ?? parseUniversalCapture(text), [parsedOverride, text]);
   const highConfidence = parsed.confidence >= 0.72;
-  const canDirectSave = !!text.trim() && !!parsed.title.trim() && highConfidence;
+  const canDirectSave = !!text.trim() && !!parsed.title.trim();
 
   const findOrCreateProject = (name?: string): { id: string; name: string } => {
-    const clean = (name || 'General').trim() || 'General';
+    const recentContext = getRecentEntryContext();
+    const clean = (name || recentContext.project || '').trim();
+    if (!clean) return { id: '', name: '' };
     const existing = projects.find((project) => project.name.toLowerCase() === clean.toLowerCase() || project.id === clean);
     if (existing) return { id: existing.id, name: existing.name };
-    const id = addProject({ name: clean, owner: parsed.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
+    const id = addProject({ name: clean, owner: parsed.owner || recentContext.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
     return { id, name: clean };
   };
 
   const findOrCreateOwner = (name?: string): { id?: string; name: string } => {
-    const clean = (name || 'Unassigned').trim() || 'Unassigned';
+    const recentContext = getRecentEntryContext();
+    const clean = (name || recentContext.owner || '').trim();
+    if (!clean) return { name: '' };
     const existing = contacts.find((contact) => contact.name.toLowerCase() === clean.toLowerCase());
     if (existing) return { id: existing.id, name: existing.name };
-    if (clean === 'Unassigned') return { name: clean };
     const id = addContact({ name: clean, role: 'PM', notes: '', tags: [] });
     return { id, name: clean };
   };
@@ -65,7 +69,7 @@ export function UniversalCapture() {
         id: createId('TSK'),
         title: parsed.title,
         project: project.name,
-        projectId: project.id,
+        projectId: project.id || undefined,
         owner: owner.name,
         contactId: owner.id,
         status: 'To do',
@@ -87,12 +91,12 @@ export function UniversalCapture() {
         title: parsed.title,
         source: 'Notes',
         project: project.name,
-        projectId: project.id,
+        projectId: project.id || undefined,
         owner: owner.name,
         contactId: owner.id,
         status: parsed.status === 'Waiting on external' ? 'Waiting on external' : 'Needs action',
         priority: parsed.priority,
-        dueDate: parsed.dueDate || addDaysIso(todayIso(), 2),
+        dueDate: parsed.dueDate || undefined,
         lastTouchDate: todayIso(),
         nextTouchDate: parsed.dueDate || addDaysIso(todayIso(), 1),
         nextAction: parsed.nextAction || parsed.title,
@@ -127,6 +131,12 @@ export function UniversalCapture() {
         <div className="text-sm font-semibold text-slate-900">Quick Add</div>
       </div>
       <p className="mt-1 text-xs text-slate-500">Type once, preview, then Enter to save. Cmd/Ctrl+Enter forces save. Esc clears.</p>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <button className={chipClass} onClick={() => setText((prev) => `${prev}${prev ? ' ' : ''}fup tomorrow`)}>+ Follow-up tomorrow</button>
+        <button className={chipClass} onClick={() => setText((prev) => `${prev}${prev ? ' ' : ''}task d:tomorrow`)}>+ Task tomorrow</button>
+        <button className={chipClass} onClick={() => setText((prev) => `${prev}${prev ? ' ' : ''}o:`)}>+ Owner shortcut</button>
+        <button className={chipClass} onClick={() => setText((prev) => `${prev}${prev ? ' ' : ''}p:`)}>+ Project shortcut</button>
+      </div>
       <div className="mt-2 flex gap-2">
         <input
           value={text}
@@ -171,7 +181,7 @@ export function UniversalCapture() {
             <input className={chipClass} value={parsed.project ?? ''} onChange={(e) => setParsedOverride({ ...parsed, project: e.target.value })} placeholder="Project" />
           </div>
           {!highConfidence ? (
-            <div className="mt-2 text-xs text-amber-700">Tip: add owner/project/due wording for one-key save, or expand to full edit.</div>
+            <div className="mt-2 text-xs text-amber-700">Tip: use shortcuts like o:Name p:Project d:Friday for better auto-fill. You can also fix fields after saving.</div>
           ) : null}
           <button className="mt-2 text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Expand for full edit</button>
         </div>

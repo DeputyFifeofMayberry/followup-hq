@@ -15,6 +15,12 @@ type DefaultsState = {
   taskStatus?: TaskStatus;
 };
 
+export type RecentEntryContext = {
+  owner?: string;
+  project?: string;
+  projectId?: string;
+};
+
 function readDefaults(): DefaultsState {
   if (typeof window === 'undefined') return {};
   try {
@@ -31,11 +37,20 @@ function writeDefaults(next: DefaultsState) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
 
+export function getRecentEntryContext(): RecentEntryContext {
+  const recents = readDefaults();
+  return {
+    owner: recents.followUpOwner || recents.taskOwner,
+    project: recents.followUpProject || recents.taskProject,
+    projectId: recents.followUpProjectId || recents.taskProjectId,
+  };
+}
+
 export function buildSmartFollowUpDefaults(context: { projectFilter?: string; projectId?: string; projectName?: string } = {}): FollowUpFormInput {
   const now = todayIso();
   const recents = readDefaults();
   const projectFromContext = context.projectFilter && context.projectFilter !== 'All' ? context.projectFilter : context.projectName;
-  const project = projectFromContext || recents.followUpProject || 'General';
+  const project = projectFromContext || recents.followUpProject || '';
   const status = recents.followUpStatus || 'Needs action';
   const isWaiting = status === 'Waiting on external' || status === 'Waiting internal';
   const cadenceDays = isWaiting ? 2 : 3;
@@ -45,7 +60,7 @@ export function buildSmartFollowUpDefaults(context: { projectFilter?: string; pr
     source: recents.followUpSource || 'Email',
     project,
     projectId: context.projectId || recents.followUpProjectId || '',
-    owner: recents.followUpOwner || 'Jared',
+    owner: recents.followUpOwner || '',
     status,
     priority: 'Medium',
     dueDate: addDaysIso(now, 2),
@@ -84,13 +99,13 @@ export function buildSmartTaskDefaults(context: { projectFilter?: string; projec
   const recents = readDefaults();
   const now = todayIso();
   const projectFromContext = context.projectFilter && context.projectFilter !== 'All' ? context.projectFilter : context.projectName;
-  const project = projectFromContext || recents.taskProject || 'General';
+  const project = projectFromContext || recents.taskProject || '';
   return {
     id: '',
     title: '',
     project,
     projectId: context.projectId || recents.taskProjectId,
-    owner: recents.taskOwner || 'Jared',
+    owner: recents.taskOwner || '',
     status: recents.taskStatus || 'To do',
     priority: 'Medium',
     dueDate: addDaysIso(now, 1),

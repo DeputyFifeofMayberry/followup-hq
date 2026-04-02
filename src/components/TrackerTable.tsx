@@ -1,7 +1,7 @@
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { applySavedView, escalationTone, formatDate, isOverdue, needsNudge, priorityTone, sourceTone, sortByProjectThenDue, statusTone } from '../lib/utils';
+import { applySavedView, escalationTone, formatDate, fromDateInputValue, isOverdue, needsNudge, priorityTone, sortByProjectThenDue, statusTone, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -18,6 +18,7 @@ export function TrackerTable() {
     statusFilter,
     activeView,
     duplicateReviews,
+    updateItem,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -29,8 +30,11 @@ export function TrackerTable() {
     statusFilter: s.statusFilter,
     activeView: s.activeView,
     duplicateReviews: s.duplicateReviews,
+    updateItem: s.updateItem,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
+
+  const owners = useMemo(() => Array.from(new Set(items.map((item) => item.owner))).sort(), [items]);
 
   const filteredItems = useMemo(() => {
     const viewedItems = applySavedView(items, activeView);
@@ -66,16 +70,13 @@ export function TrackerTable() {
       },
     },
     {
-      accessorKey: 'source',
-      header: 'Source',
-      cell: ({ getValue }) => <Badge variant={sourceTone(getValue() as FollowUpItem['source'])}>{String(getValue())}</Badge>,
-    },
-    {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge>
+        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <select value={row.original.status} onChange={(event) => updateItem(row.original.id, { status: event.target.value as FollowUpItem['status'] })} className="field-input !w-[180px] !py-1.5 text-xs">
+            <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+          </select>
           {needsNudge(row.original) ? <Badge variant="warn">Nudge</Badge> : null}
         </div>
       ),
@@ -84,19 +85,24 @@ export function TrackerTable() {
       accessorKey: 'priority',
       header: 'Priority',
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge>
+        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <select value={row.original.priority} onChange={(event) => updateItem(row.original.id, { priority: event.target.value as FollowUpItem['priority'] })} className="field-input !w-[120px] !py-1.5 text-xs">
+            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+          </select>
           <Badge variant={escalationTone(row.original.escalationLevel)}>{row.original.escalationLevel}</Badge>
         </div>
       ),
     },
     {
       accessorKey: 'owner',
-      header: 'Owner',
+      header: 'Owner / Waiting on',
       cell: ({ row }) => (
-        <div className="space-y-1 text-sm text-slate-700">
-          <div>{row.original.owner}</div>
-          <div className="text-xs text-slate-500">{row.original.owesNextAction}</div>
+        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+          <select value={row.original.owner} onChange={(event) => updateItem(row.original.id, { owner: event.target.value })} className="field-input !w-[170px] !py-1.5 text-xs">
+            {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+            <option value="Unassigned">Unassigned</option>
+          </select>
+          <input value={row.original.waitingOn ?? ''} onChange={(event) => updateItem(row.original.id, { waitingOn: event.target.value })} placeholder="Waiting on" className="field-input !w-[170px] !py-1.5 text-xs" />
         </div>
       ),
     },
@@ -106,10 +112,14 @@ export function TrackerTable() {
       cell: ({ row }) => {
         const item = row.original;
         return (
-          <div className="space-y-1 text-sm">
-            <div className={isOverdue(item) ? 'font-medium text-rose-700' : 'text-slate-700'}>Due {formatDate(item.dueDate)}</div>
-            <div className="text-xs text-slate-500">Next touch {formatDate(item.nextTouchDate)}</div>
-            {item.promisedDate ? <div className="text-xs text-slate-500">Promised {formatDate(item.promisedDate)}</div> : null}
+          <div className="space-y-2 text-sm" onClick={(e) => e.stopPropagation()}>
+            <label className="text-xs text-slate-500">Due
+              <input type="date" value={toDateInputValue(item.dueDate)} onChange={(event) => updateItem(item.id, { dueDate: fromDateInputValue(event.target.value) })} className="field-input !mt-1 !w-[160px] !py-1.5 text-xs" />
+            </label>
+            <label className="text-xs text-slate-500">Next touch
+              <input type="date" value={toDateInputValue(item.nextTouchDate)} onChange={(event) => updateItem(item.id, { nextTouchDate: fromDateInputValue(event.target.value) })} className="field-input !mt-1 !w-[160px] !py-1.5 text-xs" />
+            </label>
+            {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
           </div>
         );
       },
@@ -117,9 +127,17 @@ export function TrackerTable() {
     {
       id: 'nextAction',
       header: 'Next action',
-      cell: ({ row }) => <div className="max-w-[320px] text-sm text-slate-600">{row.original.nextAction}</div>,
+      cell: ({ row }) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <textarea
+            defaultValue={row.original.nextAction}
+            onBlur={(event) => updateItem(row.original.id, { nextAction: event.target.value })}
+            className="field-textarea !min-h-[64px] !w-[260px] text-xs"
+          />
+        </div>
+      ),
     },
-  ], [duplicateReviews, companies]);
+  ], [duplicateReviews, companies, owners, updateItem]);
 
   const table = useReactTable({
     data: filteredItems,
@@ -142,7 +160,7 @@ export function TrackerTable() {
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">Master follow-up tracker</h2>
-        <p className="mt-1 text-sm text-slate-500">Select rows here, then run actions from the control bar for a cleaner workflow.</p>
+        <p className="mt-1 text-sm text-slate-500">Inline-edit status, owner, dates, and next action directly from the grid.</p>
       </div>
 
       {activeView === 'By project' ? (

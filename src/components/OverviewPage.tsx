@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, ArrowDownToLine, BellRing, BriefcaseBusiness, ListTodo, Plus, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BellRing, BriefcaseBusiness, ListTodo, Plus, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { Badge } from './Badge';
 import type { SavedViewKey } from '../types';
@@ -13,7 +13,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
@@ -27,14 +27,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
     contacts,
     companies,
     projects,
-    intakeSignals,
-    droppedEmailImports,
-    intakeDocuments,
     hydrated,
     setSelectedId,
     openCreateModal,
     openCreateTaskModal,
-    openImportModal,
   } = useAppStore(
     useShallow((s) => ({
       items: s.items,
@@ -42,14 +38,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
       contacts: s.contacts,
       companies: s.companies,
       projects: s.projects,
-      intakeSignals: s.intakeSignals,
-      intakeDocuments: s.intakeDocuments,
-      droppedEmailImports: s.droppedEmailImports,
       hydrated: s.hydrated,
       setSelectedId: s.setSelectedId,
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
-      openImportModal: s.openImportModal,
     })),
   );
 
@@ -63,18 +55,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
   const queueNowCount = useMemo(() => {
     const followUps = items.filter((item) => item.status !== 'Closed' && (needsNudge(item) || isOverdue(item))).length;
     const taskNow = tasks.filter((task) => task.status !== 'Done' && !!task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 86400000).length;
-    const triageNow = intakeDocuments.filter((doc) => doc.disposition === 'Unprocessed').length;
-    return followUps + taskNow + triageNow;
-  }, [items, tasks, intakeDocuments]);
+    return followUps + taskNow;
+  }, [items, tasks]);
 
-  const documentCounts = useMemo(
-    () =>
-      intakeDocuments.reduce<Record<string, number>>((acc, doc) => {
-        if (doc.projectId) acc[doc.projectId] = (acc[doc.projectId] ?? 0) + 1;
-        return acc;
-      }, {}),
-    [intakeDocuments],
-  );
+  const documentCounts = useMemo(() => ({} as Record<string, number>), []);
 
   const projectSummary = useMemo(
     () => buildProjectDashboard(items, projects, documentCounts).slice(0, 3),
@@ -87,7 +71,6 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
   const openTasks = tasks.filter((task) => task.status !== 'Done').length;
   const nudgeCount = items.filter(needsNudge).length;
   const highRiskCount = items.filter((item) => isOverdue(item) || item.status === 'At risk' || item.escalationLevel === 'Critical').length;
-  const intakeCount = droppedEmailImports.length + intakeSignals.length;
 
   const statCards = [
     {
@@ -112,11 +95,11 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
       action: () => onOpenWorkspace('tasks'),
     },
     {
-      label: 'Intake',
-      value: intakeCount,
-      helper: 'Items waiting for triage',
-      icon: ArrowDownToLine,
-      action: () => onOpenWorkspace('intake'),
+      label: 'Work queue',
+      value: queueNowCount,
+      helper: 'Combined follow-ups + tasks due now',
+      icon: BellRing,
+      action: () => onOpenWorkspace('queue'),
     },
   ];
 
@@ -220,10 +203,6 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
               <ListTodo className="h-4 w-4" />
               Add task
             </button>
-            <button onClick={openImportModal} className="action-btn justify-start">
-              <ArrowDownToLine className="h-4 w-4" />
-              Import issues / emails
-            </button>
             <button onClick={() => onOpenWorkspace('projects')} className="action-btn justify-start">
               <BriefcaseBusiness className="h-4 w-4" />
               Open projects
@@ -238,13 +217,6 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
             </button>
           </div>
 
-          <div className="overview-mini-panel">
-            <div className="overview-mini-label">Inbox pressure</div>
-            <div className="overview-mini-value">{intakeCount}</div>
-            <div className="overview-mini-copy">
-              {droppedEmailImports.length} dropped email{droppedEmailImports.length === 1 ? '' : 's'} • {intakeSignals.length} intake signal{intakeSignals.length === 1 ? '' : 's'}
-            </div>
-          </div>
         </section>
       </div>
 

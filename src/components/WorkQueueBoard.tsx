@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, BellRing, CheckCircle2, ClipboardList, Clock3, FileStack, ListTodo } from 'lucide-react';
+import { ArrowRight, BellRing, CheckCircle2, ClipboardList, Clock3, ListTodo } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
 import { formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
@@ -7,7 +7,7 @@ import { formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
 interface QueueCard {
   id: string;
   title: string;
-  kind: 'Follow-up' | 'Task' | 'Intake';
+  kind: 'Follow-up' | 'Task';
   owner: string;
   project: string;
   dueDate?: string;
@@ -21,14 +21,12 @@ export function WorkQueueBoard() {
   const {
     items,
     tasks,
-    intakeDocuments,
     setSelectedId,
     setSelectedTaskId,
     updateTask,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
-    intakeDocuments: s.intakeDocuments,
     setSelectedId: s.setSelectedId,
     setSelectedTaskId: s.setSelectedTaskId,
     updateTask: s.updateTask,
@@ -38,8 +36,8 @@ export function WorkQueueBoard() {
   const [timeMode, setTimeMode] = useState<'morning' | 'afternoon'>('morning');
 
   const owners = useMemo(
-    () => ['All', ...Array.from(new Set([...items.map((item) => item.owner), ...tasks.map((task) => task.owner), ...intakeDocuments.map((doc) => doc.owner)])).sort()],
-    [items, tasks, intakeDocuments],
+    () => ['All', ...Array.from(new Set([...items.map((item) => item.owner), ...tasks.map((task) => task.owner)])).sort()],
+    [items, tasks],
   );
 
   const queue = useMemo(() => {
@@ -84,31 +82,17 @@ export function WorkQueueBoard() {
         } satisfies QueueCard;
       });
 
-    const intakeCards: QueueCard[] = intakeDocuments
-      .filter((doc) => doc.disposition === 'Unprocessed')
-      .map((doc) => ({
-        id: doc.id,
-        title: doc.name,
-        kind: 'Intake',
-        owner: doc.owner,
-        project: doc.project,
-        dueDate: doc.uploadedAt,
-        reason: 'Needs triage',
-        score: 6,
-        onOpen: () => null,
-      }));
-
-    return [...followUpCards, ...taskCards, ...intakeCards]
+    return [...followUpCards, ...taskCards]
       .filter((card) => ownerFilter === 'All' || card.owner === ownerFilter)
       .sort((a, b) => b.score - a.score)
       .slice(timeMode === 'morning' ? 0 : 5, timeMode === 'morning' ? 10 : 15);
-  }, [items, tasks, intakeDocuments, ownerFilter, setSelectedId, setSelectedTaskId, updateTask, timeMode]);
+  }, [items, tasks, ownerFilter, setSelectedId, setSelectedTaskId, updateTask, timeMode]);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">One work-this-now queue</h2>
-        <p className="mt-1 text-sm text-slate-500">Single execution list across follow-ups, tasks, and intake. Use this to answer: what are my next moves today?</p>
+        <p className="mt-1 text-sm text-slate-500">Single execution list across follow-ups and tasks. Use this to answer: what are my next moves today?</p>
       </div>
 
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_auto_auto]">
@@ -145,7 +129,6 @@ export function WorkQueueBoard() {
       <div className="grid gap-3 border-t border-slate-200 p-4 md:grid-cols-3">
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ListTodo className="mb-2 h-4 w-4" />Today: close commitments first, then execution tasks.</div>
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ClipboardList className="mb-2 h-4 w-4" />Check blocked handoffs before adding new work.</div>
-        <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><FileStack className="mb-2 h-4 w-4" />Triage intake into follow-up/task/reference on first pass.</div>
       </div>
     </section>
   );

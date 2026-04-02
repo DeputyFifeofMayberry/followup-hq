@@ -1,0 +1,116 @@
+import type { FollowUpFormInput, SourceType, TaskItem, TaskStatus } from '../types';
+import { addDaysIso, todayIso } from './utils';
+
+const STORAGE_KEY = 'followup-hq:data-entry-defaults:v1';
+
+type DefaultsState = {
+  followUpOwner?: string;
+  followUpProject?: string;
+  followUpProjectId?: string;
+  followUpSource?: SourceType;
+  followUpStatus?: FollowUpFormInput['status'];
+  taskOwner?: string;
+  taskProject?: string;
+  taskProjectId?: string;
+  taskStatus?: TaskStatus;
+};
+
+function readDefaults(): DefaultsState {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as DefaultsState;
+  } catch {
+    return {};
+  }
+}
+
+function writeDefaults(next: DefaultsState) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+}
+
+export function buildSmartFollowUpDefaults(context: { projectFilter?: string; projectId?: string; projectName?: string } = {}): FollowUpFormInput {
+  const now = todayIso();
+  const recents = readDefaults();
+  const projectFromContext = context.projectFilter && context.projectFilter !== 'All' ? context.projectFilter : context.projectName;
+  const project = projectFromContext || recents.followUpProject || 'General';
+  const status = recents.followUpStatus || 'Needs action';
+  const isWaiting = status === 'Waiting on external' || status === 'Waiting internal';
+  const cadenceDays = isWaiting ? 2 : 3;
+
+  return {
+    title: '',
+    source: recents.followUpSource || 'Email',
+    project,
+    projectId: context.projectId || recents.followUpProjectId || '',
+    owner: recents.followUpOwner || 'Jared',
+    status,
+    priority: 'Medium',
+    dueDate: addDaysIso(now, 2),
+    promisedDate: '',
+    nextTouchDate: addDaysIso(now, cadenceDays),
+    nextAction: '',
+    summary: '',
+    tags: [],
+    sourceRef: '',
+    waitingOn: '',
+    notes: '',
+    category: 'General',
+    owesNextAction: isWaiting ? 'Client' : 'Unknown',
+    escalationLevel: 'None',
+    cadenceDays,
+    contactId: '',
+    companyId: '',
+    threadKey: '',
+    draftFollowUp: '',
+  };
+}
+
+export function rememberFollowUpDefaults(input: FollowUpFormInput) {
+  const recents = readDefaults();
+  writeDefaults({
+    ...recents,
+    followUpOwner: input.owner || recents.followUpOwner,
+    followUpProject: input.project || recents.followUpProject,
+    followUpProjectId: input.projectId || recents.followUpProjectId,
+    followUpSource: input.source,
+    followUpStatus: input.status,
+  });
+}
+
+export function buildSmartTaskDefaults(context: { projectFilter?: string; projectId?: string; projectName?: string } = {}): TaskItem {
+  const recents = readDefaults();
+  const now = todayIso();
+  const projectFromContext = context.projectFilter && context.projectFilter !== 'All' ? context.projectFilter : context.projectName;
+  const project = projectFromContext || recents.taskProject || 'General';
+  return {
+    id: '',
+    title: '',
+    project,
+    projectId: context.projectId || recents.taskProjectId,
+    owner: recents.taskOwner || 'Jared',
+    status: recents.taskStatus || 'To do',
+    priority: 'Medium',
+    dueDate: addDaysIso(now, 1),
+    startDate: now,
+    summary: '',
+    nextStep: '',
+    notes: '',
+    tags: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function rememberTaskDefaults(task: TaskItem) {
+  const recents = readDefaults();
+  writeDefaults({
+    ...recents,
+    taskOwner: task.owner || recents.taskOwner,
+    taskProject: task.project || recents.taskProject,
+    taskProjectId: task.projectId || recents.taskProjectId,
+    taskStatus: task.status,
+  });
+}

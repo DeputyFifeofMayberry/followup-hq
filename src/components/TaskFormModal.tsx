@@ -1,30 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { fromDateInputValue, toDateInputValue, createId, todayIso } from '../lib/utils';
+import { fromDateInputValue, toDateInputValue, createId } from '../lib/utils';
+import { buildSmartTaskDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
 import { useAppStore } from '../store/useAppStore';
 import type { TaskItem, TaskStatus } from '../types';
 
 const statuses: TaskStatus[] = ['To do', 'In progress', 'Blocked', 'Done'];
 const priorities = ['Low', 'Medium', 'High', 'Critical'] as const;
-
-function blankTask(): TaskItem {
-  return {
-    id: createId('TSK'),
-    title: '',
-    project: 'General',
-    owner: 'Jared',
-    status: 'To do',
-    priority: 'Medium',
-    dueDate: undefined,
-    startDate: todayIso(),
-    summary: '',
-    nextStep: '',
-    notes: '',
-    tags: [],
-    createdAt: todayIso(),
-    updatedAt: todayIso(),
-  };
-}
 
 export function TaskFormModal() {
   const {
@@ -34,6 +16,7 @@ export function TaskFormModal() {
     projects,
     contacts,
     companies,
+    projectFilter,
     closeTaskModal,
     addTask,
     updateTask,
@@ -44,13 +27,14 @@ export function TaskFormModal() {
     projects: s.projects,
     contacts: s.contacts,
     companies: s.companies,
+    projectFilter: s.projectFilter,
     closeTaskModal: s.closeTaskModal,
     addTask: s.addTask,
     updateTask: s.updateTask,
   })));
 
   const existing = useMemo(() => tasks.find((task) => task.id === taskModal.taskId) ?? null, [tasks, taskModal.taskId]);
-  const [draft, setDraft] = useState<TaskItem>(blankTask());
+  const [draft, setDraft] = useState<TaskItem>({ ...buildSmartTaskDefaults({ projectFilter }), id: createId('TSK') });
 
   useEffect(() => {
     if (!taskModal.open) return;
@@ -60,8 +44,8 @@ export function TaskFormModal() {
 
   useEffect(() => {
     if (!taskModal.open) return;
-    setDraft(existing ? existing : blankTask());
-  }, [existing, taskModal.open]);
+    setDraft(existing ? existing : { ...buildSmartTaskDefaults({ projectFilter }), id: createId('TSK') });
+  }, [existing, taskModal.open, projectFilter]);
 
   if (!taskModal.open) return null;
 
@@ -159,6 +143,7 @@ export function TaskFormModal() {
           <button
             onClick={() => {
               if (!draft.title.trim()) return;
+              rememberTaskDefaults(draft);
               if (taskModal.mode === 'create') addTask(draft);
               else updateTask(draft.id, draft);
             }}

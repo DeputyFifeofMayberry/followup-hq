@@ -6,11 +6,12 @@ import { useShallow } from 'zustand/react/shallow';
 import type { SavedViewKey } from '../types';
 
 export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void }) {
-  const { items, contacts, companies, projects, intakeDocuments, addProject, updateProject, deleteProject } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, projects, tasks, intakeDocuments, addProject, updateProject, deleteProject } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
     projects: s.projects,
+    tasks: s.tasks,
     intakeDocuments: s.intakeDocuments,
     addProject: s.addProject,
     updateProject: s.updateProject,
@@ -38,6 +39,10 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
   const selectedDocs = useMemo(
     () => intakeDocuments.filter((doc) => doc.projectId === selectedProject?.id),
     [intakeDocuments, selectedProject],
+  );
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => task.projectId === selectedProject?.id && task.status !== 'Done'),
+    [tasks, selectedProject],
   );
   const linkedContacts = useMemo(
     () => contacts.filter((contact) => selectedItems.some((item) => item.contactId === contact.id)),
@@ -148,6 +153,25 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                   </div>
                 </div>
 
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><RefreshCcw className="h-4 w-4" />Project action board</div>
+                  <div className="space-y-3">
+                    {selectedTasks.map((task) => (
+                      <div key={task.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-slate-900">{task.title}</div>
+                          <div className="text-xs text-slate-500">{task.owner}</div>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div>
+                        <div className="mt-2 text-sm text-slate-600">{task.nextStep || 'No next step'}</div>
+                      </div>
+                    ))}
+                    {selectedTasks.length === 0 ? <div className="text-sm text-slate-500">No open project tasks.</div> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 p-4">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><FolderOpen className="h-4 w-4" />Linked intake docs</div>
                   <div className="space-y-3">

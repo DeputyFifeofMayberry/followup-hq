@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, FileSpreadsheet, HardHat, LayoutDashboard, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
@@ -22,15 +22,17 @@ import { ControlBar } from './components/ControlBar';
 import { TaskWorkspace } from './components/TaskWorkspace';
 import { TaskFormModal } from './components/TaskFormModal';
 import { ExportWorkspace } from './components/ExportWorkspace';
+import { WorkQueueBoard } from './components/WorkQueueBoard';
 
 import { supabase } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 
-type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships' | 'exports';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships' | 'exports';
 
 const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'queue', label: 'Work Queue', icon: ListChecks },
   { key: 'tracker', label: 'Follow Ups', icon: Activity },
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
@@ -278,6 +280,8 @@ function MainApp() {
     switch (workspace) {
       case 'tracker':
         return <TrackerWorkspace />;
+      case 'queue':
+        return <WorkQueueBoard />;
       case 'tasks':
         return <TaskWorkspace />;
       case 'exports':

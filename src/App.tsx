@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, ChevronDown, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
@@ -31,10 +31,13 @@ import type { SavedViewKey } from './types';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'outlook' | 'projects' | 'relationships' | 'exports';
 
-const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
-  { key: 'queue', label: 'Today / Now', icon: ListChecks },
+const primaryWorkspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
+  { key: 'queue', label: 'Queue', icon: ListChecks },
   { key: 'tracker', label: 'Follow Ups', icon: Activity },
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
+];
+
+const utilityWorkspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
   { key: 'outlook', label: 'Email Intake', icon: Mail },
@@ -250,6 +253,39 @@ function TrackerWorkspace() {
   );
 }
 
+function QueueSummaryStrip({
+  onOpenTrackerView,
+  onOpenTasks,
+}: {
+  onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
+  onOpenTasks: () => void;
+}) {
+  const { items, tasks } = useAppStore(useShallow((s) => ({ items: s.items, tasks: s.tasks })));
+  const needsAction = items.filter((item) => item.status !== 'Closed').length;
+  const nudgeCount = items.filter((item) => item.status !== 'Closed' && new Date(item.nextTouchDate).getTime() <= Date.now()).length;
+  const openTasks = tasks.filter((task) => task.status !== 'Done').length;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Queue summary</div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <button onClick={() => onOpenTrackerView('All')} className="saved-view-card text-left">
+          <div className="text-xs text-slate-500">Open follow-ups</div>
+          <div className="text-xl font-semibold text-slate-900">{needsAction}</div>
+        </button>
+        <button onClick={() => onOpenTrackerView('Needs nudge')} className="saved-view-card text-left">
+          <div className="text-xs text-slate-500">Needs touch now</div>
+          <div className="text-xl font-semibold text-amber-700">{nudgeCount}</div>
+        </button>
+        <button onClick={onOpenTasks} className="saved-view-card text-left">
+          <div className="text-xs text-slate-500">Open tasks</div>
+          <div className="text-xl font-semibold text-slate-900">{openTasks}</div>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function MainApp() {
   const initializeApp = useAppStore((s) => s.initializeApp);
   const { setActiveView, setProjectFilter, setSelectedId, setSelectedTaskId } = useAppStore(
@@ -260,8 +296,15 @@ function MainApp() {
       setSelectedTaskId: s.setSelectedTaskId,
     })),
   );
+  const { openCreateModal, openCreateTaskModal } = useAppStore(
+    useShallow((s) => ({
+      openCreateModal: s.openCreateModal,
+      openCreateTaskModal: s.openCreateTaskModal,
+    })),
+  );
 
   const [workspace, setWorkspace] = useState<WorkspaceKey>('queue');
+  const [showUtilities, setShowUtilities] = useState(false);
 
   useEffect(() => {
     void initializeApp();
@@ -311,10 +354,13 @@ function MainApp() {
           <aside className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-6 xl:self-start">
             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace</div>
             <div className="grid gap-2">
-              {workspaces.map(({ key, label, icon: Icon }) => (
+              {primaryWorkspaces.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
-                  onClick={() => setWorkspace(key)}
+                  onClick={() => {
+                    setWorkspace(key);
+                    setShowUtilities(false);
+                  }}
                   className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}
                 >
                   <div className="flex items-center gap-3 text-sm font-medium text-slate-900">
@@ -325,11 +371,44 @@ function MainApp() {
               ))}
             </div>
             <div className="mt-4">
+              <button onClick={() => setShowUtilities((current) => !current)} className="saved-view-card w-full justify-between">
+                <span className="text-sm font-medium text-slate-900">More</span>
+                <ChevronDown className={showUtilities ? 'h-4 w-4 rotate-180 transition-transform' : 'h-4 w-4 transition-transform'} />
+              </button>
+              {showUtilities ? (
+                <div className="mt-2 grid gap-2">
+                  {utilityWorkspaces.map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setWorkspace(key)}
+                      className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}
+                    >
+                      <div className="flex items-center gap-3 text-sm font-medium text-slate-900">
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Command</div>
+              <div className="mt-2 grid gap-2">
+                <button onClick={openCreateModal} className="action-btn justify-start">Create follow-up</button>
+                <button onClick={openCreateTaskModal} className="action-btn justify-start">Create task</button>
+              </div>
+            </div>
+            <div className="mt-4">
               <PersistenceBanner compact />
             </div>
           </aside>
 
-          <main className="min-w-0 space-y-5"><UniversalCapture />{workspaceBody}</main>
+          <main className="min-w-0 space-y-5">
+            <UniversalCapture />
+            {workspace === 'queue' ? <QueueSummaryStrip onOpenTrackerView={openTrackerView} onOpenTasks={() => setWorkspace('tasks')} /> : null}
+            {workspaceBody}
+          </main>
         </div>
       </div>
 

@@ -17,6 +17,9 @@ export function UniversalCapture() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => parseUniversalCapture(''));
   const [confirmation, setConfirmation] = useState<string>('');
+  const [hint, setHint] = useState<string>('');
+
+  const requiresReview = (entry: typeof draft) => entry.confidence < 0.55 || entry.title.trim().length < 3 || (entry.kind === 'followup' && !entry.nextAction && !entry.waitingOn);
 
   const openReview = () => {
     if (!text.trim()) return;
@@ -39,7 +42,7 @@ export function UniversalCapture() {
         dueDate: entry.dueDate || base.dueDate,
         nextTouchDate: entry.dueDate || base.nextTouchDate,
         waitingOn: entry.waitingOn || base.waitingOn,
-        nextAction: entry.nextAction || base.nextAction,
+        nextAction: entry.nextAction || entry.waitingOn || base.nextAction || entry.title,
         summary: entry.rawText,
       };
       rememberFollowUpDefaults(input);
@@ -72,8 +75,21 @@ export function UniversalCapture() {
 
   const canQuickSave = useMemo(() => {
     const parsed = parseUniversalCapture(text);
-    return !!text.trim() && parsed.title.trim().length >= 3 && parsed.confidence >= 0.55;
+    return !!text.trim() && !requiresReview(parsed);
   }, [text]);
+
+  const submitCapture = () => {
+    const parsed = parseUniversalCapture(text);
+    if (!text.trim()) return;
+    if (requiresReview(parsed)) {
+      setHint('Needs a quick review before save.');
+      setDraft(parsed);
+      setOpen(true);
+      return;
+    }
+    save(parsed);
+    setHint('');
+  };
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -85,13 +101,20 @@ export function UniversalCapture() {
         <input
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submitCapture();
+            }
+          }}
           placeholder="Type: Follow up with Alex on B995 sprinkler pricing Friday"
           className="field-input"
         />
-        <button onClick={() => save(parseUniversalCapture(text))} disabled={!canQuickSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">Quick save</button>
-        <button onClick={openReview} className="action-btn">Review details</button>
+        <button onClick={submitCapture} disabled={!text.trim()} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{canQuickSave ? 'Quick save' : 'Review & save'}</button>
+        <button onClick={openReview} className="action-btn">Details</button>
       </div>
       {confirmation ? <div className="mt-2 text-xs font-medium text-emerald-700">{confirmation}</div> : null}
+      {hint ? <div className="mt-1 text-xs font-medium text-amber-700">{hint}</div> : null}
 
       {open ? (
         <div className="modal-backdrop">

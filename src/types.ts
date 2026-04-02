@@ -581,7 +581,6 @@ export interface ForwardedRoutingAuditEntry {
   createdFollowUpId?: string;
   createdAt: string;
 }
-
 export interface ForwardedEmailProviderPayload {
   provider: 'mock' | 'postmark' | 'sendgrid' | 'mailgun' | 'other';
   receivedAt?: string;

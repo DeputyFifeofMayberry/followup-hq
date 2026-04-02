@@ -23,12 +23,13 @@ import { TaskWorkspace } from './components/TaskWorkspace';
 import { TaskFormModal } from './components/TaskFormModal';
 import { ExportWorkspace } from './components/ExportWorkspace';
 import { WorkQueueBoard } from './components/WorkQueueBoard';
+import { OutlookPanel } from './components/OutlookPanel';
 
 import { supabase } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships' | 'exports';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'outlook' | 'projects' | 'relationships' | 'exports';
 
 const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -37,6 +38,7 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutD
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
   { key: 'intake', label: 'Intake', icon: ArrowDownToLine },
+  { key: 'outlook', label: 'Outlook', icon: Mail },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
   { key: 'relationships', label: 'Relationships', icon: Users },
 ];
@@ -288,6 +290,8 @@ function MainApp() {
         return <ExportWorkspace />;
       case 'intake':
         return <IntakePanel />;
+      case 'outlook':
+        return <OutlookPanel />;
       case 'projects':
         return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} />;
       case 'relationships':

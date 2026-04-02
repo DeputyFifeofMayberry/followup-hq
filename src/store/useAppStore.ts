@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
+import { buildCandidate, buildMessageSignature, evaluateOutlookMessage, upsertLedgerEntry, buildAudit, findSimilarRecentCandidate } from '../lib/outlookTriage';
+import { getDefaultOutlookTriageRules } from '../lib/outlookRules';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
 import { isTauriRuntime, loadSnapshot, saveSnapshot } from '../lib/persistence';
@@ -403,6 +405,84 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
     syncStatus: 'connected',
     lastError: undefined,
   };
+}
+
+
+
+function buildFollowUpFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): FollowUpItem {
+  const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
+  return normalizeItem({
+    id: createId(),
+    title: message.subject || '(no subject)',
+    source: 'Email',
+    project,
+    projectId,
+    owner,
+    status: message.folder === 'sentitems' ? 'Waiting on external' : 'Needs action',
+    priority: message.flagStatus === 'flagged' || message.importance === 'high' ? 'High' : 'Medium',
+    dueDate: dueDateBase,
+    promisedDate: undefined,
+    lastTouchDate: todayIso(),
+    nextTouchDate: addDaysIso(todayIso(), 2),
+    nextAction: message.folder === 'sentitems' ? 'Review thread status and send a follow-up if no reply has come in.' : 'Read the message and assign ownership.',
+    summary: message.bodyPreview,
+    tags: ['Outlook', message.folder === 'sentitems' ? 'Sent' : 'Inbox', ...(message.categories ?? [])],
+    sourceRef: message.sourceRef,
+    sourceRefs: [message.sourceRef, message.webLink ?? '', message.conversationId ?? '', message.internetMessageId ?? ''].filter(Boolean),
+    mergedItemIds: [],
+    waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
+    notes: [`Outlook conversation: ${message.conversationId ?? 'n/a'}`, `From: ${message.from}`].join('\n'),
+    timeline: [buildTouchEvent('Created by Outlook auto-triage.', 'imported')],
+    category: 'Coordination',
+    owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
+    escalationLevel: 'None',
+    cadenceDays: 3,
+    threadKey: message.conversationId,
+    draftFollowUp: '',
+  });
+}
+
+function buildTaskFromOutlookMessage(message: OutlookMessage, owner: string, project: string, projectId?: string): TaskItem {
+  return {
+    id: createId('TSK'),
+    title: message.subject || '(no subject)',
+    project,
+    projectId,
+    owner,
+    status: 'To do',
+    priority: message.importance === 'high' || message.flagStatus === 'flagged' ? 'High' : 'Medium',
+    dueDate: addDaysIso(todayIso(), 1),
+    summary: message.bodyPreview,
+    nextStep: 'Review email and execute the requested action.',
+    notes: `Created by Outlook auto-triage from ${message.sourceRef}`,
+    tags: ['Outlook', ...(message.categories ?? [])],
+    createdAt: todayIso(),
+    updatedAt: todayIso(),
+  };
+}
+
+function noReplyContext(messages: OutlookMessage[]): Record<string, { noReply: boolean; noReplyDays: number }> {
+  const grouped = new Map<string, OutlookMessage[]>();
+  messages.forEach((message) => {
+    const key = message.conversationId ?? '';
+    if (!key) return;
+    grouped.set(key, [...(grouped.get(key) ?? []), message]);
+  });
+  const out: Record<string, { noReply: boolean; noReplyDays: number }> = {};
+  grouped.forEach((thread, conversationId) => {
+    const latestSent = thread.filter((message) => message.folder === 'sentitems' && message.sentDateTime).sort((a, b) => new Date(b.sentDateTime ?? 0).getTime() - new Date(a.sentDateTime ?? 0).getTime())[0];
+    if (!latestSent?.sentDateTime) {
+      out[conversationId] = { noReply: false, noReplyDays: 0 };
+      return;
+    }
+    const sentAt = new Date(latestSent.sentDateTime).getTime();
+    const hasReply = thread.some((message) => message.folder === 'inbox' && new Date(message.receivedDateTime ?? 0).getTime() > sentAt);
+    out[conversationId] = {
+      noReply: !hasReply,
+      noReplyDays: Math.max(0, Math.floor((Date.now() - sentAt) / 86400000)),
+    };
+  });
+  return out;
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -1068,7 +1148,62 @@ export const useAppStore = create<AppState>()((set, get) => ({
         syncCursorByFolder: nextCursor,
         lastSyncMode: usedDelta ? 'delta' : 'initial',
       };
-      set({ outlookConnection: syncedConnection, outlookMessages: deduped });
+      const state = get();
+      const changedMessages = deduped.filter((message) => {
+        const existing = state.outlookIngestionLedger.find((entry) => entry.messageId === message.id);
+        if (!existing) return true;
+        return existing.messageSignature !== buildMessageSignature(message);
+      });
+
+      let items = state.items;
+      let tasks = state.tasks;
+      let ledger = state.outlookIngestionLedger;
+      let candidates = state.outlookTriageCandidates;
+      let audit = state.outlookAutomationAudit;
+      const threadNoReply = noReplyContext(deduped);
+
+      changedMessages.forEach((message) => {
+        const output = evaluateOutlookMessage(message, {
+          rules: state.outlookTriageRules,
+          ledger,
+          items,
+          tasks,
+          existingCandidates: candidates,
+          internalDomains: ['followuphq.com'],
+          noReplyAfterSentByConversation: threadNoReply,
+        });
+
+        let createdTaskId: string | undefined;
+        let createdFollowUpId: string | undefined;
+
+        if (output.decision === 'auto-task') {
+          const task = buildTaskFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
+          tasks = normalizeTasks([task, ...tasks]);
+          createdTaskId = task.id;
+        } else if (output.decision === 'auto-follow-up') {
+          const item = buildFollowUpFromOutlookMessage(message, 'Jared', output.reasons.find((reason) => reason.includes('project hint'))?.split('project hint ')[1] ?? 'General');
+          items = normalizeItems([item, ...items]);
+          createdFollowUpId = item.id;
+        } else if (output.decision === 'review') {
+          const existing = findSimilarRecentCandidate(candidates, message);
+          if (!existing) {
+            candidates = [buildCandidate(message, output), ...candidates];
+          }
+        }
+
+        ledger = upsertLedgerEntry(ledger, message, output, { linkedTaskId: createdTaskId, linkedFollowUpId: createdFollowUpId });
+        audit = [buildAudit(message, output, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...audit].slice(0, 500);
+      });
+
+      set({
+        outlookConnection: syncedConnection,
+        outlookMessages: deduped,
+        items,
+        tasks,
+        outlookIngestionLedger: ledger,
+        outlookTriageCandidates: candidates,
+        outlookAutomationAudit: audit,
+      });
       queuePersist(get, set);
     } catch (error) {
       set((state) => ({
@@ -1084,47 +1219,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
   importOutlookMessage: (messageId) => {
     const message = get().outlookMessages.find((entry) => entry.id === messageId);
     if (!message) return;
-    const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
-    const item: FollowUpItem = normalizeItem({
-      id: createId(),
-      title: message.subject || '(no subject)',
-      source: 'Email',
-      project: 'General',
-      owner: 'Jared',
-      status: message.folder === 'sentitems' ? 'Waiting on external' : 'Needs action',
-      priority: message.flagStatus === 'flagged' || message.importance === 'high' ? 'High' : 'Medium',
-      dueDate: dueDateBase,
-      promisedDate: undefined,
-      lastTouchDate: todayIso(),
-      nextTouchDate: addDaysIso(todayIso(), 2),
-      nextAction: message.folder === 'sentitems' ? 'Review thread status and send a follow-up if no reply has come in.' : 'Read the message, decide ownership, and convert it into a tracked follow-up.',
-      summary: message.bodyPreview,
-      tags: ['Outlook', message.folder === 'sentitems' ? 'Sent' : 'Inbox', ...(message.categories ?? [])],
-      sourceRef: message.sourceRef,
-      sourceRefs: [message.sourceRef, message.webLink ?? '', message.conversationId ?? '', message.internetMessageId ?? ''],
-      mergedItemIds: [],
-      waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
-      notes: [
-        `Outlook conversation: ${message.conversationId ?? 'n/a'}`,
-        `From: ${message.from}`,
-        message.toRecipients.length ? `To: ${message.toRecipients.join('; ')}` : '',
-        message.ccRecipients.length ? `CC: ${message.ccRecipients.join('; ')}` : '',
-        message.webLink ? `Web link: ${message.webLink}` : '',
-      ].filter(Boolean).join('\n'),
-      timeline: [buildTouchEvent(`Imported from Outlook ${message.folder} sync.`, 'imported')],
-      category: 'Coordination',
-      owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
-      escalationLevel: 'None',
-      cadenceDays: 3,
-      threadKey: message.conversationId,
-      draftFollowUp: '',
-    });
-    set((state) => {
-      const items = normalizeItems([item, ...state.items]);
+    const state = get();
+    const alreadyLinked = state.outlookIngestionLedger.find((entry) => entry.messageId === messageId && (entry.linkedFollowUpId || entry.linkedTaskId));
+    const openConflict = state.items.some((item) => item.status !== 'Closed' && item.threadKey && message.conversationId && item.threadKey === message.conversationId);
+    if (alreadyLinked || openConflict) return;
+
+    const item = buildFollowUpFromOutlookMessage(message, 'Jared', 'General');
+    set((inner) => {
+      const items = normalizeItems([item, ...inner.items]);
       return {
         items,
         selectedId: item.id,
-        duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
+        duplicateReviews: refreshDuplicates(items, inner.dismissedDuplicatePairs),
+        outlookIngestionLedger: upsertLedgerEntry(
+          inner.outlookIngestionLedger,
+          message,
+          {
+            decision: 'auto-follow-up',
+            confidence: 100,
+            suggestedType: 'follow-up',
+            reasons: ['Decision: manual import from Outlook workspace'],
+            blockingReasons: [],
+            duplicateInfo: [],
+            matchedRuleIds: [],
+          },
+          { linkedFollowUpId: item.id },
+        ),
       };
     });
     queuePersist(get, set);
@@ -1167,21 +1287,34 @@ export const useAppStore = create<AppState>()((set, get) => ({
         items = normalizeItems([item, ...state.items]);
         createdFollowUpId = item.id;
       } else if (route.decision === 'review') {
-        const alreadyQueued = state.forwardedCandidates.some((entry) => entry.forwardedEmailId === record.id || entry.normalizedSubject === record.normalizedSubject && entry.originalSender.toLowerCase() === record.originalSender.toLowerCase() && entry.status === 'pending');
-        if (!alreadyQueued) candidate = [buildForwardingCandidate(record, route), ...state.forwardedCandidates];
+        const alreadyQueued = state.forwardedCandidates.some(
+          (entry) =>
+            entry.forwardedEmailId === record.id ||
+            (
+              entry.normalizedSubject === record.normalizedSubject &&
+              entry.originalSender.toLowerCase() === record.originalSender.toLowerCase() &&
+              entry.status === 'pending'
+            )
+        );
+        if (!alreadyQueued) {
+          candidate = [buildForwardingCandidate(record, route), ...state.forwardedCandidates];
+        }
       } else if (route.decision === 'reference') {
-        intakeDocuments = [{
-          id: createId('DOC'),
-          name: record.originalSubject || 'Forwarded email reference',
-          kind: 'Text',
-          disposition: 'Reference only',
-          project: project,
-          owner,
-          sourceRef: `Forwarded/${record.id}`,
-          uploadedAt: todayIso(),
-          notes: record.bodyText.slice(0, 600),
-          tags: ['Forwarded Intake', 'Reference'],
-        }, ...state.intakeDocuments];
+        intakeDocuments = [
+          {
+            id: createId('DOC'),
+            name: record.originalSubject || 'Forwarded email reference',
+            kind: 'Text',
+            disposition: 'Reference only',
+            project,
+            owner,
+            sourceRef: `Forwarded/${record.id}`,
+            uploadedAt: todayIso(),
+            notes: record.bodyText.slice(0, 600),
+            tags: ['Forwarded Intake', 'Reference'],
+          },
+          ...state.intakeDocuments,
+        ];
       }
 
       return {
@@ -1190,53 +1323,109 @@ export const useAppStore = create<AppState>()((set, get) => ({
         intakeDocuments,
         forwardedEmails: [record, ...state.forwardedEmails].slice(0, 500),
         forwardedCandidates: candidate,
-        forwardedLedger: [buildForwardedLedgerEntry(record, route, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...state.forwardedLedger].slice(0, 1000),
-        forwardedRoutingAudit: [buildForwardingAudit(record, route, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...state.forwardedRoutingAudit].slice(0, 1000),
+        forwardedLedger: [
+          buildForwardedLedgerEntry(record, route, {
+            taskId: createdTaskId,
+            followUpId: createdFollowUpId,
+          }),
+          ...state.forwardedLedger,
+        ].slice(0, 1000),
+        forwardedRoutingAudit: [
+          buildForwardingAudit(record, route, {
+            taskId: createdTaskId,
+            followUpId: createdFollowUpId,
+          }),
+          ...state.forwardedRoutingAudit,
+        ].slice(0, 1000),
         duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
       };
     });
     queuePersist(get, set);
   },
+
   approveForwardedCandidate: (candidateId, asType) => {
     set((state) => {
       const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
       if (!candidate || candidate.status !== 'pending') return state;
+
       const record = state.forwardedEmails.find((entry) => entry.id === candidate.forwardedEmailId);
       if (!record) return state;
+
       const type = asType ?? (candidate.suggestedType === 'followup' ? 'followup' : 'task');
+
       if (type === 'task') {
-        const task = buildTaskFromForwarded(record, record.parsedCommandHints.owner ?? 'Jared', candidate.parsedProject ?? 'General');
+        const task = buildTaskFromForwarded(
+          record,
+          record.parsedCommandHints.owner ?? 'Jared',
+          candidate.parsedProject ?? 'General',
+        );
+
         return {
           tasks: normalizeTasks([task, ...state.tasks]),
-          forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdTaskId: task.id, updatedAt: todayIso() } : entry),
+          forwardedCandidates: state.forwardedCandidates.map((entry) =>
+            entry.id === candidateId
+              ? { ...entry, status: 'approved', createdTaskId: task.id, updatedAt: todayIso() }
+              : entry
+          ),
         };
       }
-      const item = buildFollowUpFromForwarded(record, record.parsedCommandHints.owner ?? 'Jared', candidate.parsedProject ?? 'General');
+
+      const item = buildFollowUpFromForwarded(
+        record,
+        record.parsedCommandHints.owner ?? 'Jared',
+        candidate.parsedProject ?? 'General',
+      );
       const items = normalizeItems([item, ...state.items]);
       return {
         items,
         duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
-        forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdFollowUpId: item.id, updatedAt: todayIso() } : entry),
+        forwardedCandidates: state.forwardedCandidates.map((entry) =>
+          entry.id === candidateId
+            ? { ...entry, status: 'approved', createdFollowUpId: item.id, updatedAt: todayIso() }
+            : entry
+        ),
       };
     });
     queuePersist(get, set);
   },
   rejectForwardedCandidate: (candidateId) => {
-    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'rejected', updatedAt: todayIso() } : entry) }));
+    set((state) => ({
+      forwardedCandidates: state.forwardedCandidates.map((entry) =>
+        entry.id === candidateId
+          ? { ...entry, status: 'rejected', updatedAt: todayIso() }
+          : entry
+      ),
+    }));
     queuePersist(get, set);
   },
+
   saveForwardedCandidateAsReference: (candidateId) => {
-    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'reference', updatedAt: todayIso() } : entry) }));
+    set((state) => ({
+      forwardedCandidates: state.forwardedCandidates.map((entry) =>
+        entry.id === candidateId
+          ? { ...entry, status: 'reference', updatedAt: todayIso() }
+          : entry
+      ),
+    }));
     queuePersist(get, set);
   },
+
   linkForwardedCandidateToExisting: (candidateId, itemId) => {
-    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'linked', linkedItemId: itemId, updatedAt: todayIso() } : entry) }));
+    set((state) => ({
+      forwardedCandidates: state.forwardedCandidates.map((entry) =>
+        entry.id === candidateId
+          ? { ...entry, status: 'linked', linkedItemId: itemId, updatedAt: todayIso() }
+          : entry
+      ),
+    }));
     queuePersist(get, set);
   },
+
   addForwardRuleFromCandidate: (candidateId, action) => {
     set((state) => {
       const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
       if (!candidate) return state;
+
       const rule: ForwardedEmailRule = {
         id: createId('FWR'),
         name: `From candidate: ${candidate.normalizedSubject.slice(0, 40)}`,
@@ -1256,16 +1445,38 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
     queuePersist(get, set);
   },
+
   addManualForwardRule: (ruleInput) => {
-    set((state) => ({ forwardedRules: [...state.forwardedRules, { ...ruleInput, id: createId('FWR'), source: 'user', createdAt: todayIso(), updatedAt: todayIso() }] }));
+    set((state) => ({
+      forwardedRules: [
+        ...state.forwardedRules,
+        {
+          ...ruleInput,
+          id: createId('FWR'),
+          source: 'user',
+          createdAt: todayIso(),
+          updatedAt: todayIso(),
+        },
+      ],
+    }));
     queuePersist(get, set);
   },
+
   updateForwardRule: (ruleId, patch) => {
-    set((state) => ({ forwardedRules: state.forwardedRules.map((rule) => rule.id === ruleId ? { ...rule, ...patch, updatedAt: todayIso() } : rule) }));
+    set((state) => ({
+      forwardedRules: state.forwardedRules.map((rule) =>
+        rule.id === ruleId
+          ? { ...rule, ...patch, updatedAt: todayIso() }
+          : rule
+      ),
+    }));
     queuePersist(get, set);
   },
+
   deleteForwardRule: (ruleId) => {
-    set((state) => ({ forwardedRules: state.forwardedRules.filter((rule) => rule.id !== ruleId) }));
+    set((state) => ({
+      forwardedRules: state.forwardedRules.filter((rule) => rule.id !== ruleId),
+    }));
     queuePersist(get, set);
   },
 }));

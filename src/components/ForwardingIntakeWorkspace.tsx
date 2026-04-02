@@ -147,7 +147,18 @@ export function ForwardingIntakeWorkspace() {
       <div className="rounded-xl border border-slate-200 p-3">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-900">Review queue</div>
-          <Badge variant="warn">{pending.length} pending</Badge>
+          <div className="flex items-center gap-2">
+            <button
+              className="action-btn"
+              onClick={() => pending.filter((candidate) => candidate.confidence >= 0.9).forEach((candidate) => approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType))}
+            >
+              Batch approve high-confidence
+            </button>
+            <Badge variant="warn">{pending.length} pending</Badge>
+          </div>
+        </div>
+        <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+          Layout intent: left = pending list, center = parsed preview, right = confirmation actions. The review cards below preserve that flow in a compact single-column mode.
         </div>
         <div className="space-y-3">
           {pending.map((candidate) => (

@@ -9,7 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 const scopePresets = ['openid', 'profile', 'offline_access', 'User.Read', 'Mail.Read'];
 
-export function OutlookPanel() {
+export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean }) {
   const {
     outlookConnection,
     updateOutlookSettings,
@@ -87,6 +87,7 @@ export function OutlookPanel() {
       <div className="space-y-4 p-5">
         <ForwardingIntakeWorkspace />
 
+        {showAdvanced ? (
         <details className="rounded-2xl border border-slate-200 p-4">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-900">
             <Wrench className="h-4 w-4" /> Advanced: Experimental direct Outlook sync
@@ -235,6 +236,11 @@ export function OutlookPanel() {
             Direct sync remains available, but forwarding intake is the primary workflow.
           </div>
         </details>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            Advanced Outlook OAuth and PKCE setup is admin-only. Forwarding intake remains fully available for standard users.
+          </div>
+        )}
       </div>
     </section>
   );

@@ -147,6 +147,17 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
   }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, updateItem, timeMode, snoozeItem, markNudged, cycleEscalation, addTask, openDraftModal]);
   const pendingIntake = forwardedCandidates.filter((candidate) => candidate.status === 'pending').slice(0, 4);
   const focused = queue[focusIndex] ?? null;
+  const sharedViews = useMemo(() => {
+    const activeItems = items.filter((item) => item.status !== 'Closed');
+    const waitingTooLong = activeItems.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > 7 * 86400000).length;
+    return [
+      { label: 'My work', value: queue.filter((entry) => entry.owner !== 'Unassigned').length },
+      { label: 'Team queue', value: activeItems.length + tasks.filter((task) => task.status !== 'Done').length },
+      { label: 'Unassigned', value: activeItems.filter((item) => item.owner === 'Unassigned').length + tasks.filter((task) => task.owner === 'Unassigned' && task.status !== 'Done').length },
+      { label: 'Overdue by owner', value: activeItems.filter((item) => isOverdue(item)).length },
+      { label: 'Waiting too long', value: waitingTooLong },
+    ];
+  }, [items, tasks, queue]);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -165,6 +176,16 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
         <button onClick={() => setTimeMode('afternoon')} className={timeMode === 'afternoon' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
           <BellRing className="h-4 w-4" />Afternoon reset
         </button>
+      </div>
+      <div className="px-4 pb-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {sharedViews.map((view) => (
+            <div key={view.label} className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+              <div className="uppercase tracking-[0.12em] text-slate-500">{view.label}</div>
+              <div className="mt-1 text-lg font-semibold text-slate-900">{view.value}</div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="px-4 pb-2">
         <div className="flex flex-wrap gap-2">

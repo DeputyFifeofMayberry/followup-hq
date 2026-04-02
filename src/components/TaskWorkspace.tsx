@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 
 type TaskMode = 'today' | 'thisWeek' | 'blocked' | 'followUpLinked';
 
-export function TaskWorkspace({ onOpenLinkedFollowUp }: { onOpenLinkedFollowUp: (followUpId: string) => void }) {
+export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
   const {
     tasks,
     items,
@@ -133,7 +133,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp }: { onOpenLinkedFollowUp: 
             ))}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px_180px]">
+          <div className={`grid gap-3 ${personalMode ? 'md:grid-cols-[minmax(0,1fr)_180px_180px]' : 'md:grid-cols-[minmax(0,1fr)_180px_180px_180px]'}`}>
             <label className="field-block">
               <span className="field-label">Search tasks</span>
               <div className="search-field-wrap">
@@ -141,9 +141,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp }: { onOpenLinkedFollowUp: 
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, project, next step, notes" className="field-input search-field-input" />
               </div>
             </label>
-            <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">
-              {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
-            </select>
+            {!personalMode ? (
+              <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">
+                {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
+              </select>
+            ) : null}
             <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">
               {['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}
             </select>
@@ -174,11 +176,15 @@ export function TaskWorkspace({ onOpenLinkedFollowUp }: { onOpenLinkedFollowUp: 
                   </div>
                 </div>
                 <div className={`mt-3 grid gap-2 text-sm md:grid-cols-3 ${selectedTask?.id === task.id ? 'text-slate-200' : 'text-slate-600'}`} onClick={(event) => event.stopPropagation()}>
-                  <label className="text-xs">Owner
-                    <select value={task.owner} onChange={(event) => updateTask(task.id, { owner: event.target.value })} className="field-input !mt-1 !py-1.5 text-xs">
-                      {owners.filter((entry) => entry !== 'All').map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-                      <option value="Unassigned">Unassigned</option>
-                    </select>
+                  <label className="text-xs">{personalMode ? 'Contact' : 'Owner'}
+                    {personalMode ? (
+                      <div className="mt-1 rounded-xl bg-slate-100 px-2 py-2 text-xs text-slate-700">{task.owner || '—'}</div>
+                    ) : (
+                      <select value={task.owner} onChange={(event) => updateTask(task.id, { owner: event.target.value })} className="field-input !mt-1 !py-1.5 text-xs">
+                        {owners.filter((entry) => entry !== 'All').map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+                        <option value="Unassigned">Unassigned</option>
+                      </select>
+                    )}
                   </label>
                   <label className="text-xs">Due
                     <input type="date" value={toDateInputValue(task.dueDate)} onChange={(event) => updateTask(task.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input !mt-1 !py-1.5 text-xs" />

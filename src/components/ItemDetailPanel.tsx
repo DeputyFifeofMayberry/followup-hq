@@ -5,7 +5,7 @@ import { Badge } from './Badge';
 import { addDaysIso, buildTouchEvent, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 
-export function ItemDetailPanel() {
+export function ItemDetailPanel({ personalMode = false }: { personalMode?: boolean }) {
   const {
     selectedId,
     items,
@@ -110,23 +110,25 @@ export function ItemDetailPanel() {
         <div className="detail-card detail-facts-grid">
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project</div><div className="mt-1 text-sm text-slate-900">{item.project}</div></div>
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner</div><div className="mt-1 text-sm text-slate-900">{item.owner}</div></div>
-          <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignee</div><div className="mt-1 text-sm text-slate-900">{item.assigneeDisplayName || item.owner}</div></div>
+          {!personalMode ? <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignee</div><div className="mt-1 text-sm text-slate-900">{item.assigneeDisplayName || item.owner}</div></div> : null}
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due</div><div className="mt-1 text-sm text-slate-900">{formatDate(item.dueDate)}</div></div>
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</div><div className="mt-1 text-sm text-slate-900">{contact?.name ?? '—'}</div></div>
           <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div><div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div></div>
         </div>
-        <div className="detail-card">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignment workflow</div>
-          <div className="mt-2 flex gap-2">
-            <input value={assigneeDraft} onChange={(event) => setAssigneeDraft(event.target.value)} className="field-input" placeholder="Reassign to teammate" />
-            <button onClick={() => updateItem(item.id, { assigneeDisplayName: assigneeDraft.trim() || 'Unassigned' })} className="action-btn">Quick reassign</button>
+        {!personalMode ? (
+          <div className="detail-card">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignment workflow</div>
+            <div className="mt-2 flex gap-2">
+              <input value={assigneeDraft} onChange={(event) => setAssigneeDraft(event.target.value)} className="field-input" placeholder="Reassign to teammate" />
+              <button onClick={() => updateItem(item.id, { assigneeDisplayName: assigneeDraft.trim() || 'Unassigned' })} className="action-btn">Quick reassign</button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className="action-btn">Claim</button>
+              <button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Unassigned', assigneeUserId: undefined })} className="action-btn">Unclaim</button>
+            </div>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className="action-btn">Claim</button>
-            <button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Unassigned', assigneeUserId: undefined })} className="action-btn">Unclaim</button>
-          </div>
-        </div>
+        ) : null}
 
         <div className="detail-card">
           <div className="text-sm font-semibold text-slate-900">Running notes</div>

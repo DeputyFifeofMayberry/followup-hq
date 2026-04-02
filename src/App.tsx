@@ -19,14 +19,15 @@ import { TrackerTable } from './components/TrackerTable';
 import { ControlBar } from './components/ControlBar';
 import { TaskWorkspace } from './components/TaskWorkspace';
 import { ExportWorkspace } from './components/ExportWorkspace';
-import { WorkQueueBoard } from './components/WorkQueueBoard';
 import { OutlookPanel } from './components/OutlookPanel';
 import { UniversalCapture } from './components/UniversalCapture';
+import { PersonalAgendaBoard } from './components/PersonalAgendaBoard';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppUserRole } from './types';
+import type { AppMode } from './types';
 
 type WorkspaceKey = 'today' | 'followups' | 'tasks' | 'overview' | 'outlook' | 'projects' | 'relationships' | 'exports';
 
@@ -258,16 +259,16 @@ function OverviewWorkspace({
   return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} />;
 }
 
-function TrackerWorkspace() {
+function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   return (
     <div className="space-y-5">
       <ControlBar />
       <div className="tracker-main-grid">
         <div className="space-y-5">
-          <TrackerTable />
+          <TrackerTable personalMode={personalMode} />
           <DuplicateReviewPanel />
         </div>
-        <ItemDetailPanel />
+        <ItemDetailPanel personalMode={personalMode} />
       </div>
     </div>
   );
@@ -294,9 +295,20 @@ function MainApp() {
   );
 
   const [workspace, setWorkspace] = useState<WorkspaceKey>('today');
+  const [appMode, setAppMode] = useState<AppMode>(() => {
+    if (typeof window === 'undefined') return 'personal';
+    const saved = window.localStorage.getItem('followup-hq:app-mode');
+    return saved === 'team' ? 'team' : 'personal';
+  });
   const [showCommand, setShowCommand] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [role] = useState<AppUserRole>('user');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('followup-hq:app-mode', appMode);
+    }
+  }, [appMode]);
 
   useEffect(() => {
     void initializeApp();
@@ -346,17 +358,31 @@ function MainApp() {
   const workspaceBody = useMemo(() => {
     switch (workspace) {
       case 'followups':
-        return <TrackerWorkspace />;
+        return <TrackerWorkspace personalMode={appMode === 'personal'} />;
       case 'today':
+        {
+        const activeFollowUps = items.filter((item) => item.status !== 'Closed');
+        const waitingTooLong = activeFollowUps.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > 7 * 86400000);
+        const dueToday = activeFollowUps.filter((item) => new Date(item.dueDate).toDateString() === new Date().toDateString());
+        const noNextAction = [...activeFollowUps.filter((item) => !item.nextAction.trim()), ...tasks.filter((task) => task.status !== 'Done' && !task.nextStep.trim())];
+        const likelyNudges = activeFollowUps.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > Math.max(2, item.cadenceDays) * 86400000);
         return (
-          <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)_420px]">
+          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <section className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-sm font-semibold text-slate-900">Needs action now</div>
-                <div className="mt-2 text-xs text-slate-600">Overdue follow-ups, nudge-ready work, and blocked tasks.</div>
-                <button onClick={() => openTrackerView('Overdue')} className="mt-3 action-btn w-full justify-start">Open overdue follow-ups</button>
-                <button onClick={() => openTrackerView('Needs nudge')} className="mt-2 action-btn w-full justify-start">Open needs nudge</button>
-                <button onClick={() => setWorkspace('tasks')} className="mt-2 action-btn w-full justify-start">Open blocked tasks</button>
+              <div className="rounded-3xl border border-sky-200 bg-sky-50 p-4 shadow-sm">
+                <div className="text-sm font-semibold text-sky-900">Start my day</div>
+                <div className="mt-2 grid gap-2 text-xs text-sky-900">
+                  <div>Overdue: <span className="font-semibold">{activeFollowUps.filter((item) => new Date(item.dueDate).getTime() < Date.now()).length}</span></div>
+                  <div>Due today: <span className="font-semibold">{dueToday.length}</span></div>
+                  <div>Waiting too long: <span className="font-semibold">{waitingTooLong.length}</span></div>
+                  <div>Likely nudges: <span className="font-semibold">{likelyNudges.length}</span></div>
+                  <div>No clear next action: <span className="font-semibold">{noNextAction.length}</span></div>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <button onClick={() => openTrackerView('Overdue')} className="action-btn w-full justify-start">Review overdue</button>
+                  <button onClick={() => openTrackerView('Needs nudge')} className="action-btn w-full justify-start">Review nudges</button>
+                  <button onClick={() => setWorkspace('tasks')} className="action-btn w-full justify-start">Review blocked</button>
+                </div>
               </div>
               <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -379,15 +405,15 @@ function MainApp() {
               </div>
               <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="text-sm font-semibold text-slate-900">Quick add</div>
-                <p className="mt-1 text-xs text-slate-500">One-keystroke capture opens this simplified add flow.</p>
+                <p className="mt-1 text-xs text-slate-500">Fast capture with smart defaults from your recent work patterns.</p>
                 <div className="mt-3 grid gap-2">
-                  <button onClick={openCreateModal} className="action-btn justify-start">New follow-up (title, owner, due)</button>
-                  <button onClick={openCreateTaskModal} className="action-btn justify-start">New task (title, owner, due)</button>
+                  <button onClick={openCreateModal} className="action-btn justify-start">New follow-up</button>
+                  <button onClick={openCreateTaskModal} className="action-btn justify-start">New task</button>
                 </div>
               </div>
             </section>
             <div className="space-y-5">
-              <WorkQueueBoard onOpenFollowUp={(id) => openTrackerItem(id)} onOpenTask={openTaskItem} />
+              <PersonalAgendaBoard />
               <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="text-sm font-semibold text-slate-900">Progress today</div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-4 text-sm">
@@ -398,17 +424,11 @@ function MainApp() {
                 </div>
               </section>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><PanelRight className="h-4 w-4" />Focus panel</div>
-                <div className="mt-2 text-xs text-slate-500">Waiting / monitoring context, in-place editing, and recent activity.</div>
-              </div>
-              <ItemDetailPanel />
-            </div>
           </div>
         );
+      }
       case 'tasks':
-        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} />;
+        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} />;
       case 'exports':
         return <ExportWorkspace />;
       case 'outlook':
@@ -427,9 +447,7 @@ function MainApp() {
     { label: 'New task', run: () => openCreateTaskModal() },
     { label: 'Open today', run: () => setWorkspace('today') },
     { label: 'Open queue', run: () => setWorkspace('today') },
-    { label: 'Search follow-ups', run: () => setWorkspace('followups') },
-    { label: 'Search tasks', run: () => setWorkspace('tasks') },
-    { label: 'Open projects', run: () => setWorkspace('projects') },
+    ...(appMode === 'team' ? [{ label: 'Search follow-ups', run: () => setWorkspace('followups') }, { label: 'Search tasks', run: () => setWorkspace('tasks') }, { label: 'Open projects', run: () => setWorkspace('projects') }] : []),
     { label: 'Open intake review', run: () => setWorkspace('outlook') },
   ];
 
@@ -440,8 +458,12 @@ function MainApp() {
         <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-6 xl:self-start">
             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Navigation</div>
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+              <button onClick={() => setAppMode('personal')} className={appMode === 'personal' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Personal</button>
+              <button onClick={() => setAppMode('team')} className={appMode === 'team' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Team</button>
+            </div>
             <div className="grid gap-2">
-              {navItems.filter((item) => item.group === 'main' && item.roles.includes(role)).map(({ key, label, icon: Icon }) => (
+              {navItems.filter((item) => item.group === 'main' && item.roles.includes(role) && (appMode === 'team' || item.key === 'today')).map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
                   <div className="flex items-center gap-3 text-sm font-medium text-slate-900"><Icon className="h-4 w-4" />{label}</div>
                 </button>
@@ -454,7 +476,7 @@ function MainApp() {
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">More</div>
               <div className="mt-2 grid gap-2">
-                  {navItems.filter((item) => item.group === 'more' && item.roles.includes(role)).map(({ key, label, icon: Icon }) => (
+                  {navItems.filter((item) => item.roles.includes(role) && ((appMode === 'personal' && ['followups', 'tasks', 'outlook'].includes(item.key)) || (appMode === 'team' && item.group === 'more'))).map(({ key, label, icon: Icon }) => (
                   <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
                     <div className="flex items-center gap-3 text-sm font-medium text-slate-900"><Icon className="h-4 w-4" />{label}</div>
                   </button>

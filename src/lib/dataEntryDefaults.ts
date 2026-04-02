@@ -9,10 +9,12 @@ type DefaultsState = {
   followUpProjectId?: string;
   followUpSource?: SourceType;
   followUpStatus?: FollowUpFormInput['status'];
+  followUpCadenceDays?: number;
   taskOwner?: string;
   taskProject?: string;
   taskProjectId?: string;
   taskStatus?: TaskStatus;
+  lastWorkMode?: 'followup' | 'task';
 };
 
 export type RecentEntryContext = {
@@ -53,7 +55,7 @@ export function buildSmartFollowUpDefaults(context: { projectFilter?: string; pr
   const project = projectFromContext || recents.followUpProject || '';
   const status = recents.followUpStatus || 'Needs action';
   const isWaiting = status === 'Waiting on external' || status === 'Waiting internal';
-  const cadenceDays = isWaiting ? 2 : 3;
+  const cadenceDays = recents.followUpCadenceDays || (isWaiting ? 2 : 3);
 
   return {
     title: '',
@@ -92,6 +94,8 @@ export function rememberFollowUpDefaults(input: FollowUpFormInput) {
     followUpProjectId: input.projectId || recents.followUpProjectId,
     followUpSource: input.source,
     followUpStatus: input.status,
+    followUpCadenceDays: input.cadenceDays,
+    lastWorkMode: 'followup',
   });
 }
 
@@ -127,5 +131,10 @@ export function rememberTaskDefaults(task: TaskItem) {
     taskProject: task.project || recents.taskProject,
     taskProjectId: task.projectId || recents.taskProjectId,
     taskStatus: task.status,
+    lastWorkMode: 'task',
   });
+}
+
+export function getRecentWorkMode(): 'followup' | 'task' {
+  return readDefaults().lastWorkMode || 'followup';
 }

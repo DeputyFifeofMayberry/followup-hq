@@ -13,6 +13,7 @@ export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type TaskStatus = 'To do' | 'In progress' | 'Blocked' | 'Done';
 export type TaskPriority = FollowUpPriority;
 export type AppUserRole = 'user' | 'manager' | 'admin';
+export type AppMode = 'personal' | 'team';
 export type VisibilityScope = 'private' | 'team' | 'company';
 
 export type TimelineEventType =

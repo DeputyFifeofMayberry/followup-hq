@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
+import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
 import { buildItemFromForm, createId, fromDateInputValue, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskItem } from '../types';
@@ -59,7 +59,7 @@ export function CreateWorkModal() {
   const currentItem = useMemo(() => items.find((entry) => entry.id === itemModal.itemId) ?? null, [items, itemModal.itemId]);
   const currentTask = useMemo(() => tasks.find((entry) => entry.id === taskModal.taskId) ?? null, [tasks, taskModal.taskId]);
 
-  const [mode, setMode] = useState<WorkMode>('followup');
+  const [mode, setMode] = useState<WorkMode>(getRecentWorkMode());
   const [followUpForm, setFollowUpForm] = useState<FollowUpFormInput>(buildSmartFollowUpDefaults({ projectFilter }));
   const [taskForm, setTaskForm] = useState<TaskItem>(toTaskDraft(buildSmartTaskDefaults({ projectFilter })));
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -147,7 +147,7 @@ export function CreateWorkModal() {
       setModalMode(createWorkDraft.cleanupReasons?.length ? 'full' : 'fast');
       return;
     }
-    setMode(itemModal.open ? 'followup' : 'task');
+    setMode(itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
     setFollowUpForm(defaultFollowUp);
     setTaskForm(defaultTask);
     setShowAdvanced(false);

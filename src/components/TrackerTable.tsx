@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
 
-export function TrackerTable() {
+export function TrackerTable({ personalMode = false }: { personalMode?: boolean }) {
   const {
     items,
     contacts,
@@ -95,13 +95,17 @@ export function TrackerTable() {
     },
     {
       accessorKey: 'owner',
-      header: 'Owner / Waiting on',
+      header: personalMode ? 'Contact / Waiting on' : 'Owner / Waiting on',
       cell: ({ row }) => (
         <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-          <select value={row.original.owner} onChange={(event) => updateItem(row.original.id, { owner: event.target.value })} className="field-input !w-[170px] !py-1.5 text-xs">
-            {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-            <option value="Unassigned">Unassigned</option>
-          </select>
+          {personalMode ? (
+            <div className="rounded-xl bg-slate-100 px-2 py-1.5 text-xs text-slate-700">{row.original.owner || '—'}</div>
+          ) : (
+            <select value={row.original.owner} onChange={(event) => updateItem(row.original.id, { owner: event.target.value })} className="field-input !w-[170px] !py-1.5 text-xs">
+              {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+              <option value="Unassigned">Unassigned</option>
+            </select>
+          )}
           <input value={row.original.waitingOn ?? ''} onChange={(event) => updateItem(row.original.id, { waitingOn: event.target.value })} placeholder="Waiting on" className="field-input !w-[170px] !py-1.5 text-xs" />
         </div>
       ),
@@ -137,7 +141,7 @@ export function TrackerTable() {
         </div>
       ),
     },
-  ], [duplicateReviews, companies, owners, updateItem]);
+  ], [duplicateReviews, companies, owners, updateItem, personalMode]);
 
   const table = useReactTable({
     data: filteredItems,

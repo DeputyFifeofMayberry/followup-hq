@@ -4,7 +4,7 @@ import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection'
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
 import { createPersistenceQueue } from './persistenceQueue';
-import { isTauriRuntime, loadSnapshot } from '../lib/persistence';
+import { isTauriRuntime, loadPersistedPayload, type PersistedPayload } from '../lib/persistence';
 import { getDefaultOutlookSettings } from '../lib/outlookGraph';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
@@ -185,6 +185,10 @@ const defaultOutlookConnection: OutlookConnectionState = {
   syncCursorByFolder: { inbox: {}, sentitems: {} },
 };
 
+function projectCanonicalKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function normalizeItems(items: FollowUpItem[]): FollowUpItem[] {
   return items.map(normalizeItem).sort((a, b) => new Date(b.lastTouchDate).getTime() - new Date(a.lastTouchDate).getTime());
 }
@@ -229,14 +233,14 @@ function stampProject(project: ProjectRecord, patch: Partial<ProjectRecord> = {}
 
 function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): ProjectRecord[] {
   const byId = new Map(existing.map((project) => [project.id, project]));
-  const byName = new Map(existing.map((project) => [project.name.toLowerCase(), project]));
+  const byName = new Map(existing.map((project) => [projectCanonicalKey(project.name), project]));
   items.forEach((item) => {
     const name = (item.project || 'General').trim() || 'General';
     const existingById = item.projectId ? byId.get(item.projectId) : undefined;
-    const existingByName = byName.get(name.toLowerCase());
+    const existingByName = byName.get(projectCanonicalKey(name));
     if (existingById) {
       byId.set(existingById.id, stampProject(existingById, { name, owner: item.owner || existingById.owner }));
-      byName.set(name.toLowerCase(), byId.get(existingById.id)!);
+      byName.set(projectCanonicalKey(name), byId.get(existingById.id)!);
       return;
     }
     if (existingByName) {
@@ -254,7 +258,7 @@ function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): 
       updatedAt: todayIso(),
     } satisfies ProjectRecord;
     byId.set(created.id, created);
-    byName.set(name.toLowerCase(), created);
+    byName.set(projectCanonicalKey(name), created);
   });
   return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -262,7 +266,7 @@ function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): 
 function attachProjects(items: FollowUpItem[], projects: ProjectRecord[]): FollowUpItem[] {
   return normalizeItems(items.map((item) => {
     const name = resolveProjectName(item.projectId, item.project, projects);
-    const project = item.projectId ? projects.find((entry) => entry.id === item.projectId) : projects.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+    const project = item.projectId ? projects.find((entry) => entry.id === item.projectId) : projects.find((entry) => projectCanonicalKey(entry.name) === projectCanonicalKey(name));
     return normalizeItem({ ...item, projectId: project?.id ?? item.projectId, project: project?.name ?? name });
   }));
 }
@@ -284,24 +288,26 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit'>): AppSnapshot {
+function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit'>): PersistedPayload {
   return {
     items: state.items,
     contacts: state.contacts,
     companies: state.companies,
     projects: state.projects,
     tasks: state.tasks,
-    intakeSignals: state.intakeSignals,
-    intakeDocuments: state.intakeDocuments,
-    dismissedDuplicatePairs: state.dismissedDuplicatePairs,
-    droppedEmailImports: state.droppedEmailImports,
-    outlookConnection: state.outlookConnection,
-    outlookMessages: state.outlookMessages,
-    forwardedEmails: state.forwardedEmails,
-    forwardedRules: state.forwardedRules,
-    forwardedCandidates: state.forwardedCandidates,
-    forwardedLedger: state.forwardedLedger,
-    forwardedRoutingAudit: state.forwardedRoutingAudit,
+    auxiliary: {
+      intakeSignals: state.intakeSignals,
+      intakeDocuments: state.intakeDocuments,
+      dismissedDuplicatePairs: state.dismissedDuplicatePairs,
+      droppedEmailImports: state.droppedEmailImports,
+      outlookConnection: state.outlookConnection,
+      outlookMessages: state.outlookMessages,
+      forwardedEmails: state.forwardedEmails,
+      forwardedRules: state.forwardedRules,
+      forwardedCandidates: state.forwardedCandidates,
+      forwardedLedger: state.forwardedLedger,
+      forwardedRoutingAudit: state.forwardedRoutingAudit,
+    },
   };
 }
 
@@ -440,7 +446,7 @@ function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => 
   if (!enqueuePersist) {
     enqueuePersist = createPersistenceQueue(
       {
-        getSnapshot: () => buildSnapshot(get()),
+        getPayload: () => buildPersistedPayload(get()),
         onSaving: () => set({ syncState: 'saving', saveError: '' }),
         onSaved: (mode, timestamp) => set({ persistenceMode: mode, syncState: 'saved', saveError: '', lastSyncedAt: timestamp }),
         onError: (message) => set({ syncState: 'error', saveError: message }),
@@ -492,30 +498,34 @@ export const useAppStore = create<AppState>()((set, get) => ({
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
-      const { snapshot, mode } = await loadSnapshot();
-      const hasItems = Object.prototype.hasOwnProperty.call(snapshot, 'items');
-      const hasContacts = Object.prototype.hasOwnProperty.call(snapshot, 'contacts');
-      const hasCompanies = Object.prototype.hasOwnProperty.call(snapshot, 'companies');
-      const hasProjects = Object.prototype.hasOwnProperty.call(snapshot, 'projects');
-      const hasTasks = Object.prototype.hasOwnProperty.call(snapshot, 'tasks');
-      const hasSignals = Object.prototype.hasOwnProperty.call(snapshot, 'intakeSignals');
-      const hasDocuments = Object.prototype.hasOwnProperty.call(snapshot, 'intakeDocuments');
+      const { payload, mode } = await loadPersistedPayload();
+      const hasItems = Object.prototype.hasOwnProperty.call(payload, 'items');
+      const hasContacts = Object.prototype.hasOwnProperty.call(payload, 'contacts');
+      const hasCompanies = Object.prototype.hasOwnProperty.call(payload, 'companies');
+      const hasProjects = Object.prototype.hasOwnProperty.call(payload, 'projects');
+      const hasTasks = Object.prototype.hasOwnProperty.call(payload, 'tasks');
+      const hasSignals = Object.prototype.hasOwnProperty.call(payload.auxiliary, 'intakeSignals');
+      const hasDocuments = Object.prototype.hasOwnProperty.call(payload.auxiliary, 'intakeDocuments');
 
-      const baseItems = hasItems ? normalizeItems(snapshot.items ?? []) : normalizeItems([]);
-      const contacts = hasContacts ? (snapshot.contacts ?? []) : [];
-      const companies = hasCompanies ? (snapshot.companies ?? []) : [];
-      const projects = deriveProjects(baseItems, hasProjects ? (snapshot.projects ?? []) : []);
+      const baseItems = hasItems ? normalizeItems(payload.items ?? []) : normalizeItems([]);
+      const contacts = hasContacts ? (payload.contacts ?? []) : [];
+      const companies = hasCompanies ? (payload.companies ?? []) : [];
+      const projects = deriveProjects(baseItems, hasProjects ? (payload.projects ?? []) : []);
       const items = attachProjects(baseItems, projects);
-      const tasks = normalizeTasks((hasTasks ? (snapshot.tasks ?? []) : []).map((task) => ({ ...task, project: resolveProjectName(task.projectId, task.project, projects) })));
-      const intakeSignals = hasSignals ? (snapshot.intakeSignals ?? []) : [];
-      const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : []).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
-      const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
-      const droppedEmailImports = snapshot.droppedEmailImports ?? [];
-      const forwardedEmails = snapshot.forwardedEmails ?? [];
-      const forwardedRules = snapshot.forwardedRules?.length ? snapshot.forwardedRules : getDefaultForwardedRules();
-      const forwardedCandidates = snapshot.forwardedCandidates ?? [];
-      const forwardedLedger = snapshot.forwardedLedger ?? [];
-      const forwardedRoutingAudit = snapshot.forwardedRoutingAudit ?? [];
+      const tasks = normalizeTasks((hasTasks ? (payload.tasks ?? []) : []).map((task) => {
+        const projectName = resolveProjectName(task.projectId, task.project, projects);
+        const linkedProject = projects.find((project) => projectCanonicalKey(project.name) === projectCanonicalKey(projectName));
+        return { ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId };
+      }));
+      const intakeSignals = hasSignals ? (payload.auxiliary.intakeSignals ?? []) : [];
+      const intakeDocuments = (hasDocuments ? (payload.auxiliary.intakeDocuments ?? []) : []).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
+      const dismissedDuplicatePairs = payload.auxiliary.dismissedDuplicatePairs ?? [];
+      const droppedEmailImports = payload.auxiliary.droppedEmailImports ?? [];
+      const forwardedEmails = payload.auxiliary.forwardedEmails ?? [];
+      const forwardedRules = payload.auxiliary.forwardedRules?.length ? payload.auxiliary.forwardedRules : getDefaultForwardedRules();
+      const forwardedCandidates = payload.auxiliary.forwardedCandidates ?? [];
+      const forwardedLedger = payload.auxiliary.forwardedLedger ?? [];
+      const forwardedRoutingAudit = payload.auxiliary.forwardedRoutingAudit ?? [];
       set({
         items,
         contacts,
@@ -541,17 +551,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
         lastSyncedAt: todayIso(),
         outlookConnection: {
           ...defaultOutlookConnection,
-          ...(snapshot.outlookConnection ?? {}),
+          ...(payload.auxiliary.outlookConnection ?? {}),
           settings: {
             ...defaultOutlookConnection.settings,
-            ...(snapshot.outlookConnection?.settings ?? {}),
+            ...(payload.auxiliary.outlookConnection?.settings ?? {}),
           },
           syncCursorByFolder: {
-            inbox: snapshot.outlookConnection?.syncCursorByFolder?.inbox ?? {},
-            sentitems: snapshot.outlookConnection?.syncCursorByFolder?.sentitems ?? {},
+            inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {},
+            sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {},
           },
         },
-        outlookMessages: snapshot.outlookMessages ?? [],
+        outlookMessages: payload.auxiliary.outlookMessages ?? [],
       });
     } catch (error) {
       set({ hydrated: true, persistenceMode: 'browser', saveError: error instanceof Error ? error.message : 'Failed to load saved data.', syncState: 'error' });

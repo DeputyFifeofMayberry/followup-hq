@@ -4,6 +4,7 @@ import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, rememberFollowUpDef
 import { buildItemFromForm, createId, fromDateInputValue, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskItem } from '../types';
+import { EntityCombobox } from './EntityCombobox';
 
 type WorkMode = 'followup' | 'task';
 
@@ -19,11 +20,16 @@ export function CreateWorkModal() {
     items,
     tasks,
     projects,
+    contacts,
+    companies,
     projectFilter,
     addItem,
     updateItem,
     addTask,
     updateTask,
+    addProject,
+    addContact,
+    addCompany,
     closeItemModal,
     closeTaskModal,
   } = useAppStore(useShallow((s) => ({
@@ -33,11 +39,16 @@ export function CreateWorkModal() {
     items: s.items,
     tasks: s.tasks,
     projects: s.projects,
+    contacts: s.contacts,
+    companies: s.companies,
     projectFilter: s.projectFilter,
     addItem: s.addItem,
     updateItem: s.updateItem,
     addTask: s.addTask,
     updateTask: s.updateTask,
+    addProject: s.addProject,
+    addContact: s.addContact,
+    addCompany: s.addCompany,
     closeItemModal: s.closeItemModal,
     closeTaskModal: s.closeTaskModal,
   })));
@@ -145,9 +156,13 @@ export function CreateWorkModal() {
     closeTaskModal();
   };
 
+  const projectOptions = projects.map((project) => ({ id: project.id, label: project.name, meta: project.owner }));
+  const contactOptions = contacts.map((contact) => ({ id: contact.id, label: contact.name, meta: contact.role || contact.email }));
+  const companyOptions = companies.map((company) => ({ id: company.id, label: company.name, meta: company.type }));
+
   const canSave = mode === 'followup'
-    ? !!followUpForm.title.trim() && !!followUpForm.owner.trim() && !!followUpForm.project.trim() && !!followUpForm.nextAction.trim() && (!!followUpForm.dueDate || !!followUpForm.nextTouchDate)
-    : !!taskForm.title.trim() && !!taskForm.owner.trim() && !!taskForm.project.trim() && !!taskForm.nextStep.trim() && !!taskForm.dueDate;
+    ? !!followUpForm.title.trim() && !!followUpForm.owner.trim() && !!followUpForm.projectId && !!followUpForm.nextAction.trim() && (!!followUpForm.dueDate || !!followUpForm.nextTouchDate)
+    : !!taskForm.title.trim() && !!taskForm.owner.trim() && !!taskForm.projectId && !!taskForm.nextStep.trim() && !!taskForm.dueDate;
 
   const save = (addAnother = false) => {
     if (!canSave) return;
@@ -196,8 +211,28 @@ export function CreateWorkModal() {
         {mode === 'followup' ? (
           <div className="form-grid-two">
             <div className="field-block"><label className="field-label">Title</label><input autoFocus value={followUpForm.title} onChange={(e) => setFollowUpForm({ ...followUpForm, title: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Owner</label><input value={followUpForm.owner} onChange={(e) => setFollowUpForm({ ...followUpForm, owner: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Project</label><input value={followUpForm.project} onChange={(e) => setFollowUpForm({ ...followUpForm, project: e.target.value })} className="field-input" /></div>
+            <EntityCombobox
+              label="Owner (contact)"
+              valueId={followUpForm.contactId}
+              valueLabel={followUpForm.owner}
+              options={contactOptions}
+              onSelect={(option) => setFollowUpForm({ ...followUpForm, owner: option.label, contactId: option.id })}
+              onCreate={(label) => {
+                const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
+                setFollowUpForm({ ...followUpForm, owner: label, contactId: id });
+              }}
+            />
+            <EntityCombobox
+              label="Project"
+              valueId={followUpForm.projectId}
+              valueLabel={followUpForm.project}
+              options={projectOptions}
+              onSelect={(option) => setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id })}
+              onCreate={(label) => {
+                const id = addProject({ name: label, owner: followUpForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
+                setFollowUpForm({ ...followUpForm, project: label, projectId: id });
+              }}
+            />
             <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(followUpForm.dueDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
             <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
             <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={followUpForm.nextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, nextAction: e.target.value })} className="field-textarea" /></div>
@@ -205,8 +240,28 @@ export function CreateWorkModal() {
         ) : (
           <div className="form-grid-two">
             <div className="field-block"><label className="field-label">Title</label><input autoFocus value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Owner</label><input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Project</label><input value={taskForm.project} onChange={(e) => setTaskForm({ ...taskForm, project: e.target.value })} className="field-input" /></div>
+            <EntityCombobox
+              label="Owner (contact)"
+              valueId={taskForm.contactId}
+              valueLabel={taskForm.owner}
+              options={contactOptions}
+              onSelect={(option) => setTaskForm({ ...taskForm, owner: option.label, contactId: option.id })}
+              onCreate={(label) => {
+                const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
+                setTaskForm({ ...taskForm, owner: label, contactId: id });
+              }}
+            />
+            <EntityCombobox
+              label="Project"
+              valueId={taskForm.projectId}
+              valueLabel={taskForm.project}
+              options={projectOptions}
+              onSelect={(option) => setTaskForm({ ...taskForm, project: option.label, projectId: option.id })}
+              onCreate={(label) => {
+                const id = addProject({ name: label, owner: taskForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
+                setTaskForm({ ...taskForm, project: label, projectId: id });
+              }}
+            />
             <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(taskForm.dueDate)} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
             <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={taskForm.nextStep} onChange={(e) => setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" /></div>
           </div>
@@ -218,16 +273,35 @@ export function CreateWorkModal() {
             <div className="form-grid-two mt-4">
               <div className="field-block"><label className="field-label">Status</label><select value={followUpForm.status} onChange={(e) => setFollowUpForm({ ...followUpForm, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
               <div className="field-block"><label className="field-label">Priority</label><select value={followUpForm.priority} onChange={(e) => setFollowUpForm({ ...followUpForm, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+              <EntityCombobox
+                label="Company"
+                valueId={followUpForm.companyId}
+                valueLabel={companies.find((company) => company.id === followUpForm.companyId)?.name}
+                options={companyOptions}
+                onSelect={(option) => setFollowUpForm({ ...followUpForm, companyId: option.id })}
+                onCreate={(label) => {
+                  const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
+                  setFollowUpForm({ ...followUpForm, companyId: id });
+                }}
+              />
               <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={followUpForm.summary} onChange={(e) => setFollowUpForm({ ...followUpForm, summary: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block"><label className="field-label">Waiting on</label><input value={followUpForm.waitingOn} onChange={(e) => setFollowUpForm({ ...followUpForm, waitingOn: e.target.value })} className="field-input" /></div>
-              <div className="field-block"><label className="field-label">Tags</label><input value={followUpForm.tags.join(', ')} onChange={(e) => setFollowUpForm({ ...followUpForm, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} className="field-input" /></div>
             </div>
           ) : (
             <div className="form-grid-two mt-4">
               <div className="field-block"><label className="field-label">Status</label><select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
               <div className="field-block"><label className="field-label">Priority</label><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+              <EntityCombobox
+                label="Company"
+                valueId={taskForm.companyId}
+                valueLabel={companies.find((company) => company.id === taskForm.companyId)?.name}
+                options={companyOptions}
+                onSelect={(option) => setTaskForm({ ...taskForm, companyId: option.id })}
+                onCreate={(label) => {
+                  const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
+                  setTaskForm({ ...taskForm, companyId: id });
+                }}
+              />
               <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Tags</label><input value={taskForm.tags.join(', ')} onChange={(e) => setTaskForm({ ...taskForm, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} className="field-input" /></div>
             </div>
           )}
         </details>

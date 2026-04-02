@@ -23,7 +23,7 @@ import { WorkQueueBoard } from './components/WorkQueueBoard';
 import { OutlookPanel } from './components/OutlookPanel';
 import { UniversalCapture } from './components/UniversalCapture';
 
-import { supabase } from './lib/supabase';
+import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 
@@ -97,6 +97,28 @@ function FollowUpHQMark() {
         <circle cx="426" cy="154" r="18" fill="#f59e0b" />
       </g>
     </svg>
+  );
+}
+
+function MissingSupabaseConfigScreen() {
+  return (
+    <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
+      <div className="mx-auto flex min-h-[80vh] max-w-[760px] items-center justify-center">
+        <div className="w-full rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
+          <h1 className="text-xl font-semibold text-amber-900">Supabase setup needed</h1>
+          <p className="mt-2 text-sm text-amber-800">
+            FollowUp HQ needs valid Supabase environment variables before the app can load.
+          </p>
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-white p-4 text-sm text-slate-700">
+            <div className="font-medium text-slate-900">Current issue</div>
+            <code className="mt-2 block rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-800">{supabaseConfigError ?? 'Supabase configuration unavailable.'}</code>
+            <div className="mt-3 text-xs text-slate-600">
+              Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> in your local environment (for example in a <code>.env</code> file), then restart the dev server.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -421,6 +443,11 @@ export default function App() {
   const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setLoadingSession(false);
+      return;
+    }
+
     let isMounted = true;
 
     void supabase.auth.getSession().then(({ data, error }) => {
@@ -446,6 +473,10 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  if (supabaseConfigError) {
+    return <MissingSupabaseConfigScreen />;
+  }
 
   if (loadingSession) {
     return (

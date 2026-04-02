@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { getDefaultOutlookSettings } from './outlookGraph';
-import { getDefaultOutlookTriageRules } from './outlookRules';
 import {
   starterCompanies,
   starterContacts,

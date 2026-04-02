@@ -5,7 +5,7 @@ import { formatDateTime } from '../lib/utils';
 import { isTauriRuntime } from '../lib/persistence';
 import { buildReplyGapInsights, buildThreadSuggestions } from '../lib/outlookInsights';
 import { useAppStore } from '../store/useAppStore';
-import { OutlookTriageWorkspace } from './OutlookTriageWorkspace';
+import { ForwardingIntakeWorkspace } from './ForwardingIntakeWorkspace';
 import { useShallow } from 'zustand/react/shallow';
 
 const scopePresets = ['openid', 'profile', 'offline_access', 'User.Read', 'Mail.Read'];
@@ -304,7 +304,7 @@ export function OutlookPanel() {
         </div>
 
         <div className="space-y-4">
-          <OutlookTriageWorkspace />
+          <ForwardingIntakeWorkspace />
 
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">

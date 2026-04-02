@@ -214,6 +214,11 @@ function normalizeTask(task: TaskItem): TaskItem {
     completedAt: status === 'Done' ? (task.completedAt || updatedAt) : undefined,
     createdAt: task.createdAt || updatedAt,
     updatedAt,
+    needsCleanup: task.needsCleanup || false,
+    cleanupReasons: task.cleanupReasons || [],
+    recommendedAction: task.recommendedAction || (task.needsCleanup ? 'Review cleanup' : undefined),
+    lastCompletedAction: task.lastCompletedAction || undefined,
+    lastActionAt: task.lastActionAt || undefined,
   };
 }
 

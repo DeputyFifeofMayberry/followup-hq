@@ -13,6 +13,7 @@ interface QueueCard {
   dueDate?: string;
   reason: string;
   score: number;
+  nextBestAction: string;
   onOpen: () => void;
   onDone?: () => void;
   onSnooze?: () => void;
@@ -83,6 +84,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
           dueDate: item.dueDate,
           reason: isOverdue(item) ? 'Overdue commitment' : needsNudge(item) ? 'Needs nudge' : 'Upcoming touch',
           score,
+          nextBestAction: needsNudge(item) ? 'Send nudge' : item.status === 'Waiting on external' ? 'Wait for response' : 'Create task',
           onOpen: () => onOpenFollowUp(item.id),
           onDone: () => updateItem(item.id, { status: 'Closed' }),
           onSnooze: () => snoozeItem(item.id, 2),
@@ -132,6 +134,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
           dueDate: task.dueDate,
           reason: task.status === 'Blocked' ? 'Blocked handoff' : withinWeek ? 'Due this week' : 'Backlog execution',
           score,
+          nextBestAction: task.status === 'Blocked' ? 'Review cleanup' : task.status === 'In progress' ? 'Close out' : 'Create task',
           onOpen: () => onOpenTask(task.id),
           onDone: () => updateTask(task.id, { status: 'Done' }),
         } satisfies QueueCard;
@@ -203,9 +206,10 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{card.kind}</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900">{card.title}</div>
                 <div className="mt-1 text-xs text-slate-500">{card.project} • {card.owner} • {card.reason}{card.dueDate ? ` • ${formatDate(card.dueDate)}` : ''}</div>
+                <div className="mt-2 text-xs font-semibold text-sky-700">Next best action: {card.nextBestAction}</div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={card.onOpen} className="action-btn"><ArrowRight className="h-4 w-4" />Open</button>
+                <button onClick={card.onOpen} className="primary-btn"><ArrowRight className="h-4 w-4" />{card.nextBestAction}</button>
                 {card.onDone ? <button onClick={card.onDone} className="action-btn"><CheckCircle2 className="h-4 w-4" />Done</button> : null}
                 {card.onNudged ? <button onClick={card.onNudged} className="action-btn">Nudged</button> : null}
                 {card.onSnooze ? <button onClick={card.onSnooze} className="action-btn">Snooze 2d</button> : null}

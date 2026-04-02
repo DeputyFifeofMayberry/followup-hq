@@ -225,6 +225,11 @@ export function normalizeItem(item: FollowUpItem): FollowUpItem {
     companyId: item.companyId || undefined,
     threadKey: item.threadKey || undefined,
     draftFollowUp: item.draftFollowUp || '',
+    needsCleanup: item.needsCleanup || false,
+    cleanupReasons: item.cleanupReasons || [],
+    recommendedAction: item.recommendedAction || (item.needsCleanup ? 'Review cleanup' : undefined),
+    lastCompletedAction: item.lastCompletedAction || undefined,
+    lastActionAt: item.lastActionAt || undefined,
   };
 }
 
@@ -270,6 +275,11 @@ export function buildItemFromForm(input: FollowUpFormInput, existing?: FollowUpI
     companyId: input.companyId || undefined,
     threadKey: input.threadKey || undefined,
     draftFollowUp: input.draftFollowUp ?? existing?.draftFollowUp ?? '',
+    needsCleanup: existing?.needsCleanup || false,
+    cleanupReasons: existing?.cleanupReasons || [],
+    recommendedAction: existing?.recommendedAction,
+    lastCompletedAction: existing?.lastCompletedAction,
+    lastActionAt: existing?.lastActionAt,
   });
 }
 

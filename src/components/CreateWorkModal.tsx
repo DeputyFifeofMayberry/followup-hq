@@ -63,6 +63,7 @@ export function CreateWorkModal() {
   const [followUpForm, setFollowUpForm] = useState<FollowUpFormInput>(buildSmartFollowUpDefaults({ projectFilter }));
   const [taskForm, setTaskForm] = useState<TaskItem>(toTaskDraft(buildSmartTaskDefaults({ projectFilter })));
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [modalMode, setModalMode] = useState<'fast' | 'full'>('fast');
 
   useEffect(() => {
     if (!open) return;
@@ -101,12 +102,14 @@ export function CreateWorkModal() {
         draftFollowUp: currentItem.draftFollowUp ?? '',
       });
       setShowAdvanced(true);
+      setModalMode('full');
       return;
     }
     if (currentTask) {
       setMode('task');
       setTaskForm(currentTask);
       setShowAdvanced(true);
+      setModalMode('full');
       return;
     }
 
@@ -141,12 +144,14 @@ export function CreateWorkModal() {
         summary: createWorkDraft.rawText,
         priority: createWorkDraft.priority,
       });
+      setModalMode(createWorkDraft.cleanupReasons?.length ? 'full' : 'fast');
       return;
     }
     setMode(itemModal.open ? 'followup' : 'task');
     setFollowUpForm(defaultFollowUp);
     setTaskForm(defaultTask);
     setShowAdvanced(false);
+    setModalMode('fast');
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open]);
 
   if (!open) return null;
@@ -202,14 +207,16 @@ export function CreateWorkModal() {
         <div className="modal-header">
           <div>
             <div className="text-lg font-semibold text-slate-950">Create work</div>
-            <div className="mt-1 text-sm text-slate-500">Capture the minimum first, then add detail only when needed.</div>
+            <div className="mt-1 text-sm text-slate-500">Fast mode for speed, full mode for cleanup/editing.</div>
           </div>
           <button onClick={close} className="action-btn">Close</button>
         </div>
 
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
           <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
+          <button onClick={() => setModalMode('fast')} className={modalMode === 'fast' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Fast mode</button>
+          <button onClick={() => setModalMode('full')} className={modalMode === 'full' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Full mode</button>
         </div>
 
         {mode === 'followup' ? (
@@ -271,7 +278,7 @@ export function CreateWorkModal() {
           </div>
         )}
 
-        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={showAdvanced}>
+        {modalMode === 'full' ? (<details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={showAdvanced}>
           <summary onClick={() => setShowAdvanced((v) => !v)} className="cursor-pointer text-sm font-semibold text-slate-700">Advanced fields (optional)</summary>
           {mode === 'followup' ? (
             <div className="form-grid-two mt-4">
@@ -308,7 +315,7 @@ export function CreateWorkModal() {
               <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
             </div>
           )}
-        </details>
+        </details>) : null}
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={close} className="action-btn">Cancel</button>

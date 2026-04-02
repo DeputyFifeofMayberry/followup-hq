@@ -23,7 +23,9 @@ export type TimelineEventType =
   | 'nudged'
   | 'snoozed'
   | 'escalated'
-  | 'relationship';
+  | 'relationship'
+  | 'bundle_action'
+  | 'cleanup';
 
 export type SavedViewKey =
   | 'All'
@@ -93,6 +95,23 @@ export type IntakeDocumentDisposition =
   | 'Reference only'
   | 'Archived';
 
+
+export type CaptureCleanupReason =
+  | 'missing_project'
+  | 'missing_owner'
+  | 'missing_due_date'
+  | 'low_confidence_title'
+  | 'unclear_type';
+
+export type RecommendedAction =
+  | 'Send nudge'
+  | 'Create task'
+  | 'Wait for response'
+  | 'Close out'
+  | 'Review cleanup'
+  | 'Log touch'
+  | 'Draft follow-up';
+
 export interface TimelineEvent {
   id: string;
   at: string;
@@ -111,6 +130,7 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface FollowUpItem {
   id: string;
@@ -144,7 +164,13 @@ export interface FollowUpItem {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  needsCleanup?: boolean;
+  cleanupReasons?: CaptureCleanupReason[];
+  recommendedAction?: RecommendedAction;
+  lastCompletedAction?: string;
+  lastActionAt?: string;
 }
+
 
 
 export interface TaskItem {
@@ -167,6 +193,11 @@ export interface TaskItem {
   companyId?: string;
   createdAt: string;
   updatedAt: string;
+  needsCleanup?: boolean;
+  cleanupReasons?: CaptureCleanupReason[];
+  recommendedAction?: RecommendedAction;
+  lastCompletedAction?: string;
+  lastActionAt?: string;
 }
 
 export interface TaskFormInput {
@@ -235,7 +266,13 @@ export interface FollowUpFormInput {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  needsCleanup?: boolean;
+  cleanupReasons?: CaptureCleanupReason[];
+  recommendedAction?: RecommendedAction;
+  lastCompletedAction?: string;
+  lastActionAt?: string;
 }
+
 
 export interface ImportPreviewRow {
   id: string;
@@ -294,7 +331,13 @@ export interface MergeDraft {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  needsCleanup?: boolean;
+  cleanupReasons?: CaptureCleanupReason[];
+  recommendedAction?: RecommendedAction;
+  lastCompletedAction?: string;
+  lastActionAt?: string;
 }
+
 
 export interface ReviewBucket {
   key: ReviewBucketKey;

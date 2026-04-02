@@ -1,4 +1,4 @@
-import type { FollowUpPriority, FollowUpStatus, TaskPriority, TaskStatus } from '../types';
+import type { CaptureCleanupReason, FollowUpPriority, FollowUpStatus, TaskPriority, TaskStatus } from '../types';
 import { addDaysIso, todayIso } from './utils';
 
 export type CaptureKind = 'followup' | 'task';
@@ -16,6 +16,7 @@ export interface UniversalCaptureDraft {
   nextAction?: string;
   nextStep?: string;
   confidence: number;
+  cleanupReasons: CaptureCleanupReason[];
 }
 
 const weekdayMap: Record<string, number> = {
@@ -53,26 +54,24 @@ function parseDueDate(input: string): string | undefined {
 
 function parsePriority(input: string): FollowUpPriority {
   const lower = input.toLowerCase();
-  if (/\b(critical|urgent|red flag|hot)\b/.test(lower)) return 'Critical';
-  if (/\b(high|important|priority)\b/.test(lower)) return 'High';
-  if (/\b(low|later|someday)\b/.test(lower)) return 'Low';
+  if (/\b(critical|urgent|red flag|hot|pri:critical)\b/.test(lower)) return 'Critical';
+  if (/\b(high|important|priority|pri:high)\b/.test(lower)) return 'High';
+  if (/\b(low|later|someday|pri:low)\b/.test(lower)) return 'Low';
   return 'Medium';
 }
 
-function pullMatch(input: string, pattern: RegExp): string | undefined {
-  return input.match(pattern)?.[1]?.trim();
+function readToken(input: string, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const match = input.match(new RegExp(`(?:^|\\s)${key}:([^\\s#]+)`, 'i'));
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
 }
 
-function pullShortcut(input: string, keys: string[]): string | undefined {
-  const pattern = new RegExp(`(?:^|\\s)(?:${keys.join('|')})\\s*:\\s*("([^"]+)"|'([^']+)'|([^\\s][^\\n]*?))(?=\\s+\\w+:|$)`, 'i');
-  const match = input.match(pattern);
-  if (!match) return undefined;
-  return (match[2] || match[3] || match[4] || '').trim();
-}
-
-function stripShortcuts(input: string): string {
+function stripTokens(input: string): string {
   return input
-    .replace(/(?:^|\s)(?:p|project|o|owner|d|due|w|waiting)\s*:\s*("([^"]+)"|'([^']+)'|([^\s][^\n]*?))(?=\s+\w+:|$)/gi, ' ')
+    .replace(/(?:^|\s)(?:p|project|o|owner|d|due|pri|priority|wait|waiting)\s*:[^\s#]+/gi, ' ')
+    .replace(/#(?:task|followup|blocked|email)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -81,33 +80,38 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const clean = input.trim();
   const lower = clean.toLowerCase();
 
-  const hasTaskLanguage = /\b(task|todo|to do|action item|need to)\b/.test(lower);
-  const hasFollowUpLanguage = /\b(follow\s*-?up|waiting on|check in|nudge)\b/.test(lower);
-  const inferredKind: CaptureKind = hasTaskLanguage && !hasFollowUpLanguage ? 'task' : 'followup';
+  const tokenProject = readToken(clean, ['p', 'project']);
+  const tokenOwner = readToken(clean, ['o', 'owner']);
+  const tokenDue = readToken(clean, ['d', 'due']);
+  const tokenPriority = readToken(clean, ['pri', 'priority']);
+  const waitingOn = readToken(clean, ['wait', 'waiting'])
+    || clean.match(/\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i)?.[1]?.trim();
 
-  const owner = pullShortcut(clean, ['o', 'owner'])
-    || pullMatch(clean, /\b(?:owner|assign(?:ed)? to|for)\s*[:-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)
-    || pullMatch(clean, /\bwith\s+([a-zA-Z][a-zA-Z .'-]{1,40})(?:\s+(?:on|about|for|by)\b|$)/i);
-  const waitingOn = pullShortcut(clean, ['w', 'waiting']) || pullMatch(clean, /\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i);
-  const project = pullShortcut(clean, ['p', 'project']) || pullMatch(clean, /\b(?:project|job|on)\s*[:#-]?\s*([A-Z]{1,6}-?\d{1,5}|[A-Z][a-zA-Z0-9 .&-]{2,40})/);
-  const dueShortcut = pullShortcut(clean, ['d', 'due']);
-  const dueDate = dueShortcut ? parseDueDate(dueShortcut) : parseDueDate(clean);
-  const priority = parsePriority(clean);
+  const hashTask = /#task\b/i.test(clean);
+  const hashFollowup = /#followup\b/i.test(clean);
+  const inferredKind: CaptureKind = hashTask || (lower.includes('task') && !hashFollowup) ? 'task' : 'followup';
 
-  const normalized = stripShortcuts(clean);
-  const title = normalized
-    .replace(/\b(task|todo|to do|follow\s*-?up|waiting on|owner|assign(?:ed)? to|project|job|due|priority)\b/gi, '')
-    .replace(/\b(today|tomorrow|next week|this week|eow|asap|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '')
-    .replace(/\b(low|medium|high|critical|urgent)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim() || clean;
+  const dueDate = tokenDue ? parseDueDate(tokenDue) : parseDueDate(clean);
+  const priority = parsePriority(tokenPriority ? `pri:${tokenPriority}` : clean);
+  const project = tokenProject || clean.match(/\b(?:project|job|on)\s*[:#-]?\s*([A-Z]{1,6}-?\d{1,5}|[A-Z][a-zA-Z0-9 .&-]{2,40})/)?.[1];
+  const owner = tokenOwner || clean.match(/\b(?:owner|assign(?:ed)? to|for)\s*[:-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)?.[1];
 
+  const normalized = stripTokens(clean);
+  const title = normalized || clean;
   const confidence = Math.min(1,
-    (title.length > 10 ? 0.35 : 0.2)
-    + (owner ? 0.2 : 0)
-    + (project ? 0.2 : 0)
-    + (dueDate ? 0.15 : 0)
-    + ((hasTaskLanguage || hasFollowUpLanguage) ? 0.15 : 0));
+    (title.length > 12 ? 0.35 : 0.2)
+    + (owner ? 0.18 : 0)
+    + (project ? 0.18 : 0)
+    + (dueDate ? 0.12 : 0)
+    + ((hashTask || hashFollowup) ? 0.17 : 0)
+    + (waitingOn ? 0.1 : 0));
+
+  const cleanupReasons: CaptureCleanupReason[] = [];
+  if (!project) cleanupReasons.push('missing_project');
+  if (!owner) cleanupReasons.push('missing_owner');
+  if (!dueDate) cleanupReasons.push('missing_due_date');
+  if (title.length < 6) cleanupReasons.push('low_confidence_title');
+  if (!hashTask && !hashFollowup && !/\b(task|follow\s*-?up|nudge|waiting)\b/i.test(clean)) cleanupReasons.push('unclear_type');
 
   return {
     kind: inferredKind,
@@ -119,8 +123,9 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
     dueDate,
     priority,
     status: inferredKind === 'task' ? 'To do' : waitingOn ? 'Waiting on external' : 'Needs action',
-    nextAction: inferredKind === 'followup' ? title || 'Follow up and confirm next step.' : undefined,
-    nextStep: inferredKind === 'task' ? title || 'Complete the task.' : undefined,
+    nextAction: inferredKind === 'followup' ? title : undefined,
+    nextStep: inferredKind === 'task' ? title : undefined,
     confidence,
+    cleanupReasons,
   };
 }

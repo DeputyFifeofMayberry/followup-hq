@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { addDaysIso, createId, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { FollowUpItem, TaskItem } from '../types';
 
 export function UniversalCapture() {
@@ -16,7 +17,7 @@ export function UniversalCapture() {
     openCreateFromCapture,
     addProject,
     addContact,
-  } = useAppStore((s) => ({
+  } = useAppStore(useShallow((s) => ({
     projects: s.projects,
     contacts: s.contacts,
     addItem: s.addItem,
@@ -26,7 +27,7 @@ export function UniversalCapture() {
     openCreateFromCapture: s.openCreateFromCapture,
     addProject: s.addProject,
     addContact: s.addContact,
-  }));
+  })));
   const [text, setText] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [parsedOverride, setParsedOverride] = useState<ReturnType<typeof parseUniversalCapture> | null>(null);

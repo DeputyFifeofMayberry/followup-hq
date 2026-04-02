@@ -38,7 +38,7 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutD
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
   { key: 'intake', label: 'Intake', icon: ArrowDownToLine },
-  { key: 'outlook', label: 'Outlook', icon: Mail },
+  { key: 'outlook', label: 'Email Intake', icon: Mail },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
   { key: 'relationships', label: 'Relationships', icon: Users },
 ];

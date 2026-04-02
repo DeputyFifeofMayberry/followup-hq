@@ -22,10 +22,16 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
     items,
     tasks,
     updateTask,
+    forwardedCandidates,
+    approveForwardedCandidate,
+    rejectForwardedCandidate,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
     updateTask: s.updateTask,
+    forwardedCandidates: s.forwardedCandidates,
+    approveForwardedCandidate: s.approveForwardedCandidate,
+    rejectForwardedCandidate: s.rejectForwardedCandidate,
   })));
 
   const [ownerFilter, setOwnerFilter] = useState<string>('All');
@@ -83,6 +89,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
       .sort((a, b) => b.score - a.score)
       .slice(timeMode === 'morning' ? 0 : 5, timeMode === 'morning' ? 10 : 15);
   }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, timeMode]);
+  const pendingIntake = forwardedCandidates.filter((candidate) => candidate.status === 'pending').slice(0, 4);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -104,6 +111,29 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
       </div>
 
       <div className="space-y-3 px-4 pb-4">
+        {pendingIntake.length > 0 ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Intake review in queue</div>
+                <div className="text-xs text-slate-600">Only exceptions stay here. Safe items auto-route.</div>
+              </div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">{pendingIntake.length} pending</div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {pendingIntake.map((candidate) => (
+                <div key={candidate.id} className="rounded-xl border border-amber-200 bg-white p-3">
+                  <div className="text-sm font-semibold text-slate-900">{candidate.normalizedSubject || '(no subject)'}</div>
+                  <div className="text-xs text-slate-500">{candidate.originalSender} • confidence {candidate.confidence}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button onClick={() => approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType)} className="action-btn">Approve</button>
+                    <button onClick={() => rejectForwardedCandidate(candidate.id)} className="action-btn">Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {queue.map((card) => (
           <div key={`${card.kind}-${card.id}`} className="rounded-2xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

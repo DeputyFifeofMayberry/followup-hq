@@ -18,6 +18,8 @@ export function ItemFormModal() {
     addItem,
     updateItem,
     addProject,
+    addContact,
+    addCompany,
   } = useAppStore(useShallow((s) => ({
     itemModal: s.itemModal,
     items: s.items,
@@ -29,6 +31,8 @@ export function ItemFormModal() {
     addItem: s.addItem,
     updateItem: s.updateItem,
     addProject: s.addProject,
+    addContact: s.addContact,
+    addCompany: s.addCompany,
   })));
 
   const currentItem = useMemo(() => items.find((item) => item.id === itemModal.itemId) ?? null, [items, itemModal.itemId]);
@@ -36,6 +40,10 @@ export function ItemFormModal() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectOwner, setNewProjectOwner] = useState('Jared');
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const [showAddCompany, setShowAddCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
 
   useEffect(() => {
     if (!itemModal.open) return;
@@ -80,6 +88,7 @@ export function ItemFormModal() {
   if (!itemModal.open) return null;
 
   const handleSave = () => {
+    if (!form.title.trim() || !form.owner.trim() || !form.nextAction.trim() || (!form.dueDate && !form.nextTouchDate)) return;
     const built = buildItemFromForm(form, currentItem ?? undefined);
     if (currentItem) {
       updateItem(currentItem.id, built);
@@ -88,7 +97,8 @@ export function ItemFormModal() {
       return;
     }
     addItem(built);
-    setForm(buildSmartFollowUpDefaults({ projectFilter }));
+    rememberFollowUpDefaults(form);
+    closeItemModal();
   };
 
   const handleProjectSelect = (value: string) => {
@@ -115,13 +125,31 @@ export function ItemFormModal() {
     setNewProjectName('');
   };
 
+  const handleCreateContact = () => {
+    const name = newContactName.trim();
+    if (!name) return;
+    const id = addContact({ name, email: '', companyId: form.companyId || undefined, role: '', notes: '', tags: [] });
+    setForm((prev) => ({ ...prev, contactId: id }));
+    setShowAddContact(false);
+    setNewContactName('');
+  };
+
+  const handleCreateCompany = () => {
+    const name = newCompanyName.trim();
+    if (!name) return;
+    const id = addCompany({ name, type: 'Other', notes: '', tags: [] });
+    setForm((prev) => ({ ...prev, companyId: id }));
+    setShowAddCompany(false);
+    setNewCompanyName('');
+  };
+
   return (
     <div className="modal-backdrop">
       <div className="modal-panel modal-panel-wide">
         <div className="modal-header">
           <div>
             <div className="text-lg font-semibold text-slate-950">{currentItem ? 'Edit follow-up' : 'Create follow-up'}</div>
-            <div className="mt-1 text-sm text-slate-500">Capture a clear owner, real project link, and the next accountable move.</div>
+            <div className="mt-1 text-sm text-slate-500">Start with only what is needed now: title, owner, next date, and next action.</div>
           </div>
           <button onClick={closeItemModal} className="action-btn">Close</button>
         </div>
@@ -153,23 +181,6 @@ export function ItemFormModal() {
           </div>
 
           <div className="field-block">
-            <label className="field-label">Status</label>
-            <select value={form.status} onChange={(event) => {
-              const status = event.target.value as FollowUpFormInput['status'];
-              const waiting = status === 'Waiting on external' || status === 'Waiting internal';
-              setForm({ ...form, status, cadenceDays: waiting ? 2 : form.cadenceDays || 3, owesNextAction: waiting ? 'Client' : form.owesNextAction, nextTouchDate: waiting ? fromDateInputValue(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)) : form.nextTouchDate });
-            }} className="field-input">
-              <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
-            </select>
-          </div>
-          <div className="field-block">
-            <label className="field-label">Priority</label>
-            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as FollowUpFormInput['priority'] })} className="field-input">
-              <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-            </select>
-          </div>
-
-          <div className="field-block">
             <label className="field-label">Due date</label>
             <input type="date" value={toDateInputValue(form.dueDate)} onChange={(event) => setForm({ ...form, dueDate: fromDateInputValue(event.target.value) })} className="field-input" />
           </div>
@@ -185,8 +196,24 @@ export function ItemFormModal() {
         </div>
 
         <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={!!currentItem}>
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700">More details</summary>
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">Advanced details (optional)</summary>
           <div className="form-grid-two mt-4">
+            <div className="field-block">
+              <label className="field-label">Status</label>
+              <select value={form.status} onChange={(event) => {
+                const status = event.target.value as FollowUpFormInput['status'];
+                const waiting = status === 'Waiting on external' || status === 'Waiting internal';
+                setForm({ ...form, status, cadenceDays: waiting ? 2 : form.cadenceDays || 3, owesNextAction: waiting ? 'Client' : form.owesNextAction, nextTouchDate: waiting ? fromDateInputValue(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)) : form.nextTouchDate });
+              }} className="field-input">
+                <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+              </select>
+            </div>
+            <div className="field-block">
+              <label className="field-label">Priority</label>
+              <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as FollowUpFormInput['priority'] })} className="field-input">
+                <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+              </select>
+            </div>
             <div className="field-block field-block-span-2">
               <label className="field-label">Summary</label>
               <textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} className="field-textarea" />
@@ -203,17 +230,45 @@ export function ItemFormModal() {
             </div>
             <div className="field-block">
               <label className="field-label">Contact</label>
-              <select value={form.contactId} onChange={(event) => setForm({ ...form, contactId: event.target.value })} className="field-input">
+              <select value={showAddContact ? '__add__' : form.contactId} onChange={(event) => {
+                if (event.target.value === '__add__') {
+                  setShowAddContact(true);
+                  return;
+                }
+                setShowAddContact(false);
+                setForm({ ...form, contactId: event.target.value });
+              }} className="field-input">
                 <option value="">No contact linked</option>
+                <option value="__add__">+ Add contact</option>
                 {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
               </select>
+              {showAddContact ? (
+                <div className="mt-2 flex gap-2">
+                  <input value={newContactName} onChange={(event) => setNewContactName(event.target.value)} placeholder="Contact name" className="field-input" />
+                  <button type="button" onClick={handleCreateContact} className="primary-btn">Save</button>
+                </div>
+              ) : null}
             </div>
             <div className="field-block">
               <label className="field-label">Company</label>
-              <select value={form.companyId} onChange={(event) => setForm({ ...form, companyId: event.target.value })} className="field-input">
+              <select value={showAddCompany ? '__add__' : form.companyId} onChange={(event) => {
+                if (event.target.value === '__add__') {
+                  setShowAddCompany(true);
+                  return;
+                }
+                setShowAddCompany(false);
+                setForm({ ...form, companyId: event.target.value });
+              }} className="field-input">
                 <option value="">No company linked</option>
+                <option value="__add__">+ Add company</option>
                 {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
               </select>
+              {showAddCompany ? (
+                <div className="mt-2 flex gap-2">
+                  <input value={newCompanyName} onChange={(event) => setNewCompanyName(event.target.value)} placeholder="Company name" className="field-input" />
+                  <button type="button" onClick={handleCreateCompany} className="primary-btn">Save</button>
+                </div>
+              ) : null}
             </div>
             <div className="field-block">
               <label className="field-label">Follow up every (days)</label>
@@ -244,7 +299,7 @@ export function ItemFormModal() {
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={closeItemModal} className="action-btn">Cancel</button>
-          <button onClick={handleSave} className="primary-btn">{currentItem ? 'Save changes' : 'Create follow-up'}</button>
+          <button onClick={handleSave} disabled={!form.title.trim() || !form.owner.trim() || !form.nextAction.trim() || (!form.dueDate && !form.nextTouchDate)} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{currentItem ? 'Save changes' : 'Create follow-up'}</button>
         </div>
       </div>
     </div>

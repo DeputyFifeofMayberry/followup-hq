@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { IntakeDocumentKind } from '../types';
 import { addDaysIso, buildTouchEvent, createId, todayIso } from '../lib/utils';
+import { ForwardingIntakeWorkspace } from './ForwardingIntakeWorkspace';
 
 function detectDocumentKind(fileName: string): IntakeDocumentKind {
   if (/\.(xlsx|xls|csv)$/i.test(fileName)) return 'Spreadsheet';
@@ -161,6 +162,7 @@ export function IntakePanel() {
         </div>
       </div>
       <div className="grid gap-4 p-4">
+        <ForwardingIntakeWorkspace />
         <div className="grid gap-4 xl:grid-cols-2">
           <div
             className={`email-dropzone ${dragActive ? 'email-dropzone-active' : ''}`}

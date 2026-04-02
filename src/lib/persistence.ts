@@ -10,6 +10,7 @@ import {
   starterTasks,
 } from './sample-data';
 import type { AppSnapshot, PersistenceMode } from '../types';
+import { getDefaultForwardedRules } from './intakeRules';
 
 const BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 
@@ -31,6 +32,11 @@ function buildFallbackSnapshot(): AppSnapshot {
     },
     outlookMessages: [],
     tasks: starterTasks,
+    forwardedEmails: [],
+    forwardedRules: getDefaultForwardedRules(),
+    forwardedCandidates: [],
+    forwardedLedger: [],
+    forwardedRoutingAudit: [],
   };
 }
 

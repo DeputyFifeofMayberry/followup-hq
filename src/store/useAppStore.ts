@@ -5,6 +5,9 @@ import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
 import { isTauriRuntime, loadSnapshot, saveSnapshot } from '../lib/persistence';
 import { getDefaultOutlookSettings } from '../lib/outlookGraph';
+import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
+import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
+import { getDefaultForwardedRules } from '../lib/intakeRules';
 import { starterCompanies, starterContacts, starterIntakeDocuments, starterItems, starterProjects, starterSignals, starterTasks } from '../lib/sample-data';
 import type {
   AppSnapshot,
@@ -28,6 +31,13 @@ import type {
   TaskItem,
   TaskStatus,
   TimelineEvent,
+  ForwardedEmailRecord,
+  ForwardedEmailRule,
+  ForwardedIntakeCandidate,
+  ForwardedIngestionLedgerEntry,
+  ForwardedRoutingAuditEntry,
+  ForwardedEmailProviderPayload,
+  ForwardedRuleAction,
 } from '../types';
 
 interface ItemModalState {
@@ -85,6 +95,11 @@ interface AppState {
   outlookConnection: OutlookConnectionState;
   outlookMessages: OutlookMessage[];
   droppedEmailImports: DroppedEmailImport[];
+  forwardedEmails: ForwardedEmailRecord[];
+  forwardedRules: ForwardedEmailRule[];
+  forwardedCandidates: ForwardedIntakeCandidate[];
+  forwardedLedger: ForwardedIngestionLedgerEntry[];
+  forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
   initializeApp: () => Promise<void>;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;
@@ -149,6 +164,15 @@ interface AppState {
   importOutlookMessage: (messageId: string) => void;
   disconnectOutlook: () => void;
   clearOutlookError: () => void;
+  ingestForwardedEmailPayload: (payload: ForwardedEmailProviderPayload) => void;
+  approveForwardedCandidate: (candidateId: string, asType?: 'task' | 'followup') => void;
+  rejectForwardedCandidate: (candidateId: string) => void;
+  saveForwardedCandidateAsReference: (candidateId: string) => void;
+  linkForwardedCandidateToExisting: (candidateId: string, itemId: string) => void;
+  addForwardRuleFromCandidate: (candidateId: string, action: ForwardedRuleAction) => void;
+  addManualForwardRule: (rule: Omit<ForwardedEmailRule, 'id' | 'createdAt' | 'updatedAt' | 'source'>) => void;
+  updateForwardRule: (ruleId: string, patch: Partial<ForwardedEmailRule>) => void;
+  deleteForwardRule: (ruleId: string) => void;
 }
 
 const defaultOutlookConnection: OutlookConnectionState = {
@@ -257,7 +281,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages'>): AppSnapshot {
+function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit'>): AppSnapshot {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -270,6 +294,11 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
     droppedEmailImports: state.droppedEmailImports,
     outlookConnection: state.outlookConnection,
     outlookMessages: state.outlookMessages,
+    forwardedEmails: state.forwardedEmails,
+    forwardedRules: state.forwardedRules,
+    forwardedCandidates: state.forwardedCandidates,
+    forwardedLedger: state.forwardedLedger,
+    forwardedRoutingAudit: state.forwardedRoutingAudit,
   };
 }
 
@@ -285,6 +314,38 @@ function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: Follo
   return normalizeItems(items.map((item) => (item.id === id ? updater(item) : item)));
 }
 
+
+
+function buildFollowUpFromForwarded(record: ForwardedEmailRecord, owner = 'Jared', project = 'General', projectId?: string): FollowUpItem {
+  return normalizeItem({
+    id: createId(),
+    title: record.originalSubject || '(no subject)',
+    source: 'Email',
+    project,
+    projectId,
+    owner,
+    status: record.parsedCommandHints.type === 'followup' ? 'Waiting on external' : 'Needs action',
+    priority: (record.parsedCommandHints.priority as FollowUpItem['priority']) ?? 'Medium',
+    dueDate: record.parsedCommandHints.dueDate ?? addDaysIso(todayIso(), 2),
+    promisedDate: undefined,
+    lastTouchDate: todayIso(),
+    nextTouchDate: addDaysIso(todayIso(), 1),
+    nextAction: record.parsedCommandHints.type === 'followup' ? `Follow up with ${record.parsedCommandHints.waitingOn ?? record.originalSender}` : 'Review forwarded email and assign next action.',
+    summary: record.bodyText.slice(0, 280),
+    tags: ['Forwarded Intake', ...record.parsedCommandHints.tags],
+    sourceRef: `Forwarded/${record.id}`,
+    sourceRefs: [`Forwarded/${record.id}`, ...record.sourceMessageIdentifiers],
+    mergedItemIds: [],
+    waitingOn: record.parsedCommandHints.waitingOn,
+    notes: [`Forwarded alias: ${record.forwardingAlias}`, `Sender: ${record.originalSender}`].join('\n'),
+    timeline: [buildTouchEvent('Created from forwarded email intake.', 'imported')],
+    category: 'Coordination',
+    owesNextAction: record.parsedCommandHints.type === 'followup' ? 'Client' : 'Internal',
+    escalationLevel: 'None',
+    cadenceDays: 3,
+    draftFollowUp: '',
+  });
+}
 function buildImportedItem(row: ImportPreviewRow): FollowUpItem {
   return normalizeItem({
     id: createId(),
@@ -376,6 +437,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
   outlookConnection: defaultOutlookConnection,
   outlookMessages: [],
   droppedEmailImports: [],
+  forwardedEmails: [],
+  forwardedRules: getDefaultForwardedRules(),
+  forwardedCandidates: [],
+  forwardedLedger: [],
+  forwardedRoutingAudit: [],
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
@@ -398,6 +464,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
+      const forwardedEmails = snapshot.forwardedEmails ?? [];
+      const forwardedRules = snapshot.forwardedRules?.length ? snapshot.forwardedRules : getDefaultForwardedRules();
+      const forwardedCandidates = snapshot.forwardedCandidates ?? [];
+      const forwardedLedger = snapshot.forwardedLedger ?? [];
+      const forwardedRoutingAudit = snapshot.forwardedRoutingAudit ?? [];
       set({
         items,
         contacts,
@@ -413,6 +484,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
         hydrated: true,
         persistenceMode: mode,
         droppedEmailImports,
+        forwardedEmails,
+        forwardedRules,
+        forwardedCandidates,
+        forwardedLedger,
+        forwardedRoutingAudit,
         saveError: '',
         syncState: 'saved',
         lastSyncedAt: todayIso(),
@@ -1061,6 +1137,137 @@ export const useAppStore = create<AppState>()((set, get) => ({
     queuePersist(get, set);
   },
   clearOutlookError: () => set((state) => ({ outlookConnection: { ...state.outlookConnection, lastError: undefined, syncStatus: state.outlookConnection.mailboxLinked ? 'connected' : 'idle' } })),
+  ingestForwardedEmailPayload: (payload) => {
+    const record = parseForwardedProviderPayload(payload);
+    set((state) => {
+      const route = routeForwardedEmail(record, {
+        rules: state.forwardedRules,
+        ledger: state.forwardedLedger,
+        items: state.items,
+        tasks: state.tasks,
+        candidates: state.forwardedCandidates,
+        internalDomains: ['followuphq.com'],
+      });
+      let items = state.items;
+      let tasks = state.tasks;
+      let intakeDocuments = state.intakeDocuments;
+      let createdTaskId: string | undefined;
+      let createdFollowUpId: string | undefined;
+      let candidate = state.forwardedCandidates;
+
+      const owner = route.ruleOwner ?? record.parsedCommandHints.owner ?? 'Jared';
+      const project = route.ruleProject ?? record.parsedCommandHints.project ?? record.parsedProjectHints[0] ?? 'General';
+
+      if (route.decision === 'auto-task') {
+        const task = buildTaskFromForwarded(record, owner, project);
+        tasks = normalizeTasks([task, ...state.tasks]);
+        createdTaskId = task.id;
+      } else if (route.decision === 'auto-followup') {
+        const item = buildFollowUpFromForwarded(record, owner, project);
+        items = normalizeItems([item, ...state.items]);
+        createdFollowUpId = item.id;
+      } else if (route.decision === 'review') {
+        const alreadyQueued = state.forwardedCandidates.some((entry) => entry.forwardedEmailId === record.id || entry.normalizedSubject === record.normalizedSubject && entry.originalSender.toLowerCase() === record.originalSender.toLowerCase() && entry.status === 'pending');
+        if (!alreadyQueued) candidate = [buildForwardingCandidate(record, route), ...state.forwardedCandidates];
+      } else if (route.decision === 'reference') {
+        intakeDocuments = [{
+          id: createId('DOC'),
+          name: record.originalSubject || 'Forwarded email reference',
+          kind: 'Text',
+          disposition: 'Reference only',
+          project: project,
+          owner,
+          sourceRef: `Forwarded/${record.id}`,
+          uploadedAt: todayIso(),
+          notes: record.bodyText.slice(0, 600),
+          tags: ['Forwarded Intake', 'Reference'],
+        }, ...state.intakeDocuments];
+      }
+
+      return {
+        items,
+        tasks,
+        intakeDocuments,
+        forwardedEmails: [record, ...state.forwardedEmails].slice(0, 500),
+        forwardedCandidates: candidate,
+        forwardedLedger: [buildForwardedLedgerEntry(record, route, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...state.forwardedLedger].slice(0, 1000),
+        forwardedRoutingAudit: [buildForwardingAudit(record, route, { taskId: createdTaskId, followUpId: createdFollowUpId }), ...state.forwardedRoutingAudit].slice(0, 1000),
+        duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
+      };
+    });
+    queuePersist(get, set);
+  },
+  approveForwardedCandidate: (candidateId, asType) => {
+    set((state) => {
+      const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate || candidate.status !== 'pending') return state;
+      const record = state.forwardedEmails.find((entry) => entry.id === candidate.forwardedEmailId);
+      if (!record) return state;
+      const type = asType ?? (candidate.suggestedType === 'followup' ? 'followup' : 'task');
+      if (type === 'task') {
+        const task = buildTaskFromForwarded(record, record.parsedCommandHints.owner ?? 'Jared', candidate.parsedProject ?? 'General');
+        return {
+          tasks: normalizeTasks([task, ...state.tasks]),
+          forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdTaskId: task.id, updatedAt: todayIso() } : entry),
+        };
+      }
+      const item = buildFollowUpFromForwarded(record, record.parsedCommandHints.owner ?? 'Jared', candidate.parsedProject ?? 'General');
+      const items = normalizeItems([item, ...state.items]);
+      return {
+        items,
+        duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs),
+        forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'approved', createdFollowUpId: item.id, updatedAt: todayIso() } : entry),
+      };
+    });
+    queuePersist(get, set);
+  },
+  rejectForwardedCandidate: (candidateId) => {
+    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'rejected', updatedAt: todayIso() } : entry) }));
+    queuePersist(get, set);
+  },
+  saveForwardedCandidateAsReference: (candidateId) => {
+    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'reference', updatedAt: todayIso() } : entry) }));
+    queuePersist(get, set);
+  },
+  linkForwardedCandidateToExisting: (candidateId, itemId) => {
+    set((state) => ({ forwardedCandidates: state.forwardedCandidates.map((entry) => entry.id === candidateId ? { ...entry, status: 'linked', linkedItemId: itemId, updatedAt: todayIso() } : entry) }));
+    queuePersist(get, set);
+  },
+  addForwardRuleFromCandidate: (candidateId, action) => {
+    set((state) => {
+      const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      const rule: ForwardedEmailRule = {
+        id: createId('FWR'),
+        name: `From candidate: ${candidate.normalizedSubject.slice(0, 40)}`,
+        enabled: true,
+        priority: (state.forwardedRules.at(-1)?.priority ?? 100) + 10,
+        source: 'user',
+        conditions: {
+          forwardingAlias: candidate.forwardingAlias,
+          senderEmailContains: candidate.originalSender,
+          subjectContains: candidate.normalizedSubject.slice(0, 20),
+        },
+        action,
+        createdAt: todayIso(),
+        updatedAt: todayIso(),
+      };
+      return { forwardedRules: [...state.forwardedRules, rule] };
+    });
+    queuePersist(get, set);
+  },
+  addManualForwardRule: (ruleInput) => {
+    set((state) => ({ forwardedRules: [...state.forwardedRules, { ...ruleInput, id: createId('FWR'), source: 'user', createdAt: todayIso(), updatedAt: todayIso() }] }));
+    queuePersist(get, set);
+  },
+  updateForwardRule: (ruleId, patch) => {
+    set((state) => ({ forwardedRules: state.forwardedRules.map((rule) => rule.id === ruleId ? { ...rule, ...patch, updatedAt: todayIso() } : rule) }));
+    queuePersist(get, set);
+  },
+  deleteForwardRule: (ruleId) => {
+    set((state) => ({ forwardedRules: state.forwardedRules.filter((rule) => rule.id !== ruleId) }));
+    queuePersist(get, set);
+  },
 }));
 
 export const useAppStoreShallow = useShallow;

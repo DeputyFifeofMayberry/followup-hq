@@ -151,12 +151,6 @@ export function ItemFormModal() {
             <label className="field-label">Owner</label>
             <input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} className="field-input" />
           </div>
-          <div className="field-block">
-            <label className="field-label">Source</label>
-            <select value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value as FollowUpFormInput['source'] })} className="field-input">
-              <option>Email</option><option>Notes</option><option>To-do</option><option>Excel</option>
-            </select>
-          </div>
 
           <div className="field-block">
             <label className="field-label">Status</label>
@@ -184,53 +178,69 @@ export function ItemFormModal() {
             <input type="date" value={toDateInputValue(form.nextTouchDate)} onChange={(event) => setForm({ ...form, nextTouchDate: fromDateInputValue(event.target.value) })} className="field-input" />
           </div>
 
-          <div className="field-block">
-            <label className="field-label">Promised date</label>
-            <input type="date" value={toDateInputValue(form.promisedDate)} onChange={(event) => setForm({ ...form, promisedDate: event.target.value ? fromDateInputValue(event.target.value) : '' })} className="field-input" />
-          </div>
-          <div className="field-block">
-            <label className="field-label">Follow up every (days)</label>
-            <input type="number" min={1} value={form.cadenceDays} onChange={(event) => setForm({ ...form, cadenceDays: Number(event.target.value) || 1 })} className="field-input" />
-          </div>
-
           <div className="field-block field-block-span-2">
             <label className="field-label">Next action</label>
             <textarea value={form.nextAction} onChange={(event) => setForm({ ...form, nextAction: event.target.value })} className="field-textarea" />
           </div>
-          <div className="field-block field-block-span-2">
-            <label className="field-label">Summary</label>
-            <textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} className="field-textarea" />
-          </div>
-
-          <div className="field-block">
-            <label className="field-label">Waiting on</label>
-            <input value={form.waitingOn} onChange={(event) => setForm({ ...form, waitingOn: event.target.value })} className="field-input" />
-          </div>
-          <div className="field-block">
-            <label className="field-label">Source reference</label>
-            <input value={form.sourceRef} onChange={(event) => setForm({ ...form, sourceRef: event.target.value })} className="field-input" />
-          </div>
-
-          <div className="field-block">
-            <label className="field-label">Contact</label>
-            <select value={form.contactId} onChange={(event) => setForm({ ...form, contactId: event.target.value })} className="field-input">
-              <option value="">No contact linked</option>
-              {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
-            </select>
-          </div>
-          <div className="field-block">
-            <label className="field-label">Company</label>
-            <select value={form.companyId} onChange={(event) => setForm({ ...form, companyId: event.target.value })} className="field-input">
-              <option value="">No company linked</option>
-              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-            </select>
-          </div>
-
-          <div className="field-block field-block-span-2">
-            <label className="field-label">Notes</label>
-            <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="field-textarea" />
-          </div>
         </div>
+
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={!!currentItem}>
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">More details</summary>
+          <div className="form-grid-two mt-4">
+            <div className="field-block field-block-span-2">
+              <label className="field-label">Summary</label>
+              <textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} className="field-textarea" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Source</label>
+              <select value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value as FollowUpFormInput['source'] })} className="field-input">
+                <option>Email</option><option>Notes</option><option>To-do</option><option>Excel</option>
+              </select>
+            </div>
+            <div className="field-block">
+              <label className="field-label">Source reference</label>
+              <input value={form.sourceRef} onChange={(event) => setForm({ ...form, sourceRef: event.target.value })} className="field-input" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Contact</label>
+              <select value={form.contactId} onChange={(event) => setForm({ ...form, contactId: event.target.value })} className="field-input">
+                <option value="">No contact linked</option>
+                {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
+              </select>
+            </div>
+            <div className="field-block">
+              <label className="field-label">Company</label>
+              <select value={form.companyId} onChange={(event) => setForm({ ...form, companyId: event.target.value })} className="field-input">
+                <option value="">No company linked</option>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </div>
+            <div className="field-block">
+              <label className="field-label">Follow up every (days)</label>
+              <input type="number" min={1} value={form.cadenceDays} onChange={(event) => setForm({ ...form, cadenceDays: Number(event.target.value) || 1 })} className="field-input" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Promised date</label>
+              <input type="date" value={toDateInputValue(form.promisedDate)} onChange={(event) => setForm({ ...form, promisedDate: event.target.value ? fromDateInputValue(event.target.value) : '' })} className="field-input" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Waiting on</label>
+              <input value={form.waitingOn} onChange={(event) => setForm({ ...form, waitingOn: event.target.value })} className="field-input" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Tags</label>
+              <input value={form.tags.join(', ')} onChange={(event) => setForm({ ...form, tags: event.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} className="field-input" />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Thread key</label>
+              <input value={form.threadKey} onChange={(event) => setForm({ ...form, threadKey: event.target.value })} className="field-input" />
+            </div>
+            <div className="field-block field-block-span-2">
+              <label className="field-label">Notes</label>
+              <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="field-textarea" />
+            </div>
+          </div>
+        </details>
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={closeItemModal} className="action-btn">Cancel</button>

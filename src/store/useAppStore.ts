@@ -8,7 +8,6 @@ import { getDefaultOutlookSettings } from '../lib/outlookGraph';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
 import { getDefaultForwardedRules } from '../lib/intakeRules';
-import { starterCompanies, starterContacts, starterIntakeDocuments, starterItems, starterProjects, starterSignals, starterTasks } from '../lib/sample-data';
 import type {
   AppSnapshot,
   CompanyRecord,
@@ -302,12 +301,24 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+let lastQueuedJson = '';
+
+function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void, debounceMs = 350) {
+  if (persistTimer) clearTimeout(persistTimer);
   set({ syncState: 'saving', saveError: '' });
-  const snapshot = buildSnapshot(get());
-  void saveSnapshot(snapshot)
-    .then((mode) => set({ persistenceMode: mode, saveError: '', syncState: 'saved', lastSyncedAt: todayIso() }))
-    .catch((error) => set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' }));
+  persistTimer = setTimeout(() => {
+    const snapshot = buildSnapshot(get());
+    const snapshotJson = JSON.stringify(snapshot);
+    if (snapshotJson === lastQueuedJson) {
+      set({ syncState: 'saved' });
+      return;
+    }
+    lastQueuedJson = snapshotJson;
+    void saveSnapshot(snapshot)
+      .then((mode) => set({ persistenceMode: mode, saveError: '', syncState: 'saved', lastSyncedAt: todayIso() }))
+      .catch((error) => set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' }));
+  }, debounceMs);
 }
 
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
@@ -489,14 +500,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const hasSignals = Object.prototype.hasOwnProperty.call(snapshot, 'intakeSignals');
       const hasDocuments = Object.prototype.hasOwnProperty.call(snapshot, 'intakeDocuments');
 
-      const baseItems = hasItems ? normalizeItems(snapshot.items ?? []) : normalizeItems(starterItems);
-      const contacts = hasContacts ? (snapshot.contacts ?? []) : starterContacts;
-      const companies = hasCompanies ? (snapshot.companies ?? []) : starterCompanies;
-      const projects = deriveProjects(baseItems, hasProjects ? (snapshot.projects ?? []) : starterProjects);
+      const baseItems = hasItems ? normalizeItems(snapshot.items ?? []) : normalizeItems([]);
+      const contacts = hasContacts ? (snapshot.contacts ?? []) : [];
+      const companies = hasCompanies ? (snapshot.companies ?? []) : [];
+      const projects = deriveProjects(baseItems, hasProjects ? (snapshot.projects ?? []) : []);
       const items = attachProjects(baseItems, projects);
-      const tasks = normalizeTasks((hasTasks ? (snapshot.tasks ?? []) : starterTasks).map((task) => ({ ...task, project: resolveProjectName(task.projectId, task.project, projects) })));
-      const intakeSignals = hasSignals ? (snapshot.intakeSignals ?? []) : starterSignals;
-      const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : starterIntakeDocuments).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
+      const tasks = normalizeTasks((hasTasks ? (snapshot.tasks ?? []) : []).map((task) => ({ ...task, project: resolveProjectName(task.projectId, task.project, projects) })));
+      const intakeSignals = hasSignals ? (snapshot.intakeSignals ?? []) : [];
+      const intakeDocuments = (hasDocuments ? (snapshot.intakeDocuments ?? []) : []).map((doc) => ({ ...doc, project: resolveProjectName(doc.projectId, doc.project, projects) }));
       const dismissedDuplicatePairs = snapshot.dismissedDuplicatePairs ?? [];
       const droppedEmailImports = snapshot.droppedEmailImports ?? [];
       const forwardedEmails = snapshot.forwardedEmails ?? [];

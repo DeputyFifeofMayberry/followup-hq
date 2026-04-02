@@ -1,14 +1,5 @@
 import { supabase } from './supabase';
 import { getDefaultOutlookSettings } from './outlookGraph';
-import {
-  starterCompanies,
-  starterContacts,
-  starterIntakeDocuments,
-  starterItems,
-  starterProjects,
-  starterSignals,
-  starterTasks,
-} from './sample-data';
 import type { AppSnapshot, PersistenceMode } from '../types';
 import { getDefaultForwardedRules } from './intakeRules';
 
@@ -16,12 +7,12 @@ const BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 
 function buildFallbackSnapshot(): AppSnapshot {
   return {
-    items: starterItems,
-    contacts: starterContacts,
-    companies: starterCompanies,
-    projects: starterProjects,
-    intakeSignals: starterSignals,
-    intakeDocuments: starterIntakeDocuments,
+    items: [],
+    contacts: [],
+    companies: [],
+    projects: [],
+    intakeSignals: [],
+    intakeDocuments: [],
     dismissedDuplicatePairs: [],
     droppedEmailImports: [],
     outlookConnection: {
@@ -31,7 +22,7 @@ function buildFallbackSnapshot(): AppSnapshot {
       syncCursorByFolder: { inbox: {}, sentitems: {} },
     },
     outlookMessages: [],
-    tasks: starterTasks,
+    tasks: [],
     forwardedEmails: [],
     forwardedRules: getDefaultForwardedRules(),
     forwardedCandidates: [],

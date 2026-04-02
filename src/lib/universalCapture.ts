@@ -15,6 +15,7 @@ export interface UniversalCaptureDraft {
   status?: FollowUpStatus | TaskStatus;
   nextAction?: string;
   nextStep?: string;
+  confidence: number;
 }
 
 const weekdayMap: Record<string, number> = {
@@ -53,13 +54,15 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const clean = input.trim();
   const lower = clean.toLowerCase();
 
-  const kind: CaptureKind = lower.includes('task') ? 'task' : 'followup';
-  const inferredKind: CaptureKind = /follow\s*-?up|waiting on/.test(lower) ? 'followup' : kind;
+  const hasTaskLanguage = /\btask\b/.test(lower);
+  const hasFollowUpLanguage = /\bfollow\s*-?up\b|\bwaiting on\b/.test(lower);
+  const inferredKind: CaptureKind = hasFollowUpLanguage ? 'followup' : hasTaskLanguage ? 'task' : 'followup';
 
-  const project = clean.match(/\b([A-Z]{1,5}-?\d{1,4})\b/)?.[1];
+  const project = clean.match(/\b(?:on|for)?\s*([A-Z]{1,5}-?\d{1,4})\b/)?.[1];
   const waitingOn = clean.match(/waiting on\s+([a-zA-Z][a-zA-Z .'-]+)/i)?.[1]?.trim();
-  const withOwner = clean.match(/\bwith\s+([a-zA-Z][a-zA-Z .'-]+)/i)?.[1]?.trim();
-  const owner = clean.match(/\bfor\s+([a-zA-Z][a-zA-Z .'-]+)$/i)?.[1]?.trim();
+  const withOwner = clean.match(/\bwith\s+([a-zA-Z][a-zA-Z .'-]*?)(?:\s+(?:on|about|for|by)\b|$)/i)?.[1]?.trim();
+  const taskOwner = clean.match(/\btask\s+for\s+([a-zA-Z][a-zA-Z .'-]*?)(?:\s+to\b|$)/i)?.[1]?.trim();
+  const owner = taskOwner || withOwner;
 
   const dueDate = parseDueDate(clean);
   const priority = parsePriority(clean);
@@ -70,22 +73,36 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
     .replace(/\b(low|medium|high|critical)\s+priority\b/gi, '')
     .replace(/\b(low|medium|high|critical)\b/gi, '')
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
-    .replace(/\bwith\s+[a-zA-Z][a-zA-Z .'-]+/gi, '')
+    .replace(/\bwith\s+[a-zA-Z][a-zA-Z .'-]*(?=\s+(?:on|about|for|by)\b|$)/gi, '')
+    .replace(/\btask\s+for\s+[a-zA-Z][a-zA-Z .'-]*(?=\s+to\b|$)/gi, '')
     .replace(/\bwaiting on\s+[a-zA-Z][a-zA-Z .'-]+/gi, '')
+    .replace(/\bon\s+[A-Z]{1,5}-?\d{1,4}\b/g, '')
+    .replace(/\bfor\s+[a-zA-Z][a-zA-Z .'-]*\s+to\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  const title = stripped || clean;
+  const confidence = Math.min(
+    1,
+    (hasTaskLanguage || hasFollowUpLanguage ? 0.3 : 0.15)
+      + (title.length >= 6 ? 0.25 : 0)
+      + (owner ? 0.2 : 0)
+      + (project ? 0.15 : 0)
+      + (dueDate ? 0.1 : 0),
+  );
 
   return {
     kind: inferredKind,
     rawText: clean,
-    title: stripped || clean,
+    title,
     project,
-    owner: owner || withOwner,
+    owner,
     waitingOn,
     dueDate,
     priority,
     status: inferredKind === 'task' ? 'To do' : waitingOn ? 'Waiting on external' : 'Needs action',
-    nextAction: inferredKind === 'followup' ? stripped || 'Follow up and confirm next step.' : undefined,
-    nextStep: inferredKind === 'task' ? stripped || 'Complete the task.' : undefined,
+    nextAction: inferredKind === 'followup' ? title || 'Follow up and confirm next step.' : undefined,
+    nextStep: inferredKind === 'task' ? title || 'Complete the task.' : undefined,
+    confidence,
   };
 }

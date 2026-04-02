@@ -17,18 +17,14 @@ interface QueueCard {
   onDone?: () => void;
 }
 
-export function WorkQueueBoard() {
+export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp: (id: string) => void; onOpenTask: (id: string) => void }) {
   const {
     items,
     tasks,
-    setSelectedId,
-    setSelectedTaskId,
     updateTask,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
-    setSelectedId: s.setSelectedId,
-    setSelectedTaskId: s.setSelectedTaskId,
     updateTask: s.updateTask,
   })));
 
@@ -58,7 +54,7 @@ export function WorkQueueBoard() {
           dueDate: item.dueDate,
           reason: isOverdue(item) ? 'Overdue commitment' : needsNudge(item) ? 'Needs nudge' : 'Upcoming touch',
           score,
-          onOpen: () => setSelectedId(item.id),
+          onOpen: () => onOpenFollowUp(item.id),
         } satisfies QueueCard;
       });
 
@@ -77,7 +73,7 @@ export function WorkQueueBoard() {
           dueDate: task.dueDate,
           reason: task.status === 'Blocked' ? 'Blocked handoff' : withinWeek ? 'Due this week' : 'Backlog execution',
           score,
-          onOpen: () => setSelectedTaskId(task.id),
+          onOpen: () => onOpenTask(task.id),
           onDone: () => updateTask(task.id, { status: 'Done' }),
         } satisfies QueueCard;
       });
@@ -86,7 +82,7 @@ export function WorkQueueBoard() {
       .filter((card) => ownerFilter === 'All' || card.owner === ownerFilter)
       .sort((a, b) => b.score - a.score)
       .slice(timeMode === 'morning' ? 0 : 5, timeMode === 'morning' ? 10 : 15);
-  }, [items, tasks, ownerFilter, setSelectedId, setSelectedTaskId, updateTask, timeMode]);
+  }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, timeMode]);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">

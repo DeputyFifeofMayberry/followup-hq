@@ -56,7 +56,7 @@ export function TaskFormModal() {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tasks</div>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950">{taskModal.mode === 'create' ? 'Add task' : 'Edit task'}</h2>
-            <p className="mt-1 text-sm text-slate-500">Track internal work without mixing it into the follow-up list.</p>
+            <p className="mt-1 text-sm text-slate-500">Capture the minimum now, refine details later.</p>
           </div>
           <button onClick={closeTaskModal} className="action-btn">Close</button>
         </div>
@@ -67,10 +67,6 @@ export function TaskFormModal() {
             <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Owner</span>
-            <input value={draft.owner} onChange={(e) => setDraft({ ...draft, owner: e.target.value })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
-          </label>
-          <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Project</span>
             <select value={draft.projectId ?? ''} onChange={(e) => {
               const project = projects.find((entry) => entry.id === e.target.value);
@@ -79,6 +75,10 @@ export function TaskFormModal() {
               <option value="">No linked project</option>
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Owner</span>
+            <input value={draft.owner} onChange={(e) => setDraft({ ...draft, owner: e.target.value })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
           </label>
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Status</span>
@@ -96,47 +96,52 @@ export function TaskFormModal() {
             <span className="text-sm font-medium text-slate-700">Due date</span>
             <input type="date" value={toDateInputValue(draft.dueDate)} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
           </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Linked follow-up</span>
-            <select value={draft.linkedFollowUpId ?? ''} onChange={(e) => setDraft({ ...draft, linkedFollowUpId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
-              <option value="">No linked follow-up</option>
-              {items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Related contact</span>
-            <select value={draft.contactId ?? ''} onChange={(e) => setDraft({ ...draft, contactId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
-              <option value="">None</option>
-              {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
-            </select>
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Related company</span>
-            <select value={draft.companyId ?? ''} onChange={(e) => setDraft({ ...draft, companyId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
-              <option value="">None</option>
-              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-4 grid gap-4">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Summary</span>
-            <textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} rows={3} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
-          </label>
-          <label className="space-y-2">
+          <label className="space-y-2 md:col-span-2">
             <span className="text-sm font-medium text-slate-700">Next step</span>
             <textarea value={draft.nextStep} onChange={(e) => setDraft({ ...draft, nextStep: e.target.value })} rows={2} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
           </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Notes</span>
-            <textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} rows={4} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Tags</span>
-            <input value={draft.tags.join(', ')} onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder="buyout, scope, reporting" className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
-          </label>
         </div>
+
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={taskModal.mode === 'edit'}>
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">More details</summary>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Linked follow-up</span>
+              <select value={draft.linkedFollowUpId ?? ''} onChange={(e) => setDraft({ ...draft, linkedFollowUpId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
+                <option value="">No linked follow-up</option>
+                {items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Related contact</span>
+              <select value={draft.contactId ?? ''} onChange={(e) => setDraft({ ...draft, contactId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
+                <option value="">None</option>
+                {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Related company</span>
+              <select value={draft.companyId ?? ''} onChange={(e) => setDraft({ ...draft, companyId: e.target.value || undefined })} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400">
+                <option value="">None</option>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Summary</span>
+              <textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} rows={3} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
+            </label>
+          </div>
+          <div className="mt-4 grid gap-4">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Notes</span>
+              <textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} rows={4} className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Tags</span>
+              <input value={draft.tags.join(', ')} onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} placeholder="buyout, scope, reporting" className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
+            </label>
+          </div>
+        </details>
 
         <div className="mt-6 flex items-center justify-end gap-3">
           <button onClick={closeTaskModal} className="action-btn">Cancel</button>

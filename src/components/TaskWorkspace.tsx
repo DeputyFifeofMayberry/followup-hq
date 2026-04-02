@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 
 type TaskMode = 'today' | 'thisWeek' | 'blocked' | 'followUpLinked';
 
-export function TaskWorkspace() {
+export function TaskWorkspace({ onOpenLinkedFollowUp }: { onOpenLinkedFollowUp: (followUpId: string) => void }) {
   const {
     tasks,
     items,
@@ -17,7 +17,6 @@ export function TaskWorkspace() {
     setSelectedTaskId,
     setTaskOwnerFilter,
     setTaskStatusFilter,
-    setSelectedId,
     openCreateTaskModal,
     openEditTaskModal,
     deleteTask,
@@ -32,7 +31,6 @@ export function TaskWorkspace() {
     setSelectedTaskId: s.setSelectedTaskId,
     setTaskOwnerFilter: s.setTaskOwnerFilter,
     setTaskStatusFilter: s.setTaskStatusFilter,
-    setSelectedId: s.setSelectedId,
     openCreateTaskModal: s.openCreateTaskModal,
     openEditTaskModal: s.openEditTaskModal,
     deleteTask: s.deleteTask,
@@ -202,7 +200,7 @@ export function TaskWorkspace() {
                   {task.linkedFollowUpId ? (
                     <button onClick={(event) => {
                       event.stopPropagation();
-                      setSelectedId(task.linkedFollowUpId!);
+                      onOpenLinkedFollowUp(task.linkedFollowUpId!);
                     }} className="action-btn !px-2.5 !py-1.5 text-xs">
                       Jump to linked follow-up
                     </button>
@@ -239,7 +237,9 @@ export function TaskWorkspace() {
                 <div className="rounded-2xl border border-slate-200 p-3">
                   <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connected workflow</div>
                   <div className="mt-2 text-sm text-slate-700">This task came from follow-up <span className="font-medium text-slate-900">{linkedFollowUp.title}</span>.</div>
+                  <div className="mt-1 text-sm text-slate-700">Linked status: <span className="font-medium text-slate-900">{linkedFollowUp.status}</span> • Next action: <span className="font-medium text-slate-900">{linkedFollowUp.nextAction || 'Not set'}</span></div>
                   <div className="mt-1 text-sm text-slate-700">{childTasks.length} sibling task{childTasks.length === 1 ? '' : 's'} linked to this same follow-up.</div>
+                  <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs">Open linked follow-up</button>
                 </div>
               ) : null}
 

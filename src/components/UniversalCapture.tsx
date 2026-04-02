@@ -1,5 +1,5 @@
 import { WandSparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
@@ -16,6 +16,7 @@ export function UniversalCapture() {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => parseUniversalCapture(''));
+  const [confirmation, setConfirmation] = useState<string>('');
 
   const openReview = () => {
     if (!text.trim()) return;
@@ -23,49 +24,56 @@ export function UniversalCapture() {
     setOpen(true);
   };
 
-  const save = () => {
-    const projectRecord = draft.project ? projects.find((entry) => entry.name.toLowerCase() === draft.project?.toLowerCase() || entry.id === draft.project) : undefined;
-    if (draft.kind === 'followup') {
-      const base = buildSmartFollowUpDefaults({ projectFilter, projectId: projectRecord?.id, projectName: projectRecord?.name ?? draft.project });
+  const save = (entry: typeof draft) => {
+    const projectRecord = entry.project ? projects.find((project) => project.name.toLowerCase() === entry.project?.toLowerCase() || project.id === entry.project) : undefined;
+    if (entry.kind === 'followup') {
+      const base = buildSmartFollowUpDefaults({ projectFilter, projectId: projectRecord?.id, projectName: projectRecord?.name ?? entry.project });
       const input = {
         ...base,
-        title: draft.title,
-        project: projectRecord?.name ?? draft.project ?? base.project,
+        title: entry.title,
+        project: projectRecord?.name ?? entry.project ?? base.project,
         projectId: projectRecord?.id ?? base.projectId,
-        owner: draft.owner || base.owner,
-        status: (draft.status as typeof base.status) || base.status,
-        priority: draft.priority,
-        dueDate: draft.dueDate || base.dueDate,
-        nextTouchDate: draft.dueDate || base.nextTouchDate,
-        waitingOn: draft.waitingOn || base.waitingOn,
-        nextAction: draft.nextAction || base.nextAction,
-        summary: draft.rawText,
+        owner: entry.owner || base.owner,
+        status: (entry.status as typeof base.status) || base.status,
+        priority: entry.priority,
+        dueDate: entry.dueDate || base.dueDate,
+        nextTouchDate: entry.dueDate || base.nextTouchDate,
+        waitingOn: entry.waitingOn || base.waitingOn,
+        nextAction: entry.nextAction || base.nextAction,
+        summary: entry.rawText,
       };
       rememberFollowUpDefaults(input);
       addItem(buildItemFromForm(input));
+      setConfirmation(`Saved follow-up: ${input.title}`);
     } else {
-      const base = buildSmartTaskDefaults({ projectFilter, projectId: projectRecord?.id, projectName: projectRecord?.name ?? draft.project });
+      const base = buildSmartTaskDefaults({ projectFilter, projectId: projectRecord?.id, projectName: projectRecord?.name ?? entry.project });
       const task = {
         ...base,
         id: createId('TSK'),
-        title: draft.title,
-        project: projectRecord?.name ?? draft.project ?? base.project,
+        title: entry.title,
+        project: projectRecord?.name ?? entry.project ?? base.project,
         projectId: projectRecord?.id ?? base.projectId,
-        owner: draft.owner || base.owner,
-        status: (draft.status as typeof base.status) || base.status,
-        priority: draft.priority,
-        dueDate: draft.dueDate || base.dueDate,
-        nextStep: draft.nextStep || draft.title,
-        summary: draft.rawText,
+        owner: entry.owner || base.owner,
+        status: (entry.status as typeof base.status) || base.status,
+        priority: entry.priority,
+        dueDate: entry.dueDate || base.dueDate,
+        nextStep: entry.nextStep || entry.title,
+        summary: entry.rawText,
         createdAt: todayIso(),
         updatedAt: todayIso(),
       };
       rememberTaskDefaults(task);
       addTask(task);
+      setConfirmation(`Saved task: ${task.title}`);
     }
     setOpen(false);
     setText('');
   };
+
+  const canQuickSave = useMemo(() => {
+    const parsed = parseUniversalCapture(text);
+    return !!text.trim() && parsed.title.trim().length >= 3 && parsed.confidence >= 0.55;
+  }, [text]);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -80,8 +88,10 @@ export function UniversalCapture() {
           placeholder="Type: Follow up with Alex on B995 sprinkler pricing Friday"
           className="field-input"
         />
-        <button onClick={openReview} className="primary-btn">Review draft</button>
+        <button onClick={() => save(parseUniversalCapture(text))} disabled={!canQuickSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">Quick save</button>
+        <button onClick={openReview} className="action-btn">Review details</button>
       </div>
+      {confirmation ? <div className="mt-2 text-xs font-medium text-emerald-700">{confirmation}</div> : null}
 
       {open ? (
         <div className="modal-backdrop">
@@ -107,7 +117,7 @@ export function UniversalCapture() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="action-btn">Cancel</button>
-              <button onClick={save} className="primary-btn">Save {draft.kind === 'followup' ? 'follow-up' : 'task'}</button>
+              <button onClick={() => save(draft)} className="primary-btn">Save {draft.kind === 'followup' ? 'follow-up' : 'task'}</button>
             </div>
           </div>
         </div>

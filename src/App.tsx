@@ -32,10 +32,10 @@ import type { SavedViewKey } from './types';
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'outlook' | 'projects' | 'relationships' | 'exports';
 
 const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
-  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { key: 'queue', label: 'Work Queue', icon: ListChecks },
+  { key: 'queue', label: 'Today / Now', icon: ListChecks },
   { key: 'tracker', label: 'Follow Ups', icon: Activity },
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
   { key: 'outlook', label: 'Email Intake', icon: Mail },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
@@ -252,15 +252,16 @@ function TrackerWorkspace() {
 
 function MainApp() {
   const initializeApp = useAppStore((s) => s.initializeApp);
-  const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
+  const { setActiveView, setProjectFilter, setSelectedId, setSelectedTaskId } = useAppStore(
     useShallow((s) => ({
       setActiveView: s.setActiveView,
       setProjectFilter: s.setProjectFilter,
       setSelectedId: s.setSelectedId,
+      setSelectedTaskId: s.setSelectedTaskId,
     })),
   );
 
-  const [workspace, setWorkspace] = useState<WorkspaceKey>('overview');
+  const [workspace, setWorkspace] = useState<WorkspaceKey>('queue');
 
   useEffect(() => {
     void initializeApp();
@@ -276,15 +277,19 @@ function MainApp() {
     setSelectedId(itemId);
     openTrackerView(view, project);
   };
+  const openTaskItem = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setWorkspace('tasks');
+  };
 
   const workspaceBody = useMemo(() => {
     switch (workspace) {
       case 'tracker':
         return <TrackerWorkspace />;
       case 'queue':
-        return <WorkQueueBoard />;
+        return <WorkQueueBoard onOpenFollowUp={(id) => openTrackerItem(id)} onOpenTask={openTaskItem} />;
       case 'tasks':
-        return <TaskWorkspace />;
+        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} />;
       case 'exports':
         return <ExportWorkspace />;
       case 'outlook':
@@ -296,7 +301,7 @@ function MainApp() {
       default:
         return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={setWorkspace} />;
     }
-  }, [workspace]);
+  }, [workspace, openTaskItem, openTrackerItem]);
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">

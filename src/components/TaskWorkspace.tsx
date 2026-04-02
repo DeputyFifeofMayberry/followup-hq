@@ -87,7 +87,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {[
           { label: 'Open tasks', value: summary.open, helper: 'Internal work still in motion', icon: ListTodo },
           { label: 'Due soon', value: summary.dueSoon, helper: 'Due within the next 2 days', icon: Clock3 },
@@ -96,7 +96,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         ].map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm text-slate-500">{card.label}</div>
@@ -110,8 +110,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         })}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_420px]">
-        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="workspace-master-detail">
+        <section className="workspace-list-panel">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">Tasks</h2>
@@ -156,26 +156,26 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             </select>
           </div>
 
-          <div className="space-y-3">
+          <div className="workspace-list-content">
             {filteredTasks.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No tasks match the current filters and work mode.</div>
             ) : filteredTasks.map((task) => (
-              <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`w-full rounded-3xl border p-4 text-left transition ${selectedTask?.id === task.id ? 'border-slate-900 bg-slate-950 text-white' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row ${selectedTask?.id === task.id ? 'workspace-data-row-active' : ''}`}>
+                <div className="workspace-data-row-main">
                   <div>
-                    <div className="text-base font-semibold">{task.title}</div>
-                    <div className={`mt-1 text-sm ${selectedTask?.id === task.id ? 'text-slate-300' : 'text-slate-500'}`}>{task.project}</div>
+                    <div className="text-sm font-semibold">{task.title}</div>
+                    <div className={`mt-1 text-xs ${selectedTask?.id === task.id ? 'text-slate-300' : 'text-slate-500'}`}>{task.project}</div>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-xs font-medium" onClick={(event) => event.stopPropagation()}>
-                    <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as typeof task.status })} className={`field-input !w-[130px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                  <div className="workspace-data-row-controls" onClick={(event) => event.stopPropagation()}>
+                    <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as typeof task.status })} className={`field-input !w-[126px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
                       {['To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status}</option>)}
                     </select>
-                    <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as typeof task.priority })} className={`field-input !w-[120px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                    <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as typeof task.priority })} className={`field-input !w-[112px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
                       {['Low', 'Medium', 'High', 'Critical'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className={`mt-3 grid gap-2 text-sm md:grid-cols-3 ${selectedTask?.id === task.id ? 'text-slate-200' : 'text-slate-600'}`} onClick={(event) => event.stopPropagation()}>
+                <div className={`mt-2 grid gap-2 text-sm md:grid-cols-4 ${selectedTask?.id === task.id ? 'text-slate-200' : 'text-slate-600'}`} onClick={(event) => event.stopPropagation()}>
                   <label className="text-xs">{personalMode ? 'Contact' : 'Owner'}
                     {personalMode ? (
                       <div className="mt-1 rounded-xl bg-slate-100 px-2 py-2 text-xs text-slate-700">{task.owner || '—'}</div>
@@ -192,8 +192,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                   <label className="text-xs">Next step
                     <input value={task.nextStep} onChange={(event) => updateTask(task.id, { nextStep: event.target.value })} className="field-input !mt-1 !py-1.5 text-xs" placeholder="Next step" />
                   </label>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-xs">
+                    Waiting / Link
+                    <div className="mt-1 text-slate-700">{task.linkedFollowUpId ? 'Linked follow-up' : 'No linked follow-up'}</div>
+                  </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+                <div className="mt-2 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
                   <button
                     onClick={(event) => {
                       event.stopPropagation();
@@ -217,7 +221,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           </div>
         </section>
 
-        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="workspace-inspector-panel">
           {selectedTask ? (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">

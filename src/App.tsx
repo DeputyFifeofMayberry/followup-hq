@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, PanelRight, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, PanelRight, Plus, Search, ShieldCheck, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
-import { Header } from './components/Header';
 import { ImportWizardModal } from './components/ImportWizardModal';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { CreateWorkModal } from './components/CreateWorkModal';
@@ -367,60 +366,56 @@ function MainApp() {
         const noNextAction = [...activeFollowUps.filter((item) => !item.nextAction.trim()), ...tasks.filter((task) => task.status !== 'Done' && !task.nextStep.trim())];
         const likelyNudges = activeFollowUps.filter((item) => item.status.includes('Waiting') && (Date.now() - new Date(item.lastTouchDate).getTime()) > Math.max(2, item.cadenceDays) * 86400000);
         return (
-          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <section className="space-y-4">
-              <div className="rounded-3xl border border-sky-200 bg-sky-50 p-4 shadow-sm">
-                <div className="text-sm font-semibold text-sky-900">Start my day</div>
-                <div className="mt-2 grid gap-2 text-xs text-sky-900">
-                  <div>Overdue: <span className="font-semibold">{activeFollowUps.filter((item) => new Date(item.dueDate).getTime() < Date.now()).length}</span></div>
-                  <div>Due today: <span className="font-semibold">{dueToday.length}</span></div>
-                  <div>Waiting too long: <span className="font-semibold">{waitingTooLong.length}</span></div>
-                  <div>Likely nudges: <span className="font-semibold">{likelyNudges.length}</span></div>
-                  <div>No clear next action: <span className="font-semibold">{noNextAction.length}</span></div>
+          <div className="workspace-master-detail workspace-master-detail-today">
+            <section className="workspace-list-panel">
+              <div className="workspace-list-head">
+                <div>
+                  <div className="workspace-list-title">Start my day</div>
+                  <p className="workspace-list-subtitle">Work the highest-risk records first, then clear intake cleanup.</p>
                 </div>
-                <div className="mt-3 grid gap-2">
-                  <button onClick={() => openTrackerView('Overdue')} className="action-btn w-full justify-start">Review overdue</button>
-                  <button onClick={() => openTrackerView('Needs nudge')} className="action-btn w-full justify-start">Review nudges</button>
-                  <button onClick={() => setWorkspace('tasks')} className="action-btn w-full justify-start">Review blocked</button>
+                <div className="workspace-kpi-strip">
+                  <div className="workspace-kpi-card"><span>Overdue</span><strong>{activeFollowUps.filter((item) => new Date(item.dueDate).getTime() < Date.now()).length}</strong></div>
+                  <div className="workspace-kpi-card"><span>Due today</span><strong>{dueToday.length}</strong></div>
+                  <div className="workspace-kpi-card"><span>Waiting too long</span><strong>{waitingTooLong.length}</strong></div>
+                  <div className="workspace-kpi-card"><span>Likely nudges</span><strong>{likelyNudges.length}</strong></div>
+                  <div className="workspace-kpi-card"><span>No next action</span><strong>{noNextAction.length}</strong></div>
                 </div>
               </div>
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-amber-900">Intake needing review</div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">{combinedCleanup}</div>
+              <div className="workspace-action-row">
+                <button onClick={() => openTrackerView('Overdue')} className="action-btn">Review overdue</button>
+                <button onClick={() => openTrackerView('Needs nudge')} className="action-btn">Review nudges</button>
+                <button onClick={() => setWorkspace('tasks')} className="action-btn">Review blocked</button>
+                <button onClick={openCreateModal} className="action-btn">New follow-up</button>
+                <button onClick={openCreateTaskModal} className="action-btn">New task</button>
+              </div>
+              <div className="workspace-list-content">
+                <div className="section-note-row">
+                  <div className="section-note-head">Intake needing review</div>
+                  <div className="section-note-count">{combinedCleanup}</div>
                 </div>
-                <div className="mt-2 text-xs text-amber-800">Weak parse and low-confidence captures land here, but they are already saved.</div>
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {cleanupFollowUps.slice(0, 3).map((item) => (
-                    <button key={item.id} onClick={() => openTrackerItem(item.id)} className="w-full rounded-xl border border-amber-200 bg-white p-2 text-left text-xs text-slate-700">
+                    <button key={item.id} onClick={() => openTrackerItem(item.id)} className="workspace-list-row">
                       {item.title} · {(item.cleanupReasons || []).join(', ')}
                     </button>
                   ))}
                   {cleanupTasks.slice(0, 2).map((task) => (
-                    <button key={task.id} onClick={() => openTaskItem(task.id)} className="w-full rounded-xl border border-amber-200 bg-white p-2 text-left text-xs text-slate-700">
+                    <button key={task.id} onClick={() => openTaskItem(task.id)} className="workspace-list-row">
                       {task.title} · {(task.cleanupReasons || []).join(', ')}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-sm font-semibold text-slate-900">Quick add</div>
-                <p className="mt-1 text-xs text-slate-500">Fast capture with smart defaults from your recent work patterns.</p>
-                <div className="mt-3 grid gap-2">
-                  <button onClick={openCreateModal} className="action-btn justify-start">New follow-up</button>
-                  <button onClick={openCreateTaskModal} className="action-btn justify-start">New task</button>
-                </div>
-              </div>
             </section>
-            <div className="space-y-5">
+            <div className="workspace-inspector-panel">
               <PersonalAgendaBoard />
-              <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-sm font-semibold text-slate-900">Progress today</div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-4 text-sm">
-                  <div className="rounded-xl bg-slate-50 p-2">Touched: <span className="font-semibold">{progressToday.touched}</span></div>
-                  <div className="rounded-xl bg-slate-50 p-2">Closed: <span className="font-semibold">{progressToday.closed}</span></div>
-                  <div className="rounded-xl bg-slate-50 p-2">Tasks done: <span className="font-semibold">{progressToday.tasksDone}</span></div>
-                  <div className="rounded-xl bg-slate-50 p-2">Waiting advanced: <span className="font-semibold">{progressToday.advancedWaiting}</span></div>
+              <section className="inspector-stats">
+                <div className="workspace-list-title">Progress today</div>
+                <div className="inspector-stats-grid">
+                  <div className="inspector-stat">Touched <strong>{progressToday.touched}</strong></div>
+                  <div className="inspector-stat">Closed <strong>{progressToday.closed}</strong></div>
+                  <div className="inspector-stat">Tasks done <strong>{progressToday.tasksDone}</strong></div>
+                  <div className="inspector-stat">Waiting advanced <strong>{progressToday.advancedWaiting}</strong></div>
                 </div>
               </section>
             </div>
@@ -451,13 +446,42 @@ function MainApp() {
     { label: 'Open intake review', run: () => setWorkspace('outlook') },
   ];
 
+  const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
+    today: {
+      title: 'Today execution',
+      purpose: 'Run today’s follow-ups and tasks from one unified worklist.',
+      health: `${progressToday.touched + progressToday.tasksDone} actions completed today`,
+      actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }, { label: 'New task', run: openCreateTaskModal }],
+    },
+    followups: {
+      title: 'Follow Ups',
+      purpose: 'Scan and execute follow-ups with fast inline edits and a focused inspector.',
+      health: `${items.filter((item) => item.status !== 'Closed').length} active follow-ups`,
+      actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }],
+    },
+    tasks: {
+      title: 'Tasks',
+      purpose: 'Work internal execution tasks with tight scan, status, and ownership controls.',
+      health: `${tasks.filter((task) => task.status !== 'Done').length} open tasks`,
+      actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }],
+    },
+    overview: { title: 'Admin Overview', purpose: 'Monitor system health and throughput.', health: `${items.length + tasks.length} tracked records`, actions: [] },
+    outlook: { title: 'Email Intake', purpose: 'Review Outlook ingestion and low-confidence capture cleanup.', health: `${combinedCleanup} items need cleanup`, actions: [] },
+    projects: { title: 'Projects', purpose: 'Track project-level workload, risk, and execution outcomes.', health: `${items.length} linked follow-ups`, actions: [] },
+    relationships: { title: 'Relationships', purpose: 'Manage contact relationships and connected execution history.', health: `${items.length} connected threads`, actions: [] },
+    exports: { title: 'Exports', purpose: 'Generate operational exports for reporting and coordination.', health: 'Export-ready data', actions: [] },
+  };
+
+  const currentMeta = workspaceMeta[workspace];
+
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
-      <div className="mx-auto max-w-[1880px] space-y-6">
-        <Header />
-        <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm xl:sticky xl:top-6 xl:self-start">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Navigation</div>
+    <div className="app-shell text-slate-900">
+      <div className="app-shell-layout">
+        <aside className="app-nav-rail">
+            <div className="app-brand-block">
+              <div className="app-brand-eyebrow">Daily execution workspace</div>
+              <div className="app-brand-title">FollowUp HQ</div>
+            </div>
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
               <button onClick={() => setAppMode('personal')} className={appMode === 'personal' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Personal</button>
               <button onClick={() => setAppMode('team')} className={appMode === 'team' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Team</button>
@@ -489,12 +513,29 @@ function MainApp() {
             </div>
           </aside>
 
-          <main className="min-w-0 space-y-5">
+          <main className="app-main-pane">
+            <header className="workspace-header">
+              <div>
+                <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
+                <h1>{currentMeta.title}</h1>
+                <p>{currentMeta.purpose}</p>
+              </div>
+              <div className="workspace-header-meta">
+                <div className="workspace-health-pill">{currentMeta.health}</div>
+                <div className="workspace-header-actions">
+                  {currentMeta.actions.map((action) => (
+                    <button key={action.label} onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
+                      {action.primary ? <Plus className="h-4 w-4" /> : null}
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </header>
             <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
             {workspaceBody}
           </main>
         </div>
-      </div>
 
       {showCommand ? (
         <div className="modal-backdrop" onClick={() => setShowCommand(false)}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CloudAlert, CloudCog, CloudUpload, Database, HardDriveDownload, LogOut, TriangleAlert, UserRound } from 'lucide-react';
+import { BadgeCheck, CloudAlert, CloudCog, CloudUpload, LogOut, TriangleAlert, UserRound } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatDateTime } from '../lib/utils';
@@ -44,22 +44,19 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     if (syncState === 'saving') {
       return { label: 'Saving to Supabase', detail: 'Recent changes are being pushed online.', icon: CloudUpload };
     }
-    if (persistenceMode === 'supabase') {
-      return {
-        label: 'Supabase connected',
-        detail: lastSyncedAt ? `Last synced ${formatDateTime(lastSyncedAt)}` : 'Connected and ready to sync.',
-        icon: BadgeCheck,
-      };
-    }
-    if (persistenceMode === 'tauri-sqlite') {
-      return { label: 'Desktop storage active', detail: 'Using local desktop storage.', icon: Database };
-    }
-    return { label: 'Browser fallback active', detail: 'Using browser storage fallback.', icon: HardDriveDownload };
+    return {
+      label: 'Saved',
+      detail: lastSyncedAt ? `Last saved ${formatDateTime(lastSyncedAt)}` : 'Changes are saved automatically.',
+      icon: BadgeCheck,
+    };
   }, [hydrated, syncState, persistenceMode, saveError, lastSyncedAt]);
 
   const StatusIcon = status.icon;
 
   if (compact) {
+    if (!saveError && syncState !== 'saving' && syncState !== 'error') {
+      return null;
+    }
     return (
       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
         <div className="flex items-center gap-2 text-slate-700">

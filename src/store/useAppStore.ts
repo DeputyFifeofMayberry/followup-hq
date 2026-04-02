@@ -3,7 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
-import { isTauriRuntime, loadSnapshot, saveSnapshot } from '../lib/persistence';
+import { createPersistenceQueue } from './persistenceQueue';
+import { isTauriRuntime, loadSnapshot } from '../lib/persistence';
 import { getDefaultOutlookSettings } from '../lib/outlookGraph';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
@@ -301,26 +302,6 @@ function buildSnapshot(state: Pick<AppState, 'items' | 'contacts' | 'companies' 
   };
 }
 
-let persistTimer: ReturnType<typeof setTimeout> | undefined;
-let lastQueuedJson = '';
-
-function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void, debounceMs = 350) {
-  if (persistTimer) clearTimeout(persistTimer);
-  set({ syncState: 'saving', saveError: '' });
-  persistTimer = setTimeout(() => {
-    const snapshot = buildSnapshot(get());
-    const snapshotJson = JSON.stringify(snapshot);
-    if (snapshotJson === lastQueuedJson) {
-      set({ syncState: 'saved' });
-      return;
-    }
-    lastQueuedJson = snapshotJson;
-    void saveSnapshot(snapshot)
-      .then((mode) => set({ persistenceMode: mode, saveError: '', syncState: 'saved', lastSyncedAt: todayIso() }))
-      .catch((error) => set({ saveError: error instanceof Error ? error.message : 'Failed to save data.', syncState: 'error' }));
-  }, debounceMs);
-}
-
 function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
   return normalizeItems(items.map((item) => (item.id === id ? updater(item) : item)));
 }
@@ -449,6 +430,22 @@ function buildFollowUpFromOutlookImport(message: OutlookMessage, owner: string, 
     threadKey: message.conversationId,
     draftFollowUp: '',
   });
+}
+
+let enqueuePersist: (() => void) | null = null;
+function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => void) {
+  if (!enqueuePersist) {
+    enqueuePersist = createPersistenceQueue(
+      {
+        getSnapshot: () => buildSnapshot(get()),
+        onSaving: () => set({ syncState: 'saving', saveError: '' }),
+        onSaved: (mode, timestamp) => set({ persistenceMode: mode, syncState: 'saved', saveError: '', lastSyncedAt: timestamp }),
+        onError: (message) => set({ syncState: 'error', saveError: message }),
+      },
+      { debounceMs: 350, maxRetries: 2, retryDelayMs: 650 },
+    );
+  }
+  enqueuePersist();
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({

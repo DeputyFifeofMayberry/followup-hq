@@ -15,6 +15,9 @@ interface QueueCard {
   score: number;
   onOpen: () => void;
   onDone?: () => void;
+  onSnooze?: () => void;
+  onNudged?: () => void;
+  onEscalate?: () => void;
 }
 
 export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp: (id: string) => void; onOpenTask: (id: string) => void }) {
@@ -22,6 +25,12 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
     items,
     tasks,
     updateTask,
+    updateItem,
+    markNudged,
+    snoozeItem,
+    cycleEscalation,
+    openCreateModal,
+    openCreateTaskModal,
     forwardedCandidates,
     approveForwardedCandidate,
     rejectForwardedCandidate,
@@ -29,6 +38,12 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
     items: s.items,
     tasks: s.tasks,
     updateTask: s.updateTask,
+    updateItem: s.updateItem,
+    markNudged: s.markNudged,
+    snoozeItem: s.snoozeItem,
+    cycleEscalation: s.cycleEscalation,
+    openCreateModal: s.openCreateModal,
+    openCreateTaskModal: s.openCreateTaskModal,
     forwardedCandidates: s.forwardedCandidates,
     approveForwardedCandidate: s.approveForwardedCandidate,
     rejectForwardedCandidate: s.rejectForwardedCandidate,
@@ -61,6 +76,10 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
           reason: isOverdue(item) ? 'Overdue commitment' : needsNudge(item) ? 'Needs nudge' : 'Upcoming touch',
           score,
           onOpen: () => onOpenFollowUp(item.id),
+          onDone: () => updateItem(item.id, { status: 'Closed' }),
+          onSnooze: () => snoozeItem(item.id, 2),
+          onNudged: () => markNudged(item.id),
+          onEscalate: () => cycleEscalation(item.id),
         } satisfies QueueCard;
       });
 
@@ -88,7 +107,7 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
       .filter((card) => ownerFilter === 'All' || card.owner === ownerFilter)
       .sort((a, b) => b.score - a.score)
       .slice(timeMode === 'morning' ? 0 : 5, timeMode === 'morning' ? 10 : 15);
-  }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, timeMode]);
+  }, [items, tasks, ownerFilter, onOpenFollowUp, onOpenTask, updateTask, updateItem, timeMode, snoozeItem, markNudged, cycleEscalation]);
   const pendingIntake = forwardedCandidates.filter((candidate) => candidate.status === 'pending').slice(0, 4);
 
   return (
@@ -108,6 +127,13 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
         <button onClick={() => setTimeMode('afternoon')} className={timeMode === 'afternoon' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
           <BellRing className="h-4 w-4" />Afternoon reset
         </button>
+      </div>
+      <div className="px-4 pb-2">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={openCreateModal} className="action-btn">New follow-up</button>
+          <button onClick={openCreateTaskModal} className="action-btn">New task</button>
+          <button onClick={() => setOwnerFilter('All')} className="action-btn">Reset filters</button>
+        </div>
       </div>
 
       <div className="space-y-3 px-4 pb-4">
@@ -145,6 +171,9 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
               <div className="flex flex-wrap gap-2">
                 <button onClick={card.onOpen} className="action-btn"><ArrowRight className="h-4 w-4" />Open</button>
                 {card.onDone ? <button onClick={card.onDone} className="action-btn"><CheckCircle2 className="h-4 w-4" />Done</button> : null}
+                {card.onNudged ? <button onClick={card.onNudged} className="action-btn">Nudged</button> : null}
+                {card.onSnooze ? <button onClick={card.onSnooze} className="action-btn">Snooze 2d</button> : null}
+                {card.onEscalate ? <button onClick={card.onEscalate} className="action-btn">Escalate</button> : null}
               </div>
             </div>
           </div>

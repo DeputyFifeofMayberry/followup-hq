@@ -34,6 +34,8 @@ function parseDueDate(input: string): string | undefined {
   if (isoMatch) return new Date(`${isoMatch[1]}T12:00:00`).toISOString();
   if (lower.includes('tomorrow')) return addDaysIso(todayIso(), 1);
   if (lower.includes('today')) return todayIso();
+  if (lower.includes('next week')) return addDaysIso(todayIso(), 7);
+  if (lower.includes('this week')) return addDaysIso(todayIso(), 4);
   const weekday = Object.keys(weekdayMap).find((name) => lower.includes(name));
   if (!weekday) return undefined;
   const now = new Date();

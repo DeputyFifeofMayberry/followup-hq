@@ -2,39 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { FollowUpFormInput } from '../types';
 import { buildItemFromForm, fromDateInputValue, toDateInputValue } from '../lib/utils';
+import { buildSmartFollowUpDefaults, rememberFollowUpDefaults } from '../lib/dataEntryDefaults';
 import { useAppStore } from '../store/useAppStore';
 
 
-function buildDefaultForm(): FollowUpFormInput {
-  const now = new Date().toISOString();
-  const nextTouch = new Date(Date.now() + 3 * 86400000).toISOString();
-  return {
-    title: '',
-    source: 'Email',
-    project: 'General',
-    projectId: '',
-    owner: 'Jared',
-    status: 'Needs action',
-    priority: 'Medium',
-    dueDate: now,
-    promisedDate: '',
-    nextTouchDate: nextTouch,
-    nextAction: '',
-    summary: '',
-    tags: [],
-    sourceRef: '',
-    waitingOn: '',
-    notes: '',
-    category: 'General',
-    owesNextAction: 'Unknown',
-    escalationLevel: 'None',
-    cadenceDays: 3,
-    contactId: '',
-    companyId: '',
-    threadKey: '',
-    draftFollowUp: '',
-  };
-}
 export function ItemFormModal() {
   const {
     itemModal,
@@ -43,6 +14,7 @@ export function ItemFormModal() {
     contacts,
     companies,
     closeItemModal,
+    projectFilter,
     addItem,
     updateItem,
     addProject,
@@ -53,13 +25,14 @@ export function ItemFormModal() {
     contacts: s.contacts,
     companies: s.companies,
     closeItemModal: s.closeItemModal,
+    projectFilter: s.projectFilter,
     addItem: s.addItem,
     updateItem: s.updateItem,
     addProject: s.addProject,
   })));
 
   const currentItem = useMemo(() => items.find((item) => item.id === itemModal.itemId) ?? null, [items, itemModal.itemId]);
-  const [form, setForm] = useState<FollowUpFormInput>(buildDefaultForm());
+  const [form, setForm] = useState<FollowUpFormInput>(buildSmartFollowUpDefaults({ projectFilter }));
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectOwner, setNewProjectOwner] = useState('Jared');
@@ -101,8 +74,8 @@ export function ItemFormModal() {
       });
       return;
     }
-    setForm(buildDefaultForm());
-  }, [itemModal.open, currentItem]);
+    setForm(buildSmartFollowUpDefaults({ projectFilter }));
+  }, [itemModal.open, currentItem, projectFilter]);
 
   if (!itemModal.open) return null;
 
@@ -110,11 +83,12 @@ export function ItemFormModal() {
     const built = buildItemFromForm(form, currentItem ?? undefined);
     if (currentItem) {
       updateItem(currentItem.id, built);
+      rememberFollowUpDefaults(form);
       closeItemModal();
       return;
     }
     addItem(built);
-    setForm(buildDefaultForm());
+    setForm(buildSmartFollowUpDefaults({ projectFilter }));
   };
 
   const handleProjectSelect = (value: string) => {
@@ -186,7 +160,11 @@ export function ItemFormModal() {
 
           <div className="field-block">
             <label className="field-label">Status</label>
-            <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as FollowUpFormInput['status'] })} className="field-input">
+            <select value={form.status} onChange={(event) => {
+              const status = event.target.value as FollowUpFormInput['status'];
+              const waiting = status === 'Waiting on external' || status === 'Waiting internal';
+              setForm({ ...form, status, cadenceDays: waiting ? 2 : form.cadenceDays || 3, owesNextAction: waiting ? 'Client' : form.owesNextAction, nextTouchDate: waiting ? fromDateInputValue(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)) : form.nextTouchDate });
+            }} className="field-input">
               <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
             </select>
           </div>

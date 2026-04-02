@@ -1,36 +1,10 @@
 import { CheckCircle2, Clock3, Link2, ListTodo, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { formatDate } from '../lib/utils';
+import { formatDate, fromDateInputValue, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 
 type TaskMode = 'today' | 'thisWeek' | 'blocked' | 'followUpLinked';
-
-function toneForStatus(status: string): string {
-  switch (status) {
-    case 'Done':
-      return 'bg-emerald-100 text-emerald-700';
-    case 'Blocked':
-      return 'bg-rose-100 text-rose-700';
-    case 'In progress':
-      return 'bg-amber-100 text-amber-700';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
-
-function toneForPriority(priority: string): string {
-  switch (priority) {
-    case 'Critical':
-      return 'bg-rose-100 text-rose-700';
-    case 'High':
-      return 'bg-amber-100 text-amber-700';
-    case 'Medium':
-      return 'bg-slate-100 text-slate-700';
-    default:
-      return 'bg-emerald-100 text-emerald-700';
-  }
-}
 
 export function TaskWorkspace() {
   const {
@@ -192,17 +166,30 @@ export function TaskWorkspace() {
                     <div className="text-base font-semibold">{task.title}</div>
                     <div className={`mt-1 text-sm ${selectedTask?.id === task.id ? 'text-slate-300' : 'text-slate-500'}`}>{task.project}</div>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-xs font-medium">
-                    <span className={`rounded-full px-2.5 py-1 ${selectedTask?.id === task.id ? 'bg-white/10 text-white' : toneForStatus(task.status)}`}>{task.status}</span>
-                    <span className={`rounded-full px-2.5 py-1 ${selectedTask?.id === task.id ? 'bg-white/10 text-white' : toneForPriority(task.priority)}`}>{task.priority}</span>
+                  <div className="flex flex-wrap gap-2 text-xs font-medium" onClick={(event) => event.stopPropagation()}>
+                    <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as typeof task.status })} className={`field-input !w-[130px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                      {['To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                    <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as typeof task.priority })} className={`field-input !w-[120px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                      {['Low', 'Medium', 'High', 'Critical'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                    </select>
                   </div>
                 </div>
-                <div className={`mt-3 grid gap-2 text-sm md:grid-cols-3 ${selectedTask?.id === task.id ? 'text-slate-200' : 'text-slate-600'}`}>
-                  <div><span className="font-medium">Owner:</span> {task.owner}</div>
-                  <div><span className="font-medium">Due:</span> {formatDate(task.dueDate)}</div>
-                  <div><span className="font-medium">Next:</span> {task.nextStep || '—'}</div>
+                <div className={`mt-3 grid gap-2 text-sm md:grid-cols-3 ${selectedTask?.id === task.id ? 'text-slate-200' : 'text-slate-600'}`} onClick={(event) => event.stopPropagation()}>
+                  <label className="text-xs">Owner
+                    <select value={task.owner} onChange={(event) => updateTask(task.id, { owner: event.target.value })} className="field-input !mt-1 !py-1.5 text-xs">
+                      {owners.filter((entry) => entry !== 'All').map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+                      <option value="Unassigned">Unassigned</option>
+                    </select>
+                  </label>
+                  <label className="text-xs">Due
+                    <input type="date" value={toDateInputValue(task.dueDate)} onChange={(event) => updateTask(task.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input !mt-1 !py-1.5 text-xs" />
+                  </label>
+                  <label className="text-xs">Next step
+                    <input value={task.nextStep} onChange={(event) => updateTask(task.id, { nextStep: event.target.value })} className="field-input !mt-1 !py-1.5 text-xs" placeholder="Next step" />
+                  </label>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
                   <button
                     onClick={(event) => {
                       event.stopPropagation();

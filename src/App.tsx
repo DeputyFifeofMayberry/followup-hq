@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, ArrowDownToLine, BriefcaseBusiness, Building2, CheckCircle2, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, FileSpreadsheet, HardHat, LayoutDashboard, ListChecks, ListTodo, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { Header } from './components/Header';
 import { ImportWizardModal } from './components/ImportWizardModal';
-import { IntakePanel } from './components/IntakePanel';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { ItemFormModal } from './components/ItemFormModal';
 import { OverviewPage } from './components/OverviewPage';
@@ -24,12 +23,13 @@ import { TaskFormModal } from './components/TaskFormModal';
 import { ExportWorkspace } from './components/ExportWorkspace';
 import { WorkQueueBoard } from './components/WorkQueueBoard';
 import { OutlookPanel } from './components/OutlookPanel';
+import { UniversalCapture } from './components/UniversalCapture';
 
 import { supabase } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'intake' | 'outlook' | 'projects' | 'relationships' | 'exports';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'outlook' | 'projects' | 'relationships' | 'exports';
 
 const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -37,7 +37,6 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; icon: typeof LayoutD
   { key: 'tracker', label: 'Follow Ups', icon: Activity },
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
-  { key: 'intake', label: 'Intake', icon: ArrowDownToLine },
   { key: 'outlook', label: 'Email Intake', icon: Mail },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
   { key: 'relationships', label: 'Relationships', icon: Users },
@@ -288,8 +287,6 @@ function MainApp() {
         return <TaskWorkspace />;
       case 'exports':
         return <ExportWorkspace />;
-      case 'intake':
-        return <IntakePanel />;
       case 'outlook':
         return <OutlookPanel />;
       case 'projects':
@@ -327,7 +324,7 @@ function MainApp() {
             </div>
           </aside>
 
-          <main className="min-w-0">{workspaceBody}</main>
+          <main className="min-w-0 space-y-5"><UniversalCapture />{workspaceBody}</main>
         </div>
       </div>
 

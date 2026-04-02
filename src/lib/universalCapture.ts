@@ -71,7 +71,7 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const hasFollowUpLanguage = /\b(follow\s*-?up|waiting on|check in|nudge)\b/.test(lower);
   const inferredKind: CaptureKind = hasTaskLanguage && !hasFollowUpLanguage ? 'task' : 'followup';
 
-  const owner = pullMatch(clean, /\b(?:owner|assign(?:ed)? to|for)\s*[:\-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)
+  const owner = pullMatch(clean, /\b(?:owner|assign(?:ed)? to|for)\s*[:-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)
     || pullMatch(clean, /\bwith\s+([a-zA-Z][a-zA-Z .'-]{1,40})(?:\s+(?:on|about|for|by)\b|$)/i);
   const waitingOn = pullMatch(clean, /\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i);
   const project = pullMatch(clean, /\b(?:project|job|on)\s*[:#-]?\s*([A-Z]{1,6}-?\d{1,5}|[A-Z][a-zA-Z0-9 .&-]{2,40})/);

@@ -161,18 +161,22 @@ export function CreateWorkModal() {
   const companyOptions = companies.map((company) => ({ id: company.id, label: company.name, meta: company.type }));
 
   const canSave = mode === 'followup'
-    ? !!followUpForm.title.trim() && !!followUpForm.owner.trim() && !!followUpForm.projectId && !!followUpForm.nextAction.trim() && (!!followUpForm.dueDate || !!followUpForm.nextTouchDate)
-    : !!taskForm.title.trim() && !!taskForm.owner.trim() && !!taskForm.projectId && !!taskForm.nextStep.trim() && !!taskForm.dueDate;
+    ? !!followUpForm.title.trim()
+    : !!taskForm.title.trim();
 
   const save = (addAnother = false) => {
     if (!canSave) return;
     if (mode === 'followup') {
-      const built = buildItemFromForm(followUpForm, currentItem ?? undefined);
-      rememberFollowUpDefaults(followUpForm);
+      const normalizedForm: FollowUpFormInput = {
+        ...followUpForm,
+        nextAction: followUpForm.nextAction.trim() || followUpForm.title.trim(),
+      };
+      const built = buildItemFromForm(normalizedForm, currentItem ?? undefined);
+      rememberFollowUpDefaults(normalizedForm);
       if (currentItem) updateItem(currentItem.id, built);
       else addItem(built);
     } else {
-      const payload = { ...taskForm, updatedAt: todayIso() };
+      const payload = { ...taskForm, nextStep: taskForm.nextStep.trim() || taskForm.title.trim(), updatedAt: todayIso() };
       rememberTaskDefaults(payload);
       if (currentTask) updateTask(currentTask.id, payload);
       else addTask(payload);

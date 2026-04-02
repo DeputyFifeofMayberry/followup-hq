@@ -63,6 +63,20 @@ function pullMatch(input: string, pattern: RegExp): string | undefined {
   return input.match(pattern)?.[1]?.trim();
 }
 
+function pullShortcut(input: string, keys: string[]): string | undefined {
+  const pattern = new RegExp(`(?:^|\\s)(?:${keys.join('|')})\\s*:\\s*("([^"]+)"|'([^']+)'|([^\\s][^\\n]*?))(?=\\s+\\w+:|$)`, 'i');
+  const match = input.match(pattern);
+  if (!match) return undefined;
+  return (match[2] || match[3] || match[4] || '').trim();
+}
+
+function stripShortcuts(input: string): string {
+  return input
+    .replace(/(?:^|\s)(?:p|project|o|owner|d|due|w|waiting)\s*:\s*("([^"]+)"|'([^']+)'|([^\s][^\n]*?))(?=\s+\w+:|$)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const clean = input.trim();
   const lower = clean.toLowerCase();
@@ -71,14 +85,17 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const hasFollowUpLanguage = /\b(follow\s*-?up|waiting on|check in|nudge)\b/.test(lower);
   const inferredKind: CaptureKind = hasTaskLanguage && !hasFollowUpLanguage ? 'task' : 'followup';
 
-  const owner = pullMatch(clean, /\b(?:owner|assign(?:ed)? to|for)\s*[:-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)
+  const owner = pullShortcut(clean, ['o', 'owner'])
+    || pullMatch(clean, /\b(?:owner|assign(?:ed)? to|for)\s*[:-]?\s*([a-zA-Z][a-zA-Z .'-]{1,40})/i)
     || pullMatch(clean, /\bwith\s+([a-zA-Z][a-zA-Z .'-]{1,40})(?:\s+(?:on|about|for|by)\b|$)/i);
-  const waitingOn = pullMatch(clean, /\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i);
-  const project = pullMatch(clean, /\b(?:project|job|on)\s*[:#-]?\s*([A-Z]{1,6}-?\d{1,5}|[A-Z][a-zA-Z0-9 .&-]{2,40})/);
-  const dueDate = parseDueDate(clean);
+  const waitingOn = pullShortcut(clean, ['w', 'waiting']) || pullMatch(clean, /\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i);
+  const project = pullShortcut(clean, ['p', 'project']) || pullMatch(clean, /\b(?:project|job|on)\s*[:#-]?\s*([A-Z]{1,6}-?\d{1,5}|[A-Z][a-zA-Z0-9 .&-]{2,40})/);
+  const dueShortcut = pullShortcut(clean, ['d', 'due']);
+  const dueDate = dueShortcut ? parseDueDate(dueShortcut) : parseDueDate(clean);
   const priority = parsePriority(clean);
 
-  const title = clean
+  const normalized = stripShortcuts(clean);
+  const title = normalized
     .replace(/\b(task|todo|to do|follow\s*-?up|waiting on|owner|assign(?:ed)? to|project|job|due|priority)\b/gi, '')
     .replace(/\b(today|tomorrow|next week|this week|eow|asap|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '')
     .replace(/\b(low|medium|high|critical|urgent)\b/gi, '')

@@ -9,3 +9,9 @@
 - Added canonical entity normalization helpers for projects/contacts/companies with alias-merging support to reduce identity drift (`src/lib/entities.ts`, `src/types.ts`).
 - Added a safer bulk action flow in the execution cockpit with preview, warning surface, and undo for recent bulk updates (`src/lib/bulkActions.ts`, `src/components/OverviewPage.tsx`).
 - Added targeted self-check coverage for intake scoring, entity normalization, outbound transitions, and bulk preview/apply semantics (`src/lib/__tests__/trust-upgrades.test.ts`).
+
+### Phase 3 UI overhaul: secondary surface polish
+- Introduced a unified modal product layer with reusable modal primitives (header/body/footer, sizing variants, sticky action bars, and improved overlay treatment) and applied it across create, import, touch-log, merge, and follow-up drafting flows (`src/components/ui/AppPrimitives.tsx`, `src/index.css`, `src/components/CreateWorkModal.tsx`, `src/components/ImportWizardModal.tsx`, `src/components/TouchLogModal.tsx`, `src/components/MergeModal.tsx`, `src/components/FollowUpDraftModal.tsx`).
+- Refined capture and intake polish by upgrading confidence chips, confirmation states, and intake review tray readability to better support quick decision-making (`src/components/UniversalCapture.tsx`, `src/index.css`).
+- Improved Relationship workspace hierarchy and scanability with cleaner portfolio row styling, stronger active states, and clearer empty-state guidance (`src/components/RelationshipBoard.tsx`, `src/index.css`).
+- Improved secondary workspace cohesion by tightening Outlook intake tab framing and aligning inspector card treatment in detail flows (`src/components/OutlookPanel.tsx`, `src/components/ItemDetailPanel.tsx`).

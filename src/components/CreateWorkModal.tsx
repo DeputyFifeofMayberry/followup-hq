@@ -5,6 +5,7 @@ import { buildItemFromForm, createId, fromDateInputValue, toDateInputValue, toda
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskItem } from '../types';
 import { EntityCombobox } from './EntityCombobox';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from './ui/AppPrimitives';
 
 type WorkMode = 'followup' | 'task';
 
@@ -204,20 +205,15 @@ export function CreateWorkModal() {
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-panel modal-panel-wide" onKeyDown={(event) => {
+    <AppModal size="wide">
+      <div onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           save(false);
         }
       }}>
-        <div className="modal-header">
-          <div>
-            <div className="text-lg font-semibold text-slate-950">Create work</div>
-            <div className="mt-1 text-sm text-slate-500">Fast mode for speed, full mode for cleanup/editing.</div>
-          </div>
-          <button onClick={close} className="action-btn">Close</button>
-        </div>
+        <AppModalHeader title="Create work" subtitle="Fast mode for speed, full mode for cleanup/editing." onClose={close} />
+        <AppModalBody>
 
         <div className="mb-4 flex flex-wrap gap-2">
           <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
@@ -337,14 +333,15 @@ export function CreateWorkModal() {
           )}
         </details>) : null}
 
-        <div className="mt-5 flex justify-end gap-2">
+        </AppModalBody>
+        <AppModalFooter>
           <button onClick={close} className="action-btn">Cancel</button>
           {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and add another</button> : null}
           <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
             {followUpEditing || taskEditing ? 'Save changes' : 'Save work'}
           </button>
-        </div>
+        </AppModalFooter>
       </div>
-    </div>
+    </AppModal>
   );
 }

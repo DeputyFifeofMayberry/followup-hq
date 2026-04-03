@@ -152,10 +152,10 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       </div>
 
       {expanded && text.trim() ? (
-        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="mt-3 form-section">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Parse preview</span>
-            <span className={confidence === 'high' ? 'text-emerald-700' : confidence === 'medium' ? 'text-sky-700' : 'text-amber-700'}>{confidence} confidence</span>
+            <span className={`confidence-chip ${confidence === 'high' ? 'confidence-chip-high' : confidence === 'medium' ? 'confidence-chip-medium' : 'confidence-chip-low'}`}>{confidence} confidence</span>
           </div>
           <div className="grid gap-2 text-xs md:grid-cols-2">
             {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
@@ -166,11 +166,11 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       ) : null}
 
       {intakeCandidates.length > 0 ? (
-        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="mt-3 form-section">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Inbox className="h-4 w-4" />Intake review ({intakeCandidates.length})</div>
           <div className="space-y-2">
             {intakeCandidates.slice(0, 4).map((candidate) => (
-              <div key={candidate.id} className="rounded-xl border border-slate-200 p-2 text-xs">
+              <div key={candidate.id} className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
                 <div className="font-semibold text-slate-900">{candidate.draft.title}</div>
                 <div className="text-slate-500">{candidate.suggestedType} • {candidate.confidenceTier} confidence • {candidate.detectedProject || 'No project'}</div>
                 <div className="mt-2 flex gap-2">
@@ -185,7 +185,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         </div>
       ) : null}
 
-      {confirmation ? <div className={`mt-2 text-xs font-medium ${confidence === 'low' ? 'text-amber-700' : 'text-emerald-700'}`}>{confidence === 'low' ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CheckCircle2 className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
+      {confirmation ? <div className={`mt-2 rounded-xl border px-3 py-2 text-xs font-medium ${confidence === 'low' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{confidence === 'low' ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CheckCircle2 className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
     </section>
   );
 }

@@ -6,6 +6,8 @@ import type { SavedViewKey, UnifiedQueuePreset, UnifiedQueueSort } from '../type
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
+import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
+import type { FollowUpItem } from '../types';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'projects' | 'relationships';
 
@@ -80,6 +82,8 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   const [selectedId, setSelectedIdLocal] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [bulkPreview, setBulkPreview] = useState<{ spec: BulkActionSpec; summary: ReturnType<typeof previewBulkAction> } | null>(null);
+  const [lastBulkUndo, setLastBulkUndo] = useState<Array<{ id: string; before: Partial<FollowUpItem> }>>([]);
 
   useEffect(() => {
     if (!queue.length) return setSelectedIdLocal(null);
@@ -127,12 +131,40 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
 
   const runBulk = (action: string) => {
     if (!selectedItems.length) return;
-    if (action === 'close-followups') selectedFollowUps.forEach((row) => updateItem(row.id, { status: 'Closed', actionState: 'Complete' }));
-    if (action === 'done-tasks') selectedTasks.forEach((row) => updateTask(row.id, { status: 'Done' }));
-    if (action === 'nudge') selectedFollowUps.forEach((row) => markNudged(row.id));
-    if (action === 'snooze') selectedFollowUps.forEach((row) => snoozeItem(row.id, 2));
-    if (action === 'escalate') selectedFollowUps.forEach((row) => updateItem(row.id, { escalationLevel: row.escalationLevel === 'Critical' ? 'Critical' : 'Escalate' }));
-    if (action === 'de-escalate') selectedFollowUps.forEach((row) => updateItem(row.id, { escalationLevel: 'Watch' }));
+    const spec: BulkActionSpec =
+      action === 'close-followups' ? { type: 'close', ids: selectedFollowUps.map((entry) => entry.id) } :
+      action === 'nudge' ? { type: 'nudge', ids: selectedFollowUps.map((entry) => entry.id) } :
+      action === 'snooze' ? { type: 'snooze', ids: selectedFollowUps.map((entry) => entry.id), days: 2 } :
+      action === 'escalate' ? { type: 'escalate', ids: selectedFollowUps.map((entry) => entry.id) } :
+      action === 'de-escalate' ? { type: 'assign', ids: selectedFollowUps.map((entry) => entry.id), value: 'Watch' } :
+      { type: 'close', ids: [] };
+    setBulkPreview({ spec, summary: previewBulkAction(spec, useAppStore.getState().items, useAppStore.getState().tasks) });
+    if (action === 'done-tasks') {
+      selectedTasks.forEach((row) => updateTask(row.id, { status: 'Done' }));
+    }
+  };
+
+  const applyBulkPreview = () => {
+    if (!bulkPreview) return;
+    const undo: Array<{ id: string; before: Partial<FollowUpItem> }> = [];
+    if (bulkPreview.spec.type === 'assign' && bulkPreview.spec.value === 'Watch') {
+      selectedFollowUps.forEach((row) => {
+        const current = useAppStore.getState().items.find((entry) => entry.id === row.id);
+        if (!current) return;
+        undo.push({ id: row.id, before: { escalationLevel: current.escalationLevel } });
+        updateItem(row.id, { escalationLevel: 'Watch' });
+      });
+    } else {
+      selectedFollowUps.forEach((row) => {
+        const current = useAppStore.getState().items.find((entry) => entry.id === row.id);
+        if (!current) return;
+        undo.push({ id: row.id, before: current });
+        const patched = applyBulkToFollowUp(current, bulkPreview.spec);
+        updateItem(row.id, patched);
+      });
+    }
+    setLastBulkUndo(undo);
+    setBulkPreview(null);
     setSelectedRows([]);
   };
 
@@ -204,6 +236,24 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
               <button onClick={() => runBulk('escalate')} className="action-btn !px-2.5 !py-1 text-xs">Escalate</button>
               <button onClick={() => runBulk('de-escalate')} className="action-btn !px-2.5 !py-1 text-xs">De-escalate</button>
               <button onClick={() => setSelectedRows([])} className="action-btn !px-2.5 !py-1 text-xs">Clear</button>
+              {lastBulkUndo.length ? <button onClick={() => {
+                lastBulkUndo.forEach((entry) => {
+                  updateItem(entry.id, entry.before);
+                });
+                setLastBulkUndo([]);
+              }} className="action-btn !px-2.5 !py-1 text-xs">Undo last bulk</button> : null}
+            </div>
+          ) : null}
+          {bulkPreview ? (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+              <div className="font-semibold">Bulk preview</div>
+              <div>Affected: {bulkPreview.summary.affected} • Skipped: {bulkPreview.summary.skipped}</div>
+              <div>Changes: {bulkPreview.summary.changes.join(' • ') || '—'}</div>
+              {bulkPreview.summary.warnings.length ? <div>Warnings: {bulkPreview.summary.warnings.join(' • ')}</div> : null}
+              <div className="mt-2 flex gap-2">
+                <button onClick={applyBulkPreview} className="action-btn !px-2.5 !py-1 text-xs">Apply bulk</button>
+                <button onClick={() => setBulkPreview(null)} className="action-btn !px-2.5 !py-1 text-xs">Cancel</button>
+              </div>
             </div>
           ) : null}
 

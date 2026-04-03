@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -43,12 +43,15 @@ export function UniversalIntakeWorkspace() {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(intakeAssets[0]?.id ?? null);
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const pending = intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending');
   const highConfidence = pending.filter((entry) => entry.confidence >= 0.9);
   const selectedAsset = intakeAssets.find((entry) => entry.id === activeAssetId) ?? intakeAssets[0];
   const selectedAssetCandidates = intakeWorkCandidates.filter((entry) => entry.assetId === selectedAsset?.id);
+  const selectedCandidate = pending.find((entry) => entry.id === activeCandidateId) ?? pending[0] ?? null;
+  const needsReview = pending.filter((entry) => entry.confidence < 0.9);
   const childAssets = selectedAsset ? intakeAssets.filter((entry) => entry.parentAssetId === selectedAsset.id) : [];
 
   const byStatus = useMemo(() => ({
@@ -56,6 +59,13 @@ export function UniversalIntakeWorkspace() {
     review: intakeAssets.filter((asset) => asset.parseStatus === 'review_needed').length,
     failed: intakeAssets.filter((asset) => asset.parseStatus === 'failed').length,
   }), [intakeAssets]);
+
+  const applyAndNext = (decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
+    if (!selectedCandidate) return;
+    decideIntakeWorkCandidate(selectedCandidate.id, decision, linkedRecordId);
+    const next = useAppStore.getState().intakeWorkCandidates.find((entry) => entry.approvalStatus === 'pending');
+    setActiveCandidateId(next?.id ?? null);
+  };
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
     if (!list?.length) return;
@@ -65,6 +75,22 @@ export function UniversalIntakeWorkspace() {
     const firstNew = useAppStore.getState().intakeAssets[0]?.id;
     if (firstNew) setActiveAssetId(firstNew);
   };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!selectedCandidate) return;
+      if (event.key === 'a') applyAndNext('approve_followup');
+      if (event.key === 't') applyAndNext('approve_task');
+      if (event.key === 'r') applyAndNext('reject');
+      if (event.key === 'l' && selectedCandidate.existingRecordMatches[0]) applyAndNext('link', selectedCandidate.existingRecordMatches[0].id);
+      if (event.key === 'n') {
+        const idx = pending.findIndex((entry) => entry.id === selectedCandidate.id);
+        setActiveCandidateId(pending[Math.min(pending.length - 1, Math.max(0, idx + 1))]?.id ?? null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pending, selectedCandidate]);
 
   return (
     <div className="space-y-4">
@@ -178,9 +204,13 @@ export function UniversalIntakeWorkspace() {
             <div className="text-sm font-semibold text-slate-900">Review queue</div>
             <Badge variant="warn">Pending {pending.length}</Badge>
           </div>
+          <div className="mb-2 flex flex-wrap gap-2 text-[11px]">
+            <Badge variant="success">High confidence queue {highConfidence.length}</Badge>
+            <Badge variant="warn">Needs review queue {needsReview.length}</Badge>
+          </div>
           <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
             {pending.map((candidate) => (
-              <article key={candidate.id} className="rounded-xl border border-slate-200 p-2">
+              <article key={candidate.id} className={`rounded-xl border p-2 ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => setActiveCandidateId(candidate.id)}>
                 <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
                 <div className="mt-1 flex flex-wrap gap-1 text-xs">
                   <Badge variant="blue">{candidate.candidateType}</Badge>
@@ -193,10 +223,10 @@ export function UniversalIntakeWorkspace() {
                   {candidate.explanation.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'approve_task')}><CheckCircle2 className="h-4 w-4" /> Task</button>
-                  <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'approve_followup')}><Paperclip className="h-4 w-4" /> Follow-up</button>
-                  <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'reference')}><Save className="h-4 w-4" /> Reference</button>
-                  <button className="action-btn action-btn-danger" onClick={() => decideIntakeWorkCandidate(candidate.id, 'reject')}><XCircle className="h-4 w-4" /> Reject</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_task'); }}><CheckCircle2 className="h-4 w-4" /> Task</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_followup'); }}><Paperclip className="h-4 w-4" /> Follow-up</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reference'); }}><Save className="h-4 w-4" /> Reference</button>
+                  <button className="action-btn action-btn-danger" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reject'); }}><XCircle className="h-4 w-4" /> Reject</button>
                 </div>
                 {candidate.existingRecordMatches.length > 0 ? (
                   <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">

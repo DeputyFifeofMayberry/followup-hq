@@ -5,12 +5,12 @@ import type {
   IntakeBatchRecord,
   IntakeCandidateType,
   IntakeEvidence,
-  IntakeExistingMatch,
   IntakeWorkCandidate,
   TaskItem,
   FollowUpItem,
 } from '../types';
 import { createId, todayIso } from './utils';
+import { resolveCandidateMatches } from './intake/reviewPipeline';
 
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
@@ -446,48 +446,6 @@ function scoreDueDateSignals(values: string[]): { picked?: string; confidence: n
   return { picked: unique[0], confidence: 0.45, warning: 'Conflicting due dates detected in source.' };
 }
 
-function tokenize(value: string): Set<string> {
-  return new Set(value.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((token) => token.length > 2));
-}
-
-function jaccard(left: string, right: string): number {
-  const a = tokenize(left);
-  const b = tokenize(right);
-  if (!a.size || !b.size) return 0;
-  const intersection = [...a].filter((token) => b.has(token)).length;
-  const union = new Set([...a, ...b]).size;
-  return intersection / union;
-}
-
-function findMatches(candidate: { title: string; project?: string; dueDate?: string; waitingOn?: string; summary: string; type: IntakeCandidateType }, items: FollowUpItem[], tasks: TaskItem[]): IntakeExistingMatch[] {
-  const scored: IntakeExistingMatch[] = [];
-
-  for (const item of items) {
-    const titleScore = jaccard(candidate.title, item.title);
-    const projectScore = candidate.project && item.project.toLowerCase() === candidate.project.toLowerCase() ? 0.2 : 0;
-    const dueScore = candidate.dueDate && item.dueDate && Math.abs(new Date(item.dueDate).getTime() - new Date(candidate.dueDate).getTime()) <= 1000 * 60 * 60 * 24 * 7 ? 0.1 : 0;
-    const waitingScore = candidate.waitingOn && item.waitingOn && item.waitingOn.toLowerCase().includes(candidate.waitingOn.toLowerCase()) ? 0.08 : 0;
-    const summaryScore = jaccard(candidate.summary, item.summary) * 0.25;
-    const score = Number(Math.min(0.99, titleScore * 0.55 + projectScore + dueScore + waitingScore + summaryScore).toFixed(2));
-    if (score < 0.45) continue;
-    const strategy: IntakeExistingMatch['strategy'] = score >= 0.86 ? 'duplicate' : candidate.type.toString().startsWith('update') ? 'update' : 'link';
-    scored.push({ id: item.id, recordType: 'followup', title: item.title, project: item.project, score, reason: `title=${titleScore.toFixed(2)}, project=${projectScore.toFixed(2)}, due=${dueScore.toFixed(2)}, summary=${summaryScore.toFixed(2)}`, strategy, matchedFields: ['title', ...(projectScore ? ['project'] : []), ...(dueScore ? ['dueDate'] : [])] });
-  }
-
-  for (const task of tasks) {
-    const titleScore = jaccard(candidate.title, task.title);
-    const projectScore = candidate.project && task.project.toLowerCase() === candidate.project.toLowerCase() ? 0.2 : 0;
-    const dueScore = candidate.dueDate && task.dueDate && Math.abs(new Date(task.dueDate).getTime() - new Date(candidate.dueDate).getTime()) <= 1000 * 60 * 60 * 24 * 7 ? 0.1 : 0;
-    const summaryScore = jaccard(candidate.summary, task.summary) * 0.25;
-    const score = Number(Math.min(0.99, titleScore * 0.55 + projectScore + dueScore + summaryScore).toFixed(2));
-    if (score < 0.45) continue;
-    const strategy: IntakeExistingMatch['strategy'] = score >= 0.86 ? 'duplicate' : candidate.type.toString().startsWith('update') ? 'update' : 'link';
-    scored.push({ id: task.id, recordType: 'task', title: task.title, project: task.project, score, reason: `title=${titleScore.toFixed(2)}, project=${projectScore.toFixed(2)}, due=${dueScore.toFixed(2)}, summary=${summaryScore.toFixed(2)}`, strategy, matchedFields: ['title', ...(projectScore ? ['project'] : []), ...(dueScore ? ['dueDate'] : [])] });
-  }
-
-  return scored.sort((a, b) => b.score - a.score).slice(0, 5);
-}
-
 function buildEvidence(asset: IntakeAssetRecord, chunks: ExtractionChunk[], field: string, regex: RegExp): IntakeEvidence[] {
   const out: IntakeEvidence[] = [];
   for (const chunk of chunks.slice(0, 80)) {
@@ -540,7 +498,30 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
   evidence.push(...buildEvidence(asset, [chunk], 'owner', emailRegex));
   evidence.push(...buildEvidence(asset, [chunk], 'dueDate', explicitDateRegex));
 
-  const existing = findMatches({ title, project, dueDate: due.picked, waitingOn, summary: chunk.text, type: parsedType.type }, items, tasks);
+  const existing = resolveCandidateMatches({
+    id: createId('CANPRE'),
+    batchId: asset.batchId,
+    assetId: asset.id,
+    sourceAssetIds: [asset.id],
+    candidateType: parsedType.type,
+    suggestedAction: 'create_new',
+    confidence: 0.5,
+    title,
+    project,
+    dueDate: due.picked,
+    waitingOn,
+    priority: 'Medium',
+    summary: chunk.text,
+    tags: [],
+    explanation: [],
+    evidence: [],
+    warnings: [],
+    duplicateMatches: [],
+    existingRecordMatches: [],
+    approvalStatus: 'pending',
+    createdAt: todayIso(),
+    updatedAt: todayIso(),
+  }, items, tasks);
 
   const suggestedAction = existing[0]?.strategy === 'duplicate'
     ? 'ignore_duplicate'

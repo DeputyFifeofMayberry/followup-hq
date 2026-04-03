@@ -1,4 +1,4 @@
-import { ArrowUpDown, CalendarDays } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
@@ -6,7 +6,7 @@ import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputVa
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
-import { AppShellCard, EmptyState, SectionHeader, StatTile } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
@@ -31,12 +31,6 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
-
-  const summary = useMemo(() => ({
-    open: filteredItems.filter((item) => item.status !== 'Closed').length,
-    overdue: filteredItems.filter((item) => item.dueDate && new Date(item.dueDate).getTime() < Date.now() && item.status !== 'Closed').length,
-    waiting: filteredItems.filter((item) => !!item.waitingOn && item.status !== 'Closed').length,
-  }), [filteredItems]);
 
   const baseColumns: Record<FollowUpColumnKey, ColumnDef<FollowUpItem>> = {
     title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="font-medium text-slate-900">{row.original.title}</div><div className="text-xs text-slate-500">{personalMode ? row.original.project : row.original.id}</div></div> },

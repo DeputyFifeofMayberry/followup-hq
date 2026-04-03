@@ -600,20 +600,22 @@ export interface OwnerSummaryRow {
   escalatedCount: number;
 }
 
-export function buildOwnerSummary(items: FollowUpItem[]): OwnerSummaryRow[] {
-  const grouped = new Map<string, FollowUpItem[]>();
-  items.forEach((item) => {
-    const key = item.owner || 'Unassigned';
-    grouped.set(key, [...(grouped.get(key) ?? []), item]);
-  });
-  return [...grouped.entries()].map(([owner, ownerItems]) => ({
-    owner,
-    activeCount: ownerItems.filter((item) => item.status !== 'Closed').length,
-    waitingCount: ownerItems.filter((item) => item.status === 'Waiting on external' || item.status === 'Waiting internal').length,
-    overdueCount: ownerItems.filter(isOverdue).length,
-    needsNudgeCount: ownerItems.filter(needsNudge).length,
-    escalatedCount: ownerItems.filter((item) => item.escalationLevel !== 'None').length,
-  })).sort((a, b) => b.activeCount - a.activeCount);
+export function buildOwnerSummary(items: FollowUpItem[], tasks: Array<{ owner: string; status: string; dueDate?: string }> = []): OwnerSummaryRow[] {
+  const owners = new Set<string>();
+  items.forEach((item) => owners.add(item.owner || 'Unassigned'));
+  tasks.forEach((task) => owners.add(task.owner || 'Unassigned'));
+  return [...owners].map((owner) => {
+    const ownerItems = items.filter((item) => (item.owner || 'Unassigned') === owner);
+    const ownerTasks = tasks.filter((task) => (task.owner || 'Unassigned') === owner);
+    return {
+      owner,
+      activeCount: ownerItems.filter((item) => item.status !== 'Closed').length + ownerTasks.filter((task) => task.status !== 'Done').length,
+      waitingCount: ownerItems.filter((item) => item.status === 'Waiting on external' || item.status === 'Waiting internal').length,
+      overdueCount: ownerItems.filter(isOverdue).length + ownerTasks.filter((task) => isTaskOverdue(task)).length,
+      needsNudgeCount: ownerItems.filter(needsNudge).length,
+      escalatedCount: ownerItems.filter((item) => item.escalationLevel !== 'None').length + ownerTasks.filter((task) => task.status === 'Blocked').length,
+    };
+  }).sort((a, b) => b.activeCount - a.activeCount);
 }
 
 export interface RelationshipSummaryRow {

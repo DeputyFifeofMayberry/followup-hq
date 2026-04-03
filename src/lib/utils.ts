@@ -83,6 +83,27 @@ export function needsNudge(item: FollowUpItem): boolean {
   return new Date(item.nextTouchDate).getTime() <= Date.now();
 }
 
+
+export function isTaskDeferred(task: { deferredUntil?: string; status: string }): boolean {
+  return !!task.deferredUntil && task.status !== 'Done' && new Date(task.deferredUntil).getTime() > Date.now();
+}
+
+export function taskWorkflowState(task: { status: string; deferredUntil?: string }): 'ready' | 'blocked' | 'deferred' | 'done' {
+  if (task.status === 'Done') return 'done';
+  if (task.status === 'Blocked') return 'blocked';
+  if (isTaskDeferred(task)) return 'deferred';
+  return 'ready';
+}
+
+export function isTaskOverdue(task: { dueDate?: string; status: string }): boolean {
+  return !!task.dueDate && task.status !== 'Done' && new Date(task.dueDate).getTime() < Date.now();
+}
+
+export function isTaskDueWithin(task: { dueDate?: string; status: string }, days: number): boolean {
+  if (!task.dueDate || task.status === 'Done') return false;
+  return new Date(task.dueDate).getTime() <= Date.now() + days * 86400000;
+}
+
 export function escalationWeight(level: EscalationLevel): number {
   switch (level) {
     case 'Critical':

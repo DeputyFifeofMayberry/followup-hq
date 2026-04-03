@@ -60,9 +60,10 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const contact = contacts.find((entry) => entry.id === item.contactId);
   const company = companies.find((entry) => entry.id === item.companyId);
   const linkedTasks = tasks.filter((task) => task.linkedFollowUpId === item.id);
-  const doneLinkedTasks = linkedTasks.filter((task) => task.status === 'Done').length;
-  const blockedLinkedTasks = linkedTasks.filter((task) => task.status === 'Blocked').length;
-  const overdueLinkedTasks = linkedTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() < Date.now()).length;
+  const doneLinkedTasks = item.doneLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Done').length;
+  const blockedLinkedTasks = item.blockedLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Blocked').length;
+  const overdueLinkedTasks = item.overdueLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() < Date.now()).length;
+  const openLinkedTasks = item.openLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done').length;
 
   return (
     <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -82,7 +83,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
       <div className="detail-primary-actions mt-4">
         <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
         <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
-        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
+        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
         <button onClick={() => { const openLinked = linkedTasks.filter((task) => task.status !== 'Done').length; if (openLinked > 0 && !window.confirm(`There are ${openLinked} open linked tasks. Close follow-up anyway?`)) return; updateItem(item.id, { status: 'Closed', actionState: 'Complete', lastCompletedAction: 'Resolved', lastActionAt: todayIso(), timeline: [buildTouchEvent('Resolved from quick actions.', 'bundle_action'), ...item.timeline] }); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
         <details className="detail-overflow-actions">
           <summary className="action-btn"><MoreHorizontal className="h-4 w-4" />More <ChevronDown className="h-4 w-4" /></summary>
@@ -116,7 +117,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner / Contact</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.owner} · {contact?.name ?? '—'}</div></div>
-              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{linkedTasks.length} linked · {doneLinkedTasks} done · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue</div></div>
+              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 text-xs text-slate-500">{item.allLinkedTasksDone ? 'Ready to close or advance.' : blockedLinkedTasks > 0 ? 'Blocked child pressure on parent.' : 'Execution in progress.'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
             </div>

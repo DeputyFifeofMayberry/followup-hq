@@ -12,7 +12,7 @@ import type {
 import { getDefaultForwardedRules } from './intakeRules';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
-const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v1';
+const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
 
 export interface CoreEntities {
   items: FollowUpItem[];

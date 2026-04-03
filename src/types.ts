@@ -11,6 +11,7 @@ export type FollowUpStatus =
 export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 
 export type TaskStatus = 'To do' | 'In progress' | 'Blocked' | 'Done';
+export type TaskWorkflowState = 'ready' | 'blocked' | 'deferred' | 'done';
 export type TaskPriority = FollowUpPriority;
 export type AppUserRole = 'user' | 'manager' | 'admin';
 export type AppMode = 'personal' | 'team';
@@ -287,9 +288,14 @@ export interface IntakeWorkCandidate {
 export type UnifiedQueuePreset =
   | 'Today'
   | 'Due now'
+  | 'This week'
   | 'Waiting on others'
   | 'Needs nudge'
   | 'Blocked / at risk'
+  | 'Blocked'
+  | 'Deferred'
+  | 'Linked to at-risk follow-ups'
+  | 'Unlinked tasks'
   | 'Cleanup'
   | 'Recently updated';
 
@@ -305,6 +311,18 @@ export interface UnifiedQueueFilter {
   waitingOn?: boolean;
   cleanupOnly?: boolean;
   linkedState?: 'linked' | 'unlinked' | 'blocked_child' | 'all_done';
+  linkedParentStatus?: string[];
+  parentAtRisk?: boolean;
+  blockedOnly?: boolean;
+  deferredOnly?: boolean;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  startDateFrom?: string;
+  startDateTo?: string;
+  tags?: string[];
+  companyId?: string[];
+  contactId?: string[];
+  missingProjectContext?: boolean;
   updatedWithinDays?: number;
   source?: string[];
 }
@@ -328,16 +346,27 @@ export interface UnifiedQueueItem {
   status: string;
   priority: FollowUpPriority;
   dueDate?: string;
+  startDate?: string;
   nextTouchDate?: string;
   escalationLevel?: EscalationLevel;
   waitingOn?: string;
   needsCleanup: boolean;
   linkedRecordStatus?: string;
   linkedFollowUpId?: string;
+  linkedParentStatus?: FollowUpStatus;
+  parentAtRisk?: boolean;
   contextNote?: string;
   completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   linkedTaskCount?: number;
+  linkedOpenTaskCount?: number;
   linkedBlockedCount?: number;
+  linkedOverdueTaskCount?: number;
+  deferredUntil?: string;
+  blockReason?: string;
+  workflowState?: TaskWorkflowState;
+  tags?: string[];
+  companyId?: string;
+  contactId?: string;
   primaryNextAction: string;
   whyInQueue: string;
   score: number;
@@ -379,6 +408,7 @@ export interface ProjectRecord {
   owner: string;
   status: ProjectStatus;
   notes: string;
+  completionNote?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -408,6 +438,7 @@ export interface FollowUpItem {
   mergedItemIds: string[];
   waitingOn?: string;
   notes: string;
+  completionNote?: string;
   timeline: TimelineEvent[];
   category: ItemCategory;
   owesNextAction: OwesNextAction;
@@ -434,6 +465,13 @@ export interface FollowUpItem {
   teamId?: string;
   watchers?: string[];
   auditHistory?: AuditEntry[];
+  linkedTaskCount?: number;
+  openLinkedTaskCount?: number;
+  blockedLinkedTaskCount?: number;
+  overdueLinkedTaskCount?: number;
+  doneLinkedTaskCount?: number;
+  allLinkedTasksDone?: boolean;
+  childWorkflowSignal?: 'on_track' | 'blocked' | 'overdue' | 'ready_to_close';
 }
 
 
@@ -448,13 +486,19 @@ export interface TaskItem {
   priority: TaskPriority;
   dueDate?: string;
   startDate?: string;
+  startedAt?: string;
+  deferredUntil?: string;
+  nextReviewAt?: string;
   completedAt?: string;
+  completionNote?: string;
   summary: string;
   nextStep: string;
   notes: string;
   tags: string[];
   linkedFollowUpId?: string;
+  linkedProjectContext?: string;
   contextNote?: string;
+  blockReason?: string;
   completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   contactId?: string;
   companyId?: string;
@@ -475,6 +519,13 @@ export interface TaskItem {
   teamId?: string;
   watchers?: string[];
   auditHistory?: AuditEntry[];
+  linkedTaskCount?: number;
+  openLinkedTaskCount?: number;
+  blockedLinkedTaskCount?: number;
+  overdueLinkedTaskCount?: number;
+  doneLinkedTaskCount?: number;
+  allLinkedTasksDone?: boolean;
+  childWorkflowSignal?: 'on_track' | 'blocked' | 'overdue' | 'ready_to_close';
 }
 
 export interface TaskFormInput {
@@ -486,12 +537,18 @@ export interface TaskFormInput {
   priority: TaskPriority;
   dueDate?: string;
   startDate?: string;
+  startedAt?: string;
+  deferredUntil?: string;
+  nextReviewAt?: string;
   summary: string;
   nextStep: string;
   notes: string;
+  completionNote?: string;
   tags: string[];
   linkedFollowUpId?: string;
+  linkedProjectContext?: string;
   contextNote?: string;
+  blockReason?: string;
   completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   contactId?: string;
   companyId?: string;
@@ -511,7 +568,9 @@ export interface IntakeDocumentRecord {
   kind: IntakeDocumentKind;
   disposition: IntakeDocumentDisposition;
   linkedFollowUpId?: string;
+  linkedProjectContext?: string;
   contextNote?: string;
+  blockReason?: string;
   completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   projectId?: string;
   project: string;
@@ -519,6 +578,7 @@ export interface IntakeDocumentRecord {
   sourceRef: string;
   uploadedAt: string;
   notes: string;
+  completionNote?: string;
   tags: string[];
 }
 
@@ -539,6 +599,7 @@ export interface FollowUpFormInput {
   sourceRef: string;
   waitingOn?: string;
   notes: string;
+  completionNote?: string;
   category: ItemCategory;
   owesNextAction: OwesNextAction;
   escalationLevel: EscalationLevel;
@@ -571,6 +632,7 @@ export interface ImportPreviewRow {
   source: SourceType;
   sourceRef: string;
   notes: string;
+  completionNote?: string;
   tags: string[];
 }
 
@@ -605,6 +667,7 @@ export interface MergeDraft {
   mergedItemIds: string[];
   waitingOn?: string;
   notes: string;
+  completionNote?: string;
   timeline: TimelineEvent[];
   category: ItemCategory;
   owesNextAction: OwesNextAction;
@@ -639,6 +702,7 @@ export interface ContactRecord {
   companyId?: string;
   role: string;
   notes: string;
+  completionNote?: string;
   tags: string[];
 }
 
@@ -647,6 +711,7 @@ export interface CompanyRecord {
   name: string;
   type: CompanyType;
   notes: string;
+  completionNote?: string;
   tags: string[];
 }
 
@@ -871,7 +936,9 @@ export interface ForwardedIngestionLedgerEntry {
   sourceMessageIds: string[];
   linkedTaskId?: string;
   linkedFollowUpId?: string;
+  linkedProjectContext?: string;
   contextNote?: string;
+  blockReason?: string;
   completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   lastRoutingDecision: ForwardedRoutingDecision;
   evaluatedAt: string;

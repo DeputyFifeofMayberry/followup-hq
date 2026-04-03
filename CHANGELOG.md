@@ -16,9 +16,8 @@
 - Added a safer bulk action flow in the execution cockpit with preview, warning surface, and undo for recent bulk updates (`src/lib/bulkActions.ts`, `src/components/OverviewPage.tsx`).
 - Added targeted self-check coverage for intake scoring, entity normalization, outbound transitions, and bulk preview/apply semantics (`src/lib/__tests__/trust-upgrades.test.ts`).
 
-### Phase 2 execution workspace redesign
-- Redesigned the Overview daily execution queue with lighter top hierarchy, primary-vs-advanced control separation, premium row styling, and a more intentional queue inspector action panel (`src/components/OverviewPage.tsx`, `src/index.css`).
-- Upgraded the Follow-Up tracker into a polished execution table with stronger sticky header, row states, quick-action grouping, and in-view summary stats (`src/components/TrackerTable.tsx`, `src/index.css`).
-- Refined Task Workspace controls, list rows, and inspector grouping to reduce clutter while preserving all execution functionality and dense operational context (`src/components/TaskWorkspace.tsx`, `src/index.css`).
-- Re-composed Project Command Center into a more cohesive command surface with better project rail, detail hierarchy, health scanning, and cleaner action/list subpanels (`src/components/ProjectCommandCenter.tsx`, `src/index.css`).
-- Added shared page-level styling updates to improve control density, spacing rhythm, selected states, and consistent premium surface treatment across execution screens (`src/index.css`).
+### Phase 3 UI overhaul: secondary surface polish
+- Introduced a unified modal product layer with reusable modal primitives (header/body/footer, sizing variants, sticky action bars, and improved overlay treatment) and applied it across create, import, touch-log, merge, and follow-up drafting flows (`src/components/ui/AppPrimitives.tsx`, `src/index.css`, `src/components/CreateWorkModal.tsx`, `src/components/ImportWizardModal.tsx`, `src/components/TouchLogModal.tsx`, `src/components/MergeModal.tsx`, `src/components/FollowUpDraftModal.tsx`).
+- Refined capture and intake polish by upgrading confidence chips, confirmation states, and intake review tray readability to better support quick decision-making (`src/components/UniversalCapture.tsx`, `src/index.css`).
+- Improved Relationship workspace hierarchy and scanability with cleaner portfolio row styling, stronger active states, and clearer empty-state guidance (`src/components/RelationshipBoard.tsx`, `src/index.css`).
+- Improved secondary workspace cohesion by tightening Outlook intake tab framing and aligning inspector card treatment in detail flows (`src/components/OutlookPanel.tsx`, `src/components/ItemDetailPanel.tsx`).

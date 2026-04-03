@@ -114,7 +114,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
       <div className="followup-detail-body">
         {activeTab === 'overview' ? (
           <>
-            <div className="detail-card detail-summary-grid">
+            <div className="detail-card inspector-card detail-summary-grid">
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.status}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
@@ -124,12 +124,12 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
             </div>
 
-            <div className="detail-card detail-facts-grid">
+            <div className="detail-card inspector-card detail-facts-grid">
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project</div><div className="mt-1 text-sm text-slate-900">{item.project}</div></div>
               {!personalMode ? <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignee</div><div className="mt-1 text-sm text-slate-900">{item.assigneeDisplayName || item.owner}</div></div> : null}
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div><div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div></div>
             </div>
-            <div className="detail-card">
+            <div className="detail-card inspector-card">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked tasks</div>
               <div className="mt-2 space-y-2">
                 {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet.</div> : linkedTasks.map((task) => (
@@ -145,13 +145,13 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
 
         {activeTab === 'actions' ? (
           <>
-            <div className="detail-card">
+            <div className="detail-card inspector-card">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Update next action</div>
               <textarea value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} className="field-textarea mt-2" placeholder="Enter the next move here" />
               <div className="mt-3 flex justify-end"><button onClick={() => updateItem(item.id, { nextAction: nextActionDraft })} className="action-btn"><Save className="h-4 w-4" />Save next action</button></div>
             </div>
             {!personalMode ? (
-              <div className="detail-card">
+              <div className="detail-card inspector-card">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignment workflow</div>
                 <div className="mt-2 flex gap-2">
                   <input value={assigneeDraft} onChange={(event) => setAssigneeDraft(event.target.value)} className="field-input" placeholder="Reassign to teammate" />
@@ -167,7 +167,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         ) : null}
 
         {activeTab === 'notes' ? (
-          <div className="detail-card">
+          <div className="detail-card inspector-card">
             <div className="text-sm font-semibold text-slate-900">Running notes</div>
             <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
             <div className="mt-3 flex justify-end"><button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="action-btn">Add note</button></div>
@@ -178,7 +178,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         ) : null}
 
         {activeTab === 'activity' ? (
-          <div className="detail-card">
+          <div className="detail-card inspector-card">
             <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Recent activity</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show fewer' : 'Show more'}</button></div>
             <div className="timeline-list mt-3">{activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>)}</div>
           </div>

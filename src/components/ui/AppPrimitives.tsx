@@ -127,28 +127,30 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-export function NavItem({
-  label,
-  icon,
-  active,
-  deemphasized,
-  badge,
-  onClick,
-}: {
-  label: string;
-  icon: ReactNode;
-  active?: boolean;
-  deemphasized?: boolean;
-  badge?: string | number;
-  onClick: () => void;
-}) {
+export function AppModal({ children, size = 'standard' }: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector' }>) {
   return (
-    <button onClick={onClick} className={`app-nav-item ${active ? 'app-nav-item-active' : ''} ${deemphasized ? 'app-nav-item-muted' : ''}`.trim()}>
-      <span className="app-nav-item-main">
-        <span className="app-nav-item-icon">{icon}</span>
-        <span>{label}</span>
-      </span>
-      {badge ? <span className="app-nav-count-pill">{badge}</span> : null}
-    </button>
+    <div className="modal-backdrop">
+      <div className={`modal-panel modal-panel-${size}`}>{children}</div>
+    </div>
   );
+}
+
+export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' }: { title: string; subtitle?: string; onClose: () => void; closeLabel?: string }) {
+  return (
+    <div className="modal-header">
+      <div>
+        <div className="text-lg font-semibold text-slate-950">{title}</div>
+        {subtitle ? <div className="mt-1 text-sm text-slate-500">{subtitle}</div> : null}
+      </div>
+      <button onClick={onClose} className="action-btn">{closeLabel}</button>
+    </div>
+  );
+}
+
+export function AppModalBody({ children, scrollable = true }: PropsWithChildren<{ scrollable?: boolean }>) {
+  return <div className={scrollable ? 'modal-body modal-body-scroll' : 'modal-body'}>{children}</div>;
+}
+
+export function AppModalFooter({ children }: PropsWithChildren) {
+  return <div className="modal-footer">{children}</div>;
 }

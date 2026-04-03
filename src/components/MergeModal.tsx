@@ -3,6 +3,7 @@ import { buildMergeDraft, fromDateInputValue, toDateInputValue } from '../lib/ut
 import { useAppStore } from '../store/useAppStore';
 import type { MergeDraft } from '../types';
 import { useShallow } from 'zustand/react/shallow';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from './ui/AppPrimitives';
 
 export function MergeModal() {
   const { mergeModal, items, closeMergeModal, mergeItems } = useAppStore(useShallow((s) => ({
@@ -26,15 +27,13 @@ export function MergeModal() {
   const handleMerge = () => mergeItems(baseItem.id, candidateItem.id, draft);
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-panel modal-panel-wide">
-        <div className="modal-header">
-          <div>
-            <div className="text-lg font-semibold text-slate-950">Merge duplicate records</div>
-            <div className="mt-1 text-sm text-slate-500">Keep <strong>{baseItem.id}</strong> as the master record and absorb <strong>{candidateItem.id}</strong>.</div>
-          </div>
-          <button onClick={closeMergeModal} className="action-btn">Close</button>
-        </div>
+    <AppModal size="wide">
+      <AppModalHeader
+        title="Merge duplicate records"
+        subtitle={`Keep ${baseItem.id} as the master record and absorb ${candidateItem.id}.`}
+        onClose={closeMergeModal}
+      />
+      <AppModalBody>
 
         <div className="grid gap-4 xl:grid-cols-2 mb-4">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -65,14 +64,15 @@ export function MergeModal() {
           <div className="field-block span-two"><label className="field-label">Merged notes</label><textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} className="field-textarea" /></div>
         </div>
 
-        <div className="modal-footer">
+      </AppModalBody>
+
+      <AppModalFooter>
           <div className="text-xs text-slate-500">This keeps the base record ID, rolls up source refs, preserves timeline history, and removes the duplicate record.</div>
           <div className="detail-actions-row">
             <button onClick={closeMergeModal} className="action-btn">Cancel</button>
             <button onClick={handleMerge} className="primary-btn">Merge records</button>
           </div>
-        </div>
-      </div>
-    </div>
+      </AppModalFooter>
+    </AppModal>
   );
 }

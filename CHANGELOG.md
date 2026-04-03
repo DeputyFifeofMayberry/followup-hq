@@ -2,6 +2,12 @@
 
 ## 2026-04-03
 
+### Phase 7 material and color harmony rebalance
+- Rebuilt authenticated surface materials around a tighter tonal system (hero/content/elevated/muted/row/inspector/modal/input) with shared CSS tokens, reducing bright-white defaults and aligning main surfaces to the graphite + amber + steel-blue shell direction (`src/index.css`).
+- Reduced white dominance across high-traffic work areas by retuning list rows, data rows, tracker rows, filter/bulk strips, empty states, and inspector blocks to layered off-white/slate materials with richer selected/hover states (`src/index.css`, `src/components/TaskWorkspace.tsx`, `src/components/RelationshipBoard.tsx`).
+- Harmonized controls and forms with the new material language by shifting shared input backgrounds/borders, action-button neutrals, and modal chrome/body/footer surfaces into integrated tinted materials instead of stark white panels (`src/index.css`, `src/components/OutlookPanel.tsx`).
+- Updated command-heavy surfaces and support panels (Outlook tabs/chips, relationship support panels, project saved-view emphasis, loading/config states) to remove isolated white pops and maintain calmer hierarchy while preserving readability (`src/components/OutlookPanel.tsx`, `src/components/RelationshipBoard.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/App.tsx`).
+
 ### Phase 6 cohesion and design-system enforcement
 - Consolidated shared UI primitives around explicit surface families (`shell`, `hero`, `command`, `data`, `inspector`, `muted`, `warning`, `modal`) and applied those consistently to shell cards and modal wrappers so panels inherit one visual language by default (`src/components/ui/AppPrimitives.tsx`, `src/index.css`).
 - Standardized cross-page anatomy and control rhythm in overview, task, project, relationship, and intake workspaces by aligning hero/header surfaces, toolbar/filter rows, advanced filter containers, and bulk strips (`src/components/OverviewPage.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`, `src/components/OutlookPanel.tsx`, `src/index.css`).

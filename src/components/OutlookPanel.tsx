@@ -74,7 +74,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         title="Email Intake"
         subtitle="Recommended path: forward emails into intake, review what gets created, and keep routing predictable."
         actions={
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+          <div className="flex flex-wrap gap-2 tonal-chip-panel">
             <Badge variant="success">Forwarding-first workflow</Badge>
             <Badge variant={outlookConnection.mailboxLinked ? 'neutral' : 'warn'}>
               {outlookConnection.mailboxLinked ? 'Direct Outlook sync enabled' : 'Direct sync optional'}
@@ -82,11 +82,11 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         }
       />
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 toolbar-row">
-          <button className={`action-btn ${activeTab === 'review' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('review')}>Review Queue</button>
-          <button className={`action-btn ${activeTab === 'history' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('history')}>Intake History</button>
-          <button className={`action-btn ${activeTab === 'rules' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
-          <button className={`action-btn ${activeTab === 'settings' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
+        <div className="flex flex-wrap gap-2 tonal-chip-panel toolbar-row">
+          <button className={`action-btn ${activeTab === 'review' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
+          <button className={`action-btn ${activeTab === 'history' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
+          <button className={`action-btn ${activeTab === 'rules' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
+          <button className={`action-btn ${activeTab === 'settings' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
         </div>
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
@@ -129,7 +129,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                   value={outlookConnection.settings.clientId}
                   onChange={(event) => updateOutlookSettings({ clientId: event.target.value })}
                   placeholder="Application (client) ID"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                  className="field-input mt-1 h-11 w-full rounded-2xl px-4 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 />
               </label>
               <label className="block text-sm text-slate-700">
@@ -138,7 +138,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                   value={outlookConnection.settings.tenantId}
                   onChange={(event) => updateOutlookSettings({ tenantId: event.target.value || 'common' })}
                   placeholder="common or tenant GUID"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                  className="field-input mt-1 h-11 w-full rounded-2xl px-4 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 />
               </label>
               <label className="block text-sm text-slate-700 md:col-span-2">
@@ -147,7 +147,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                   value={outlookConnection.settings.redirectUri}
                   onChange={(event) => updateOutlookSettings({ redirectUri: event.target.value })}
                   placeholder="http://localhost"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                  className="field-input mt-1 h-11 w-full rounded-2xl px-4 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 />
               </label>
               <label className="block text-sm text-slate-700 md:col-span-2">
@@ -155,7 +155,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                 <input
                   value={outlookConnection.settings.scopes.join(' ')}
                   onChange={(event) => updateOutlookSettings({ scopes: event.target.value.split(/[\s,]+/).filter(Boolean) })}
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                  className="field-input mt-1 h-11 w-full rounded-2xl px-4 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {scopePresets.map((scope) => (
@@ -168,7 +168,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                           : [...outlookConnection.settings.scopes, scope];
                         updateOutlookSettings({ scopes: next });
                       }}
-                      className="inline-flex items-center rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      className="inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
                     >
                       {scope}
                     </button>
@@ -198,7 +198,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
               <textarea
                 value={outlookConnection.authSession.authUrl}
                 readOnly
-                className="mt-3 min-h-24 w-full rounded-2xl border border-slate-300 bg-white p-3 text-xs text-slate-700 outline-none"
+                className="field-textarea mt-3 min-h-24 w-full rounded-2xl p-3 text-xs text-slate-700 outline-none"
               />
               <div className="mt-3 flex flex-wrap gap-3">
                 <button onClick={() => void copyAuthUrl()} className="action-btn">
@@ -214,7 +214,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
                   value={callbackUrl}
                   onChange={(event) => setCallbackUrl(event.target.value)}
                   placeholder="Paste callback URL after sign-in"
-                  className="mt-1 min-h-20 w-full rounded-2xl border border-slate-300 bg-white p-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                  className="field-textarea mt-1 min-h-20 w-full rounded-2xl p-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
                 />
               </label>
               <button onClick={() => void completeOutlookAuth(callbackUrl)} className="primary-btn mt-3 border-slate-950 bg-slate-950 text-white hover:bg-slate-800">

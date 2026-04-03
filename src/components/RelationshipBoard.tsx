@@ -109,7 +109,7 @@ export function RelationshipBoard() {
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 p-4 advanced-filter-surface">
+          <div className="rounded-2xl tonal-panel advanced-filter-surface">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4" />Find relationships</div>
             <div className="grid gap-2 md:grid-cols-2">
               <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search contact, company, owner, role" className="field-input" />
@@ -158,11 +158,11 @@ export function RelationshipBoard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl tonal-panel">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Filter className="h-4 w-4" />Likely bottlenecks</div>
             <div className="space-y-2">
               {bottlenecks.map((entry) => (
-                <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl border border-slate-200 p-2 text-left text-sm hover:bg-slate-50 list-row-family">
+                <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl tonal-micro text-left text-sm  list-row-family">
                   <div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{entry.name}</span><span className="text-xs text-rose-700">Score {entry.pressureScore}</span></div>
                   <div className="mt-1 text-xs text-slate-600">Waiting {entry.waitingFollowUps} • Overdue {entry.overdueFollowUps + entry.overdueTasks} • Blocked tasks {entry.blockedTasks}</div>
                 </button>
@@ -170,11 +170,11 @@ export function RelationshipBoard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl tonal-panel">
             <div className="mb-2 text-sm font-semibold text-slate-900">Internal ownership load</div>
             <div className="space-y-2">
               {ownerSummary.slice(0, 6).map((owner) => (
-                <div key={owner.owner} className="rounded-xl border border-slate-200 p-2 text-xs text-slate-700 list-row-family">
+                <div key={owner.owner} className="rounded-xl tonal-micro text-xs text-slate-700 list-row-family">
                   <div className="font-medium text-slate-900">{owner.owner}</div>
                   <div className="mt-1">Active {owner.activeCount} • Waiting {owner.waitingCount} • Overdue {owner.overdueCount}</div>
                 </div>
@@ -182,7 +182,7 @@ export function RelationshipBoard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl tonal-panel">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Users className="h-4 w-4" />Quick add contact</div>
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
               <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="field-input" />
@@ -191,7 +191,7 @@ export function RelationshipBoard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl tonal-panel">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Building2 className="h-4 w-4" />Quick add company</div>
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
               <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company" className="field-input" />
@@ -204,14 +204,14 @@ export function RelationshipBoard() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/40">
+          <div className="rounded-2xl tonal-panel">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-900">Relationship portfolio ({filteredRows.length})</div>
               <div className="text-xs text-slate-600">Click any row for detail + actions</div>
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
               {filteredRows.map((row) => (
-                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row list-row-family text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active list-row-family-active' : 'hover:bg-slate-50'}`}>
+                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row list-row-family text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active list-row-family-active' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium text-slate-900">{row.name}</div>
@@ -226,7 +226,7 @@ export function RelationshipBoard() {
           </div>
 
           {selected ? (
-            <div className="rounded-2xl border border-slate-200 p-4">
+            <div className="rounded-2xl tonal-panel">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-lg font-semibold text-slate-900">{selected.name}</div>
@@ -244,30 +244,30 @@ export function RelationshipBoard() {
               </div>
 
               <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-3">
-                <div className="rounded-xl border border-slate-200 p-2">Risk tier: <span className="font-medium">{selected.riskTier}</span></div>
-                <div className="rounded-xl border border-slate-200 p-2">Status: <span className="font-medium">{selected.relationshipStatus}</span></div>
-                <div className="rounded-xl border border-slate-200 p-2">Internal owner: <span className="font-medium">{selected.internalOwner}</span></div>
+                <div className="rounded-xl tonal-micro">Risk tier: <span className="font-medium">{selected.riskTier}</span></div>
+                <div className="rounded-xl tonal-micro">Status: <span className="font-medium">{selected.relationshipStatus}</span></div>
+                <div className="rounded-xl tonal-micro">Internal owner: <span className="font-medium">{selected.internalOwner}</span></div>
               </div>
 
               <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 p-2">Follow-ups: {linkedCounts.followUps}</div>
-                <div className="rounded-xl border border-slate-200 p-2">Tasks: {linkedCounts.tasks}</div>
-                <div className="rounded-xl border border-slate-200 p-2">Projects: {selected.activeProjectCount}</div>
-                <div className="rounded-xl border border-slate-200 p-2">Linked contacts: {linkedCounts.contacts}</div>
+                <div className="rounded-xl tonal-micro">Follow-ups: {linkedCounts.followUps}</div>
+                <div className="rounded-xl tonal-micro">Tasks: {linkedCounts.tasks}</div>
+                <div className="rounded-xl tonal-micro">Projects: {selected.activeProjectCount}</div>
+                <div className="rounded-xl tonal-micro">Linked contacts: {linkedCounts.contacts}</div>
               </div>
 
               <div className="mt-4 grid gap-4 xl:grid-cols-2">
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
                   <div className="space-y-2">
-                    {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 p-2 text-xs">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></div>)}
+                    {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro text-xs">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></div>)}
                     {selectedFollowUps.length === 0 ? <div className="text-xs text-slate-500">No follow-ups linked.</div> : null}
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked tasks</div>
                   <div className="space-y-2">
-                    {selectedTasks.map((task) => <div key={task.id} className="rounded-xl border border-slate-200 p-2 text-xs">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></div>)}
+                    {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro text-xs">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></div>)}
                     {selectedTasks.length === 0 ? <div className="text-xs text-slate-500">No tasks linked.</div> : null}
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export function RelationshipBoard() {
               </div>
 
               {selected.entityType === 'contact' && selectedContact ? (
-                <div className="mt-4 rounded-2xl border border-slate-200 p-3">
+                <div className="mt-4 rounded-2xl tonal-panel">
                   <div className="mb-2 text-sm font-semibold text-slate-900">Contact details</div>
                   <div className="grid gap-2 md:grid-cols-2">
                     <input value={selectedContact.title || ''} onChange={(e) => updateContact(selectedContact.id, { title: e.target.value })} placeholder="Title" className="field-input" />
@@ -304,7 +304,7 @@ export function RelationshipBoard() {
               ) : null}
 
               {selected.entityType === 'company' && selectedCompany ? (
-                <div className="mt-4 rounded-2xl border border-slate-200 p-3">
+                <div className="mt-4 rounded-2xl tonal-panel">
                   <div className="mb-2 text-sm font-semibold text-slate-900">Company details</div>
                   <div className="grid gap-2 md:grid-cols-2">
                     <input value={selectedCompany.internalOwner || ''} onChange={(e) => updateCompany(selectedCompany.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
@@ -326,10 +326,10 @@ export function RelationshipBoard() {
               ) : null}
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No relationships match the current filters. Reset filters or lower pressure thresholds.</div>
+            <div className="rounded-2xl tonal-panel text-sm text-slate-500">No relationships match the current filters. Reset filters or lower pressure thresholds.</div>
           )}
 
-          <div className="rounded-2xl border border-slate-200 p-3 text-xs text-slate-600">
+          <div className="rounded-2xl tonal-panel text-xs text-slate-600">
             <div className="mb-1 flex items-center gap-2 font-semibold text-slate-900"><ArrowRightLeft className="h-4 w-4" />Safe delete and merge workflow</div>
             <div>Before deleting, review linked follow-ups/tasks/contacts and use reassignment or merge to preserve linkage integrity.</div>
           </div>

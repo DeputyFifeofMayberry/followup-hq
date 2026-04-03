@@ -2018,3 +2018,160 @@ select, select * {
 .primary-btn:hover {
   background: linear-gradient(115deg, #f59e0b, #ea580c);
 }
+
+/* Phase 7 material/color harmony rebalance */
+:root {
+  --mat-shell-bg: #0f1a2b;
+  --mat-shell-chrome: rgba(15, 23, 42, 0.84);
+  --mat-hero: linear-gradient(135deg, rgba(244, 249, 255, 0.96) 0%, rgba(233, 242, 252, 0.96) 100%);
+  --mat-content: linear-gradient(180deg, #f5f8fc 0%, #edf3fa 100%);
+  --mat-elevated: linear-gradient(180deg, #fbfdff 0%, #f2f6fc 100%);
+  --mat-muted: linear-gradient(180deg, #eef3fa 0%, #e6edf6 100%);
+  --mat-row: linear-gradient(180deg, #f8fbff 0%, #edf3fb 100%);
+  --mat-inspector: linear-gradient(180deg, #f6f9fd 0%, #e9f1fa 100%);
+  --mat-modal: linear-gradient(180deg, #f8fbff 0%, #edf3fb 100%);
+  --mat-input: #f3f7fc;
+  --mat-border: #c7d4e4;
+  --mat-border-soft: #d5dfec;
+}
+
+.app-shell-card {
+  background: var(--mat-elevated);
+  border-color: var(--mat-border);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
+}
+
+.app-shell-card-hero,
+.workspace-header {
+  background: var(--mat-hero);
+  border-color: #b9c9dd;
+}
+
+.app-shell-card-data,
+.workspace-list-panel,
+.tracker-table-surface,
+.workspace-list-content {
+  background: var(--mat-content);
+  border-color: var(--mat-border);
+}
+
+.app-shell-card-row {
+  background: var(--mat-row);
+  border-color: var(--mat-border-soft);
+}
+
+.app-shell-card-inspector,
+.workspace-inspector-panel,
+.premium-inspector,
+.tracker-detail-panel,
+.inspector-card,
+.inspector-block {
+  background: var(--mat-inspector);
+  border-color: #c1cfdf;
+}
+
+.app-shell-card-muted,
+.advanced-filter-surface,
+.bulk-action-strip,
+.form-section,
+.empty-state {
+  background: var(--mat-muted);
+  border-color: #c8d5e5;
+}
+
+.list-row-family,
+.workspace-data-row,
+.overview-priority-row,
+.relationship-row,
+.project-card,
+.project-entity-row,
+.tracker-row,
+.workspace-list-row {
+  background: var(--mat-row);
+  border-color: var(--mat-border-soft);
+}
+
+.list-row-family:hover,
+.workspace-data-row:hover,
+.overview-priority-row:hover,
+.relationship-row:hover,
+.tracker-row:hover,
+.workspace-list-row:hover {
+  background: linear-gradient(180deg, #fdfefe 0%, #f3f8ff 100%);
+  border-color: #bfcfe2;
+}
+
+.list-row-family-active,
+.workspace-data-row-active,
+.overview-priority-row-active,
+.relationship-row-active,
+.tracker-row-active {
+  background: linear-gradient(125deg, rgba(245, 158, 11, 0.16), rgba(221, 238, 255, 0.92));
+  border-color: rgba(217, 119, 6, 0.42);
+  color: #0f172a;
+}
+
+.field-input,
+.field-textarea,
+.outlook-command-surface .field-input,
+.outlook-command-surface .field-textarea,
+.project-command-surface .field-input,
+.project-command-surface .field-textarea,
+.relationship-command-surface .field-input,
+.relationship-command-surface .field-textarea {
+  background: var(--mat-input);
+  border-color: #b9c9dd;
+  color: #0f172a;
+}
+
+.field-input::placeholder,
+.field-textarea::placeholder {
+  color: #64748b;
+}
+
+.modal-backdrop {
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.38), rgba(15, 23, 42, 0.68));
+}
+
+.modal-panel,
+.app-shell-card-modal {
+  background: var(--mat-modal);
+  border-color: #bfcede;
+}
+
+.modal-header,
+.modal-footer {
+  background: linear-gradient(180deg, #f3f8ff 0%, #eaf1fb 100%);
+  border-color: #c5d3e3;
+}
+
+.action-btn {
+  background: linear-gradient(180deg, #f7fbff 0%, #ecf3fb 100%);
+  border-color: #b8c9dd;
+  color: #1e293b;
+}
+
+.action-btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f2f7ff 100%);
+}
+
+.tonal-panel {
+  border: 1px solid #c8d5e5;
+  border-radius: 1rem;
+  background: var(--mat-muted);
+  padding: 0.85rem;
+}
+
+.tonal-chip-panel {
+  border: 1px solid #c8d5e5;
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, #edf3fb 0%, #e5edf7 100%);
+  padding: 0.5rem;
+}
+
+.tonal-micro {
+  border: 1px solid #cdd9e8;
+  border-radius: 0.8rem;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef3fb 100%);
+  padding: 0.55rem;
+}

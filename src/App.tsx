@@ -25,7 +25,7 @@ import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
-import { SegmentedControl } from './components/ui/AppPrimitives';
+import { AppButton, NavItem, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 
@@ -383,30 +383,43 @@ function MainApp() {
 
   return (
     <div className="app-shell text-slate-900">
-      <div className="app-shell-layout">
-        <aside className="app-nav-rail">
-          <div className="app-brand-block">
-            <div className="app-brand-eyebrow">Daily execution workspace</div>
-            <div className="app-brand-title">FollowUp HQ</div>
-          </div>
-          <div className="grid gap-2">
-            {navItems.map(({ key, label, icon: Icon }) => {
-              const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
-              return (
-              <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`}>
-                <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
-                  <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
-                  {navCounts[key] ? <span className="nav-pill">{navCounts[key]}</span> : null}
-                </div>
-              </button>
-              );
-            })}
-          </div>
-          <div className="mt-4"><button onClick={() => setShowCommand(true)} className="action-btn justify-start w-full"><Command className="h-4 w-4" />Command palette</button></div>
-        </aside>
+      <div className="app-shell-frame">
+        <div className="app-shell-layout">
+          <aside className="app-nav-rail">
+            <div className="app-brand-block">
+              <div className="app-brand-chip">Operations OS</div>
+              <div className="app-brand-title">FollowUp HQ</div>
+              <div className="app-brand-subtitle">Construction follow-up command center</div>
+            </div>
 
-        <main className="app-main-pane">
-          <header className="workspace-header workspace-header-tight">
+            <div className="app-nav-group-label">Workspaces</div>
+            <div className="grid gap-2">
+              {navItems.map(({ key, label, icon: Icon }) => {
+                const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
+                return (
+                  <NavItem
+                    key={key}
+                    label={label}
+                    icon={<Icon className="h-4 w-4" />}
+                    active={workspace === key}
+                    deemphasized={deemphasized}
+                    badge={navCounts[key]}
+                    onClick={() => setWorkspace(key)}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="app-nav-footer">
+              <AppButton onClick={() => setShowCommand(true)} className="justify-start w-full">
+                <Command className="h-4 w-4" />
+                Command palette
+              </AppButton>
+            </div>
+          </aside>
+
+          <main className="app-main-pane">
+            <header className="workspace-header workspace-header-tight">
             <div>
               <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
               <h1>{currentMeta.title}</h1>
@@ -414,19 +427,20 @@ function MainApp() {
             </div>
             <div className="workspace-header-meta">
               <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <div className="workspace-health-pill">{currentMeta.health}</div>
-              <div className="workspace-header-actions">{currentMeta.actions.map((action) => <button key={action.label} onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>{action.primary ? <Plus className="h-4 w-4" /> : null}{action.label}</button>)}</div>
+              <WorkspaceHeaderMetaPill tone="info">{currentMeta.health}</WorkspaceHeaderMetaPill>
+              <div className="workspace-header-actions">{currentMeta.actions.map((action) => <AppButton key={action.label} onClick={action.run} tone={action.primary ? 'primary' : 'secondary'}>{action.primary ? <Plus className="h-4 w-4" /> : null}{action.label}</AppButton>)}</div>
             </div>
-          </header>
-          <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
-          {workspaceBody}
-        </main>
+            </header>
+            <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+            {workspaceBody}
+          </main>
+        </div>
       </div>
 
       {showCommand ? (
         <div className="modal-backdrop" onClick={() => setShowCommand(false)}>
           <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><div className="text-lg font-semibold text-slate-900">Command palette</div><button onClick={() => setShowCommand(false)} className="action-btn">Close</button></div>
+            <div className="modal-header"><div className="text-lg font-semibold text-slate-900">Command palette</div><AppButton onClick={() => setShowCommand(false)}>Close</AppButton></div>
             <div className="space-y-2">{commands.map((command) => <button key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>)}</div>
           </div>
         </div>

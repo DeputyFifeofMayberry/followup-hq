@@ -1,6 +1,6 @@
 import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
 
-type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal';
+type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
 
 export function AppShellCard({ children, className = '', surface = 'shell' }: PropsWithChildren<{ className?: string; surface?: SurfaceType }>) {
   return <section className={`app-shell-card app-shell-card-${surface} ${className}`.trim()}>{children}</section>;

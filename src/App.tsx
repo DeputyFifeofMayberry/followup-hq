@@ -105,7 +105,7 @@ function MissingSupabaseConfigScreen() {
           <p className="mt-2 text-sm text-amber-800">
             FollowUp HQ needs valid Supabase environment variables before the app can load.
           </p>
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-white p-4 text-sm text-slate-700">
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
             <div className="font-medium text-slate-900">Current issue</div>
             <code className="mt-2 block rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-800">{supabaseConfigError ?? 'Supabase configuration unavailable.'}</code>
             <div className="mt-3 text-xs text-slate-600">
@@ -533,7 +533,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
         <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center justify-center">
-          <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-600 shadow-sm">
             Loading session...
           </div>
         </div>

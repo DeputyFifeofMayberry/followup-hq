@@ -154,7 +154,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
             </div>
             <div className="project-filter-foot">
               <div className="flex flex-wrap gap-2">
-                {projectSavedViews.map((view) => <button key={view.key} onClick={() => applySavedView(view.key)} className={savedView === view.key ? 'action-btn !bg-slate-900 !text-white' : 'action-btn'}>{view.label}</button>)}
+                {projectSavedViews.map((view) => <button key={view.key} onClick={() => applySavedView(view.key)} className={savedView === view.key ? 'action-btn !border-amber-500 !bg-amber-50' : 'action-btn'}>{view.label}</button>)}
               </div>
               <div className="flex gap-2">
                 <select value={sortKey} onChange={(e) => setSortKey(e.target.value as ProjectSortKey)} className="field-input"><option value="health">Sort: health</option><option value="name">Sort: name</option><option value="updated">Sort: updated</option><option value="targetDate">Sort: target date</option><option value="overdueWork">Sort: overdue work</option></select>

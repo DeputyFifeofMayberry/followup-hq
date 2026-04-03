@@ -416,7 +416,17 @@ function MainApp() {
             {navItems.map(({ key, label, icon: Icon }) => {
               const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
               return (
-              <button key={key} type="button" onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card nav-card-active' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`} aria-current={workspace === key ? 'page' : undefined}>
+              <button
+                key={key}
+                type="button"
+                onClick={() => setWorkspace(key)}
+                className={[
+                  'nav-card',
+                  workspace === key ? 'nav-card-active' : '',
+                  deemphasized ? 'nav-card-muted' : '',
+                ].filter(Boolean).join(' ')}
+                aria-current={workspace === key ? 'page' : undefined}
+              >
                 <div className="nav-card-row">
                   <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>
                   {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}

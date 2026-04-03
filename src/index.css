@@ -578,34 +578,6 @@ svg {
   gap: 1rem;
 }
 
-.app-nav-rail {
-  border: 1px solid #cfd8e4;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 1.25rem;
-  padding: 1rem;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-}
-
-.app-brand-block {
-  padding: 0.5rem 0.2rem 0.9rem;
-}
-
-.app-brand-eyebrow {
-  font-size: 0.67rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.app-brand-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #0f172a;
-  margin-top: 0.15rem;
-}
-
 .app-main-pane { min-width: 0; display: grid; gap: 1rem; }
 
 .workspace-header {
@@ -1179,36 +1151,52 @@ select, select * {
 }
 .app-shell-layout { position: relative; width: min(1880px, 100%); margin: 0 auto; display: grid; gap: 1rem; }
 .app-nav-rail {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+  border: 1px solid rgba(100, 116, 139, 0.42);
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.97), rgba(15, 23, 42, 0.96));
   border-radius: 1.1rem;
   padding: 1rem 0.9rem;
-  box-shadow: 0 22px 50px rgba(2, 6, 23, 0.34);
+  box-shadow: 0 24px 56px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(148, 163, 184, 0.2);
 }
 .app-brand-block { padding: 0.5rem 0.4rem 1rem; margin-bottom: 0.2rem; }
 .app-brand-eyebrow,
-.nav-text-brand-eyebrow { color: #9fb0c8; font-size: 0.67rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.app-brand-title { color: #f3f7ff; font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
+.nav-text-brand-eyebrow { color: #b9c7db; font-size: 0.67rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.app-brand-title { color: #f8fbff; font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
 .app-brand-subline,
-.nav-text-brand-subline { color: #93a7c2; font-size: 0.76rem; font-weight: 500; letter-spacing: 0.01em; margin-top: 0.26rem; }
+.nav-text-brand-subline { color: #a5b4ca; font-size: 0.76rem; font-weight: 500; letter-spacing: 0.01em; margin-top: 0.26rem; }
 .nav-text-primary { color: #dce8f8; font-size: 0.88rem; font-weight: 600; letter-spacing: -0.005em; }
 .nav-text-secondary { color: #afbed4; font-size: 0.74rem; font-weight: 500; }
 .nav-text-muted { color: #8ea2be; font-size: 0.86rem; font-weight: 560; }
 .nav-text-pill { color: #fdecc4; font-size: 0.71rem; font-weight: 700; }
-.nav-card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 0.85rem; padding: 0.7rem 0.75rem; background: rgba(15, 23, 42, 0.36); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
-.nav-card:hover { border-color: rgba(147, 197, 253, 0.38); background: rgba(22, 35, 56, 0.88); }
-.nav-card-active { border-color: rgba(125, 211, 252, 0.72); background: linear-gradient(135deg, rgba(12,74,110,0.42), rgba(30,64,175,0.28)); box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.14), inset 0 1px 0 rgba(255,255,255,0.06); }
+.nav-card {
+  border: 1px solid rgba(71, 85, 105, 0.9);
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.75rem;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.74), rgba(15, 23, 42, 0.88));
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.18);
+}
+.nav-card:hover {
+  border-color: rgba(147, 197, 253, 0.62);
+  background: linear-gradient(180deg, rgba(37, 52, 74, 0.86), rgba(15, 23, 42, 0.92));
+}
+.nav-card-active {
+  border-color: rgba(125, 211, 252, 0.9);
+  background: linear-gradient(145deg, rgba(8, 47, 73, 0.82), rgba(30, 64, 175, 0.5));
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
 .nav-card-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
 .nav-label-cluster { display: inline-flex; align-items: center; gap: 0.52rem; min-width: 0; }
-.nav-label-icon { color: #a9bdd8; }
-.nav-label-primary { color: #dce8f8; font-size: 0.88rem; font-weight: 620; letter-spacing: -0.005em; }
+.nav-label-icon { color: #c1d2e8; }
+.nav-label-primary { color: #e2ecfa; font-size: 0.88rem; font-weight: 620; letter-spacing: -0.005em; }
 .nav-card-active .nav-label-icon,
-.nav-card-active .nav-label-primary { color: #ecf5ff; }
-.nav-card-muted { border-color: rgba(115, 132, 158, 0.36); background: rgba(15, 23, 42, 0.22); }
-.nav-card-muted .nav-label-primary { color: #9cb0cb; }
-.nav-card-muted .nav-label-icon { color: #8ea2be; }
-.nav-pill { min-width: 1.48rem; padding: 0.1rem 0.4rem; border-radius: 999px; border: 1px solid rgba(251, 191, 36, 0.34); background: rgba(245, 158, 11, 0.19); text-align: center; }
-.nav-pill-text { color: #fdecc4; font-size: 0.71rem; font-weight: 700; }
+.nav-card-active .nav-label-primary { color: #f8fbff; }
+.nav-card-muted {
+  border-color: rgba(71, 85, 105, 0.72);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.74));
+}
+.nav-card-muted .nav-label-primary { color: #bac8da; }
+.nav-card-muted .nav-label-icon { color: #a3b3c9; }
+.nav-pill { min-width: 1.48rem; padding: 0.1rem 0.4rem; border-radius: 999px; border: 1px solid rgba(253, 186, 116, 0.52); background: rgba(180, 83, 9, 0.45); text-align: center; }
+.nav-pill-text { color: #fff7ed; font-size: 0.71rem; font-weight: 700; }
 .nav-command-btn {
   width: 100%;
   justify-content: flex-start;
@@ -1217,13 +1205,17 @@ select, select * {
   gap: 0.5rem;
   border-radius: 0.84rem;
   padding: 0.62rem 0.78rem;
-  border: 1px solid rgba(148, 163, 184, 0.36);
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.88), rgba(15, 23, 42, 0.86));
-  color: #c8d6ea;
+  border: 1px solid rgba(100, 116, 139, 0.95);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.74), rgba(15, 23, 42, 0.88));
+  color: #d5e1f1;
   font-size: 0.82rem;
   font-weight: 620;
 }
-.nav-command-btn:hover { border-color: rgba(125, 211, 252, 0.45); color: #e3edf9; background: linear-gradient(180deg, rgba(37, 52, 74, 0.92), rgba(15, 23, 42, 0.9)); }
+.nav-command-btn:hover {
+  border-color: rgba(125, 211, 252, 0.62);
+  color: #edf5ff;
+  background: linear-gradient(180deg, rgba(37, 52, 74, 0.88), rgba(15, 23, 42, 0.92));
+}
 .workspace-header {
   border: 1px solid #b9c8db;
   background: linear-gradient(140deg, #f4f8fd 0%, #e8f0f9 100%);

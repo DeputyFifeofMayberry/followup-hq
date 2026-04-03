@@ -35,6 +35,9 @@ export interface AppAuxiliaryState {
   forwardedLedger: AppSnapshot['forwardedLedger'];
   forwardedRoutingAudit: AppSnapshot['forwardedRoutingAudit'];
   intakeCandidates: AppSnapshot['intakeCandidates'];
+  intakeAssets: AppSnapshot['intakeAssets'];
+  intakeBatches: AppSnapshot['intakeBatches'];
+  intakeWorkCandidates: AppSnapshot['intakeWorkCandidates'];
   savedExecutionViews: AppSnapshot['savedExecutionViews'];
 }
 
@@ -80,6 +83,9 @@ function buildFallbackSnapshot(): AppSnapshot {
     forwardedLedger: [],
     forwardedRoutingAudit: [],
     intakeCandidates: [],
+    intakeAssets: [],
+    intakeBatches: [],
+    intakeWorkCandidates: [],
     savedExecutionViews: [],
   };
 }
@@ -104,6 +110,9 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       forwardedLedger: snapshot.forwardedLedger ?? [],
       forwardedRoutingAudit: snapshot.forwardedRoutingAudit ?? [],
       intakeCandidates: snapshot.intakeCandidates ?? [],
+      intakeAssets: snapshot.intakeAssets ?? [],
+      intakeBatches: snapshot.intakeBatches ?? [],
+      intakeWorkCandidates: snapshot.intakeWorkCandidates ?? [],
       savedExecutionViews: snapshot.savedExecutionViews ?? [],
     },
   };

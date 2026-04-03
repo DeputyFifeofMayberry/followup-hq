@@ -5,6 +5,7 @@ import { formatDateTime } from '../lib/utils';
 import { isTauriRuntime } from '../lib/persistence';
 import { useAppStore } from '../store/useAppStore';
 import { ForwardingIntakeWorkspace } from './ForwardingIntakeWorkspace';
+import { UniversalIntakeWorkspace } from './UniversalIntakeWorkspace';
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -31,6 +32,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
 
   const [callbackUrl, setCallbackUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'review' | 'history' | 'rules' | 'settings'>('review');
   const processedCallbackRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -80,9 +82,22 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         }
       />
-        <ForwardingIntakeWorkspace />
+        <div className="flex flex-wrap gap-2">
+          <button className={`action-btn ${activeTab === 'review' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
+          <button className={`action-btn ${activeTab === 'history' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
+          <button className={`action-btn ${activeTab === 'rules' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
+          <button className={`action-btn ${activeTab === 'settings' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
+        </div>
 
-        {showAdvanced ? (
+        {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
+        {activeTab === 'history' ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            Intake history is now represented by persistent batches and assets in the Universal Intake Workspace. Select any asset to inspect extracted text, evidence, parse status, and candidate outcomes.
+          </div>
+        ) : null}
+        {activeTab === 'rules' ? <ForwardingIntakeWorkspace /> : null}
+
+        {showAdvanced && activeTab === 'settings' ? (
         <details className="rounded-2xl border border-slate-200 p-4">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-900">
             <Wrench className="h-4 w-4" /> Advanced: Experimental direct Outlook sync
@@ -219,11 +234,11 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
             Direct sync remains available, but forwarding intake is the primary workflow.
           </div>
         </details>
-        ) : (
+        ) : activeTab === 'settings' ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             Advanced Outlook OAuth and PKCE setup is admin-only. Forwarding intake remains fully available for standard users.
           </div>
-        )}
+        ) : null}
     </AppShellCard>
   );
 }

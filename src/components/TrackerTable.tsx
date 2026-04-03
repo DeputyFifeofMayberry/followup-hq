@@ -53,8 +53,8 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     return [
       {
         id: 'select',
-        header: () => <input type="checkbox" checked={filteredItems.length > 0 && filteredItems.every((item) => selectedFollowUpIds.includes(item.id))} onChange={(event) => selectAllVisibleFollowUps(event.target.checked ? filteredItems.map((item) => item.id) : [])} />,
-        cell: ({ row }) => <input type="checkbox" checked={selectedFollowUpIds.includes(row.original.id)} onChange={() => toggleFollowUpSelection(row.original.id)} onClick={(event) => event.stopPropagation()} />,
+        header: () => <input aria-label="Select all visible follow-ups" type="checkbox" checked={filteredItems.length > 0 && filteredItems.every((item) => selectedFollowUpIds.includes(item.id))} onChange={(event) => selectAllVisibleFollowUps(event.target.checked ? filteredItems.map((item) => item.id) : [])} />,
+        cell: ({ row }) => <input aria-label={`Select ${row.original.title}`} type="checkbox" checked={selectedFollowUpIds.includes(row.original.id)} onChange={() => toggleFollowUpSelection(row.original.id)} onClick={(event) => event.stopPropagation()} />,
         enableSorting: false,
       },
       ...dynamic,
@@ -64,9 +64,9 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex gap-1">
-            <button className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-            <button className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: row.original.status === 'Closed' ? 'Needs action' : 'Closed' }); }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
-            <input className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
+            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: row.original.status === 'Closed' ? 'Needs action' : 'Closed' }); }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
+            <input aria-label={`Next touch date for ${row.original.title}`} className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
           </div>
         ),
       },
@@ -79,13 +79,13 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     <AppShellCard className="p-0">
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse tracker-table">
-          <thead>
+          <thead className="tracker-table-head">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50">
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th key={header.id} scope="col" className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500" aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
                     {header.isPlaceholder ? null : (
-                      <button className="inline-flex items-center gap-1" onClick={header.column.getToggleSortingHandler()}>
+                      <button type="button" className="inline-flex items-center gap-1" onClick={header.column.getToggleSortingHandler()}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </button>
                     )}
@@ -98,7 +98,19 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             {table.getRowModel().rows.map((row) => {
               const active = row.original.id === selectedId;
               return (
-                <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'tracker-row tracker-row-active' : 'tracker-row'}>
+                <tr
+                  key={row.id}
+                  onClick={() => setSelectedId(row.original.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedId(row.original.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-selected={active}
+                  className={active ? 'tracker-row tracker-row-active' : 'tracker-row'}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3 align-top text-sm text-slate-700">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
@@ -107,7 +119,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             })}
           </tbody>
         </table>
-        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters or create a follow-up." /></div> : null}
+        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters, clear search, or create a follow-up." /></div> : null}
       </div>
     </AppShellCard>
   );

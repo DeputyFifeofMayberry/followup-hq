@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
 
 export function AppShellCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <section className={`app-shell-card ${className}`.trim()}>{children}</section>;
@@ -42,7 +42,7 @@ export function FilterBar({ children }: PropsWithChildren) {
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
   return (
-    <div className="empty-state">
+    <div className="empty-state" role="status" aria-live="polite">
       <div className="empty-state-title">{title}</div>
       <div className="empty-state-message">{message}</div>
     </div>
@@ -60,17 +60,32 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <div className="segmented-control" role="tablist" aria-label="Segmented control">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={value === option.value ? 'segmented-control-btn segmented-control-btn-active' : 'segmented-control-btn'}
-          role="tab"
-          aria-selected={value === option.value}
-        >
-          {option.label}
-        </button>
-      ))}
+      {options.map((option, index) => {
+        const active = value === option.value;
+        const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+          event.preventDefault();
+          const nextIndex = event.key === 'ArrowRight'
+            ? (index + 1) % options.length
+            : (index - 1 + options.length) % options.length;
+          onChange(options[nextIndex].value);
+        };
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            onKeyDown={onKeyDown}
+            className={active ? 'segmented-control-btn segmented-control-btn-active' : 'segmented-control-btn'}
+            role="tab"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

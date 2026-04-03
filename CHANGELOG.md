@@ -2,6 +2,13 @@
 
 ## 2026-04-03
 
+### Phase 4 UI refinement and product hardening
+- Added a final interaction/accessibility baseline in shared primitives: improved segmented-control keyboard behavior (arrow navigation + roving tab), and standardized empty-state announcements for assistive tech (`src/components/ui/AppPrimitives.tsx`).
+- Polished global UI behavior for focus visibility, reduced-motion support, button press/disabled affordances, modal scroll containment, and denser table/list readability with safer wrapping at narrow widths (`src/index.css`).
+- Hardened workspace shell interaction quality with clearer nav semantics, command palette dialog semantics, ESC close behavior, focus return behavior, and lightweight command filtering/no-results handling (`src/App.tsx`).
+- Refined tracker table usability with sticky headers, stronger keyboard row interaction, explicit checkbox/date action labels, and improved no-results guidance (`src/components/TrackerTable.tsx`).
+- Improved execution queue keyboard flow by preventing global j/k navigation from hijacking form typing, plus clearer row selection semantics for checkboxes and active queue rows (`src/components/OverviewPage.tsx`).
+
 ### Trust and execution upgrades
 - Reworked universal intake matching into a document-oriented review pipeline with richer field confidence/evidence and upgraded duplicate/update/link scoring across title, project, due-date proximity, waiting-on overlap, summary, and source references (`src/lib/intake/reviewPipeline.ts`, `src/lib/universalIntake.ts`).
 - Upgraded Universal Intake Workspace to support high-confidence vs needs-review queues, apply-and-next behavior, and keyboard-driven review actions for faster safe triage (`src/components/UniversalIntakeWorkspace.tsx`).

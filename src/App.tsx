@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
@@ -297,6 +297,9 @@ function MainApp() {
     return saved === 'team' ? 'team' : 'personal';
   });
   const [showCommand, setShowCommand] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
+  const commandSearchRef = useRef<HTMLInputElement | null>(null);
+  const commandOpenTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -310,14 +313,30 @@ function MainApp() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const inInputContext = !!target?.closest('input, textarea, select, [contenteditable="true"]');
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setShowCommand((value) => !value);
       }
+      if (event.key === 'Escape' && showCommand) {
+        event.preventDefault();
+        setShowCommand(false);
+      }
+      if (inInputContext) return;
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [showCommand]);
+
+  useEffect(() => {
+    if (!showCommand) {
+      setCommandQuery('');
+      commandOpenTriggerRef.current?.focus();
+      return;
+    }
+    commandSearchRef.current?.focus();
+  }, [showCommand]);
 
   const openTrackerView = useCallback((view: SavedViewKey, project = 'All') => {
     setActiveView(view);
@@ -369,6 +388,7 @@ function MainApp() {
     { label: 'Open tasks', run: () => setWorkspace('tasks') },
     { label: 'Open intake', run: () => setWorkspace('outlook') },
   ];
+  const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
     worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
@@ -384,7 +404,7 @@ function MainApp() {
   return (
     <div className="app-shell text-slate-900">
       <div className="app-shell-layout">
-        <aside className="app-nav-rail">
+        <aside className="app-nav-rail" aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">Daily execution workspace</div>
             <div className="app-brand-title">FollowUp HQ</div>
@@ -393,7 +413,7 @@ function MainApp() {
             {navItems.map(({ key, label, icon: Icon }) => {
               const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
               return (
-              <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`}>
+              <button key={key} type="button" onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`} aria-current={workspace === key ? 'page' : undefined}>
                 <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
                   <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
                   {navCounts[key] ? <span className="nav-pill">{navCounts[key]}</span> : null}
@@ -402,7 +422,7 @@ function MainApp() {
               );
             })}
           </div>
-          <div className="mt-4"><button onClick={() => setShowCommand(true)} className="action-btn justify-start w-full"><Command className="h-4 w-4" />Command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="action-btn justify-start w-full" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
         </aside>
 
         <main className="app-main-pane">
@@ -425,9 +445,23 @@ function MainApp() {
 
       {showCommand ? (
         <div className="modal-backdrop" onClick={() => setShowCommand(false)}>
-          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header"><div className="text-lg font-semibold text-slate-900">Command palette</div><button onClick={() => setShowCommand(false)} className="action-btn">Close</button></div>
-            <div className="space-y-2">{commands.map((command) => <button key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>)}</div>
+            <label className="field-block">
+              <span className="field-label">Quick find command</span>
+              <div className="search-field-wrap">
+                <Search className="search-field-icon h-4 w-4" />
+                <input
+                  ref={commandSearchRef}
+                  className="field-input search-field-input"
+                  type="search"
+                  placeholder="Type command name"
+                  value={commandQuery}
+                  onChange={(event) => setCommandQuery(event.target.value)}
+                />
+              </div>
+            </label>
+            <div className="space-y-2">{visibleCommands.length ? visibleCommands.map((command) => <button type="button" key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>) : <div className="empty-state"><div className="empty-state-title">No matching command</div><div className="empty-state-message">Try a shorter keyword such as “task” or “follow”.</div></div>}</div>
           </div>
         </div>
       ) : null}

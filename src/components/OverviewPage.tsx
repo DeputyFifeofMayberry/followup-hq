@@ -102,6 +102,8 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!queue.length) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], button')) return;
       const index = queue.findIndex((row) => row.id === selectedId);
       if (event.key === 'j') {
         event.preventDefault();
@@ -266,8 +268,8 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                 const checked = selectedRows.includes(row.id);
                 return (
                   <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active' : 'overview-priority-row'}>
-                    <input type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
-                    <button onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left">
+                    <input aria-label={`Select ${row.title}`} type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
+                    <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
                       <div className="overview-priority-title">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
                       <div className="overview-priority-meta">{row.project} • {row.assignee} • Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
                       {queueDensity === 'detailed' ? <div className="overview-priority-meta">Summary: {row.summary || '—'} • Waiting on: {row.waitingOn || '—'} • Notes: {row.notesPreview || '—'} • Recent: {row.recentActivity || '—'}</div> : null}

@@ -1138,12 +1138,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (!files.length) return;
     const state = get();
     const batch = buildBatchRecord([]);
-    const assets = await Promise.all(files.map(async (file) => {
-      const parsed = await parseIntakeFile(file, batch.id);
-      return { ...parsed, source };
-    }));
+    const parsedAssetGroups = await Promise.all(files.map((file) => parseIntakeFile(file, batch.id)));
+    const assets = parsedAssetGroups.flat().map((asset) => ({ ...asset, source }));
     const candidates = assets.flatMap((asset) => buildCandidatesFromAsset(asset, state.items, state.tasks));
-    const assetIds = assets.map((asset) => asset.id);
+    const assetIds = assets.filter((asset) => !asset.parentAssetId).map((asset) => asset.id);
     const finalizedBatch: IntakeBatchRecord = {
       ...batch,
       assetIds,

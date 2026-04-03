@@ -1402,3 +1402,122 @@ select, select * {
 
 .workspace-data-row-compact { padding: 0.7rem 0.8rem; }
 .overview-stat-grid-compact { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+/* === Shared primitives extensions === */
+.overview-priority-row-active {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+}
+
+.nav-card-muted {
+  opacity: 0.68;
+}
+
+/* === Workspace: follow-up detail progressive disclosure === */
+.detail-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.detail-overflow-actions {
+  position: relative;
+}
+
+.detail-overflow-actions summary {
+  list-style: none;
+}
+
+.detail-overflow-actions[open] .detail-overflow-menu {
+  display: grid;
+}
+
+.detail-overflow-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 220px;
+  padding: 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  gap: 0.35rem;
+  z-index: 15;
+}
+
+.detail-summary-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* === Workspace: row editing progressive disclosure === */
+.tracker-row {
+  cursor: pointer;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tracker-row:hover {
+  background: #f8fafc;
+}
+
+.tracker-row-active {
+  background: rgba(240, 249, 255, 0.6);
+}
+
+.row-field-display {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+}
+
+.row-field-edit {
+  display: none;
+}
+
+.tracker-row:hover .row-field-edit,
+.tracker-row:focus-within .row-field-edit,
+.tracker-row[data-editing='true'] .row-field-edit {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.row-edit-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tracker-row:hover .row-edit-toggle,
+.tracker-row:focus-within .row-edit-toggle,
+.workspace-data-row:hover .row-edit-toggle,
+.workspace-data-row:focus-within .row-edit-toggle,
+.workspace-data-row-active .row-edit-toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.task-row-display-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.task-row-edit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.overview-action-stack-muted {
+  padding-top: 0.35rem;
+  border-top: 1px dashed #dbe4ef;
+}
+
+@media (max-width: 1279px) {
+  .detail-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

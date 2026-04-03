@@ -33,9 +33,9 @@ const navItems: Array<{ key: WorkspaceKey; label: string; icon: typeof ListCheck
   { key: 'worklist', label: 'Worklist', icon: ListChecks },
   { key: 'followups', label: 'Follow Ups', icon: Activity },
   { key: 'tasks', label: 'Tasks', icon: ListTodo },
+  { key: 'outlook', label: 'Intake', icon: Inbox },
   { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
   { key: 'relationships', label: 'Relationships', icon: Users },
-  { key: 'outlook', label: 'Intake', icon: Inbox },
   { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
 ];
 
@@ -247,11 +247,13 @@ function LoginScreen() {
 function OverviewWorkspace({
   onOpenTrackerView,
   onOpenWorkspace,
+  personalMode,
 }: {
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   onOpenWorkspace: (workspace: string) => void;
+  personalMode: boolean;
 }) {
-  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} />;
+  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} personalMode={personalMode} />;
 }
 
 function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
@@ -355,7 +357,7 @@ function MainApp() {
       case 'relationships':
         return <RelationshipBoard />;
       default:
-        return <OverviewWorkspace onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
+        return <OverviewWorkspace personalMode={appMode === 'personal'} onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
@@ -369,13 +371,13 @@ function MainApp() {
   ];
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Worklist', purpose: 'Decide what to do next in one action-first queue.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
-    followups: { title: 'Follow Ups', purpose: 'Scan follow-up records quickly and handle details in the side panel.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
-    tasks: { title: 'Tasks', purpose: 'Process internal execution tasks with clean, compact rows.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
-    outlook: { title: 'Intake', purpose: 'Review ingested captures and clean up ambiguous entries.', health: `${combinedCleanup} need cleanup`, actions: [] },
-    projects: { title: 'Projects', purpose: 'Track project-level workload and risk by execution pressure.', health: `${items.length} linked follow-ups`, actions: [] },
-    relationships: { title: 'Relationships', purpose: 'Manage relationship pressure across contacts and companies.', health: `${items.length} connected threads`, actions: [] },
-    exports: { title: 'Exports', purpose: 'Generate operational reports and exports.', health: 'Export-ready data', actions: [] },
+    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
+    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
+    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
+    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [] },
+    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [] },
+    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [] },
+    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Export snapshots when you need external reporting.' : 'Export team-facing reporting and cadence summaries.', health: 'Export-ready data', actions: [] },
   };
   const currentMeta = workspaceMeta[workspace];
 
@@ -388,14 +390,17 @@ function MainApp() {
             <div className="app-brand-title">FollowUp HQ</div>
           </div>
           <div className="grid gap-2">
-            {navItems.map(({ key, label, icon: Icon }) => (
-              <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : 'saved-view-card nav-card'}>
+            {navItems.map(({ key, label, icon: Icon }) => {
+              const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
+              return (
+              <button key={key} onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`}>
                 <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
                   <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
                   {navCounts[key] ? <span className="nav-pill">{navCounts[key]}</span> : null}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-4"><button onClick={() => setShowCommand(true)} className="action-btn justify-start w-full"><Command className="h-4 w-4" />Command palette</button></div>
         </aside>

@@ -5,6 +5,7 @@ import { formatDateTime } from '../lib/utils';
 import { isTauriRuntime } from '../lib/persistence';
 import { useAppStore } from '../store/useAppStore';
 import { ForwardingIntakeWorkspace } from './ForwardingIntakeWorkspace';
+import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { useShallow } from 'zustand/react/shallow';
 
 const scopePresets = ['openid', 'profile', 'offline_access', 'User.Read', 'Mail.Read'];
@@ -66,25 +67,19 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
   };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-950">Email Intake</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Recommended path: forward emails into the intake pipeline, review what gets created, and keep routing safe and predictable.
-            </p>
-          </div>
+    <AppShellCard className="space-y-4">
+      <SectionHeader
+        title="Email Intake"
+        subtitle="Recommended path: forward emails into intake, review what gets created, and keep routing predictable."
+        actions={
           <div className="flex flex-wrap gap-2">
             <Badge variant="success">Forwarding-first workflow</Badge>
             <Badge variant={outlookConnection.mailboxLinked ? 'neutral' : 'warn'}>
               {outlookConnection.mailboxLinked ? 'Direct Outlook sync enabled' : 'Direct sync optional'}
             </Badge>
           </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 p-5">
+        }
+      />
         <ForwardingIntakeWorkspace />
 
         {showAdvanced ? (
@@ -213,22 +208,10 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
             </div>
           ) : null}
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <div className="text-sm text-slate-500">Mailbox</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{outlookConnection.profile?.displayName || 'Not connected'}</div>
-              <div className="mt-1 text-sm text-slate-500">{outlookConnection.profile?.email || 'Connect only if direct sync is required.'}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <div className="text-sm text-slate-500">Sync status</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{outlookConnection.syncStatus}</div>
-              <div className="mt-1 text-sm text-slate-500">{outlookConnection.lastSyncAt ? `Last sync ${formatDateTime(outlookConnection.lastSyncAt)}` : 'No sync run yet'}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <div className="text-sm text-slate-500">Connection</div>
-              <div className="mt-1 text-lg font-semibold text-slate-900">{outlookConnection.mailboxLinked ? 'Linked' : 'Optional'}</div>
-              <div className="mt-1 text-sm text-slate-500">{outlookConnection.mailboxLinked ? 'Direct mailbox sync available.' : 'Forwarding flow works without this.'}</div>
-            </div>
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <StatTile label="Mailbox" value={outlookConnection.profile?.displayName || 'Not connected'} helper={outlookConnection.profile?.email || 'Connect only if direct sync is required.'} />
+            <StatTile label="Sync status" value={outlookConnection.syncStatus} helper={outlookConnection.lastSyncAt ? `Last sync ${formatDateTime(outlookConnection.lastSyncAt)}` : 'No sync run yet'} />
+            <StatTile label="Connection" value={outlookConnection.mailboxLinked ? 'Linked' : 'Optional'} helper={outlookConnection.mailboxLinked ? 'Direct mailbox sync available.' : 'Forwarding flow works without this.'} />
           </div>
 
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
@@ -241,7 +224,6 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
             Advanced Outlook OAuth and PKCE setup is admin-only. Forwarding intake remains fully available for standard users.
           </div>
         )}
-      </div>
-    </section>
+    </AppShellCard>
   );
 }

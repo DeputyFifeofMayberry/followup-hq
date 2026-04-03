@@ -1,4 +1,5 @@
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
+import { Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { applySavedView, formatDate, fromDateInputValue, isOverdue, needsNudge, priorityTone, sortByProjectThenDue, statusTone, toDateInputValue } from '../lib/utils';
@@ -21,6 +22,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     updateItem: s.updateItem,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
     const viewedItems = applySavedView(items, activeView);
@@ -52,33 +54,49 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <select value={row.original.status} onChange={(event) => updateItem(row.original.id, { status: event.target.value as FollowUpItem['status'] })} className="field-input !w-[170px] !py-1.5 text-xs">
-            <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
-          </select>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const item = row.original;
+        const editing = selectedId === item.id || editingRowId === item.id;
+        return (
+          <div className="row-field" onClick={(e) => e.stopPropagation()}>
+            <div className="row-field-display"><Badge variant={statusTone(item.status)}>{item.status}</Badge></div>
+            {editing ? (
+              <select value={item.status} onChange={(event) => updateItem(item.id, { status: event.target.value as FollowUpItem['status'] })} className="field-input row-field-edit !w-[170px] !py-1.5 text-xs">
+                <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+              </select>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'priority',
       header: 'Priority',
-      cell: ({ row }) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <select value={row.original.priority} onChange={(event) => updateItem(row.original.id, { priority: event.target.value as FollowUpItem['priority'] })} className="field-input !w-[120px] !py-1.5 text-xs">
-            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-          </select>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const item = row.original;
+        const editing = selectedId === item.id || editingRowId === item.id;
+        return (
+          <div className="row-field" onClick={(e) => e.stopPropagation()}>
+            <div className="row-field-display"><Badge variant={priorityTone(item.priority)}>{item.priority}</Badge></div>
+            {editing ? (
+              <select value={item.priority} onChange={(event) => updateItem(item.id, { priority: event.target.value as FollowUpItem['priority'] })} className="field-input row-field-edit !w-[120px] !py-1.5 text-xs">
+                <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+              </select>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'dueDate',
       header: 'Due',
       cell: ({ row }) => {
         const item = row.original;
+        const editing = selectedId === item.id || editingRowId === item.id;
         return (
-          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-            <input type="date" value={toDateInputValue(item.dueDate)} onChange={(event) => updateItem(item.id, { dueDate: fromDateInputValue(event.target.value) })} className="field-input !w-[150px] !py-1.5 text-xs" />
+          <div className="row-field" onClick={(e) => e.stopPropagation()}>
+            <div className="row-field-display text-xs text-slate-700">{formatDate(item.dueDate)}</div>
+            {editing ? <input type="date" value={toDateInputValue(item.dueDate)} onChange={(event) => updateItem(item.id, { dueDate: fromDateInputValue(event.target.value) })} className="field-input row-field-edit !w-[150px] !py-1.5 text-xs" /> : null}
             <div className="flex gap-1">
               {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
               {needsNudge(item) ? <Badge variant="warn">Nudge</Badge> : null}
@@ -90,9 +108,14 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     {
       id: 'nextAction',
       header: 'Next action',
-      cell: ({ row }) => <div className="text-xs text-slate-600 max-w-[240px] truncate">{row.original.nextAction || 'No next action set'}</div>,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs text-slate-600 max-w-[240px] truncate">{row.original.nextAction || 'No next action set'}</div>
+          <button onClick={(e) => { e.stopPropagation(); setEditingRowId((value) => value === row.original.id ? null : row.original.id); }} className="action-btn row-edit-toggle !px-2 !py-1 text-xs"><Pencil className="h-3.5 w-3.5" />Edit</button>
+        </div>
+      ),
     },
-  ], [contacts, companies, updateItem, personalMode]);
+  ], [contacts, companies, updateItem, personalMode, selectedId, editingRowId]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
@@ -134,7 +157,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
+          <table className="min-w-full border-collapse tracker-table">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50">
@@ -149,8 +172,9 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             <tbody>
               {table.getRowModel().rows.map((row) => {
                 const active = row.original.id === selectedId;
+                const editing = active || editingRowId === row.original.id;
                 return (
-                  <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'cursor-pointer border-b border-slate-200 bg-sky-50/60' : 'cursor-pointer border-b border-slate-200 hover:bg-slate-50'}>
+                  <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'tracker-row tracker-row-active' : 'tracker-row'} data-editing={editing ? 'true' : 'false'}>
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3 align-top text-sm text-slate-700">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                     ))}

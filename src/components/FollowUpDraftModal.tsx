@@ -20,6 +20,8 @@ export function FollowUpDraftModal() {
   const [tone, setTone] = useState<'firm' | 'neutral' | 'friendly'>('neutral');
   const [confirming, setConfirming] = useState(false);
   const [confirmNote, setConfirmNote] = useState('');
+  const [recipients, setRecipients] = useState('');
+  const [template, setTemplate] = useState<'status_ping' | 'blocker_clear' | 'decision_needed'>('status_ping');
 
   useEffect(() => {
     if (!draftModal.open || !item) return;
@@ -28,14 +30,21 @@ export function FollowUpDraftModal() {
     setCopied(false);
     setConfirming(false);
     setConfirmNote('');
+    setRecipients(item.waitingOn || '');
+    setTemplate('status_ping');
   }, [draftModal.open, item]);
 
   const tonedDraft = useMemo(() => {
     if (!draft.trim()) return '';
-    if (tone === 'firm') return `Quick status check:\n\n${draft}`;
-    if (tone === 'friendly') return `Hi team,\n\n${draft}\n\nThanks!`;
+    const templateHeader = template === 'blocker_clear'
+      ? 'Blocking item check:\n'
+      : template === 'decision_needed'
+        ? 'Decision needed:\n'
+        : 'Status update request:\n';
+    if (tone === 'firm') return `${templateHeader}\nQuick status check:\n\n${draft}`;
+    if (tone === 'friendly') return `${templateHeader}\nHi team,\n\n${draft}\n\nThanks!`;
     return draft;
-  }, [draft, tone]);
+  }, [draft, tone, template]);
 
   if (!draftModal.open || !item) return null;
 
@@ -61,6 +70,10 @@ export function FollowUpDraftModal() {
           <label className="field-block"><span className="field-label">Subject line</span><input value={subject} onChange={(event) => setSubject(event.target.value)} className="field-input" /></label>
           <label className="field-block"><span className="field-label">Tone</span><select value={tone} onChange={(event) => setTone(event.target.value as typeof tone)} className="field-input"><option value="firm">Firm</option><option value="neutral">Neutral</option><option value="friendly">Friendly</option></select></label>
         </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="field-block"><span className="field-label">Recipients</span><input value={recipients} onChange={(event) => setRecipients(event.target.value)} placeholder="name@company.com, team@..." className="field-input" /></label>
+          <label className="field-block"><span className="field-label">Template</span><select value={template} onChange={(event) => setTemplate(event.target.value as typeof template)} className="field-input"><option value="status_ping">Status ping</option><option value="blocker_clear">Blocker clear</option><option value="decision_needed">Decision needed</option></select></label>
+        </div>
         <div className="mt-4 field-block">
           <label className="field-label">Body</label>
           <textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="field-textarea" style={{ minHeight: 240 }} />
@@ -80,13 +93,22 @@ export function FollowUpDraftModal() {
             setConfirming(true);
           }} className="primary-btn"><Send className="h-4 w-4" />Prepare send confirmation</button>
         </div>
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+          <div className="font-semibold text-slate-900">Recent send history / proof</div>
+          <div className="mt-1 space-y-1">
+            {(item.actionReceipts || []).slice(0, 4).map((receipt) => (
+              <div key={receipt.id}>{receipt.at.slice(0, 10)} • {receipt.action} • {receipt.confirmed ? 'confirmed' : 'unconfirmed'}{receipt.notes ? ` • ${receipt.notes}` : ''}</div>
+            ))}
+            {!item.actionReceipts?.length ? <div>No proof receipts yet.</div> : null}
+          </div>
+        </div>
         {confirming ? (
           <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
             <div className="flex items-center gap-2 font-semibold text-emerald-900"><ShieldCheck className="h-4 w-4" />Confirm external send</div>
             <div className="mt-1 text-emerald-800">Only confirm once sent from your mail app. This creates a verified action receipt and moves to waiting state.</div>
-            <input value={confirmNote} onChange={(event) => setConfirmNote(event.target.value)} placeholder="Optional evidence (email app, timestamp, recipient)" className="field-input mt-2" />
+            <input value={confirmNote} onChange={(event) => setConfirmNote(event.target.value)} placeholder="Evidence source (provider, timestamp, thread/message id)" className="field-input mt-2" />
             <div className="mt-2 flex gap-2">
-              <button onClick={() => { confirmFollowUpSent(item.id, confirmNote); closeDraftModal(); }} className="primary-btn">I sent this externally</button>
+              <button onClick={() => { confirmFollowUpSent(item.id, JSON.stringify({ confirmationSource: confirmNote || 'manual', recipients })); closeDraftModal(); }} className="primary-btn">I sent this externally</button>
               <button onClick={() => setConfirming(false)} className="action-btn">Not yet</button>
             </div>
           </div>

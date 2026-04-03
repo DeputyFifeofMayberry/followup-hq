@@ -336,6 +336,43 @@ export interface IntakeWorkCandidate {
   updatedAt: string;
 }
 
+export type IntakeReviewOutcome =
+  | 'create_new_followup'
+  | 'create_new_task'
+  | 'update_existing_followup'
+  | 'update_existing_task'
+  | 'link_to_existing'
+  | 'save_as_reference'
+  | 'reject';
+
+export interface IntakeFieldReview<T = string> {
+  value?: T;
+  confidence: number;
+  evidence: IntakeEvidence[];
+}
+
+export interface IntakeReviewRecord {
+  id: string;
+  batchId: string;
+  assetId: string;
+  title: IntakeFieldReview<string>;
+  type: IntakeFieldReview<'task' | 'followup' | 'reference'>;
+  project: IntakeFieldReview<string>;
+  owner: IntakeFieldReview<string>;
+  assignee: IntakeFieldReview<string>;
+  dueDate: IntakeFieldReview<string>;
+  waitingOn: IntakeFieldReview<string>;
+  statusHint: IntakeFieldReview<string>;
+  priority: IntakeFieldReview<FollowUpPriority>;
+  summary: IntakeFieldReview<string>;
+  nextStep: IntakeFieldReview<string>;
+  candidateOutcomes: Array<{ outcome: IntakeReviewOutcome; confidence: number; reason: string }>;
+  selectedOutcome: IntakeReviewOutcome;
+  existingRecordMatches: IntakeExistingMatch[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UnifiedQueuePreset =
   | 'Today'
   | 'Due now'
@@ -492,6 +529,7 @@ export interface TeamMember {
 export interface ProjectRecord {
   id: string;
   name: string;
+  aliases?: string[];
   code?: string;
   contractReference?: string;
   clientOrg?: string;
@@ -834,6 +872,7 @@ export interface ReviewBucket {
 export interface ContactRecord {
   id: string;
   name: string;
+  aliases?: string[];
   email?: string;
   phone?: string;
   companyId?: string;
@@ -857,6 +896,7 @@ export interface ContactRecord {
 export interface CompanyRecord {
   id: string;
   name: string;
+  aliases?: string[];
   type: CompanyType;
   primaryContactId?: string;
   internalOwner?: string;
@@ -1173,4 +1213,5 @@ export interface AppSnapshot {
   savedFollowUpViews?: SavedFollowUpCustomView[];
   teamMembers?: TeamMember[];
   currentUserId?: string;
+  intakeReviews?: IntakeReviewRecord[];
 }

@@ -1,5 +1,5 @@
-import { AlertTriangle, ArrowRight, BellRing, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowRight, BellRing, ExternalLink, FilePlus2, PenSquare, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
 import type { SavedViewKey } from '../types';
@@ -13,10 +13,11 @@ type WorklistPreset = 'Due now' | 'Needs nudge' | 'Waiting too long' | 'Blocked'
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
+  personalMode?: boolean;
 }
 
-export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPageProps) {
-  const { items, tasks, hydrated, setSelectedId, openCreateModal, openCreateTaskModal } = useAppStore(
+export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false }: OverviewPageProps) {
+  const { items, tasks, hydrated, setSelectedId, openCreateModal, openCreateTaskModal, openTouchModal, openDraftModal } = useAppStore(
     useShallow((s) => ({
       items: s.items,
       tasks: s.tasks,
@@ -24,9 +25,12 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
       setSelectedId: s.setSelectedId,
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
+      openTouchModal: s.openTouchModal,
+      openDraftModal: s.openDraftModal,
     })),
   );
   const [preset, setPreset] = useState<WorklistPreset>('Due now');
+  const [selectedWorklistId, setSelectedWorklistId] = useState<string | null>(null);
 
   const activeFollowUps = useMemo(() => items.filter((item) => item.status !== 'Closed'), [items]);
   const waitingTooLong = useMemo(
@@ -50,6 +54,18 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
     return activeFollowUps.filter((item) => isOverdue(item) || new Date(item.dueDate).getTime() <= Date.now() + 86400000);
   }, [activeFollowUps, preset, waitingTooLong]);
 
+  useEffect(() => {
+    if (!worklist.length) {
+      setSelectedWorklistId(null);
+      return;
+    }
+    if (!selectedWorklistId || !worklist.some((item) => item.id === selectedWorklistId)) {
+      setSelectedWorklistId(worklist[0].id);
+    }
+  }, [worklist, selectedWorklistId]);
+
+  const selectedWorkItem = worklist.find((item) => item.id === selectedWorklistId) ?? null;
+
   const dueNowCount = activeFollowUps.filter((item) => isOverdue(item) || new Date(item.dueDate).getTime() <= Date.now() + 86400000).length;
   const nudgeCount = activeFollowUps.filter(needsNudge).length;
   const blockedCount = activeFollowUps.filter((item) => item.status === 'At risk' || item.escalationLevel === 'Critical').length;
@@ -60,7 +76,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
       <AppShellCard>
         <SectionHeader
           title="Worklist"
-          subtitle="One action-first command surface for what needs attention next."
+          subtitle={personalMode ? 'Personal execution queue for what you should do next.' : 'Team execution queue with ownership and pressure context.'}
           actions={<button onClick={openCreateModal} className="primary-btn"><Plus className="h-4 w-4" />Add follow-up</button>}
         />
         <div className="overview-stat-grid overview-stat-grid-compact">
@@ -92,40 +108,59 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView }: OverviewPag
             ) : worklist.length === 0 ? (
               <EmptyState title="No items in this preset" message="Switch presets or create a follow-up to keep momentum." />
             ) : (
-              worklist.slice(0, 12).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedId(item.id);
-                    onOpenTrackerView('All');
-                  }}
-                  className="overview-priority-row"
-                >
-                  <div className="overview-priority-main">
-                    <div className="overview-priority-title">{item.title}</div>
-                    <div className="overview-priority-meta">{item.project} • {item.owner} • Due {formatDate(item.dueDate)} • Next {item.nextAction || 'No next action set'}</div>
-                  </div>
-                  <div className="overview-priority-badges">
-                    <Badge variant={item.escalationLevel === 'Critical' ? 'danger' : 'neutral'}>{item.escalationLevel}</Badge>
-                    {needsNudge(item) ? <Badge variant="warn">Nudge</Badge> : null}
-                    {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
-                  </div>
-                </button>
-              ))
+              worklist.slice(0, 12).map((item) => {
+                const active = item.id === selectedWorklistId;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedWorklistId(item.id)}
+                    className={active ? 'overview-priority-row overview-priority-row-active' : 'overview-priority-row'}
+                  >
+                    <div className="overview-priority-main">
+                      <div className="overview-priority-title">{item.title}</div>
+                      <div className="overview-priority-meta">{item.project} • {item.owner} • Due {formatDate(item.dueDate)} • Next {item.nextAction || 'No next action set'}</div>
+                    </div>
+                    <div className="overview-priority-badges">
+                      <Badge variant={item.escalationLevel === 'Critical' ? 'danger' : 'neutral'}>{item.escalationLevel}</Badge>
+                      {needsNudge(item) ? <Badge variant="warn">Nudge</Badge> : null}
+                      {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </AppShellCard>
 
         <AppShellCard>
-          <SectionHeader title="Context" subtitle="Suggested next moves from this queue." compact />
-          <div className="overview-action-stack">
-            <button onClick={() => onOpenTrackerView('Needs nudge')} className="action-btn justify-start"><BellRing className="h-4 w-4" />Open nudge queue</button>
-            <button onClick={() => onOpenTrackerView('Overdue')} className="action-btn justify-start"><AlertTriangle className="h-4 w-4" />Work overdue follow-ups</button>
-            <button onClick={openCreateTaskModal} className="action-btn justify-start"><Plus className="h-4 w-4" />Create task from context</button>
-            <button onClick={() => onOpenWorkspace('projects')} className="action-btn justify-start">Review project pressure <ArrowRight className="h-4 w-4" /></button>
-            <button onClick={() => onOpenWorkspace('relationships')} className="action-btn justify-start">Check relationship blockers <ArrowRight className="h-4 w-4" /></button>
-            <button onClick={() => onOpenWorkspace('tasks')} className="action-btn justify-start">Open task workspace <ArrowRight className="h-4 w-4" /></button>
-          </div>
+          <SectionHeader title="Inspector" subtitle="Live context for the selected queue item." compact />
+          {selectedWorkItem ? (
+            <div className="space-y-3">
+              <div className="detail-card">
+                <div className="text-sm font-semibold text-slate-950">{selectedWorkItem.title}</div>
+                <div className="mt-1 text-xs text-slate-500">{selectedWorkItem.project} • {selectedWorkItem.owner}</div>
+                <div className="mt-2 grid gap-2 text-sm text-slate-700">
+                  <div>Due: <span className="font-medium text-slate-900">{formatDate(selectedWorkItem.dueDate)}</span></div>
+                  <div>Next action: <span className="font-medium text-slate-900">{selectedWorkItem.nextAction || 'No next action set'}</span></div>
+                  <div>Summary: <span className="text-slate-900">{selectedWorkItem.summary || 'No summary yet.'}</span></div>
+                  <div>Risk / cleanup: <span className="font-medium text-slate-900">{selectedWorkItem.escalationLevel}{selectedWorkItem.needsCleanup ? ' • Needs cleanup' : ' • Clean'}</span></div>
+                </div>
+              </div>
+              <div className="overview-action-stack">
+                <button onClick={() => { setSelectedId(selectedWorkItem.id); openTouchModal(); }} className="action-btn justify-start"><BellRing className="h-4 w-4" />Log touch</button>
+                <button onClick={() => { setSelectedId(selectedWorkItem.id); openCreateTaskModal(); }} className="action-btn justify-start"><FilePlus2 className="h-4 w-4" />Create linked task</button>
+                <button onClick={() => { setSelectedId(selectedWorkItem.id); openDraftModal(selectedWorkItem.id); }} className="action-btn justify-start"><PenSquare className="h-4 w-4" />Draft follow-up</button>
+                <button onClick={() => { setSelectedId(selectedWorkItem.id); onOpenTrackerView('All'); }} className="action-btn justify-start">Open full record <ExternalLink className="h-4 w-4" /></button>
+              </div>
+              <div className="overview-action-stack overview-action-stack-muted">
+                <button onClick={() => onOpenTrackerView('Needs nudge')} className="action-btn justify-start"><BellRing className="h-4 w-4" />Open nudge queue</button>
+                <button onClick={() => onOpenWorkspace('tasks')} className="action-btn justify-start">Open task workspace <ArrowRight className="h-4 w-4" /></button>
+                {!personalMode ? <button onClick={() => onOpenWorkspace('projects')} className="action-btn justify-start">Review project pressure <AlertTriangle className="h-4 w-4" /></button> : null}
+              </div>
+            </div>
+          ) : (
+            <EmptyState title="Nothing selected" message="Select an item in the queue to inspect details and run actions." />
+          )}
         </AppShellCard>
       </div>
     </div>

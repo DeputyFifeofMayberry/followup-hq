@@ -28,6 +28,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'due' | 'priority' | 'updated'>('due');
   const [mode, setMode] = useState<TaskMode>('today');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
 
@@ -108,18 +109,26 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                     <div className={`mt-1 text-xs ${selectedTask?.id === task.id ? 'text-slate-300' : 'text-slate-500'}`}>{task.project} • {task.nextStep || 'No next step set'}</div>
                   </div>
                   <div className="workspace-data-row-controls" onClick={(event) => event.stopPropagation()}>
-                    <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as typeof task.status })} className={`field-input !w-[126px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
-                      {['To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status}</option>)}
-                    </select>
-                    <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as typeof task.priority })} className={`field-input !w-[112px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
-                      {['Low', 'Medium', 'High', 'Critical'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-                    </select>
-                    <input type="date" value={toDateInputValue(task.dueDate)} onChange={(event) => updateTask(task.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className={`field-input !w-[142px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`} />
+                    <div className="task-row-display-chips">
+                      <Badge variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>
+                      <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
+                      <Badge variant="neutral">Due {formatDate(task.dueDate)}</Badge>
+                    </div>
+                    <button onClick={(event) => { event.stopPropagation(); setEditingTaskId((value) => value === task.id ? null : task.id); }} className="action-btn row-edit-toggle !px-2 !py-1 text-xs"><Pencil className="h-3.5 w-3.5" />Quick edit</button>
+                    {selectedTask?.id === task.id || editingTaskId === task.id ? (
+                      <div className="task-row-edit-controls">
+                        <select value={task.status} onChange={(event) => updateTask(task.id, { status: event.target.value as typeof task.status })} className={`field-input !w-[126px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                          {['To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                        <select value={task.priority} onChange={(event) => updateTask(task.id, { priority: event.target.value as typeof task.priority })} className={`field-input !w-[112px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`}>
+                          {['Low', 'Medium', 'High', 'Critical'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                        </select>
+                        <input type="date" value={toDateInputValue(task.dueDate)} onChange={(event) => updateTask(task.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className={`field-input !w-[142px] !py-1.5 text-xs ${selectedTask?.id === task.id ? '!bg-white/10 !text-white' : ''}`} />
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>
-                  <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
                   {task.linkedFollowUpId ? <Badge variant="neutral">Linked follow-up</Badge> : null}
                   <button onClick={(event) => { event.stopPropagation(); updateTask(task.id, { status: 'Done' }); }} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
                 </div>

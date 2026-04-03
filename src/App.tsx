@@ -258,7 +258,7 @@ function OverviewWorkspace({
 
 function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <ControlBar />
       <div className="tracker-main-grid">
         <div className="space-y-5">

@@ -91,7 +91,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
         {activeTab === 'history' ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 app-shell-card app-shell-card-muted">
+          <div className="surface-block text-sm text-slate-700">
             Intake history is now represented by persistent batches and assets in the Universal Intake Workspace. Select any asset to inspect extracted text, evidence, parse status, and candidate outcomes.
           </div>
         ) : null}
@@ -235,7 +235,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         </details>
         ) : activeTab === 'settings' ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 app-shell-card app-shell-card-muted">
+          <div className="surface-block text-sm text-slate-600">
             Advanced Outlook OAuth and PKCE setup is admin-only. Forwarding intake remains fully available for standard users.
           </div>
         ) : null}

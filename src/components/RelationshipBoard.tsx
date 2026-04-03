@@ -211,7 +211,7 @@ export function RelationshipBoard() {
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
               {filteredRows.map((row) => (
-                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row list-row-family text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active list-row-family-active' : ''}`}>
+                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active list-row-family-active' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium text-slate-900">{row.name}</div>

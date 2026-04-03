@@ -167,7 +167,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
 
           <div className="project-card-list">
             {sortedRows.map((row) => (
-              <button key={row.project.id} onClick={() => setSelectedProjectId(row.project.id)} className={selectedProjectId === row.project.id ? 'project-card project-card-active list-row-family list-row-family-active' : 'project-card list-row-family'}>
+              <button key={row.project.id} onClick={() => setSelectedProjectId(row.project.id)} className={selectedProjectId === row.project.id ? 'project-card project-card-active list-row-family-active' : 'project-card'}>
                 <div className="project-card-head">
                   <div>
                     <div className="font-medium text-slate-900">{row.project.name}</div>
@@ -241,7 +241,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open follow-ups</span><button onClick={() => setSelectedFollowUpIds(selectedRow.openFollowUps.map((item) => item.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
-                      <label key={item.id} className="project-entity-row list-row-family">
+                      <label key={item.id} className="project-entity-row">
                         <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button></div>
                       </label>
                     ))}
@@ -257,7 +257,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open tasks</span><button onClick={() => setSelectedTaskIds(selectedRow.openTasks.map((task) => task.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
-                      <label key={task.id} className="project-entity-row list-row-family">
+                      <label key={task.id} className="project-entity-row">
                         <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div></div>
                       </label>
                     ))}

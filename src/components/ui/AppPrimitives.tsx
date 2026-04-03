@@ -64,6 +64,14 @@ export function PageSection({ children, className = '' }: PropsWithChildren<{ cl
   return <section className={`page-section ${className}`.trim()}>{children}</section>;
 }
 
+export function SurfaceBlock({
+  children,
+  surface = 'muted',
+  className = '',
+}: PropsWithChildren<{ surface?: Extract<SurfaceType, 'muted' | 'inspector' | 'row' | 'warning'>; className?: string }>) {
+  return <div className={`surface-block surface-block-${surface} ${className}`.trim()}>{children}</div>;
+}
+
 export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' | 'success' | 'danger' }>) {
   return <span className={`app-badge app-badge-${tone}`}>{children}</span>;
 }

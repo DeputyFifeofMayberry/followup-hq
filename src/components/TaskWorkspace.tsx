@@ -151,7 +151,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <div className="space-y-5">
-      <AppShellCard surface="command">
+      <AppShellCard surface="hero">
         <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
@@ -167,7 +167,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
           </FilterBar>
 
-          <div className="task-primary-controls">
+          <div className="task-primary-controls toolbar-row">
             <label className="field-block">
               <span className="field-label">Search</span>
               <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, block reason, context, tags" className="field-input search-field-input" /></div>
@@ -178,7 +178,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           </div>
 
           {advancedOpen ? (
-            <div className="task-advanced-controls">
+            <div className="task-advanced-controls advanced-filter-surface">
               <div className={`grid gap-2 ${personalMode ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
                 <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
                 {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
@@ -201,7 +201,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
               const workflowState = taskWorkflowState(task);
               return (
-                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row workspace-data-row-compact task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active' : ''}`}>
+                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row workspace-data-row-compact task-work-row list-row-family ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
                   <div className="workspace-data-row-main">
                     <div>
                       <div className="text-sm font-semibold">{task.title}</div>
@@ -233,7 +233,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           </div>
         </AppShellCard>
 
-        <aside className="workspace-inspector-panel task-inspector-panel premium-inspector">
+        <AppShellCard className="workspace-inspector-panel task-inspector-panel premium-inspector" surface="inspector">
           {selectedTask ? (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
@@ -276,7 +276,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Why task exists</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.contextNote || selectedTask.linkedProjectContext || 'Execution support task.'}</p></div>
             </div>
           ) : (<EmptyState title="No task selected" message="Select a task to see details and actions." />)}
-        </aside>
+        </AppShellCard>
       </div>
     </div>
   );

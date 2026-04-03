@@ -111,7 +111,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
                   }}
                   tabIndex={0}
                   aria-selected={active}
-                  className={active ? 'tracker-row tracker-row-active' : 'tracker-row'}
+                  className={active ? 'tracker-row tracker-row-active list-row-family list-row-family-active' : 'tracker-row list-row-family'}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="tracker-cell">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>

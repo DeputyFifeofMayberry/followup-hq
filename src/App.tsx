@@ -25,7 +25,7 @@ import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
-import { SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 
@@ -429,7 +429,7 @@ function MainApp() {
         </aside>
 
           <main className="app-main-pane">
-            <header className="workspace-header workspace-header-tight">
+            <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
             <div>
               <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
               <h1>{currentMeta.title}</h1>
@@ -454,9 +454,11 @@ function MainApp() {
         </div>
 
       {showCommand ? (
-        <div className="modal-backdrop" onClick={() => setShowCommand(false)}>
-          <div className="modal-panel" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><div className="text-lg font-semibold text-slate-900">Command palette</div><button onClick={() => setShowCommand(false)} className="action-btn">Close</button></div>
+        <div>
+          <AppModal size="standard" onBackdropClick={() => setShowCommand(false)}>
+            <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
+              <AppModalHeader title="Command palette" onClose={() => setShowCommand(false)} />
+              <AppModalBody scrollable={false}>
             <label className="field-block">
               <span className="field-label">Quick find command</span>
               <div className="search-field-wrap">
@@ -472,7 +474,9 @@ function MainApp() {
               </div>
             </label>
             <div className="space-y-2">{visibleCommands.length ? visibleCommands.map((command) => <button type="button" key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>) : <div className="empty-state"><div className="empty-state-title">No matching command</div><div className="empty-state-message">Try a shorter keyword such as “task” or “follow”.</div></div>}</div>
-          </div>
+              </AppModalBody>
+            </div>
+          </AppModal>
         </div>
       ) : null}
 

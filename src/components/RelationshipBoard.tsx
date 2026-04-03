@@ -11,6 +11,7 @@ import {
   sortRelationshipSummaries,
   type RelationshipSortKey,
 } from '../lib/relationshipSelectors';
+import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
 
 export function RelationshipBoard() {
   const {
@@ -101,15 +102,14 @@ export function RelationshipBoard() {
   } : { followUps: 0, tasks: 0, contacts: 0 };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm workspace-inspector-panel relationship-command-surface">
+    <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="command">
       <div className="border-b border-slate-200 px-5 py-4">
-        <h2 className="text-lg font-semibold text-slate-950">Relationship command center</h2>
-        <p className="mt-1 text-sm text-slate-500">Scan pressure across contacts and companies, then jump directly into the work creating risk.</p>
+        <SectionHeader title="Relationship command center" subtitle="Scan pressure across contacts and companies, then jump directly into the work creating risk." />
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl border border-slate-200 p-4 advanced-filter-surface">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4" />Find relationships</div>
             <div className="grid gap-2 md:grid-cols-2">
               <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search contact, company, owner, role" className="field-input" />
@@ -149,12 +149,12 @@ export function RelationshipBoard() {
                     if (view.sortBy) setSortBy(view.sortBy);
                     if (view.sortDirection) setSortDirection(view.sortDirection);
                   }}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                  className="action-btn !px-2.5 !py-1 text-xs"
                 >
                   {view.label}
                 </button>
               ))}
-              <button onClick={() => setFilters(defaultRelationshipFilter)} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">Reset</button>
+              <button onClick={() => setFilters(defaultRelationshipFilter)} className="action-btn !px-2.5 !py-1 text-xs">Reset</button>
             </div>
           </div>
 
@@ -162,7 +162,7 @@ export function RelationshipBoard() {
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Filter className="h-4 w-4" />Likely bottlenecks</div>
             <div className="space-y-2">
               {bottlenecks.map((entry) => (
-                <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl border border-slate-200 p-2 text-left text-sm hover:bg-slate-50">
+                <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl border border-slate-200 p-2 text-left text-sm hover:bg-slate-50 list-row-family">
                   <div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{entry.name}</span><span className="text-xs text-rose-700">Score {entry.pressureScore}</span></div>
                   <div className="mt-1 text-xs text-slate-600">Waiting {entry.waitingFollowUps} • Overdue {entry.overdueFollowUps + entry.overdueTasks} • Blocked tasks {entry.blockedTasks}</div>
                 </button>
@@ -174,7 +174,7 @@ export function RelationshipBoard() {
             <div className="mb-2 text-sm font-semibold text-slate-900">Internal ownership load</div>
             <div className="space-y-2">
               {ownerSummary.slice(0, 6).map((owner) => (
-                <div key={owner.owner} className="rounded-xl border border-slate-200 p-2 text-xs text-slate-700">
+                <div key={owner.owner} className="rounded-xl border border-slate-200 p-2 text-xs text-slate-700 list-row-family">
                   <div className="font-medium text-slate-900">{owner.owner}</div>
                   <div className="mt-1">Active {owner.activeCount} • Waiting {owner.waitingCount} • Overdue {owner.overdueCount}</div>
                 </div>
@@ -211,7 +211,7 @@ export function RelationshipBoard() {
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
               {filteredRows.map((row) => (
-                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active' : 'hover:bg-slate-50'}`}>
+                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row list-row-family text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active list-row-family-active' : 'hover:bg-slate-50'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium text-slate-900">{row.name}</div>
@@ -335,6 +335,6 @@ export function RelationshipBoard() {
           </div>
         </div>
       </div>
-    </section>
+    </AppShellCard>
   );
 }

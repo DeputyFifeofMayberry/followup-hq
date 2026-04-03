@@ -82,7 +82,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         }
       />
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 toolbar-row">
           <button className={`action-btn ${activeTab === 'review' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('review')}>Review Queue</button>
           <button className={`action-btn ${activeTab === 'history' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('history')}>Intake History</button>
           <button className={`action-btn ${activeTab === 'rules' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
@@ -91,14 +91,14 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
         {activeTab === 'history' ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 app-shell-card app-shell-card-muted">
             Intake history is now represented by persistent batches and assets in the Universal Intake Workspace. Select any asset to inspect extracted text, evidence, parse status, and candidate outcomes.
           </div>
         ) : null}
         {activeTab === 'rules' ? <ForwardingIntakeWorkspace /> : null}
 
         {showAdvanced && activeTab === 'settings' ? (
-        <details className="rounded-2xl border border-slate-200 p-4">
+        <details className="rounded-2xl border border-slate-200 p-4 app-shell-card app-shell-card-inspector">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-900">
             <Wrench className="h-4 w-4" /> Advanced: Experimental direct Outlook sync
           </summary>
@@ -118,7 +118,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
             </div>
           ) : null}
 
-          <div className="mt-3 rounded-2xl border border-slate-200 p-4">
+          <div className="mt-3 rounded-2xl border border-slate-200 p-4 inspector-block">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
               <ShieldCheck className="h-4 w-4" /> Outlook app settings
             </div>
@@ -235,7 +235,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         </details>
         ) : activeTab === 'settings' ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 app-shell-card app-shell-card-muted">
             Advanced Outlook OAuth and PKCE setup is admin-only. Forwarding intake remains fully available for standard users.
           </div>
         ) : null}

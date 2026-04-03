@@ -1,6 +1,8 @@
 import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
 
-export function AppShellCard({ children, className = '', surface = 'default' }: PropsWithChildren<{ className?: string; surface?: 'default' | 'command' | 'data' | 'inspector' | 'muted' }>) {
+type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal';
+
+export function AppShellCard({ children, className = '', surface = 'shell' }: PropsWithChildren<{ className?: string; surface?: SurfaceType }>) {
   return <section className={`app-shell-card app-shell-card-${surface} ${className}`.trim()}>{children}</section>;
 }
 
@@ -56,6 +58,10 @@ export function StatTile({
 
 export function FilterBar({ children }: PropsWithChildren) {
   return <div className="filter-bar">{children}</div>;
+}
+
+export function PageSection({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <section className={`page-section ${className}`.trim()}>{children}</section>;
 }
 
 export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' | 'success' | 'danger' }>) {
@@ -116,10 +122,10 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-export function AppModal({ children, size = 'standard' }: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector' }>) {
+export function AppModal({ children, size = 'standard', onBackdropClick }: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector'; onBackdropClick?: () => void }>) {
   return (
-    <div className="modal-backdrop">
-      <div className={`modal-panel modal-panel-${size}`}>{children}</div>
+    <div className="modal-backdrop" onClick={onBackdropClick}>
+      <div className={`modal-panel app-shell-card app-shell-card-modal modal-panel-${size}`}>{children}</div>
     </div>
   );
 }

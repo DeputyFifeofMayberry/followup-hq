@@ -184,7 +184,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
 
   return (
     <div className="space-y-5">
-      <AppShellCard className="overview-hero-card" surface="command">
+      <AppShellCard className="overview-hero-card" surface="hero">
         <SectionHeader title="Daily execution queue" subtitle={personalMode ? 'Start here: triage and complete real work with minimal context switching.' : 'Team queue with pressure, blockers, and ownership clarity in one flow.'} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
@@ -199,7 +199,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
             <SegmentedControl value={queuePreset} onChange={(value) => setQueuePreset(value as UnifiedQueuePreset)} options={presets.map((preset) => ({ value: preset, label: preset }))} />
           </FilterBar>
 
-          <div className="overview-toolbar-row">
+          <div className="overview-toolbar-row page-toolbar">
             <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input" placeholder="Search title, project, owner, assignee, tags, next action" />
             <select value={executionSort} onChange={(event) => setExecutionSort(event.target.value as UnifiedQueueSort)} className="field-input">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
             <select value={queueDensity} onChange={(event) => setQueueDensity(event.target.value as 'compact' | 'detailed')} className="field-input"><option value="compact">Compact rows</option><option value="detailed">Detailed rows</option></select>
@@ -208,7 +208,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           </div>
 
           {advancedOpen ? (
-            <div className="overview-advanced-filters">
+            <div className="overview-advanced-filters advanced-filter-surface">
               <div className="grid gap-2 md:grid-cols-3">
                 <select value={executionFilter.types?.[0] || 'all'} onChange={(event) => setExecutionFilter({ ...executionFilter, types: event.target.value === 'all' ? undefined : [event.target.value as 'task' | 'followup'] })} className="field-input"><option value="all">All types</option><option value="task">Tasks</option><option value="followup">Follow-ups</option></select>
                 <input value={executionFilter.project?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, project: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Project" />
@@ -233,7 +233,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           ) : null}
 
           {selectedItems.length > 0 ? (
-            <div className="overview-bulk-strip">
+            <div className="overview-bulk-strip bulk-action-strip">
               <span className="px-2 py-1 font-semibold text-slate-700">{selectedItems.length} selected</span>
               <button onClick={() => runBulk('close-followups')} className="action-btn !px-2.5 !py-1 text-xs">Close follow-ups</button>
               <button onClick={() => runBulk('done-tasks')} className="action-btn !px-2.5 !py-1 text-xs">Mark tasks done</button>
@@ -268,7 +268,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                 const active = row.id === selectedId;
                 const checked = selectedRows.includes(row.id);
                 return (
-                  <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active' : 'overview-priority-row'}>
+                  <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active list-row-family list-row-family-active' : 'overview-priority-row list-row-family'}>
                     <input aria-label={`Select ${row.title}`} type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
                     <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
                       <div className="overview-priority-title">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
@@ -297,11 +297,11 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           ) : null}
         </AppShellCard>
 
-        <AppShellCard className="overview-inspector-shell">
+        <AppShellCard className="overview-inspector-shell" surface="inspector">
           <SectionHeader title="Queue inspector" subtitle="Context, risk, next action, and workflow controls." compact />
           {selected ? (
             <div className="space-y-3">
-              <div className="detail-card">
+              <div className="detail-card inspector-block">
                 <div className="text-sm font-semibold text-slate-950">{selected.title}</div>
                 <div className="mt-1 text-xs text-slate-500">{selected.recordType} • {selected.project} • {selected.assignee}</div>
                 <div className="overview-inspector-kpis">

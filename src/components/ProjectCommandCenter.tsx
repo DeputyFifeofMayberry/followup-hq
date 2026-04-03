@@ -132,14 +132,14 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
     <AppShellCard className="project-command-surface" surface="command">
       <SectionHeader title="Project command center" subtitle="Curated command surface for portfolio scan, project health, and execution workflows." />
       <div className="project-command-layout">
-        <div className="project-list-rail">
+        <div className="project-list-rail page-section">
           <div className="project-create-row">
             <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
             <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
             <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Add</button>
           </div>
 
-          <div className="project-filter-panel">
+          <div className="project-filter-panel advanced-filter-surface">
             <input value={filters.query} onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))} className="field-input" placeholder="Search by project, owner, code, phase" />
             <div className="grid gap-2 md:grid-cols-2">
               <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as ProjectFilterState['status'] }))} className="field-input"><option value="All">All statuses</option><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
@@ -167,7 +167,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
 
           <div className="project-card-list">
             {sortedRows.map((row) => (
-              <button key={row.project.id} onClick={() => setSelectedProjectId(row.project.id)} className={selectedProjectId === row.project.id ? 'project-card project-card-active' : 'project-card'}>
+              <button key={row.project.id} onClick={() => setSelectedProjectId(row.project.id)} className={selectedProjectId === row.project.id ? 'project-card project-card-active list-row-family list-row-family-active' : 'project-card list-row-family'}>
                 <div className="project-card-head">
                   <div>
                     <div className="font-medium text-slate-900">{row.project.name}</div>
@@ -237,11 +237,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="project-subpanel">
+                <div className="project-subpanel inspector-block">
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open follow-ups</span><button onClick={() => setSelectedFollowUpIds(selectedRow.openFollowUps.map((item) => item.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
-                      <label key={item.id} className="project-entity-row">
+                      <label key={item.id} className="project-entity-row list-row-family">
                         <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button></div>
                       </label>
                     ))}
@@ -253,11 +253,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                   </div>
                 </div>
 
-                <div className="project-subpanel">
+                <div className="project-subpanel inspector-block">
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open tasks</span><button onClick={() => setSelectedTaskIds(selectedRow.openTasks.map((task) => task.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
-                      <label key={task.id} className="project-entity-row">
+                      <label key={task.id} className="project-entity-row list-row-family">
                         <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div></div>
                       </label>
                     ))}
@@ -271,11 +271,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="project-subpanel"><div className="text-sm font-semibold text-slate-900">Project relationships</div><div className="mt-2 text-sm text-slate-700">Contacts ({selectedRow.contacts.length}): {selectedRow.contacts.map((contact) => contact.name).join(', ') || '—'}</div><div className="mt-1 text-sm text-slate-700">Companies ({selectedRow.companies.length}): {selectedRow.companies.map((company) => company.name).join(', ') || '—'}</div></div>
-                <div className="project-subpanel"><div className="text-sm font-semibold text-slate-900">Project activity feed</div><div className="mt-2 max-h-56 space-y-1 overflow-auto text-xs text-slate-600">{[...selectedRow.openFollowUps.map((item) => ({ at: item.lastTouchDate, label: `[Follow-up] ${item.title}` })), ...selectedRow.openTasks.map((task) => ({ at: task.updatedAt, label: `[Task] ${task.title}` })), ...selectedRow.intakeDocs.map((doc) => ({ at: doc.uploadedAt, label: `[Doc] ${doc.name}` })), { at: selectedProject.updatedAt, label: '[Project] Metadata updated' }].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 16).map((event, index) => <div key={`${event.at}-${index}`}>{formatDate(event.at)} • {event.label}</div>)}</div></div>
+                <div className="project-subpanel inspector-block"><div className="text-sm font-semibold text-slate-900">Project relationships</div><div className="mt-2 text-sm text-slate-700">Contacts ({selectedRow.contacts.length}): {selectedRow.contacts.map((contact) => contact.name).join(', ') || '—'}</div><div className="mt-1 text-sm text-slate-700">Companies ({selectedRow.companies.length}): {selectedRow.companies.map((company) => company.name).join(', ') || '—'}</div></div>
+                <div className="project-subpanel inspector-block"><div className="text-sm font-semibold text-slate-900">Project activity feed</div><div className="mt-2 max-h-56 space-y-1 overflow-auto text-xs text-slate-600">{[...selectedRow.openFollowUps.map((item) => ({ at: item.lastTouchDate, label: `[Follow-up] ${item.title}` })), ...selectedRow.openTasks.map((task) => ({ at: task.updatedAt, label: `[Task] ${task.title}` })), ...selectedRow.intakeDocs.map((doc) => ({ at: doc.uploadedAt, label: `[Doc] ${doc.name}` })), { at: selectedProject.updatedAt, label: '[Project] Metadata updated' }].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 16).map((event, index) => <div key={`${event.at}-${index}`}>{formatDate(event.at)} • {event.label}</div>)}</div></div>
               </div>
 
-              <div className="project-subpanel">
+              <div className="project-subpanel inspector-block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Project review workflow</div>
                 <div className="grid gap-2 md:grid-cols-2 text-sm text-slate-700">
                   <div>Top risks: {selectedRow.health.reasons.slice(0, 3).join(', ') || 'None'}</div>
@@ -285,7 +285,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                 </div>
               </div>
 
-              <div className="project-subpanel"><label className="mb-2 block text-sm font-medium text-slate-700">Project status output</label><textarea value={reportText} readOnly className="field-textarea" style={{ minHeight: 220 }} /></div>
+              <div className="project-subpanel inspector-block"><label className="mb-2 block text-sm font-medium text-slate-700">Project status output</label><textarea value={reportText} readOnly className="field-textarea" style={{ minHeight: 220 }} /></div>
 
               <div className="rounded-2xl border border-rose-200 p-4">
                 <div className="mb-2 text-sm font-semibold text-rose-700">Archive / delete project</div>

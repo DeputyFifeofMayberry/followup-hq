@@ -2,6 +2,13 @@
 
 ## 2026-04-03
 
+### Phase 6 cohesion and design-system enforcement
+- Consolidated shared UI primitives around explicit surface families (`shell`, `hero`, `command`, `data`, `inspector`, `muted`, `warning`, `modal`) and applied those consistently to shell cards and modal wrappers so panels inherit one visual language by default (`src/components/ui/AppPrimitives.tsx`, `src/index.css`).
+- Standardized cross-page anatomy and control rhythm in overview, task, project, relationship, and intake workspaces by aligning hero/header surfaces, toolbar/filter rows, advanced filter containers, and bulk strips (`src/components/OverviewPage.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`, `src/components/OutlookPanel.tsx`, `src/index.css`).
+- Unified row/card/list-item treatment across queue rows, table rows, task rows, project cards, and relationship rows using shared family classes for hover/selected state and padding rhythm to reduce one-off row styling drift (`src/components/OverviewPage.tsx`, `src/components/TrackerTable.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`, `src/index.css`).
+- Standardized inspector/detail surfaces for follow-up and task detail experiences by moving inspector panes onto shared inspector surfaces and common inspector block sections for facts, notes, timeline, and linked items (`src/components/ItemDetailPanel.tsx`, `src/components/TaskWorkspace.tsx`, `src/index.css`).
+- Harmonized modal language further by making command palette and modal shells use the shared modal surface treatment instead of bespoke wrappers, reducing legacy modal/surface drift (`src/App.tsx`, `src/components/ui/AppPrimitives.tsx`, `src/index.css`).
+
 ### Phase 5 authenticated visual art-direction upgrade
 - Re-art directed the signed-in shell with a branded graphite frame, ambient glows, premium control-spine nav rail, and stronger page chrome so authenticated screens carry the same identity quality as login (`src/App.tsx`, `src/index.css`).
 - Introduced clearer material hierarchy in shared primitives with explicit command/data/inspector surfaces plus richer stat-tile tones to prevent “everything is the same white card” repetition (`src/components/ui/AppPrimitives.tsx`, `src/index.css`).

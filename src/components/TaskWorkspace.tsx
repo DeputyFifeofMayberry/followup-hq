@@ -201,7 +201,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
               const workflowState = taskWorkflowState(task);
               return (
-                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row workspace-data-row-compact task-work-row list-row-family ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
+                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row workspace-data-row-compact task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
                   <div className="workspace-data-row-main">
                     <div>
                       <div className="text-sm font-semibold">{task.title}</div>

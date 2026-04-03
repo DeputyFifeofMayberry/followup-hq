@@ -2,6 +2,13 @@
 
 ## 2026-04-03
 
+### Phase 8 final visual consolidation and subtractive reset
+- Removed stacked material override generations in `src/index.css` and replaced them with one consolidated authenticated surface model (shell, hero, command, data, row, inspector, muted, modal, warning) so the app no longer relies on conflicting legacy white-first vs premium vs Phase 7 layers.
+- Re-based shared row and dense-work patterns onto a single row family and active-state treatment used by overview queue rows, tracker rows, task rows, project cards, relationship rows, and linked-entity rows, reducing duplicate row/card assumptions across pages.
+- Consolidated control/form/modal materials into one consistent input/control + modal hierarchy and removed additive per-page command-surface overrides that were fighting shared primitives.
+- Tightened primitive ownership by adding `SurfaceBlock` in `AppPrimitives` and using primitive-driven support blocks in intake messaging surfaces while removing redundant app-shell-card stacking in component markup.
+- Simplified page component class usage to avoid duplicate row/surface wrappers (overview toolbar, tracker rows, task rows, project cards, relationship rows, item detail cards), making the primitive/CSS system the single visual source of truth.
+
 ### Phase 7 material and color harmony rebalance
 - Rebuilt authenticated surface materials around a tighter tonal system (hero/content/elevated/muted/row/inspector/modal/input) with shared CSS tokens, reducing bright-white defaults and aligning main surfaces to the graphite + amber + steel-blue shell direction (`src/index.css`).
 - Reduced white dominance across high-traffic work areas by retuning list rows, data rows, tracker rows, filter/bulk strips, empty states, and inspector blocks to layered off-white/slate materials with richer selected/hover states (`src/index.css`, `src/components/TaskWorkspace.tsx`, `src/components/RelationshipBoard.tsx`).

@@ -131,6 +131,9 @@ export type ReviewBucketKey =
 export type IngestionPreset = 'Email thread' | 'Meeting notes' | 'Issue log' | 'General';
 
 export type ProjectStatus = 'Active' | 'On hold' | 'Closeout' | 'Complete';
+export type ProjectHealthTier = 'Low' | 'Moderate' | 'High' | 'Critical';
+export type ProjectCardDisplayMode = 'compact' | 'expanded';
+export type ProjectSortKey = 'health' | 'name' | 'updated' | 'targetDate' | 'overdueWork';
 
 export type IntakeDocumentKind =
   | 'Email file'
@@ -453,13 +456,61 @@ export interface ProjectRecord {
   id: string;
   name: string;
   code?: string;
+  contractReference?: string;
+  clientOrg?: string;
+  ownerOrg?: string;
   owner: string;
+  superintendent?: string;
+  leadAssignee?: string;
+  phase?: string;
   status: ProjectStatus;
+  targetCompletionDate?: string;
+  nextMilestone?: string;
+  nextMilestoneDate?: string;
+  riskSummary?: string;
+  currentBlocker?: string;
+  closeoutReadiness?: number;
+  projectNextAction?: string;
+  location?: string;
+  facility?: string;
+  building?: string;
+  lastReviewedAt?: string;
   notes: string;
   completionNote?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectHealthBreakdown {
+  openFollowUps: number;
+  overdueFollowUps: number;
+  needsNudge: number;
+  atRiskFollowUps: number;
+  waitingFollowUps: number;
+  blockedTasks: number;
+  overdueTasks: number;
+  deferredTasks: number;
+  readyToCloseSignals: number;
+  docsNeedingReview: number;
+  staleIntakeDocs: number;
+  staleActivityDays: number;
+}
+
+export interface ProjectHealthIndicators {
+  blocked: boolean;
+  overdue: boolean;
+  stale: boolean;
+  waitingHeavy: boolean;
+  closeoutReady: boolean;
+}
+
+export interface ProjectHealthSummary {
+  score: number;
+  tier: ProjectHealthTier;
+  reasons: string[];
+  breakdown: ProjectHealthBreakdown;
+  indicators: ProjectHealthIndicators;
 }
 
 

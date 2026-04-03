@@ -238,9 +238,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Task control panel</div>
-                  <h3 className="mt-2 text-xl font-semibold text-slate-950">{selectedTask.title}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{selectedTask.project} · {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
+                  <div className="inspector-kicker">Task control panel</div>
+                  <h3 className="inspector-title">{selectedTask.title}</h3>
+                  <p className="inspector-meta">{selectedTask.project} · {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
                 </div>
                 <div className="flex gap-2"><button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button><button onClick={() => deleteTask(selectedTask.id)} className="action-btn text-rose-600"><Trash2 className="h-4 w-4" />Delete</button></div>
               </div>

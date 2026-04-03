@@ -187,8 +187,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
             <>
               <div className="project-detail-top">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-950">{selectedProject.name}</h3>
-                  <p className="mt-1 text-sm text-slate-500">Project-centered command view with health, open work, and execution actions.</p>
+                  <h3 className="inspector-title">{selectedProject.name}</h3>
+                  <p className="inspector-meta">Project-centered command view with health, open work, and execution actions.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Focus tracker</button>

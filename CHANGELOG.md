@@ -2,6 +2,11 @@
 
 ## 2026-04-03
 
+### Phase 8 final graphics pass (left rail typography/color fix first)
+- Rebuilt left navigation rail typography and state hierarchy with dedicated rail text tokens, improved brand stack rhythm, non-opacity muted states, and a purpose-built command palette trigger that now visually belongs to the dark rail (`src/index.css`, `src/App.tsx`).
+- Refined rail card language for active/inactive/muted states with crisper icon-label alignment, stronger count pill treatment, and clearer readable contrast across personal and team modes (`src/index.css`, `src/App.tsx`).
+- Applied one final graphics polish pass across shared UI primitives and workspace surfaces by tightening modal header typography, stat tile hierarchy, tracker table header/title typography, and command/tab chip consistency (`src/components/ui/AppPrimitives.tsx`, `src/components/OverviewPage.tsx`, `src/components/TrackerTable.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`, `src/components/OutlookPanel.tsx`, `src/components/ItemDetailPanel.tsx`, `src/index.css`).
+
 ### Phase 8 final visual consolidation and subtractive reset
 - Removed stacked material override generations in `src/index.css` and replaced them with one consolidated authenticated surface model (shell, hero, command, data, row, inspector, muted, modal, warning) so the app no longer relies on conflicting legacy white-first vs premium vs Phase 7 layers.
 - Re-based shared row and dense-work patterns onto a single row family and active-state treatment used by overview queue rows, tracker rows, task rows, project cards, relationship rows, and linked-entity rows, reducing duplicate row/card assumptions across pages.

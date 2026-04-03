@@ -416,16 +416,16 @@ function MainApp() {
             {navItems.map(({ key, label, icon: Icon }) => {
               const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
               return (
-              <button key={key} type="button" onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`} aria-current={workspace === key ? 'page' : undefined}>
-                <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-900">
-                  <span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
-                  {navCounts[key] ? <span className="nav-pill">{navCounts[key]}</span> : null}
+              <button key={key} type="button" onClick={() => setWorkspace(key)} className={workspace === key ? 'saved-view-card saved-view-card-active nav-card nav-card-active' : `saved-view-card nav-card ${deemphasized ? 'nav-card-muted' : ''}`} aria-current={workspace === key ? 'page' : undefined}>
+                <div className="nav-card-row">
+                  <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>
+                  {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
                 </div>
               </button>
               );
             })}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="action-btn justify-start w-full" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
         </aside>
 
           <main className="app-main-pane">

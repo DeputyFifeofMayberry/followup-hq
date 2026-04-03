@@ -200,7 +200,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           </FilterBar>
 
           <div className="overview-toolbar-row toolbar-row">
-            <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input" placeholder="Search title, project, owner, assignee, tags, next action" />
+            <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input workspace-search-input" placeholder="Search title, project, owner, assignee, tags, next action" />
             <select value={executionSort} onChange={(event) => setExecutionSort(event.target.value as UnifiedQueueSort)} className="field-input">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
             <select value={queueDensity} onChange={(event) => setQueueDensity(event.target.value as 'compact' | 'detailed')} className="field-input"><option value="compact">Compact rows</option><option value="detailed">Detailed rows</option></select>
             <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>

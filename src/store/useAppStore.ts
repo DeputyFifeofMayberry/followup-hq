@@ -185,7 +185,8 @@ interface AppState {
   generateDraftForItem: (id: string) => void;
   addProject: (input: Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateProject: (id: string, patch: Partial<ProjectRecord>) => void;
-  deleteProject: (id: string) => void;
+  reassignProjectRecords: (fromProjectId: string, toProjectId: string, recordTypes?: Array<'followups' | 'tasks' | 'docs'>) => void;
+  deleteProject: (id: string, reassignToProjectId?: string) => void;
   addIntakeDocument: (input: { name: string; kind: IntakeDocumentKind; projectId?: string; project?: string; owner?: string; sourceRef?: string; notes?: string; tags?: string[] }) => string;
   updateIntakeDocument: (id: string, patch: Partial<IntakeDocumentRecord>) => void;
   setIntakeDocumentDisposition: (id: string, disposition: IntakeDocumentDisposition, linkedFollowUpId?: string) => void;
@@ -1162,22 +1163,45 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const items = original && patch.name && patch.name !== original.name
         ? attachProjects(state.items.map((item) => item.projectId === id ? normalizeItem({ ...item, project: renamedTo }) : item), projects)
         : attachProjects(state.items, projects);
+      const tasks = state.tasks.map((task) => task.projectId === id ? normalizeTask({ ...task, project: renamedTo }) : task);
       const intakeDocuments = state.intakeDocuments.map((doc) => doc.projectId === id ? { ...doc, project: renamedTo } : doc);
-      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, intakeDocuments };
+      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, tasks, intakeDocuments };
     });
     queuePersist(get, set);
   },
-  deleteProject: (id) => {
+  reassignProjectRecords: (fromProjectId, toProjectId, recordTypes = ['followups', 'tasks', 'docs']) => {
     set((state) => {
+      if (fromProjectId === toProjectId) return state;
+      const target = state.projects.find((project) => project.id === toProjectId);
+      if (!target) return state;
+      const typeSet = new Set(recordTypes);
+      const items = typeSet.has('followups')
+        ? attachProjects(state.items.map((item) => item.projectId === fromProjectId ? normalizeItem({ ...item, projectId: target.id, project: target.name }) : item), state.projects)
+        : state.items;
+      const tasks = typeSet.has('tasks')
+        ? state.tasks.map((task) => task.projectId === fromProjectId ? normalizeTask({ ...task, projectId: target.id, project: target.name }) : task)
+        : state.tasks;
+      const intakeDocuments = typeSet.has('docs')
+        ? state.intakeDocuments.map((doc) => doc.projectId === fromProjectId ? { ...doc, projectId: target.id, project: target.name } : doc)
+        : state.intakeDocuments;
+      return { items, tasks, intakeDocuments };
+    });
+    queuePersist(get, set);
+  },
+  deleteProject: (id, reassignToProjectId) => {
+    set((state) => {
+      if (!state.projects.some((project) => project.id === id)) return state;
       const general = state.projects.find((project) => project.name === 'General') ?? {
         id: createId('PRJ'),
         name: 'General', owner: 'Unassigned', status: 'Active', notes: '', tags: ['General'], createdAt: todayIso(), updatedAt: todayIso(),
       };
       const existingProjects = state.projects.some((project) => project.id === general.id) ? state.projects : [...state.projects, general];
+      const targetProject = existingProjects.find((project) => project.id === reassignToProjectId && project.id !== id) ?? general;
       const projects = existingProjects.filter((project) => project.id !== id);
-      const items = attachProjects(state.items.map((item) => item.projectId === id ? normalizeItem({ ...item, projectId: general.id, project: general.name }) : item), projects);
-      const intakeDocuments = state.intakeDocuments.map((doc) => doc.projectId === id ? { ...doc, projectId: general.id, project: general.name } : doc);
-      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, intakeDocuments };
+      const items = attachProjects(state.items.map((item) => item.projectId === id ? normalizeItem({ ...item, projectId: targetProject.id, project: targetProject.name }) : item), projects);
+      const tasks = state.tasks.map((task) => task.projectId === id ? normalizeTask({ ...task, projectId: targetProject.id, project: targetProject.name }) : task);
+      const intakeDocuments = state.intakeDocuments.map((doc) => doc.projectId === id ? { ...doc, projectId: targetProject.id, project: targetProject.name } : doc);
+      return { projects: projects.sort((a, b) => a.name.localeCompare(b.name)), items, tasks, intakeDocuments };
     });
     queuePersist(get, set);
   },

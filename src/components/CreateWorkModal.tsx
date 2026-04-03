@@ -139,12 +139,17 @@ export function CreateWorkModal() {
         ...defaultTask,
         title: createWorkDraft.title || defaultTask.title,
         owner: createWorkDraft.owner || defaultTask.owner,
+        assigneeDisplayName: createWorkDraft.assigneeDisplayName || createWorkDraft.owner || defaultTask.assigneeDisplayName,
         project: projectMatch?.name ?? createWorkDraft.project ?? defaultTask.project,
-        projectId: projectMatch?.id ?? defaultTask.projectId,
+        projectId: projectMatch?.id ?? createWorkDraft.projectId ?? defaultTask.projectId,
         dueDate: createWorkDraft.dueDate || defaultTask.dueDate,
         nextStep: createWorkDraft.nextStep || createWorkDraft.title || defaultTask.nextStep,
         summary: createWorkDraft.rawText,
         priority: createWorkDraft.priority,
+        linkedFollowUpId: createWorkDraft.linkedFollowUpId || defaultTask.linkedFollowUpId,
+        contextNote: createWorkDraft.contextNote || defaultTask.contextNote,
+        companyId: createWorkDraft.companyId || defaultTask.companyId,
+        contactId: createWorkDraft.contactId || defaultTask.contactId,
       });
       setModalMode(createWorkDraft.cleanupReasons?.length ? 'full' : 'fast');
       return;

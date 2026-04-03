@@ -1,3 +1,4 @@
+import { ArrowUpDown, CalendarDays } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
@@ -5,7 +6,7 @@ import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputVa
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
-import { AppShellCard, EmptyState } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
@@ -31,8 +32,14 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
+  const summary = useMemo(() => ({
+    open: filteredItems.filter((item) => item.status !== 'Closed').length,
+    overdue: filteredItems.filter((item) => item.dueDate && new Date(item.dueDate).getTime() < Date.now() && item.status !== 'Closed').length,
+    waiting: filteredItems.filter((item) => !!item.waitingOn && item.status !== 'Closed').length,
+  }), [filteredItems]);
+
   const baseColumns: Record<FollowUpColumnKey, ColumnDef<FollowUpItem>> = {
-    title: { accessorKey: 'title', header: 'Title', cell: ({ row }) => <div><div className="font-medium text-slate-900">{row.original.title}</div><div className="text-xs text-slate-500">{personalMode ? row.original.project : row.original.id}</div></div> },
+    title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="font-medium text-slate-900">{row.original.title}</div><div className="text-xs text-slate-500">{personalMode ? row.original.project : row.original.id}</div></div> },
     project: { accessorKey: 'project', header: 'Project' },
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
@@ -45,7 +52,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     escalation: { accessorKey: 'escalationLevel', header: 'Escalation' },
     actionState: { accessorKey: 'actionState', header: 'Action state', cell: ({ row }) => row.original.actionState || 'Draft created' },
     linkedTaskSummary: { id: 'linkedTaskSummary', accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`, header: 'Linked tasks', cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open` },
-    nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs">{row.original.nextAction}</div> },
+    nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
   };
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
@@ -63,30 +70,38 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         header: 'Quick actions',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex gap-1">
-            <button className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-            <button className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: row.original.status === 'Closed' ? 'Needs action' : 'Closed' }); }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
-            <input className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
+          <div className="tracker-quick-actions" onClick={(event) => event.stopPropagation()}>
+            <button className="action-btn !px-2 !py-1 text-xs" onClick={() => markNudged(row.original.id)}>Nudge</button>
+            <button className="action-btn !px-2 !py-1 text-xs" onClick={() => updateItem(row.original.id, { status: row.original.status === 'Closed' ? 'Needs action' : 'Closed' })}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
+            <div className="tracker-date-action"><CalendarDays className="h-4 w-4" /><input className="field-input !w-[132px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} /></div>
           </div>
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
   return (
-    <AppShellCard className="p-0">
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse tracker-table">
+    <AppShellCard className="tracker-surface">
+      <SectionHeader title="Follow-up execution surface" subtitle="High-density tracker with stronger hierarchy, selection, and row actions." compact />
+      <div className="overview-stat-grid overview-stat-grid-compact">
+        <StatTile label="Visible" value={filteredItems.length} helper="Items in current view" />
+        <StatTile label="Open" value={summary.open} helper="Still needs action" />
+        <StatTile label="Overdue" value={summary.overdue} helper="Past due date" tone={summary.overdue ? 'warn' : 'default'} />
+        <StatTile label="Waiting" value={summary.waiting} helper="External dependency" />
+      </div>
+      <div className="tracker-table-wrap">
+        <table className="min-w-full border-collapse tracker-table tracker-table-premium">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50">
+              <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th key={header.id} className="tracker-head-cell">
                     {header.isPlaceholder ? null : (
-                      <button className="inline-flex items-center gap-1" onClick={header.column.getToggleSortingHandler()}>
+                      <button className="tracker-head-btn" onClick={header.column.getToggleSortingHandler()}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() ? <ArrowUpDown className="h-3.5 w-3.5" /> : null}
                       </button>
                     )}
                   </th>
@@ -98,9 +113,9 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             {table.getRowModel().rows.map((row) => {
               const active = row.original.id === selectedId;
               return (
-                <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'tracker-row tracker-row-active' : 'tracker-row'}>
+                <tr key={row.id} onClick={() => setSelectedId(row.original.id)} className={active ? 'tracker-row tracker-row-active tracker-row-premium' : 'tracker-row tracker-row-premium'}>
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 align-top text-sm text-slate-700">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    <td key={cell.id} className="tracker-cell">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
                 </tr>
               );
@@ -109,6 +124,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         </table>
         {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters or create a follow-up." /></div> : null}
       </div>
+      <div className="text-xs text-slate-500">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : 'Select rows to run bulk actions from the execution controls.'}</div>
     </AppShellCard>
   );
 }

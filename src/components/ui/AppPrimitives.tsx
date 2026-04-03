@@ -1,7 +1,41 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
+
+type ButtonTone = 'primary' | 'secondary' | 'danger';
+
+function getButtonClass(tone: ButtonTone) {
+  switch (tone) {
+    case 'primary':
+      return 'primary-btn';
+    case 'danger':
+      return 'action-btn action-btn-danger';
+    default:
+      return 'action-btn';
+  }
+}
+
+export function AppButton({
+  tone = 'secondary',
+  className = '',
+  children,
+  ...props
+}: PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement> & { tone?: ButtonTone }>) {
+  return (
+    <button {...props} className={`${getButtonClass(tone)} ${className}`.trim()}>
+      {children}
+    </button>
+  );
+}
 
 export function AppShellCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <section className={`app-shell-card ${className}`.trim()}>{children}</section>;
+}
+
+export function ElevatedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <section className={`elevated-panel ${className}`.trim()}>{children}</section>;
+}
+
+export function MutedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <section className={`muted-panel ${className}`.trim()}>{children}</section>;
 }
 
 export function SectionHeader({
@@ -26,7 +60,17 @@ export function SectionHeader({
   );
 }
 
-export function StatTile({ label, value, helper, tone = 'default' }: { label: string; value: number | string; helper?: string; tone?: 'default' | 'warn' | 'danger' }) {
+export function StatTile({
+  label,
+  value,
+  helper,
+  tone = 'default',
+}: {
+  label: string;
+  value: number | string;
+  helper?: string;
+  tone?: 'default' | 'warn' | 'danger';
+}) {
   return (
     <div className={`stat-tile stat-tile-${tone}`}>
       <div className="stat-tile-label">{label}</div>
@@ -38,6 +82,14 @@ export function StatTile({ label, value, helper, tone = 'default' }: { label: st
 
 export function FilterBar({ children }: PropsWithChildren) {
   return <div className="filter-bar">{children}</div>;
+}
+
+export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' | 'success' | 'danger' }>) {
+  return <span className={`app-badge app-badge-${tone}`}>{children}</span>;
+}
+
+export function WorkspaceHeaderMetaPill({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' }>) {
+  return <div className={`workspace-meta-pill workspace-meta-pill-${tone}`}>{children}</div>;
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {

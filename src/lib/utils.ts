@@ -283,7 +283,7 @@ export function buildItemFromForm(input: FollowUpFormInput, existing?: FollowUpI
     project: input.project.trim() || 'General',
     projectId: input.projectId || undefined,
     owner: input.owner.trim() || 'Unassigned',
-    assigneeDisplayName: existing?.assigneeDisplayName || input.owner.trim() || 'Unassigned',
+    assigneeDisplayName: input.assigneeDisplayName?.trim() || existing?.assigneeDisplayName || input.owner.trim() || 'Unassigned',
     assigneeUserId: existing?.assigneeUserId,
     status: input.status,
     priority: input.priority,
@@ -502,6 +502,44 @@ export function sortByProjectThenDue(items: FollowUpItem[]): FollowUpItem[] {
     if (projectCompare !== 0) return projectCompare;
     return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
+}
+
+export type FollowUpLifecycleAction =
+  | 'draft_follow_up'
+  | 'sent_follow_up'
+  | 'reply_received'
+  | 'waiting_on_response'
+  | 'commitment_received'
+  | 'commitment_missed'
+  | 'resolve_and_close'
+  | 'reopen'
+  | 'escalate';
+
+export function applyLifecycleBundle(item: FollowUpItem, action: FollowUpLifecycleAction, actor = 'Current user'): Partial<FollowUpItem> {
+  const at = todayIso();
+  const base = { lastActionAt: at, actionReceipts: [{ id: createId('ACT'), at, actor, action: 'completed' as const, confirmed: true }, ...(item.actionReceipts || [])] };
+  switch (action) {
+    case 'draft_follow_up':
+      return { ...base, actionState: 'Ready to send', lastCompletedAction: 'Draft follow-up', timeline: [buildTouchEvent('Draft follow-up prepared.', 'bundle_action'), ...item.timeline] };
+    case 'sent_follow_up':
+      return { ...base, status: 'Waiting on external', actionState: 'Sent (confirmed)', lastTouchDate: at, nextTouchDate: addDaysIso(at, item.cadenceDays), lastCompletedAction: 'Sent follow-up', timeline: [buildTouchEvent('Follow-up sent externally.', 'bundle_action'), ...item.timeline] };
+    case 'reply_received':
+      return { ...base, status: 'In progress', actionState: 'Reply received', waitingOn: undefined, lastTouchDate: at, lastCompletedAction: 'Reply received', timeline: [buildTouchEvent('Reply received.', 'bundle_action'), ...item.timeline] };
+    case 'waiting_on_response':
+      return { ...base, status: 'Waiting on external', actionState: 'Waiting for reply', lastCompletedAction: 'Waiting on response', timeline: [buildTouchEvent('Moved to waiting on response.', 'bundle_action'), ...item.timeline] };
+    case 'commitment_received':
+      return { ...base, status: 'In progress', lastCompletedAction: 'Commitment received', timeline: [buildTouchEvent('Commitment received and tracked.', 'bundle_action'), ...item.timeline] };
+    case 'commitment_missed':
+      return { ...base, status: 'At risk', escalationLevel: 'Escalate', lastCompletedAction: 'Commitment missed', timeline: [buildTouchEvent('Commitment missed and escalated.', 'bundle_action'), ...item.timeline] };
+    case 'resolve_and_close':
+      return { ...base, status: 'Closed', actionState: 'Complete', lastCompletedAction: 'Resolve and close', timeline: [buildTouchEvent('Resolved and closed.', 'bundle_action'), ...item.timeline] };
+    case 'reopen':
+      return { ...base, status: 'Needs action', actionState: 'Reply received', lastCompletedAction: 'Reopened', timeline: [buildTouchEvent('Reopened with reason.', 'bundle_action'), ...item.timeline] };
+    case 'escalate':
+      return { ...base, escalationLevel: 'Critical', status: item.status === 'Closed' ? 'Needs action' : item.status, lastCompletedAction: 'Escalated', timeline: [buildTouchEvent('Escalated for attention.', 'bundle_action'), ...item.timeline] };
+    default:
+      return base;
+  }
 }
 
 export interface ProjectDashboardRow {

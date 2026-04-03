@@ -81,6 +81,7 @@ export function CreateWorkModal() {
         project: currentItem.project,
         projectId: currentItem.projectId ?? '',
         owner: currentItem.owner,
+        assigneeDisplayName: currentItem.assigneeDisplayName ?? currentItem.owner,
         status: currentItem.status,
         priority: currentItem.priority,
         dueDate: currentItem.dueDate,
@@ -124,6 +125,7 @@ export function CreateWorkModal() {
         ...defaultFollowUp,
         title: createWorkDraft.title || defaultFollowUp.title,
         owner: createWorkDraft.owner || defaultFollowUp.owner,
+        assigneeDisplayName: createWorkDraft.owner || defaultFollowUp.owner,
         project: projectMatch?.name ?? createWorkDraft.project ?? defaultFollowUp.project,
         projectId: projectMatch?.id ?? defaultFollowUp.projectId,
         dueDate: createWorkDraft.dueDate || defaultFollowUp.dueDate,
@@ -222,15 +224,17 @@ export function CreateWorkModal() {
         {mode === 'followup' ? (
           <div className="form-grid-two">
             <div className="field-block"><label className="field-label">Title</label><input autoFocus value={followUpForm.title} onChange={(e) => setFollowUpForm({ ...followUpForm, title: e.target.value })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Internal owner</label><input value={followUpForm.owner} onChange={(e) => setFollowUpForm({ ...followUpForm, owner: e.target.value })} className="field-input" placeholder="Who owns outcome?" /></div>
+            <div className="field-block"><label className="field-label">Assignee</label><input value={followUpForm.assigneeDisplayName || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who executes next step?" /></div>
             <EntityCombobox
-              label="Owner (contact)"
+              label="External contact"
               valueId={followUpForm.contactId}
-              valueLabel={followUpForm.owner}
+              valueLabel={contacts.find((contact) => contact.id === followUpForm.contactId)?.name}
               options={contactOptions}
-              onSelect={(option) => setFollowUpForm({ ...followUpForm, owner: option.label, contactId: option.id })}
+              onSelect={(option) => setFollowUpForm({ ...followUpForm, contactId: option.id })}
               onCreate={(label) => {
                 const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
-                setFollowUpForm({ ...followUpForm, owner: label, contactId: id });
+                setFollowUpForm({ ...followUpForm, contactId: id });
               }}
             />
             <EntityCombobox
@@ -251,15 +255,16 @@ export function CreateWorkModal() {
         ) : (
           <div className="form-grid-two">
             <div className="field-block"><label className="field-label">Title</label><input autoFocus value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Internal owner</label><input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} className="field-input" /></div>
             <EntityCombobox
-              label="Owner (contact)"
+              label="External contact"
               valueId={taskForm.contactId}
-              valueLabel={taskForm.owner}
+              valueLabel={contacts.find((contact) => contact.id === taskForm.contactId)?.name}
               options={contactOptions}
-              onSelect={(option) => setTaskForm({ ...taskForm, owner: option.label, contactId: option.id })}
+              onSelect={(option) => setTaskForm({ ...taskForm, contactId: option.id })}
               onCreate={(label) => {
                 const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
-                setTaskForm({ ...taskForm, owner: label, contactId: id });
+                setTaskForm({ ...taskForm, contactId: id });
               }}
             />
             <div className="field-block"><label className="field-label">Assignee</label><input value={taskForm.assigneeDisplayName || ''} onChange={(e) => setTaskForm({ ...taskForm, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who will execute this?" /></div>

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
-import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
+import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso, isTaskOverdue } from '../lib/utils';
 import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, defaultExecutionViews } from '../lib/unifiedQueue';
 import { createPersistenceQueue } from './persistenceQueue';
 import { isTauriRuntime, loadPersistedPayload, type PersistedPayload } from '../lib/persistence';
@@ -242,13 +242,19 @@ function normalizeTask(task: TaskItem): TaskItem {
     tags: [...new Set((task.tags || []).map((tag) => tag.trim()).filter(Boolean))],
     dueDate: task.dueDate || undefined,
     startDate: task.startDate || undefined,
+    startedAt: task.startedAt || (status === 'In progress' ? updatedAt : undefined),
+    deferredUntil: task.deferredUntil || undefined,
+    nextReviewAt: task.nextReviewAt || task.deferredUntil || undefined,
     linkedFollowUpId: task.linkedFollowUpId || undefined,
+    linkedProjectContext: task.linkedProjectContext || undefined,
     contextNote: task.contextNote || undefined,
+    blockReason: task.blockReason || undefined,
     completionImpact: task.completionImpact || 'advance_parent',
     contactId: task.contactId || undefined,
     companyId: task.companyId || undefined,
     status,
     completedAt: status === 'Done' ? (task.completedAt || updatedAt) : undefined,
+    completionNote: task.completionNote || undefined,
     createdAt: task.createdAt || updatedAt,
     updatedAt,
     needsCleanup: task.needsCleanup || false,
@@ -281,7 +287,7 @@ function stampProject(project: ProjectRecord, patch: Partial<ProjectRecord> = {}
   return { ...project, ...patch, updatedAt: todayIso() };
 }
 
-function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): ProjectRecord[] {
+function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = [], tasks: TaskItem[] = []): ProjectRecord[] {
   const byId = new Map(existing.map((project) => [project.id, project]));
   const byName = new Map(existing.map((project) => [projectCanonicalKey(project.name), project]));
   items.forEach((item) => {
@@ -310,7 +316,84 @@ function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = []): 
     byId.set(created.id, created);
     byName.set(projectCanonicalKey(name), created);
   });
+  tasks.forEach((task) => {
+    const name = (task.project || 'General').trim() || 'General';
+    const existingById = task.projectId ? byId.get(task.projectId) : undefined;
+    const existingByName = byName.get(projectCanonicalKey(name));
+    if (existingById) {
+      byId.set(existingById.id, stampProject(existingById, { name, owner: task.owner || existingById.owner }));
+      byName.set(projectCanonicalKey(name), byId.get(existingById.id)!);
+      return;
+    }
+    if (existingByName) {
+      byId.set(existingByName.id, stampProject(existingByName, { owner: existingByName.owner || task.owner || 'Unassigned' }));
+      return;
+    }
+    const created = {
+      id: createId('PRJ'),
+      name,
+      owner: task.owner || 'Unassigned',
+      status: 'Active',
+      notes: '',
+      tags: [],
+      createdAt: todayIso(),
+      updatedAt: todayIso(),
+    } satisfies ProjectRecord;
+    byId.set(created.id, created);
+    byName.set(projectCanonicalKey(name), created);
+  });
   return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function summarizeLinkedTasks(tasks: TaskItem[], followUpId: string) {
+  const linked = tasks.filter((task) => task.linkedFollowUpId === followUpId);
+  const blocked = linked.filter((task) => task.status === 'Blocked').length;
+  const overdue = linked.filter((task) => isTaskOverdue(task)).length;
+  const open = linked.filter((task) => task.status !== 'Done').length;
+  const done = linked.filter((task) => task.status === 'Done').length;
+  const allDone = linked.length > 0 && open === 0;
+  return { total: linked.length, blocked, overdue, open, done, allDone };
+}
+
+function applyTaskRollupsToItems(items: FollowUpItem[], tasks: TaskItem[]): FollowUpItem[] {
+  return items.map((item) => {
+    const summary = summarizeLinkedTasks(tasks, item.id);
+    if (summary.total === 0) {
+      return normalizeItem({
+        ...item,
+        linkedTaskCount: 0,
+        openLinkedTaskCount: 0,
+        blockedLinkedTaskCount: 0,
+        overdueLinkedTaskCount: 0,
+        doneLinkedTaskCount: 0,
+        allLinkedTasksDone: false,
+        childWorkflowSignal: 'on_track',
+      });
+    }
+    const signal = summary.blocked > 0 ? 'blocked' : summary.overdue > 0 ? 'overdue' : summary.allDone ? 'ready_to_close' : 'on_track';
+    const recommendedAction = summary.allDone
+      ? 'Close out'
+      : summary.blocked > 0
+        ? 'Create task'
+        : item.recommendedAction;
+    const nextAction = summary.allDone
+      ? 'All linked tasks are done. Review and close out parent follow-up.'
+      : summary.blocked > 0
+        ? `Resolve ${summary.blocked} blocked linked task${summary.blocked > 1 ? 's' : ''} before next move.`
+        : item.nextAction;
+    return normalizeItem({
+      ...item,
+      linkedTaskCount: summary.total,
+      openLinkedTaskCount: summary.open,
+      blockedLinkedTaskCount: summary.blocked,
+      overdueLinkedTaskCount: summary.overdue,
+      doneLinkedTaskCount: summary.done,
+      allLinkedTasksDone: summary.allDone,
+      childWorkflowSignal: signal,
+      recommendedAction,
+      nextAction,
+    });
+  });
 }
 
 function attachProjects(items: FollowUpItem[], projects: ProjectRecord[]): FollowUpItem[] {
@@ -576,8 +659,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const baseItems = hasItems ? normalizeItems(payload.items ?? []) : normalizeItems([]);
       const contacts = hasContacts ? (payload.contacts ?? []) : [];
       const companies = hasCompanies ? (payload.companies ?? []) : [];
-      const projects = deriveProjects(baseItems, hasProjects ? (payload.projects ?? []) : []);
-      const items = attachProjects(baseItems, projects);
+      const preProjects = deriveProjects(baseItems, hasProjects ? (payload.projects ?? []) : [], hasTasks ? (payload.tasks ?? []) : []);
+      const projects = preProjects;
+      const items = attachProjects(applyTaskRollupsToItems(baseItems, hasTasks ? (payload.tasks ?? []) : []), projects);
       const tasks = normalizeTasks((hasTasks ? (payload.tasks ?? []) : []).map((task) => {
         const projectName = resolveProjectName(task.projectId, task.project, projects);
         const linkedProject = projects.find((project) => projectCanonicalKey(project.name) === projectCanonicalKey(projectName));
@@ -695,8 +779,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         }
         return applyItemRules(normalizeItem({ ...item, ...normalizedPatch, timeline, auditHistory, updatedByUserId: 'user-current', updatedByDisplayName: 'Current user' }));
       });
-      const projects = deriveProjects(items, state.projects);
-      return { items: attachProjects(items, projects), projects, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
+      const projects = deriveProjects(items, state.projects, state.tasks);
+      return { items: attachProjects(applyTaskRollupsToItems(items, state.tasks), projects), projects, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
     });
     queuePersist(get, set);
   },
@@ -709,9 +793,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         auditHistory: [makeAuditEntry({ actorUserId: item.createdByUserId || 'user-current', actorDisplayName: item.createdByDisplayName || 'Current user', action: 'created', summary: 'Record created.' }), ...(item.auditHistory || [])],
       }));
       const items = normalizeItems([normalized, ...state.items]);
-      const projects = deriveProjects(items, state.projects);
+      const projects = deriveProjects(items, state.projects, state.tasks);
       return {
-        items: attachProjects(items, projects),
+        items: attachProjects(applyTaskRollupsToItems(items, state.tasks), projects),
         projects,
         selectedId: normalized.id,
         itemModal: { open: false, mode: 'create', itemId: null },
@@ -724,10 +808,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   deleteItem: (id) => {
     set((state) => {
       const nextItems = normalizeItems(state.items.filter((item) => item.id !== id));
-      const projects = deriveProjects(nextItems, state.projects);
+      const projects = deriveProjects(nextItems, state.projects, state.tasks);
       const dismissedDuplicatePairs = state.dismissedDuplicatePairs.filter((pairKey) => !pairKey.split('::').includes(id));
       return {
-        items: attachProjects(nextItems, projects),
+        items: attachProjects(applyTaskRollupsToItems(nextItems, state.tasks), projects),
         projects,
         intakeDocuments: state.intakeDocuments.map((doc) => doc.linkedFollowUpId === id ? { ...doc, linkedFollowUpId: undefined, disposition: 'Unprocessed' } : doc),
         dismissedDuplicatePairs,
@@ -758,14 +842,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
         auditHistory: [makeAuditEntry({ actorUserId: task.createdByUserId || 'user-current', actorDisplayName: task.createdByDisplayName || 'Current user', action: 'created', summary: 'Task created.' }), ...(task.auditHistory || [])],
       });
       const tasks = normalizeTasks([normalized, ...state.tasks]);
-      const projects = deriveProjects(state.items, state.projects);
-      return { tasks, projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null };
+      const projects = deriveProjects(state.items, state.projects, tasks);
+      const items = applyTaskRollupsToItems(state.items, tasks);
+      return { tasks, items: attachProjects(items, projects), projects, selectedTaskId: normalized.id, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null };
     });
     queuePersist(get, set);
   },
   updateTask: (id, patch) => {
-    set((state) => ({
-      tasks: normalizeTasks(state.tasks.map((task) => {
+    set((state) => {
+      const tasks = normalizeTasks(state.tasks.map((task) => {
         if (task.id !== id) return task;
         const auditHistory = [...(task.auditHistory || [])];
         if (patch.status && patch.status !== task.status) {
@@ -774,15 +859,28 @@ export const useAppStore = create<AppState>()((set, get) => ({
         if (patch.assigneeDisplayName && patch.assigneeDisplayName !== task.assigneeDisplayName) {
           auditHistory.unshift(makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'assignment_changed', field: 'assignee', from: task.assigneeDisplayName || task.owner, to: patch.assigneeDisplayName, summary: 'Task reassigned.' }));
         }
-        return normalizeTask({ ...task, ...patch, project: resolveProjectName(patch.projectId, patch.project, state.projects), auditHistory, updatedByUserId: 'user-current', updatedByDisplayName: 'Current user' });
-      })),
-    }));
+        const status = patch.status || task.status;
+        const autoPatch: Partial<TaskItem> = {
+          startedAt: status === 'In progress' ? (patch.startedAt || task.startedAt || todayIso()) : patch.startedAt,
+          completedAt: status === 'Done' ? (patch.completedAt || task.completedAt || todayIso()) : undefined,
+          completionNote: status === 'Done' ? (patch.completionNote || task.completionNote) : undefined,
+          blockReason: status === 'Blocked' ? (patch.blockReason || task.blockReason || 'Blocked pending dependency') : undefined,
+          deferredUntil: status === 'Done' || status === 'Blocked' ? undefined : patch.deferredUntil,
+        };
+        return normalizeTask({ ...task, ...patch, ...autoPatch, project: resolveProjectName(patch.projectId, patch.project, state.projects), auditHistory, updatedByUserId: 'user-current', updatedByDisplayName: 'Current user' });
+      }));
+      const projects = deriveProjects(state.items, state.projects, tasks);
+      const items = applyTaskRollupsToItems(state.items, tasks);
+      return { tasks, items: attachProjects(items, projects), projects };
+    });
     queuePersist(get, set);
   },
   deleteTask: (id) => {
     set((state) => {
       const tasks = normalizeTasks(state.tasks.filter((task) => task.id !== id));
-      return { tasks, selectedTaskId: state.selectedTaskId === id ? tasks[0]?.id ?? null : state.selectedTaskId, taskModal: state.taskModal.taskId === id ? { open: false, mode: 'create', taskId: null } : state.taskModal };
+      const projects = deriveProjects(state.items, state.projects, tasks);
+      const items = applyTaskRollupsToItems(state.items, tasks);
+      return { tasks, items: attachProjects(items, projects), projects, selectedTaskId: state.selectedTaskId === id ? tasks[0]?.id ?? null : state.selectedTaskId, taskModal: state.taskModal.taskId === id ? { open: false, mode: 'create', taskId: null } : state.taskModal };
     });
     queuePersist(get, set);
   },

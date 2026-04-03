@@ -262,6 +262,7 @@ export function CreateWorkModal() {
                 setTaskForm({ ...taskForm, owner: label, contactId: id });
               }}
             />
+            <div className="field-block"><label className="field-label">Assignee</label><input value={taskForm.assigneeDisplayName || ''} onChange={(e) => setTaskForm({ ...taskForm, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who will execute this?" /></div>
             <EntityCombobox
               label="Project"
               valueId={taskForm.projectId}
@@ -273,8 +274,15 @@ export function CreateWorkModal() {
                 setTaskForm({ ...taskForm, project: label, projectId: id });
               }}
             />
+            <div className="field-block"><label className="field-label">Start date</label><input type="date" value={toDateInputValue(taskForm.startDate)} onChange={(e) => setTaskForm({ ...taskForm, startDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
             <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(taskForm.dueDate)} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Deferred / snooze until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Block reason</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Linked follow-up ID</label><input value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })} className="field-input" placeholder="FUP-..." /></div>
+            <div className="field-block"><label className="field-label">Context note</label><input value={taskForm.contextNote || ''} onChange={(e) => setTaskForm({ ...taskForm, contextNote: e.target.value })} className="field-input" /></div>
+            <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'advance_parent'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskItem['completionImpact'] })} className="field-input"><option value="none">none</option><option value="advance_parent">advance_parent</option><option value="close_parent">close_parent</option></select></div>
             <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={taskForm.nextStep} onChange={(e) => setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" /></div>
+            <div className="field-block field-block-span-2"><label className="field-label">Tags (comma separated)</label><input value={taskForm.tags.join(', ')} onChange={(e) => setTaskForm({ ...taskForm, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} className="field-input" /></div>
           </div>
         )}
 
@@ -313,6 +321,8 @@ export function CreateWorkModal() {
                 }}
               />
               <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={taskForm.notes} onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={taskForm.completionNote || ''} onChange={(e) => setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" /></div>
             </div>
           )}
         </details>) : null}

@@ -129,7 +129,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
   };
 
   return (
-    <AppShellCard className="project-command-surface">
+    <AppShellCard className="project-command-surface" surface="command">
       <SectionHeader title="Project command center" subtitle="Curated command surface for portfolio scan, project health, and execution workflows." />
       <div className="project-command-layout">
         <div className="project-list-rail">

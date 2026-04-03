@@ -56,7 +56,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   }, [item?.id, item?.nextAction]);
 
   if (!item) {
-    return <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-lg font-semibold text-slate-950">Focus panel</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to run action bundles and close the loop.</p></aside>;
+    return <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm premium-inspector"><div className="text-lg font-semibold text-slate-950">Focus panel</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to run action bundles and close the loop.</p></aside>;
   }
 
   const contact = contacts.find((entry) => entry.id === item.contactId);
@@ -68,7 +68,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const openLinkedTasks = item.openLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done').length;
 
   return (
-    <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <aside className="tracker-detail-panel rounded-3xl border border-slate-200 bg-white p-5 shadow-sm premium-inspector">
       <div className="followup-detail-head">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected follow-up</div>

@@ -184,7 +184,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
 
   return (
     <div className="space-y-5">
-      <AppShellCard className="overview-hero-card">
+      <AppShellCard className="overview-hero-card" surface="command">
         <SectionHeader title="Daily execution queue" subtitle={personalMode ? 'Start here: triage and complete real work with minimal context switching.' : 'Team queue with pressure, blockers, and ownership clarity in one flow.'} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
@@ -194,7 +194,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
       </AppShellCard>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_360px]">
-        <AppShellCard className="overview-main-panel">
+        <AppShellCard className="overview-main-panel" surface="data">
           <FilterBar>
             <SegmentedControl value={queuePreset} onChange={(value) => setQueuePreset(value as UnifiedQueuePreset)} options={presets.map((preset) => ({ value: preset, label: preset }))} />
           </FilterBar>

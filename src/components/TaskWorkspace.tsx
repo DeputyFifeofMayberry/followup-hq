@@ -151,7 +151,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <div className="space-y-5">
-      <AppShellCard>
+      <AppShellCard surface="command">
         <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
@@ -162,7 +162,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
       </AppShellCard>
 
       <div className="workspace-master-detail">
-        <AppShellCard className="workspace-list-panel">
+        <AppShellCard className="workspace-list-panel" surface="data">
           <FilterBar>
             <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
           </FilterBar>
@@ -233,7 +233,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           </div>
         </AppShellCard>
 
-        <aside className="workspace-inspector-panel task-inspector-panel">
+        <aside className="workspace-inspector-panel task-inspector-panel premium-inspector">
           {selectedTask ? (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">

@@ -77,7 +77,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
   return (
-    <AppShellCard className="p-0">
+    <AppShellCard className="p-0 tracker-table-surface" surface="data">
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse tracker-table">
           <thead className="tracker-table-head">
@@ -123,7 +123,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         </table>
         {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters, clear search, or create a follow-up." /></div> : null}
       </div>
-      <div className="text-xs text-slate-500">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : 'Select rows to run bulk actions from the execution controls.'}</div>
+      <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : 'Select rows to run bulk actions from the execution controls.'}</div>
     </AppShellCard>
   );
 }

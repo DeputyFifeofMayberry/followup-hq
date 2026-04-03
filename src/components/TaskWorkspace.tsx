@@ -9,7 +9,7 @@ import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, S
 type TaskMode = 'today' | 'thisWeek' | 'blocked' | 'followUpLinked';
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask } = useAppStore(useShallow((s) => ({
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, updateItem } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     items: s.items,
     projects: s.projects,
@@ -23,6 +23,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     openEditTaskModal: s.openEditTaskModal,
     deleteTask: s.deleteTask,
     updateTask: s.updateTask,
+    updateItem: s.updateItem,
   })));
 
   const [search, setSearch] = useState('');
@@ -65,7 +66,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
   const linkedFollowUp = selectedTask?.linkedFollowUpId ? items.find((item) => item.id === selectedTask.linkedFollowUpId) : null;
-  const childTasks = selectedTask?.linkedFollowUpId ? tasks.filter((task) => task.linkedFollowUpId === selectedTask.linkedFollowUpId && task.id !== selectedTask.id) : [];
+  const parentWorkflow = selectedTask?.linkedFollowUpId ? tasks.filter((task) => task.linkedFollowUpId === selectedTask.linkedFollowUpId) : [];
+  const parentOpen = parentWorkflow.filter((task) => task.status !== 'Done').length;
+  const parentBlocked = parentWorkflow.filter((task) => task.status === 'Blocked').length;
+  const parentOverdue = parentWorkflow.filter((task) => task.dueDate && task.status !== 'Done' && new Date(task.dueDate).getTime() < Date.now()).length;
 
   const summary = useMemo(() => ({
     open: tasks.filter((task) => task.status !== 'Done').length,
@@ -130,7 +134,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {task.linkedFollowUpId ? <Badge variant="neutral">Linked follow-up</Badge> : null}
-                  <button onClick={(event) => { event.stopPropagation(); updateTask(task.id, { status: 'Done' }); }} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
+                  {task.contextNote ? <Badge variant="neutral">{task.contextNote}</Badge> : null}
+                  <button onClick={(event) => { event.stopPropagation(); updateTask(task.id, { status: 'Done' }); if (task.linkedFollowUpId) { const related = tasks.filter((entry) => entry.linkedFollowUpId === task.linkedFollowUpId && entry.id !== task.id); const allDone = related.every((entry) => entry.status === 'Done'); if (allDone) updateItem(task.linkedFollowUpId, { recommendedAction: 'Close out', nextAction: 'All child tasks done. Close or send final update.' }); } }} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
                 </div>
               </button>
             ))}
@@ -154,7 +159,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Priority</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.priority}</div></div>
                 <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Linked follow-up</div><div className="mt-2 text-sm font-medium text-slate-900">{linkedFollowUp ? linkedFollowUp.title : 'Not linked yet'}</div></div>
               </div>
-              {linkedFollowUp ? <div className="rounded-2xl border border-slate-200 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connected workflow</div><div className="mt-2 text-sm text-slate-700">Linked status: <span className="font-medium text-slate-900">{linkedFollowUp.status}</span> • {childTasks.length} sibling task{childTasks.length === 1 ? '' : 's'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open linked follow-up</button></div> : null}
+              {linkedFollowUp ? <div className="rounded-2xl border border-slate-200 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connected workflow</div><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Task exists because: <span className="font-medium text-slate-900">{selectedTask.contextNote || linkedFollowUp.nextAction || 'Parent execution support'}</span></div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open linked follow-up</button></div> : null}
               <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Summary</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.summary || 'No summary added yet.'}</p></div>
               <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project match</div><p className="mt-2 text-sm leading-6 text-slate-700">{projects.find((project) => project.id === selectedTask.projectId)?.notes || 'This task is using the current project record only.'}</p></div>
             </div>

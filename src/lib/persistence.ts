@@ -34,6 +34,8 @@ export interface AppAuxiliaryState {
   forwardedCandidates: AppSnapshot['forwardedCandidates'];
   forwardedLedger: AppSnapshot['forwardedLedger'];
   forwardedRoutingAudit: AppSnapshot['forwardedRoutingAudit'];
+  intakeCandidates: AppSnapshot['intakeCandidates'];
+  savedExecutionViews: AppSnapshot['savedExecutionViews'];
 }
 
 export interface PersistedPayload extends CoreEntities {
@@ -77,6 +79,8 @@ function buildFallbackSnapshot(): AppSnapshot {
     forwardedCandidates: [],
     forwardedLedger: [],
     forwardedRoutingAudit: [],
+    intakeCandidates: [],
+    savedExecutionViews: [],
   };
 }
 
@@ -99,6 +103,8 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       forwardedCandidates: snapshot.forwardedCandidates ?? [],
       forwardedLedger: snapshot.forwardedLedger ?? [],
       forwardedRoutingAudit: snapshot.forwardedRoutingAudit ?? [],
+      intakeCandidates: snapshot.intakeCandidates ?? [],
+      savedExecutionViews: snapshot.savedExecutionViews ?? [],
     },
   };
 }

@@ -115,6 +115,110 @@ export type RecommendedAction =
   | 'Log touch'
   | 'Draft follow-up';
 
+
+
+export type ActionLifecycleState =
+  | 'Draft created'
+  | 'Ready to send'
+  | 'Sent (confirmed)'
+  | 'Waiting for reply'
+  | 'Reply received'
+  | 'Complete';
+
+export interface ActionReceipt {
+  id: string;
+  at: string;
+  actor: string;
+  action: 'draft_created' | 'send_confirmed' | 'reply_received' | 'completed' | 'task_completed' | 'task_unblocked';
+  confirmed: boolean;
+  notes?: string;
+}
+
+export type CaptureConfidenceTier = 'high' | 'medium' | 'low';
+
+export interface IntakeCandidate {
+  id: string;
+  rawText: string;
+  createdAt: string;
+  suggestedType: 'task' | 'followup';
+  confidenceTier: CaptureConfidenceTier;
+  confidenceScore: number;
+  parseReasons: string[];
+  missingFields: string[];
+  detectedProject?: string;
+  detectedOwner?: string;
+  detectedDueDate?: string;
+  waitingOn?: string;
+  priority: FollowUpPriority;
+  draft: {
+    title: string;
+    summary: string;
+    nextAction?: string;
+    nextStep?: string;
+    status?: FollowUpStatus | TaskStatus;
+  };
+}
+
+export type UnifiedQueuePreset =
+  | 'Today'
+  | 'Due now'
+  | 'Waiting on others'
+  | 'Needs nudge'
+  | 'Blocked / at risk'
+  | 'Cleanup'
+  | 'Recently updated';
+
+export interface UnifiedQueueFilter {
+  types?: Array<'task' | 'followup'>;
+  project?: string[];
+  owner?: string[];
+  assignee?: string[];
+  status?: string[];
+  priority?: string[];
+  escalation?: string[];
+  dueInDays?: number;
+  waitingOn?: boolean;
+  cleanupOnly?: boolean;
+  linkedState?: 'linked' | 'unlinked' | 'blocked_child' | 'all_done';
+  updatedWithinDays?: number;
+  source?: string[];
+}
+
+export interface SavedExecutionView {
+  id: string;
+  name: string;
+  filter: UnifiedQueueFilter;
+  preset?: UnifiedQueuePreset;
+  scope: 'personal' | 'team';
+  createdAt: string;
+}
+
+export interface UnifiedQueueItem {
+  id: string;
+  recordType: 'task' | 'followup';
+  title: string;
+  project: string;
+  owner: string;
+  assignee: string;
+  status: string;
+  priority: FollowUpPriority;
+  dueDate?: string;
+  nextTouchDate?: string;
+  escalationLevel?: EscalationLevel;
+  waitingOn?: string;
+  needsCleanup: boolean;
+  linkedRecordStatus?: string;
+  linkedFollowUpId?: string;
+  contextNote?: string;
+  completionImpact?: 'none' | 'advance_parent' | 'close_parent';
+  linkedTaskCount?: number;
+  linkedBlockedCount?: number;
+  primaryNextAction: string;
+  whyInQueue: string;
+  score: number;
+  updatedAt?: string;
+}
+
 export interface TimelineEvent {
   id: string;
   at: string;
@@ -188,6 +292,8 @@ export interface FollowUpItem {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  actionState?: ActionLifecycleState;
+  actionReceipts?: ActionReceipt[];
   needsCleanup?: boolean;
   cleanupReasons?: CaptureCleanupReason[];
   recommendedAction?: RecommendedAction;
@@ -223,6 +329,8 @@ export interface TaskItem {
   notes: string;
   tags: string[];
   linkedFollowUpId?: string;
+  contextNote?: string;
+  completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   contactId?: string;
   companyId?: string;
   createdAt: string;
@@ -258,6 +366,8 @@ export interface TaskFormInput {
   notes: string;
   tags: string[];
   linkedFollowUpId?: string;
+  contextNote?: string;
+  completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   contactId?: string;
   companyId?: string;
 }
@@ -276,6 +386,8 @@ export interface IntakeDocumentRecord {
   kind: IntakeDocumentKind;
   disposition: IntakeDocumentDisposition;
   linkedFollowUpId?: string;
+  contextNote?: string;
+  completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   projectId?: string;
   project: string;
   owner: string;
@@ -310,6 +422,8 @@ export interface FollowUpFormInput {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  actionState?: ActionLifecycleState;
+  actionReceipts?: ActionReceipt[];
   needsCleanup?: boolean;
   cleanupReasons?: CaptureCleanupReason[];
   recommendedAction?: RecommendedAction;
@@ -375,6 +489,8 @@ export interface MergeDraft {
   companyId?: string;
   threadKey?: string;
   draftFollowUp?: string;
+  actionState?: ActionLifecycleState;
+  actionReceipts?: ActionReceipt[];
   needsCleanup?: boolean;
   cleanupReasons?: CaptureCleanupReason[];
   recommendedAction?: RecommendedAction;
@@ -630,6 +746,8 @@ export interface ForwardedIngestionLedgerEntry {
   sourceMessageIds: string[];
   linkedTaskId?: string;
   linkedFollowUpId?: string;
+  contextNote?: string;
+  completionImpact?: 'none' | 'advance_parent' | 'close_parent';
   lastRoutingDecision: ForwardedRoutingDecision;
   evaluatedAt: string;
 }
@@ -696,6 +814,8 @@ export interface AppSnapshot {
   forwardedCandidates: ForwardedIntakeCandidate[];
   forwardedLedger: ForwardedIngestionLedgerEntry[];
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
+  intakeCandidates?: IntakeCandidate[];
+  savedExecutionViews?: SavedExecutionView[];
   teamMembers?: TeamMember[];
   currentUserId?: string;
 }

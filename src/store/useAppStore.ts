@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso } from '../lib/utils';
+import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, defaultExecutionViews } from '../lib/unifiedQueue';
 import { createPersistenceQueue } from './persistenceQueue';
 import { isTauriRuntime, loadPersistedPayload, type PersistedPayload } from '../lib/persistence';
 import { getDefaultOutlookSettings } from '../lib/outlookGraph';
@@ -40,6 +41,12 @@ import type {
   ForwardedEmailProviderPayload,
   ForwardedRuleAction,
   AuditEntry,
+  IntakeCandidate,
+  SavedExecutionView,
+  UnifiedQueueFilter,
+  UnifiedQueueItem,
+  UnifiedQueuePreset,
+  ActionReceipt,
 } from '../types';
 
 interface ItemModalState {
@@ -103,6 +110,10 @@ interface AppState {
   forwardedCandidates: ForwardedIntakeCandidate[];
   forwardedLedger: ForwardedIngestionLedgerEntry[];
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
+  intakeCandidates: IntakeCandidate[];
+  queuePreset: UnifiedQueuePreset;
+  executionFilter: UnifiedQueueFilter;
+  savedExecutionViews: SavedExecutionView[];
   initializeApp: () => Promise<void>;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;
@@ -177,6 +188,16 @@ interface AppState {
   addManualForwardRule: (rule: Omit<ForwardedEmailRule, 'id' | 'createdAt' | 'updatedAt' | 'source'>) => void;
   updateForwardRule: (ruleId: string, patch: Partial<ForwardedEmailRule>) => void;
   deleteForwardRule: (ruleId: string) => void;
+  getUnifiedQueue: () => UnifiedQueueItem[];
+  setQueuePreset: (preset: UnifiedQueuePreset) => void;
+  setExecutionFilter: (filter: UnifiedQueueFilter) => void;
+  saveExecutionView: (name: string, scope?: 'personal' | 'team') => void;
+  applyExecutionView: (viewId: string) => void;
+  stageIntakeCandidate: (candidate: IntakeCandidate) => void;
+  approveIntakeCandidate: (candidateId: string, mode?: 'task' | 'followup') => void;
+  discardIntakeCandidate: (candidateId: string) => void;
+  saveIntakeCandidateAsReference: (candidateId: string) => void;
+  confirmFollowUpSent: (id: string, notes?: string) => void;
 }
 
 const defaultOutlookConnection: OutlookConnectionState = {
@@ -211,6 +232,8 @@ function normalizeTask(task: TaskItem): TaskItem {
     dueDate: task.dueDate || undefined,
     startDate: task.startDate || undefined,
     linkedFollowUpId: task.linkedFollowUpId || undefined,
+    contextNote: task.contextNote || undefined,
+    completionImpact: task.completionImpact || 'advance_parent',
     contactId: task.contactId || undefined,
     companyId: task.companyId || undefined,
     status,
@@ -304,7 +327,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit'>): PersistedPayload {
+function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'savedExecutionViews'>): PersistedPayload {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -323,6 +346,8 @@ function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'com
       forwardedCandidates: state.forwardedCandidates,
       forwardedLedger: state.forwardedLedger,
       forwardedRoutingAudit: state.forwardedRoutingAudit,
+      intakeCandidates: state.intakeCandidates,
+      savedExecutionViews: state.savedExecutionViews,
     },
   };
 }
@@ -515,6 +540,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   forwardedCandidates: [],
   forwardedLedger: [],
   forwardedRoutingAudit: [],
+  intakeCandidates: [],
+  queuePreset: 'Today',
+  executionFilter: {},
+  savedExecutionViews: defaultExecutionViews,
   initializeApp: async () => {
     if (get().hydrated) return;
     try {
@@ -546,6 +575,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const forwardedCandidates = payload.auxiliary.forwardedCandidates ?? [];
       const forwardedLedger = payload.auxiliary.forwardedLedger ?? [];
       const forwardedRoutingAudit = payload.auxiliary.forwardedRoutingAudit ?? [];
+      const intakeCandidates = payload.auxiliary.intakeCandidates ?? [];
+      const savedExecutionViews = payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews;
       set({
         items,
         contacts,
@@ -566,6 +597,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         forwardedCandidates,
         forwardedLedger,
         forwardedRoutingAudit,
+        intakeCandidates,
+        savedExecutionViews,
         saveError: '',
         syncState: 'saved',
         lastSyncedAt: todayIso(),
@@ -1031,6 +1064,73 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }));
     queuePersist(get, set);
   },
+
+  getUnifiedQueue: () => {
+    const state = get();
+    const queue = buildUnifiedQueue(state.items, state.tasks);
+    const preset = applyQueuePreset(queue, state.queuePreset);
+    return applyUnifiedFilter(preset, state.executionFilter);
+  },
+  setQueuePreset: (preset) => set({ queuePreset: preset }),
+  setExecutionFilter: (filter) => set({ executionFilter: filter }),
+  saveExecutionView: (name, scope = 'personal') => {
+    set((state) => ({
+      savedExecutionViews: [{ id: createId('VIEW'), name, scope, createdAt: todayIso(), preset: state.queuePreset, filter: state.executionFilter }, ...state.savedExecutionViews],
+    }));
+    queuePersist(get, set);
+  },
+  applyExecutionView: (viewId) => {
+    const view = get().savedExecutionViews.find((entry) => entry.id === viewId);
+    if (!view) return;
+    set({ queuePreset: view.preset ?? 'Today', executionFilter: view.filter ?? {} });
+  },
+  stageIntakeCandidate: (candidate) => {
+    set((state) => ({ intakeCandidates: [candidate, ...state.intakeCandidates] }));
+    queuePersist(get, set);
+  },
+  approveIntakeCandidate: (candidateId, mode) => {
+    const state = get();
+    const candidate = state.intakeCandidates.find((entry) => entry.id === candidateId);
+    if (!candidate) return;
+    const asType = mode ?? candidate.suggestedType;
+    if (asType === 'task') {
+      state.addTask({ id: createId('TSK'), title: candidate.draft.title, project: candidate.detectedProject || 'General', owner: candidate.detectedOwner || 'Unassigned', status: 'To do', priority: candidate.priority, dueDate: candidate.detectedDueDate, summary: candidate.draft.summary, nextStep: candidate.draft.nextStep || candidate.draft.title, notes: '', tags: ['Intake review'], createdAt: todayIso(), updatedAt: todayIso(), needsCleanup: candidate.confidenceTier !== 'high' });
+    } else {
+      state.addItem({ id: createId(), title: candidate.draft.title, source: 'Notes', project: candidate.detectedProject || 'General', owner: candidate.detectedOwner || 'Unassigned', status: 'Needs action', priority: candidate.priority, dueDate: candidate.detectedDueDate || addDaysIso(todayIso(), 1), lastTouchDate: todayIso(), nextTouchDate: candidate.detectedDueDate || addDaysIso(todayIso(), 2), nextAction: candidate.draft.nextAction || candidate.draft.title, summary: candidate.draft.summary, tags: ['Intake review'], sourceRef: 'Quick capture intake', sourceRefs: [], mergedItemIds: [], waitingOn: candidate.waitingOn, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3, needsCleanup: candidate.confidenceTier !== 'high', cleanupReasons: [] });
+    }
+    set((inner) => ({ intakeCandidates: inner.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+    queuePersist(get, set);
+  },
+  discardIntakeCandidate: (candidateId) => {
+    set((state) => ({ intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+    queuePersist(get, set);
+  },
+  saveIntakeCandidateAsReference: (candidateId) => {
+    const candidate = get().intakeCandidates.find((entry) => entry.id === candidateId);
+    if (!candidate) return;
+    get().addIntakeDocument({ name: candidate.draft.title, kind: 'Text', project: candidate.detectedProject, owner: candidate.detectedOwner, sourceRef: 'Quick capture', notes: candidate.rawText, tags: ['reference'] });
+    set((state) => ({ intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+  },
+  confirmFollowUpSent: (id, notes) => {
+    set((state) => ({
+      items: withItemUpdate(state.items, id, (item) => {
+        const receipt: ActionReceipt = { id: createId('ACT'), at: todayIso(), actor: 'Current user', action: 'send_confirmed', confirmed: true, notes };
+        return normalizeItem({
+          ...item,
+          actionState: 'Sent (confirmed)',
+          status: 'Waiting on external',
+          lastTouchDate: todayIso(),
+          nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3),
+          lastCompletedAction: 'Sent follow-up (confirmed)',
+          lastActionAt: todayIso(),
+          actionReceipts: [receipt, ...(item.actionReceipts || [])],
+          timeline: [buildTouchEvent('Send confirmed by user in composer.', 'bundle_action'), ...item.timeline],
+        });
+      }),
+    }));
+    queuePersist(get, set);
+  },
+
   updateOutlookSettings: (patch) => {
     set((state) => ({
       outlookConnection: {

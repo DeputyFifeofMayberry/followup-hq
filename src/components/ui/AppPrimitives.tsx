@@ -1,7 +1,7 @@
 import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
 
-export function AppShellCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <section className={`app-shell-card ${className}`.trim()}>{children}</section>;
+export function AppShellCard({ children, className = '', surface = 'default' }: PropsWithChildren<{ className?: string; surface?: 'default' | 'command' | 'data' | 'inspector' | 'muted' }>) {
+  return <section className={`app-shell-card app-shell-card-${surface} ${className}`.trim()}>{children}</section>;
 }
 
 export function ElevatedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
@@ -43,7 +43,7 @@ export function StatTile({
   label: string;
   value: number | string;
   helper?: string;
-  tone?: 'default' | 'warn' | 'danger';
+  tone?: 'default' | 'warn' | 'danger' | 'info';
 }) {
   return (
     <div className={`stat-tile stat-tile-${tone}`}>

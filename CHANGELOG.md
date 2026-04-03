@@ -2,6 +2,12 @@
 
 ## 2026-04-03
 
+### Phase 5 authenticated visual art-direction upgrade
+- Re-art directed the signed-in shell with a branded graphite frame, ambient glows, premium control-spine nav rail, and stronger page chrome so authenticated screens carry the same identity quality as login (`src/App.tsx`, `src/index.css`).
+- Introduced clearer material hierarchy in shared primitives with explicit command/data/inspector surfaces plus richer stat-tile tones to prevent “everything is the same white card” repetition (`src/components/ui/AppPrimitives.tsx`, `src/index.css`).
+- Upgraded data-dense work surfaces (overview queue rows, tracker table headers/rows, task workspace list+inspector) with stronger selected states, richer hover/active treatment, and more deliberate contrast hierarchy (`src/components/OverviewPage.tsx`, `src/components/TrackerTable.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`, `src/index.css`).
+- Elevated project, relationship, and intake command centers with darker premium command-surface styling, improved typography contrast, and branded amber/steel accents for a more distinctive operational product feel (`src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`, `src/components/OutlookPanel.tsx`, `src/index.css`).
+
 ### Phase 4 UI refinement and product hardening
 - Added a final interaction/accessibility baseline in shared primitives: improved segmented-control keyboard behavior (arrow navigation + roving tab), and standardized empty-state announcements for assistive tech (`src/components/ui/AppPrimitives.tsx`).
 - Polished global UI behavior for focus visibility, reduced-motion support, button press/disabled affordances, modal scroll containment, and denser table/list readability with safer wrapping at narrow widths (`src/index.css`).

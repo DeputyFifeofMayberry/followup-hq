@@ -69,7 +69,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
   };
 
   return (
-    <AppShellCard className="space-y-4">
+    <AppShellCard className="space-y-4 outlook-command-surface" surface="command">
       <SectionHeader
         title="Email Intake"
         subtitle="Recommended path: forward emails into intake, review what gets created, and keep routing predictable."

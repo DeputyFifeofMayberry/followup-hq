@@ -83,10 +83,10 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         }
       />
         <div className="flex flex-wrap gap-2 tonal-chip-panel toolbar-row">
-          <button className={`action-btn ${activeTab === 'review' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
-          <button className={`action-btn ${activeTab === 'history' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
-          <button className={`action-btn ${activeTab === 'rules' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
-          <button className={`action-btn ${activeTab === 'settings' ? '!border-amber-500 !bg-amber-50' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
+          <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
+          <button className={`outlook-tab-btn ${activeTab === 'history' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
+          <button className={`outlook-tab-btn ${activeTab === 'rules' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
+          <button className={`outlook-tab-btn ${activeTab === 'settings' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
         </div>
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}

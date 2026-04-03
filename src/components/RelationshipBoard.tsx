@@ -206,8 +206,8 @@ export function RelationshipBoard() {
         <div className="space-y-4">
           <div className="rounded-2xl tonal-panel">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-900">Relationship portfolio ({filteredRows.length})</div>
-              <div className="text-xs text-slate-600">Click any row for detail + actions</div>
+              <div className="panel-title">Relationship portfolio ({filteredRows.length})</div>
+              <div className="panel-supporting-text">Click any row for detail + actions</div>
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
               {filteredRows.map((row) => (
@@ -229,8 +229,8 @@ export function RelationshipBoard() {
             <div className="rounded-2xl tonal-panel">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="text-lg font-semibold text-slate-900">{selected.name}</div>
-                  <div className="text-xs text-slate-500">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}</div>
+                  <div className="inspector-title">{selected.name}</div>
+                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => addItem({ id: `REL-${Date.now()}`, title: `Follow-up: ${selected.name}`, source: 'Notes', project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'Needs action', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', dueDate: new Date().toISOString(), lastTouchDate: new Date().toISOString(), nextTouchDate: new Date(Date.now() + 86400000).toISOString(), nextAction: `Reach out to ${selected.name}`, summary: 'Created from relationships tab.', tags: ['Relationship action'], sourceRef: 'Relationship board', sourceRefs: [], mergedItemIds: [], waitingOn: selected.name, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Internal', escalationLevel: selected.riskTier === 'Critical' ? 'Critical' : 'None', cadenceDays: 3, contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined })} className="action-btn"><PlusCircle className="h-4 w-4" />New follow-up</button>

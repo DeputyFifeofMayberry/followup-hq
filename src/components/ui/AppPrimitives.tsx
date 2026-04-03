@@ -142,8 +142,8 @@ export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' 
   return (
     <div className="modal-header">
       <div>
-        <div className="text-lg font-semibold text-slate-950">{title}</div>
-        {subtitle ? <div className="mt-1 text-sm text-slate-500">{subtitle}</div> : null}
+        <div className="modal-title">{title}</div>
+        {subtitle ? <div className="modal-subtitle">{subtitle}</div> : null}
       </div>
       <button onClick={onClose} className="action-btn">{closeLabel}</button>
     </div>

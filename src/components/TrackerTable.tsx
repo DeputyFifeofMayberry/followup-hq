@@ -33,7 +33,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
   const baseColumns: Record<FollowUpColumnKey, ColumnDef<FollowUpItem>> = {
-    title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="font-medium text-slate-900">{row.original.title}</div><div className="text-xs text-slate-500">{personalMode ? row.original.project : row.original.id}</div></div> },
+    title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="tracker-title-primary">{row.original.title}</div><div className="tracker-title-secondary">{personalMode ? row.original.project : row.original.id}</div></div> },
     project: { accessorKey: 'project', header: 'Project' },
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
@@ -84,9 +84,9 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} scope="col" className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500" aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
+                  <th key={header.id} scope="col" className="tracker-head-cell" aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
                     {header.isPlaceholder ? null : (
-                      <button type="button" className="inline-flex items-center gap-1" onClick={header.column.getToggleSortingHandler()}>
+                      <button type="button" className="tracker-head-btn" onClick={header.column.getToggleSortingHandler()}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() ? <ArrowUpDown className="h-3.5 w-3.5" /> : null}
                       </button>

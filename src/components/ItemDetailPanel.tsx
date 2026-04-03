@@ -71,8 +71,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector">
       <div className="followup-detail-head">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected follow-up</div>
-          <div className="mt-1 text-xl font-semibold text-slate-950">{item.title}</div>
+          <div className="inspector-kicker">Selected follow-up</div>
+          <div className="inspector-title">{item.title}</div>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant={statusTone(item.status)}>{item.status}</Badge>
             <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge>

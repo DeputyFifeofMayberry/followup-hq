@@ -43,7 +43,7 @@ function parseDueDate(input: string): string | undefined {
   if (lower.includes('tomorrow')) return addDaysIso(todayIso(), 1);
   if (lower.includes('today') || lower.includes('asap')) return todayIso();
   if (lower.includes('next week')) return addDaysIso(todayIso(), 7);
-  if (lower.includes('eow')) return addDaysIso(todayIso(), 4);
+  if (lower.includes('eow') || lower.includes('end of week')) return addDaysIso(todayIso(), Math.max(1, 5 - new Date().getDay()));
   const weekday = Object.keys(weekdayMap).find((name) => lower.includes(name));
   if (!weekday) return undefined;
   const now = new Date();
@@ -85,11 +85,14 @@ export function parseUniversalCapture(input: string): UniversalCaptureDraft {
   const tokenDue = readToken(clean, ['d', 'due']);
   const tokenPriority = readToken(clean, ['pri', 'priority']);
   const waitingOn = readToken(clean, ['wait', 'waiting'])
-    || clean.match(/\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i)?.[1]?.trim();
+    || clean.match(/\bwaiting on\s+([a-zA-Z0-9][a-zA-Z0-9 .&'-]{1,60})/i)?.[1]?.trim()
+    || clean.match(/\bfrom\s+([A-Z][a-zA-Z0-9 .&'-]{1,50})/)?.[1]?.trim();
 
   const hashTask = /#task\b/i.test(clean);
   const hashFollowup = /#followup\b/i.test(clean);
-  const inferredKind: CaptureKind = hashTask || (lower.includes('task') && !hashFollowup) ? 'task' : 'followup';
+  const pmTaskPhrase = /\b(fix|submit|update|draft|build|close|review|ship|deliver|send)\b/.test(lower);
+  const pmFollowPhrase = /\b(follow\s*-?up|waiting on|nudge|check in|ping)\b/.test(lower);
+  const inferredKind: CaptureKind = hashTask || (pmTaskPhrase && !pmFollowPhrase && !hashFollowup) ? 'task' : 'followup';
 
   const dueDate = tokenDue ? parseDueDate(tokenDue) : parseDueDate(clean);
   const priority = parsePriority(tokenPriority ? `pri:${tokenPriority}` : clean);

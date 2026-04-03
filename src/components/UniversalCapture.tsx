@@ -1,14 +1,14 @@
-import { AlertTriangle, ChevronDown, CircleCheck, Sparkles, WandSparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Inbox, Sparkles, WandSparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getRecentEntryContext } from '../lib/dataEntryDefaults';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { addDaysIso, createId, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import type { FollowUpItem, TaskItem } from '../types';
+import type { FollowUpItem, IntakeCandidate, TaskItem } from '../types';
 
 export function UniversalCapture({ contextProject, contextOwner, contextFollowUpId }: { contextProject?: string; contextOwner?: string; contextFollowUpId?: string | null; }) {
-  const { projects, contacts, addItem, addTask, openEditModal, openEditTaskModal, openCreateFromCapture, addProject, addContact } = useAppStore(useShallow((s) => ({
+  const { projects, contacts, addItem, addTask, openEditModal, openEditTaskModal, openCreateFromCapture, addProject, addContact, stageIntakeCandidate, intakeCandidates, approveIntakeCandidate, discardIntakeCandidate, saveIntakeCandidateAsReference } = useAppStore(useShallow((s) => ({
     projects: s.projects,
     contacts: s.contacts,
     addItem: s.addItem,
@@ -18,6 +18,11 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
     openCreateFromCapture: s.openCreateFromCapture,
     addProject: s.addProject,
     addContact: s.addContact,
+    stageIntakeCandidate: s.stageIntakeCandidate,
+    intakeCandidates: s.intakeCandidates,
+    approveIntakeCandidate: s.approveIntakeCandidate,
+    discardIntakeCandidate: s.discardIntakeCandidate,
+    saveIntakeCandidateAsReference: s.saveIntakeCandidateAsReference,
   })));
   const [text, setText] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -40,47 +45,85 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
     return { ...base, project: base.project || contextProject, owner: base.owner || contextOwner };
   }, [parsedOverride, text, contextProject, contextOwner]);
 
-  const confidence = parsed.title.trim().length > 12 && parsed.cleanupReasons.length === 0 ? 'high' : parsed.cleanupReasons.length >= 2 ? 'low' : 'medium';
+  const confidence = parsed.confidence >= 0.82 && parsed.cleanupReasons.length === 0 ? 'high' : parsed.confidence >= 0.6 ? 'medium' : 'low';
   const canDirectSave = !!text.trim() && !!parsed.title.trim();
   const needsCleanup = parsed.cleanupReasons.length > 0;
+  const parseReasons = [
+    parsed.project ? `Detected project: ${parsed.project}` : 'Project not confidently detected',
+    parsed.owner ? `Detected owner: ${parsed.owner}` : 'Owner missing',
+    parsed.dueDate ? `Detected due date: ${new Date(parsed.dueDate).toLocaleDateString()}` : 'Due date missing',
+    `Detected type: ${parsed.kind}`,
+  ];
 
-  const findOrCreateProject = (name?: string): { id: string; name: string } => {
+  const findProject = (name?: string): { id: string; name: string } => {
     const recentContext = getRecentEntryContext();
     const clean = (name || contextProject || recentContext.project || '').trim();
     if (!clean) return { id: '', name: '' };
     const existing = projects.find((project) => project.name.toLowerCase() === clean.toLowerCase() || project.id === clean);
     if (existing) return { id: existing.id, name: existing.name };
-    const id = addProject({ name: clean, owner: parsed.owner || contextOwner || recentContext.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
-    return { id, name: clean };
+    return { id: '', name: clean };
   };
 
-  const findOrCreateOwner = (name?: string): { id?: string; name: string } => {
+  const findOwner = (name?: string): { id?: string; name: string } => {
     const recentContext = getRecentEntryContext();
     const clean = (name || contextOwner || recentContext.owner || '').trim();
     if (!clean) return { name: '' };
     const existing = contacts.find((contact) => contact.name.toLowerCase() === clean.toLowerCase());
     if (existing) return { id: existing.id, name: existing.name };
-    const id = addContact({ name: clean, role: 'PM', notes: '', tags: [] });
-    return { id, name: clean };
+    return { name: clean };
   };
 
-  const saveDraft = (openDetail = false, force = false) => {
-    if (!text.trim()) return;
-    if (!force && !canDirectSave) return;
+  const saveDraft = (openDetail = false) => {
+    if (!text.trim() || !canDirectSave) return;
 
-    const project = findOrCreateProject(parsed.project);
-    const owner = findOrCreateOwner(parsed.owner);
+    if (confidence !== 'high') {
+      const candidate: IntakeCandidate = {
+        id: createId('INT'),
+        rawText: parsed.rawText,
+        createdAt: todayIso(),
+        suggestedType: parsed.kind,
+        confidenceTier: confidence,
+        confidenceScore: parsed.confidence,
+        parseReasons,
+        missingFields: parsed.cleanupReasons,
+        detectedProject: parsed.project,
+        detectedOwner: parsed.owner,
+        detectedDueDate: parsed.dueDate,
+        waitingOn: parsed.waitingOn,
+        priority: parsed.priority,
+        draft: {
+          title: parsed.title,
+          summary: parsed.rawText,
+          nextAction: parsed.nextAction,
+          nextStep: parsed.nextStep,
+          status: parsed.status,
+        },
+      };
+      stageIntakeCandidate(candidate);
+      setConfirmation('Capture routed to intake review tray.');
+      setText('');
+      setParsedOverride(null);
+      return;
+    }
+
+    const project = findProject(parsed.project);
+    const owner = findOwner(parsed.owner);
+    const shouldCreateProject = !!project.name && !project.id;
+    const shouldCreateOwner = !!owner.name && !owner.id;
+
+    const projectId = shouldCreateProject ? addProject({ name: project.name, owner: parsed.owner || contextOwner || 'Unassigned', status: 'Active', notes: '', tags: [] }) : project.id;
+    const ownerId = shouldCreateOwner ? addContact({ name: owner.name, role: 'PM', notes: '', tags: [] }) : owner.id;
 
     if (parsed.kind === 'task') {
-      const task: TaskItem = { id: createId('TSK'), title: parsed.title, project: project.name || 'General', projectId: project.id || undefined, owner: owner.name || 'Unassigned', contactId: owner.id, status: 'To do', priority: parsed.priority, dueDate: parsed.dueDate, summary: parsed.rawText, nextStep: parsed.nextStep || parsed.title, notes: '', tags: ['Capture bar'], linkedFollowUpId: contextFollowUpId || undefined, createdAt: todayIso(), updatedAt: todayIso(), needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch' };
+      const task: TaskItem = { id: createId('TSK'), title: parsed.title, project: project.name || 'General', projectId: projectId || undefined, owner: owner.name || 'Unassigned', contactId: ownerId, status: 'To do', priority: parsed.priority, dueDate: parsed.dueDate, summary: parsed.rawText, nextStep: parsed.nextStep || parsed.title, notes: '', tags: ['Capture bar'], linkedFollowUpId: contextFollowUpId || undefined, createdAt: todayIso(), updatedAt: todayIso(), needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch' };
       addTask(task);
       if (openDetail) openEditTaskModal(task.id);
-      setConfirmation(needsCleanup ? 'Saved to intake. Needs cleanup.' : 'Task saved.');
+      setConfirmation('Task saved (high confidence).');
     } else {
-      const followUp: FollowUpItem = { id: createId(), title: parsed.title, source: 'Notes', project: project.name || 'General', projectId: project.id || undefined, owner: owner.name || 'Unassigned', contactId: owner.id, status: parsed.status === 'Waiting on external' ? 'Waiting on external' : 'Needs action', priority: parsed.priority, dueDate: parsed.dueDate || addDaysIso(todayIso(), 1), lastTouchDate: todayIso(), nextTouchDate: parsed.dueDate || addDaysIso(todayIso(), 1), nextAction: parsed.nextAction || parsed.title, summary: parsed.rawText, tags: ['Capture bar'], sourceRef: `Capture bar ${todayIso()}`, sourceRefs: [], mergedItemIds: [], waitingOn: parsed.waitingOn, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3, needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch' };
+      const followUp: FollowUpItem = { id: createId(), title: parsed.title, source: 'Notes', project: project.name || 'General', projectId: projectId || undefined, owner: owner.name || 'Unassigned', contactId: ownerId, status: parsed.status === 'Waiting on external' ? 'Waiting on external' : 'Needs action', priority: parsed.priority, dueDate: parsed.dueDate || addDaysIso(todayIso(), 1), lastTouchDate: todayIso(), nextTouchDate: parsed.dueDate || addDaysIso(todayIso(), 1), nextAction: parsed.nextAction || parsed.title, summary: parsed.rawText, tags: ['Capture bar'], sourceRef: `Capture bar ${todayIso()}`, sourceRefs: [], mergedItemIds: [], waitingOn: parsed.waitingOn, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3, needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch', actionState: 'Draft created' };
       addItem(followUp);
       if (openDetail) openEditModal(followUp.id);
-      setConfirmation(needsCleanup ? 'Saved to intake. Needs cleanup.' : 'Follow-up saved.');
+      setConfirmation('Follow-up saved (high confidence).');
     }
 
     setText('');
@@ -101,18 +144,11 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       </div>
 
       <div className="mt-2 flex gap-2">
-        <input
-          value={text}
-          onChange={(event) => { setText(event.target.value); setParsedOverride(null); }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); saveDraft(true, true); return; }
-            if (event.key === 'Enter') { event.preventDefault(); saveDraft(false, false); }
-          }}
-          placeholder={`Quick capture ${contextProject ? `for ${contextProject}` : ''}`}
-          className="field-input smart-composer-input"
-        />
-        <button onClick={() => saveDraft(false, false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">Save</button>
+        <input value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
+          if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
+          if (event.key === 'Enter') { event.preventDefault(); saveDraft(false); }
+        }} placeholder={`Quick capture ${contextProject ? `for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
+        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save' : 'Stage review'}</button>
       </div>
 
       {expanded && text.trim() ? (
@@ -121,19 +157,35 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
             <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Parse preview</span>
             <span className={confidence === 'high' ? 'text-emerald-700' : confidence === 'medium' ? 'text-sky-700' : 'text-amber-700'}>{confidence} confidence</span>
           </div>
-          <div className="grid gap-2 text-xs md:grid-cols-5">
-            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2"><div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Type</div><select className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.kind} onChange={(event) => setParsedOverride({ ...parsed, kind: event.target.value as 'task' | 'followup' })}><option value="followup">Follow-up</option><option value="task">Task</option></select></label>
-            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2"><div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Project</div><input className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.project || ''} onChange={(event) => setParsedOverride({ ...parsed, project: event.target.value })} placeholder="Unset" /></label>
-            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2"><div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Owner</div><input className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.owner || ''} onChange={(event) => setParsedOverride({ ...parsed, owner: event.target.value })} placeholder="Unset" /></label>
-            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2"><div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Due</div><input type="date" className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.dueDate?.slice(0, 10) || ''} onChange={(event) => setParsedOverride({ ...parsed, dueDate: event.target.value || undefined })} /></label>
-            <label className="rounded-2xl border border-slate-200 bg-white px-3 py-2"><div className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Priority</div><select className="mt-1 w-full bg-transparent text-slate-800 outline-none" value={parsed.priority} onChange={(event) => setParsedOverride({ ...parsed, priority: event.target.value as FollowUpItem['priority'] })}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label>
+          <div className="grid gap-2 text-xs md:grid-cols-2">
+            {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
           </div>
           {needsCleanup ? <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">{parsed.cleanupReasons.map((reason) => <span key={reason} className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5">{cleanupLabel[reason]}</span>)}</div> : null}
-          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true, true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Save + Open</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open full editor</button></div>
+          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save + Open' : 'Stage + Open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open full editor</button></div>
         </div>
       ) : null}
 
-      {confirmation ? <div className={`mt-2 text-xs font-medium ${needsCleanup ? 'text-amber-700' : 'text-emerald-700'}`}>{needsCleanup ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CircleCheck className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
+      {intakeCandidates.length > 0 ? (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Inbox className="h-4 w-4" />Intake review ({intakeCandidates.length})</div>
+          <div className="space-y-2">
+            {intakeCandidates.slice(0, 4).map((candidate) => (
+              <div key={candidate.id} className="rounded-xl border border-slate-200 p-2 text-xs">
+                <div className="font-semibold text-slate-900">{candidate.draft.title}</div>
+                <div className="text-slate-500">{candidate.suggestedType} • {candidate.confidenceTier} confidence • {candidate.detectedProject || 'No project'}</div>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={() => approveIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1">Approve</button>
+                  <button onClick={() => approveIntakeCandidate(candidate.id, candidate.suggestedType === 'task' ? 'followup' : 'task')} className="action-btn !px-2 !py-1">Convert</button>
+                  <button onClick={() => saveIntakeCandidateAsReference(candidate.id)} className="action-btn !px-2 !py-1">Reference</button>
+                  <button onClick={() => discardIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1 text-rose-600">Discard</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {confirmation ? <div className={`mt-2 text-xs font-medium ${confidence === 'low' ? 'text-amber-700' : 'text-emerald-700'}`}>{confidence === 'low' ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CheckCircle2 className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
     </section>
   );
 }

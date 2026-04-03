@@ -8,13 +8,19 @@ export interface UniversalCaptureDraft {
   rawText: string;
   title: string;
   project?: string;
+  projectId?: string;
   owner?: string;
+  assigneeDisplayName?: string;
   waitingOn?: string;
   dueDate?: string;
   priority: FollowUpPriority | TaskPriority;
   status?: FollowUpStatus | TaskStatus;
   nextAction?: string;
   nextStep?: string;
+  linkedFollowUpId?: string;
+  contextNote?: string;
+  companyId?: string;
+  contactId?: string;
   confidence: number;
   cleanupReasons: CaptureCleanupReason[];
 }

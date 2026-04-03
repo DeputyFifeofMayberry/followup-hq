@@ -349,6 +349,7 @@ export type UnifiedQueuePreset =
 
 export interface UnifiedQueueFilter {
   types?: Array<'task' | 'followup'>;
+  search?: string;
   project?: string[];
   owner?: string[];
   assignee?: string[];
@@ -361,8 +362,16 @@ export interface UnifiedQueueFilter {
   linkedState?: 'linked' | 'unlinked' | 'blocked_child' | 'all_done';
   linkedParentStatus?: string[];
   parentAtRisk?: boolean;
+  orphanedOnly?: boolean;
+  readyToCloseParentOnly?: boolean;
   blockedOnly?: boolean;
   deferredOnly?: boolean;
+  waitingTooLongOnly?: boolean;
+  needsTouchTodayOnly?: boolean;
+  dueTodayOnly?: boolean;
+  overdueOnly?: boolean;
+  nextTouchDateFrom?: string;
+  nextTouchDateTo?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
   startDateFrom?: string;
@@ -374,6 +383,9 @@ export interface UnifiedQueueFilter {
   updatedWithinDays?: number;
   source?: string[];
 }
+
+export type UnifiedQueueSort = 'queue_score' | 'due_date' | 'next_touch_date' | 'updated_date' | 'priority' | 'project';
+export type UnifiedQueueDensity = 'compact' | 'detailed';
 
 export interface SavedExecutionView {
   id: string;
@@ -417,6 +429,31 @@ export interface UnifiedQueueItem {
   contactId?: string;
   primaryNextAction: string;
   whyInQueue: string;
+  queueReasons: string[];
+  summary?: string;
+  promisedDate?: string;
+  source?: SourceType;
+  notesPreview?: string;
+  recentActivity?: string;
+  lastActionAt?: string;
+  completionImpactSummary?: string;
+  linkedParentTitle?: string;
+  linkedChildSummary?: string;
+  queueFlags: {
+    overdue: boolean;
+    dueToday: boolean;
+    dueThisWeek: boolean;
+    needsTouchToday: boolean;
+    waitingTooLong: boolean;
+    blocked: boolean;
+    deferred: boolean;
+    cleanupRequired: boolean;
+    parentAtRisk: boolean;
+    readyToCloseParent: boolean;
+    orphanedTask: boolean;
+    linked: boolean;
+    waiting: boolean;
+  };
   score: number;
   updatedAt?: string;
 }

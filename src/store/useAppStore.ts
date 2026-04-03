@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
 import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso, isTaskOverdue } from '../lib/utils';
-import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, defaultExecutionViews } from '../lib/unifiedQueue';
+import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, defaultExecutionViews, sortUnifiedQueue } from '../lib/unifiedQueue';
 import { createPersistenceQueue } from './persistenceQueue';
 import { isTauriRuntime, loadPersistedPayload, type PersistedPayload } from '../lib/persistence';
 import { getDefaultOutlookSettings } from '../lib/outlookGraph';
@@ -47,6 +47,8 @@ import type {
   UnifiedQueueFilter,
   UnifiedQueueItem,
   UnifiedQueuePreset,
+  UnifiedQueueSort,
+  UnifiedQueueDensity,
   ActionReceipt,
   IntakeAssetRecord,
   IntakeBatchRecord,
@@ -128,6 +130,8 @@ interface AppState {
   intakeWorkCandidates: IntakeWorkCandidate[];
   queuePreset: UnifiedQueuePreset;
   executionFilter: UnifiedQueueFilter;
+  executionSort: UnifiedQueueSort;
+  queueDensity: UnifiedQueueDensity;
   savedExecutionViews: SavedExecutionView[];
   initializeApp: () => Promise<void>;
   setSelectedId: (id: string) => void;
@@ -215,6 +219,8 @@ interface AppState {
   getUnifiedQueue: () => UnifiedQueueItem[];
   setQueuePreset: (preset: UnifiedQueuePreset) => void;
   setExecutionFilter: (filter: UnifiedQueueFilter) => void;
+  setExecutionSort: (sort: UnifiedQueueSort) => void;
+  setQueueDensity: (density: UnifiedQueueDensity) => void;
   saveExecutionView: (name: string, scope?: 'personal' | 'team') => void;
   applyExecutionView: (viewId: string) => void;
   stageIntakeCandidate: (candidate: IntakeCandidate) => void;
@@ -667,6 +673,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   intakeWorkCandidates: [],
   queuePreset: 'Today',
   executionFilter: {},
+  executionSort: 'queue_score',
+  queueDensity: 'compact',
   savedExecutionViews: defaultExecutionViews,
   initializeApp: async () => {
     if (get().hydrated) return;
@@ -1263,10 +1271,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const state = get();
     const queue = buildUnifiedQueue(state.items, state.tasks);
     const preset = applyQueuePreset(queue, state.queuePreset);
-    return applyUnifiedFilter(preset, state.executionFilter);
+    return sortUnifiedQueue(applyUnifiedFilter(preset, state.executionFilter), state.executionSort);
   },
   setQueuePreset: (preset) => set({ queuePreset: preset }),
   setExecutionFilter: (filter) => set({ executionFilter: filter }),
+  setExecutionSort: (sort) => set({ executionSort: sort }),
+  setQueueDensity: (density) => set({ queueDensity: density }),
   saveExecutionView: (name, scope = 'personal') => {
     set((state) => ({
       savedExecutionViews: [{ id: createId('VIEW'), name, scope, createdAt: todayIso(), preset: state.queuePreset, filter: state.executionFilter }, ...state.savedExecutionViews],

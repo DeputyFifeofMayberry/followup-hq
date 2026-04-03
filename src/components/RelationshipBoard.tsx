@@ -101,13 +101,13 @@ export function RelationshipBoard() {
   } : { followUps: 0, tasks: 0, contacts: 0 };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm workspace-inspector-panel">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">Relationship command center</h2>
         <p className="mt-1 text-sm text-slate-500">Scan pressure across contacts and companies, then jump directly into the work creating risk.</p>
       </div>
 
-      <div className="grid gap-4 p-4 xl:grid-cols-[0.95fr_1.05fr]">
+      <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 p-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4" />Find relationships</div>
@@ -204,14 +204,14 @@ export function RelationshipBoard() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/40">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-900">Relationship portfolio ({filteredRows.length})</div>
               <div className="text-xs text-slate-600">Click any row for detail + actions</div>
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
               {filteredRows.map((row) => (
-                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full rounded-xl border p-2 text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'border-sky-300 bg-sky-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <button key={`${row.entityType}-${row.id}`} onClick={() => { setSelectedId(row.id); setSelectedEntityType(row.entityType); }} className={`w-full relationship-row text-left text-sm ${selected?.id === row.id && selected?.entityType === row.entityType ? 'relationship-row-active' : 'hover:bg-slate-50'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium text-slate-900">{row.name}</div>
@@ -326,7 +326,7 @@ export function RelationshipBoard() {
               ) : null}
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-500">No relationships match the current filters.</div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No relationships match the current filters. Reset filters or lower pressure thresholds.</div>
           )}
 
           <div className="rounded-2xl border border-slate-200 p-3 text-xs text-slate-600">

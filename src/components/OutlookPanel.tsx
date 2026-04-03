@@ -74,7 +74,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         title="Email Intake"
         subtitle="Recommended path: forward emails into intake, review what gets created, and keep routing predictable."
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
             <Badge variant="success">Forwarding-first workflow</Badge>
             <Badge variant={outlookConnection.mailboxLinked ? 'neutral' : 'warn'}>
               {outlookConnection.mailboxLinked ? 'Direct Outlook sync enabled' : 'Direct sync optional'}
@@ -82,11 +82,11 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           </div>
         }
       />
-        <div className="flex flex-wrap gap-2">
-          <button className={`action-btn ${activeTab === 'review' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
-          <button className={`action-btn ${activeTab === 'history' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
-          <button className={`action-btn ${activeTab === 'rules' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
-          <button className={`action-btn ${activeTab === 'settings' ? 'border-slate-900' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+          <button className={`action-btn ${activeTab === 'review' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('review')}>Review Queue</button>
+          <button className={`action-btn ${activeTab === 'history' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('history')}>Intake History</button>
+          <button className={`action-btn ${activeTab === 'rules' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
+          <button className={`action-btn ${activeTab === 'settings' ? 'border-slate-900 bg-white' : 'bg-transparent'}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
         </div>
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}

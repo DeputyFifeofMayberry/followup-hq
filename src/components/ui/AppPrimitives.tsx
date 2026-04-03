@@ -4,6 +4,14 @@ export function AppShellCard({ children, className = '' }: PropsWithChildren<{ c
   return <section className={`app-shell-card ${className}`.trim()}>{children}</section>;
 }
 
+export function ElevatedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <section className={`elevated-panel ${className}`.trim()}>{children}</section>;
+}
+
+export function MutedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <section className={`muted-panel ${className}`.trim()}>{children}</section>;
+}
+
 export function SectionHeader({
   title,
   subtitle,
@@ -26,7 +34,17 @@ export function SectionHeader({
   );
 }
 
-export function StatTile({ label, value, helper, tone = 'default' }: { label: string; value: number | string; helper?: string; tone?: 'default' | 'warn' | 'danger' }) {
+export function StatTile({
+  label,
+  value,
+  helper,
+  tone = 'default',
+}: {
+  label: string;
+  value: number | string;
+  helper?: string;
+  tone?: 'default' | 'warn' | 'danger';
+}) {
   return (
     <div className={`stat-tile stat-tile-${tone}`}>
       <div className="stat-tile-label">{label}</div>
@@ -38,6 +56,14 @@ export function StatTile({ label, value, helper, tone = 'default' }: { label: st
 
 export function FilterBar({ children }: PropsWithChildren) {
   return <div className="filter-bar">{children}</div>;
+}
+
+export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' | 'success' | 'danger' }>) {
+  return <span className={`app-badge app-badge-${tone}`}>{children}</span>;
+}
+
+export function WorkspaceHeaderMetaPill({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' }>) {
+  return <div className={`workspace-meta-pill workspace-meta-pill-${tone}`}>{children}</div>;
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
@@ -88,4 +114,32 @@ export function SegmentedControl<T extends string>({
       })}
     </div>
   );
+}
+
+export function AppModal({ children, size = 'standard' }: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector' }>) {
+  return (
+    <div className="modal-backdrop">
+      <div className={`modal-panel modal-panel-${size}`}>{children}</div>
+    </div>
+  );
+}
+
+export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' }: { title: string; subtitle?: string; onClose: () => void; closeLabel?: string }) {
+  return (
+    <div className="modal-header">
+      <div>
+        <div className="text-lg font-semibold text-slate-950">{title}</div>
+        {subtitle ? <div className="mt-1 text-sm text-slate-500">{subtitle}</div> : null}
+      </div>
+      <button onClick={onClose} className="action-btn">{closeLabel}</button>
+    </div>
+  );
+}
+
+export function AppModalBody({ children, scrollable = true }: PropsWithChildren<{ scrollable?: boolean }>) {
+  return <div className={scrollable ? 'modal-body modal-body-scroll' : 'modal-body'}>{children}</div>;
+}
+
+export function AppModalFooter({ children }: PropsWithChildren) {
+  return <div className="modal-footer">{children}</div>;
 }

@@ -3,6 +3,7 @@ import { Copy, Mail, Send, ShieldCheck, WandSparkles } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { buildTouchEvent, createId, todayIso } from '../lib/utils';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from './ui/AppPrimitives';
 
 export function FollowUpDraftModal() {
   const { item, draftModal, closeDraftModal, updateDraftForItem, generateDraftForItem, updateItem, confirmFollowUpSent } = useAppStore(useShallow((s) => ({
@@ -36,11 +37,7 @@ export function FollowUpDraftModal() {
 
   const tonedDraft = useMemo(() => {
     if (!draft.trim()) return '';
-    const templateHeader = template === 'blocker_clear'
-      ? 'Blocking item check:\n'
-      : template === 'decision_needed'
-        ? 'Decision needed:\n'
-        : 'Status update request:\n';
+    const templateHeader = template === 'blocker_clear' ? 'Blocking item check:\n' : template === 'decision_needed' ? 'Decision needed:\n' : 'Status update request:\n';
     if (tone === 'firm') return `${templateHeader}\nQuick status check:\n\n${draft}`;
     if (tone === 'friendly') return `${templateHeader}\nHi team,\n\n${draft}\n\nThanks!`;
     return draft;
@@ -51,15 +48,9 @@ export function FollowUpDraftModal() {
   const mailtoHref = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(tonedDraft)}`;
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-panel modal-panel-wide">
-        <div className="modal-header">
-          <div>
-            <div className="text-lg font-semibold text-slate-950">Follow-up composer</div>
-            <div className="mt-1 text-sm text-slate-500">Draft first, send externally, then explicitly confirm send receipt.</div>
-          </div>
-          <button onClick={closeDraftModal} className="action-btn">Close</button>
-        </div>
+    <AppModal size="wide">
+      <AppModalHeader title="Follow-up composer" subtitle="Draft first, send externally, then explicitly confirm send receipt." onClose={closeDraftModal} />
+      <AppModalBody>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
           <div className="font-medium text-slate-900">{item.title}</div>
           <div className="mt-1">{item.project} • {item.owner}</div>
@@ -78,21 +69,7 @@ export function FollowUpDraftModal() {
           <label className="field-label">Body</label>
           <textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="field-textarea" style={{ minHeight: 240 }} />
         </div>
-        <div className="modal-footer">
-          <button onClick={() => { generateDraftForItem(item.id); setCopied(false); }} className="action-btn"><WandSparkles className="h-4 w-4" />Generate draft</button>
-          <button onClick={async () => { await navigator.clipboard.writeText(`Subject: ${subject}\n\n${tonedDraft}`); setCopied(true); }} className="action-btn"><Copy className="h-4 w-4" />{copied ? 'Copied' : 'Copy'}</button>
-          <a href={mailtoHref} className="action-btn"><Mail className="h-4 w-4" />Open in compose</a>
-          <button onClick={() => {
-            updateDraftForItem(item.id, tonedDraft);
-            updateItem(item.id, {
-              draftFollowUp: tonedDraft,
-              actionState: 'Ready to send',
-              timeline: [buildTouchEvent('Draft prepared and ready to send.', 'bundle_action'), ...item.timeline],
-              actionReceipts: [{ id: createId('ACT'), at: todayIso(), actor: 'Current user', action: 'draft_created', confirmed: true }, ...(item.actionReceipts || [])],
-            });
-            setConfirming(true);
-          }} className="primary-btn"><Send className="h-4 w-4" />Prepare send confirmation</button>
-        </div>
+
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
           <div className="font-semibold text-slate-900">Recent send history / proof</div>
           <div className="mt-1 space-y-1">
@@ -113,7 +90,22 @@ export function FollowUpDraftModal() {
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
+      </AppModalBody>
+      <AppModalFooter>
+        <button onClick={() => { generateDraftForItem(item.id); setCopied(false); }} className="action-btn"><WandSparkles className="h-4 w-4" />Generate draft</button>
+        <button onClick={async () => { await navigator.clipboard.writeText(`Subject: ${subject}\n\n${tonedDraft}`); setCopied(true); }} className="action-btn"><Copy className="h-4 w-4" />{copied ? 'Copied' : 'Copy'}</button>
+        <a href={mailtoHref} className="action-btn"><Mail className="h-4 w-4" />Open in compose</a>
+        <button onClick={() => {
+          updateDraftForItem(item.id, tonedDraft);
+          updateItem(item.id, {
+            draftFollowUp: tonedDraft,
+            actionState: 'Ready to send',
+            timeline: [buildTouchEvent('Draft prepared and ready to send.', 'bundle_action'), ...item.timeline],
+            actionReceipts: [{ id: createId('ACT'), at: todayIso(), actor: 'Current user', action: 'draft_created', confirmed: true }, ...(item.actionReceipts || [])],
+          });
+          setConfirming(true);
+        }} className="primary-btn"><Send className="h-4 w-4" />Prepare send confirmation</button>
+      </AppModalFooter>
+    </AppModal>
   );
 }

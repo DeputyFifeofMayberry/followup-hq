@@ -25,7 +25,7 @@ import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
-import { SegmentedControl } from './components/ui/AppPrimitives';
+import { AppButton, NavItem, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 
@@ -425,8 +425,34 @@ function MainApp() {
           <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="action-btn justify-start w-full" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
         </aside>
 
-        <main className="app-main-pane">
-          <header className="workspace-header workspace-header-tight">
+            <div className="app-nav-group-label">Workspaces</div>
+            <div className="grid gap-2">
+              {navItems.map(({ key, label, icon: Icon }) => {
+                const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
+                return (
+                  <NavItem
+                    key={key}
+                    label={label}
+                    icon={<Icon className="h-4 w-4" />}
+                    active={workspace === key}
+                    deemphasized={deemphasized}
+                    badge={navCounts[key]}
+                    onClick={() => setWorkspace(key)}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="app-nav-footer">
+              <AppButton onClick={() => setShowCommand(true)} className="justify-start w-full">
+                <Command className="h-4 w-4" />
+                Command palette
+              </AppButton>
+            </div>
+          </aside>
+
+          <main className="app-main-pane">
+            <header className="workspace-header workspace-header-tight">
             <div>
               <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
               <h1>{currentMeta.title}</h1>
@@ -434,13 +460,14 @@ function MainApp() {
             </div>
             <div className="workspace-header-meta">
               <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <div className="workspace-health-pill">{currentMeta.health}</div>
-              <div className="workspace-header-actions">{currentMeta.actions.map((action) => <button key={action.label} onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>{action.primary ? <Plus className="h-4 w-4" /> : null}{action.label}</button>)}</div>
+              <WorkspaceHeaderMetaPill tone="info">{currentMeta.health}</WorkspaceHeaderMetaPill>
+              <div className="workspace-header-actions">{currentMeta.actions.map((action) => <AppButton key={action.label} onClick={action.run} tone={action.primary ? 'primary' : 'secondary'}>{action.primary ? <Plus className="h-4 w-4" /> : null}{action.label}</AppButton>)}</div>
             </div>
-          </header>
-          <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
-          {workspaceBody}
-        </main>
+            </header>
+            <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+            {workspaceBody}
+          </main>
+        </div>
       </div>
 
       {showCommand ? (

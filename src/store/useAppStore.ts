@@ -10,6 +10,7 @@ import { getDefaultOutlookSettings } from '../lib/outlookGraph';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
 import { getDefaultForwardedRules } from '../lib/intakeRules';
+import { buildBatchRecord, buildCandidatesFromAsset, parseIntakeFile } from '../lib/universalIntake';
 import type { UniversalCaptureDraft } from '../lib/universalCapture';
 import type {
   AppSnapshot,
@@ -47,6 +48,9 @@ import type {
   UnifiedQueueItem,
   UnifiedQueuePreset,
   ActionReceipt,
+  IntakeAssetRecord,
+  IntakeBatchRecord,
+  IntakeWorkCandidate,
 } from '../types';
 
 interface ItemModalState {
@@ -111,6 +115,9 @@ interface AppState {
   forwardedLedger: ForwardedIngestionLedgerEntry[];
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
   intakeCandidates: IntakeCandidate[];
+  intakeAssets: IntakeAssetRecord[];
+  intakeBatches: IntakeBatchRecord[];
+  intakeWorkCandidates: IntakeWorkCandidate[];
   queuePreset: UnifiedQueuePreset;
   executionFilter: UnifiedQueueFilter;
   savedExecutionViews: SavedExecutionView[];
@@ -197,6 +204,10 @@ interface AppState {
   approveIntakeCandidate: (candidateId: string, mode?: 'task' | 'followup') => void;
   discardIntakeCandidate: (candidateId: string) => void;
   saveIntakeCandidateAsReference: (candidateId: string) => void;
+  ingestIntakeFiles: (files: File[], source?: 'drop' | 'file_picker') => Promise<void>;
+  updateIntakeWorkCandidate: (candidateId: string, patch: Partial<IntakeWorkCandidate>) => void;
+  decideIntakeWorkCandidate: (candidateId: string, decision: 'approve_task' | 'approve_followup' | 'reference' | 'reject' | 'link', linkedRecordId?: string) => void;
+  batchApproveHighConfidence: () => void;
   confirmFollowUpSent: (id: string, notes?: string) => void;
 }
 
@@ -327,7 +338,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'savedExecutionViews'>): PersistedPayload {
+function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'savedExecutionViews'>): PersistedPayload {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -347,6 +358,9 @@ function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'com
       forwardedLedger: state.forwardedLedger,
       forwardedRoutingAudit: state.forwardedRoutingAudit,
       intakeCandidates: state.intakeCandidates,
+      intakeAssets: state.intakeAssets,
+      intakeBatches: state.intakeBatches,
+      intakeWorkCandidates: state.intakeWorkCandidates,
       savedExecutionViews: state.savedExecutionViews,
     },
   };
@@ -541,6 +555,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   forwardedLedger: [],
   forwardedRoutingAudit: [],
   intakeCandidates: [],
+  intakeAssets: [],
+  intakeBatches: [],
+  intakeWorkCandidates: [],
   queuePreset: 'Today',
   executionFilter: {},
   savedExecutionViews: defaultExecutionViews,
@@ -576,6 +593,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const forwardedLedger = payload.auxiliary.forwardedLedger ?? [];
       const forwardedRoutingAudit = payload.auxiliary.forwardedRoutingAudit ?? [];
       const intakeCandidates = payload.auxiliary.intakeCandidates ?? [];
+      const intakeAssets = payload.auxiliary.intakeAssets ?? [];
+      const intakeBatches = payload.auxiliary.intakeBatches ?? [];
+      const intakeWorkCandidates = payload.auxiliary.intakeWorkCandidates ?? [];
       const savedExecutionViews = payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews;
       set({
         items,
@@ -598,6 +618,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         forwardedLedger,
         forwardedRoutingAudit,
         intakeCandidates,
+        intakeAssets,
+        intakeBatches,
+        intakeWorkCandidates,
         savedExecutionViews,
         saveError: '',
         syncState: 'saved',
@@ -1110,6 +1133,147 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (!candidate) return;
     get().addIntakeDocument({ name: candidate.draft.title, kind: 'Text', project: candidate.detectedProject, owner: candidate.detectedOwner, sourceRef: 'Quick capture', notes: candidate.rawText, tags: ['reference'] });
     set((state) => ({ intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+  },
+  ingestIntakeFiles: async (files, source = 'drop') => {
+    if (!files.length) return;
+    const state = get();
+    const batch = buildBatchRecord([]);
+    const assets = await Promise.all(files.map(async (file) => {
+      const parsed = await parseIntakeFile(file, batch.id);
+      return { ...parsed, source };
+    }));
+    const candidates = assets.flatMap((asset) => buildCandidatesFromAsset(asset, state.items, state.tasks));
+    const assetIds = assets.map((asset) => asset.id);
+    const finalizedBatch: IntakeBatchRecord = {
+      ...batch,
+      assetIds,
+      status: assets.some((asset) => asset.parseStatus === 'failed') ? 'review' : 'review',
+      stats: {
+        filesProcessed: assets.length,
+        candidatesCreated: candidates.length,
+        highConfidence: candidates.filter((candidate) => candidate.confidence >= 0.9).length,
+        failedParses: assets.filter((asset) => asset.parseStatus === 'failed').length,
+        duplicatesFlagged: candidates.filter((candidate) => candidate.duplicateMatches.length > 0).length,
+      },
+    };
+
+    set((inner) => ({
+      intakeAssets: [...assets, ...inner.intakeAssets],
+      intakeWorkCandidates: [...candidates, ...inner.intakeWorkCandidates],
+      intakeBatches: [finalizedBatch, ...inner.intakeBatches],
+    }));
+    queuePersist(get, set);
+  },
+  updateIntakeWorkCandidate: (candidateId, patch) => {
+    set((state) => ({
+      intakeWorkCandidates: state.intakeWorkCandidates.map((candidate) => candidate.id === candidateId ? { ...candidate, ...patch, updatedAt: todayIso() } : candidate),
+    }));
+    queuePersist(get, set);
+  },
+  decideIntakeWorkCandidate: (candidateId, decision, linkedRecordId) => {
+    const state = get();
+    const candidate = state.intakeWorkCandidates.find((entry) => entry.id === candidateId);
+    if (!candidate) return;
+
+    if (decision === 'reject') {
+      set((inner) => ({
+        intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, approvalStatus: 'rejected', updatedAt: todayIso() } : entry),
+      }));
+      queuePersist(get, set);
+      return;
+    }
+
+    if (decision === 'reference') {
+      state.addIntakeDocument({
+        name: candidate.title,
+        kind: 'Text',
+        project: candidate.project,
+        owner: candidate.owner,
+        sourceRef: `Intake asset ${candidate.assetId}`,
+        notes: candidate.summary,
+        tags: ['intake', 'reference'],
+      });
+      set((inner) => ({
+        intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, approvalStatus: 'reference', updatedAt: todayIso() } : entry),
+      }));
+      queuePersist(get, set);
+      return;
+    }
+
+    if (decision === 'link' && linkedRecordId) {
+      set((inner) => ({
+        intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, linkedRecordId, approvalStatus: 'linked', updatedAt: todayIso() } : entry),
+      }));
+      queuePersist(get, set);
+      return;
+    }
+
+    if (decision === 'approve_task') {
+      const id = createId('TSK');
+      state.addTask({
+        id,
+        title: candidate.title,
+        project: candidate.project || 'General',
+        owner: candidate.owner || 'Unassigned',
+        status: 'To do',
+        priority: candidate.priority,
+        dueDate: candidate.dueDate,
+        summary: candidate.summary,
+        nextStep: candidate.nextStep || candidate.title,
+        notes: `Imported from intake asset ${candidate.assetId}`,
+        tags: [...candidate.tags, 'intake'],
+        createdAt: todayIso(),
+        updatedAt: todayIso(),
+        needsCleanup: candidate.confidence < 0.9,
+      });
+      set((inner) => ({
+        intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, createdRecordId: id, approvalStatus: 'imported', updatedAt: todayIso() } : entry),
+      }));
+      queuePersist(get, set);
+      return;
+    }
+
+    const followupId = createId();
+    state.addItem({
+      id: followupId,
+      title: candidate.title,
+      source: 'Notes',
+      project: candidate.project || 'General',
+      owner: candidate.owner || 'Unassigned',
+      status: 'Needs action',
+      priority: candidate.priority,
+      dueDate: candidate.dueDate || addDaysIso(todayIso(), 2),
+      lastTouchDate: todayIso(),
+      nextTouchDate: candidate.dueDate || addDaysIso(todayIso(), 3),
+      nextAction: candidate.nextStep || candidate.title,
+      summary: candidate.summary,
+      tags: [...candidate.tags, 'intake'],
+      sourceRef: `Intake asset ${candidate.assetId}`,
+      sourceRefs: [`Intake asset ${candidate.assetId}`],
+      mergedItemIds: [],
+      waitingOn: candidate.waitingOn,
+      notes: '',
+      timeline: [buildTouchEvent('Created from universal intake review queue.', 'imported')],
+      category: 'Coordination',
+      owesNextAction: 'Unknown',
+      escalationLevel: 'None',
+      cadenceDays: 3,
+      needsCleanup: candidate.confidence < 0.9,
+      cleanupReasons: candidate.confidence < 0.9 ? ['unclear_type'] : [],
+    });
+    set((inner) => ({
+      intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, createdRecordId: followupId, approvalStatus: 'imported', updatedAt: todayIso() } : entry),
+    }));
+    queuePersist(get, set);
+  },
+  batchApproveHighConfidence: () => {
+    const state = get();
+    state.intakeWorkCandidates
+      .filter((candidate) => candidate.approvalStatus === 'pending' && candidate.confidence >= 0.9)
+      .forEach((candidate) => {
+        const action = candidate.candidateType === 'task' || candidate.candidateType === 'update_existing_task' ? 'approve_task' : 'approve_followup';
+        state.decideIntakeWorkCandidate(candidate.id, action);
+      });
   },
   confirmFollowUpSent: (id, notes) => {
     set((state) => ({

@@ -159,6 +159,120 @@ export interface IntakeCandidate {
   };
 }
 
+export type IntakeAssetKind =
+  | 'email'
+  | 'document'
+  | 'spreadsheet'
+  | 'pdf'
+  | 'text'
+  | 'html'
+  | 'csv'
+  | 'presentation'
+  | 'attachment'
+  | 'unknown';
+
+export type IntakeAssetSource = 'drop' | 'file_picker' | 'forwarding' | 'outlook_sync' | 'manual_paste';
+
+export type IntakeParseStatus =
+  | 'queued'
+  | 'reading'
+  | 'parsed'
+  | 'review_needed'
+  | 'ready_high_confidence'
+  | 'imported'
+  | 'linked'
+  | 'rejected'
+  | 'failed';
+
+export type IntakeCandidateType = 'task' | 'followup' | 'reference' | 'update_existing_task' | 'update_existing_followup';
+export type IntakeCandidateDecision = 'pending' | 'approved' | 'imported' | 'linked' | 'reference' | 'rejected';
+
+export interface IntakeEvidence {
+  id: string;
+  field: string;
+  snippet: string;
+  sourceRef: string;
+  score?: number;
+}
+
+export interface IntakeExistingMatch {
+  id: string;
+  recordType: 'task' | 'followup';
+  title: string;
+  project: string;
+  score: number;
+  reason: string;
+}
+
+export interface IntakeAssetRecord {
+  id: string;
+  batchId: string;
+  parentAssetId?: string;
+  fileName: string;
+  fileType: string;
+  sizeBytes: number;
+  kind: IntakeAssetKind;
+  source: IntakeAssetSource;
+  uploadedAt: string;
+  receivedAt?: string;
+  parseStatus: IntakeParseStatus;
+  parseQuality: 'strong' | 'partial' | 'weak' | 'failed';
+  metadata: Record<string, string | number | boolean | null>;
+  extractedText: string;
+  extractedPreview: string;
+  warnings: string[];
+  errors: string[];
+  attachmentIds: string[];
+  sourceRefs: string[];
+  contentHash: string;
+}
+
+export interface IntakeBatchRecord {
+  id: string;
+  createdAt: string;
+  source: IntakeAssetSource;
+  assetIds: string[];
+  status: 'active' | 'review' | 'completed' | 'failed';
+  stats: {
+    filesProcessed: number;
+    candidatesCreated: number;
+    highConfidence: number;
+    failedParses: number;
+    duplicatesFlagged: number;
+  };
+}
+
+export interface IntakeWorkCandidate {
+  id: string;
+  batchId: string;
+  assetId: string;
+  candidateType: IntakeCandidateType;
+  suggestedAction: 'create_new' | 'update_existing' | 'link_existing' | 'reference_only' | 'ignore_duplicate';
+  confidence: number;
+  title: string;
+  project?: string;
+  projectId?: string;
+  owner?: string;
+  assignee?: string;
+  dueDate?: string;
+  nextStep?: string;
+  waitingOn?: string;
+  priority: FollowUpPriority;
+  statusHint?: string;
+  summary: string;
+  tags: string[];
+  explanation: string[];
+  evidence: IntakeEvidence[];
+  warnings: string[];
+  duplicateMatches: IntakeExistingMatch[];
+  existingRecordMatches: IntakeExistingMatch[];
+  approvalStatus: IntakeCandidateDecision;
+  createdRecordId?: string;
+  linkedRecordId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UnifiedQueuePreset =
   | 'Today'
   | 'Due now'
@@ -815,6 +929,9 @@ export interface AppSnapshot {
   forwardedLedger: ForwardedIngestionLedgerEntry[];
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
   intakeCandidates?: IntakeCandidate[];
+  intakeAssets?: IntakeAssetRecord[];
+  intakeBatches?: IntakeBatchRecord[];
+  intakeWorkCandidates?: IntakeWorkCandidate[];
   savedExecutionViews?: SavedExecutionView[];
   teamMembers?: TeamMember[];
   currentUserId?: string;

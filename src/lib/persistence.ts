@@ -39,6 +39,9 @@ export interface AppAuxiliaryState {
   intakeBatches: AppSnapshot['intakeBatches'];
   intakeWorkCandidates: AppSnapshot['intakeWorkCandidates'];
   savedExecutionViews: AppSnapshot['savedExecutionViews'];
+  followUpFilters?: AppSnapshot['followUpFilters'];
+  followUpColumns?: AppSnapshot['followUpColumns'];
+  savedFollowUpViews?: AppSnapshot['savedFollowUpViews'];
 }
 
 export interface PersistedPayload extends CoreEntities {
@@ -87,6 +90,9 @@ function buildFallbackSnapshot(): AppSnapshot {
     intakeBatches: [],
     intakeWorkCandidates: [],
     savedExecutionViews: [],
+    followUpFilters: undefined,
+    followUpColumns: undefined,
+    savedFollowUpViews: [],
   };
 }
 
@@ -114,6 +120,9 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       intakeBatches: snapshot.intakeBatches ?? [],
       intakeWorkCandidates: snapshot.intakeWorkCandidates ?? [],
       savedExecutionViews: snapshot.savedExecutionViews ?? [],
+      followUpFilters: snapshot.followUpFilters,
+      followUpColumns: snapshot.followUpColumns,
+      savedFollowUpViews: snapshot.savedFollowUpViews ?? [],
     },
   };
 }

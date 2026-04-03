@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronDown, FileEdit, MoreHorizontal, Save, Send, SquareCheckBig, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
-import { addDaysIso, buildTouchEvent, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
+import { addDaysIso, applyLifecycleBundle, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { SegmentedControl } from './ui/AppPrimitives';
 
@@ -22,6 +22,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTask,
     addTouchLog,
     openDraftModal,
+    openEditTaskModal,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
     items: s.items,
@@ -35,6 +36,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTask: s.addTask,
     addTouchLog: s.addTouchLog,
     openDraftModal: s.openDraftModal,
+    openEditTaskModal: s.openEditTaskModal,
   })));
 
   const item = items.find((entry) => entry.id === selectedId) ?? null;
@@ -84,13 +86,13 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
         <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
         <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
-        <button onClick={() => { const openLinked = linkedTasks.filter((task) => task.status !== 'Done').length; if (openLinked > 0 && !window.confirm(`There are ${openLinked} open linked tasks. Close follow-up anyway?`)) return; updateItem(item.id, { status: 'Closed', actionState: 'Complete', lastCompletedAction: 'Resolved', lastActionAt: todayIso(), timeline: [buildTouchEvent('Resolved from quick actions.', 'bundle_action'), ...item.timeline] }); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
+        <button onClick={() => { const openLinked = linkedTasks.filter((task) => task.status !== 'Done').length; if (openLinked > 0 && !window.confirm(`There are ${openLinked} open linked tasks. Close follow-up anyway?`)) return; updateItem(item.id, applyLifecycleBundle(item, 'resolve_and_close')); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
         <details className="detail-overflow-actions">
           <summary className="action-btn"><MoreHorizontal className="h-4 w-4" />More <ChevronDown className="h-4 w-4" /></summary>
           <div className="detail-overflow-menu">
-            <button onClick={() => updateItem(item.id, { status: 'Waiting on external', waitingOn: item.waitingOn || item.owner, lastCompletedAction: 'Waiting on someone', lastActionAt: todayIso(), timeline: [buildTouchEvent('Marked waiting on external from overflow menu.', 'bundle_action'), ...item.timeline] })} className="action-btn">Waiting on someone</button>
-            <button onClick={() => updateItem(item.id, { nextTouchDate: addDaysIso(todayIso(), 2), lastCompletedAction: 'Snoozed / Re-plan', lastActionAt: todayIso() })} className="action-btn">Snooze / Re-plan</button>
-            <button onClick={() => updateItem(item.id, { escalationLevel: item.escalationLevel === 'Critical' ? 'Watch' : 'Critical', lastCompletedAction: 'Escalated', lastActionAt: todayIso() })} className="action-btn">Escalate</button>
+            <button onClick={() => updateItem(item.id, { ...applyLifecycleBundle(item, 'waiting_on_response'), waitingOn: item.waitingOn || item.owner })} className="action-btn">Waiting on response</button>
+            <button onClick={() => updateItem(item.id, { nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3), lastCompletedAction: 'Snoozed', lastActionAt: todayIso() })} className="action-btn">Snooze</button>
+            <button onClick={() => updateItem(item.id, applyLifecycleBundle(item, 'escalate'))} className="action-btn">Escalate</button>
             <button onClick={() => { if (window.confirm('Delete this follow-up? This cannot be undone.')) deleteItem(item.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
           </div>
         </details>
@@ -116,7 +118,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.status}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
-              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner / Contact</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.owner} · {contact?.name ?? '—'}</div></div>
+              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ownership</div><div className="mt-1 text-sm font-semibold text-slate-900">Owner: {item.owner}</div><div className="text-sm text-slate-700">Assignee: {item.assigneeDisplayName || item.owner}</div><div className="text-sm text-slate-700">External: {contact?.name ?? '—'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 text-xs text-slate-500">{item.allLinkedTasksDone ? 'Ready to close or advance.' : blockedLinkedTasks > 0 ? 'Blocked child pressure on parent.' : 'Execution in progress.'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
@@ -126,6 +128,17 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project</div><div className="mt-1 text-sm text-slate-900">{item.project}</div></div>
               {!personalMode ? <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assignee</div><div className="mt-1 text-sm text-slate-900">{item.assigneeDisplayName || item.owner}</div></div> : null}
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div><div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div></div>
+            </div>
+            <div className="detail-card">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked tasks</div>
+              <div className="mt-2 space-y-2">
+                {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet.</div> : linkedTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2">
+                    <div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div>
+                    <button className="action-btn" onClick={() => openEditTaskModal(task.id)}>Open task</button>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         ) : null}

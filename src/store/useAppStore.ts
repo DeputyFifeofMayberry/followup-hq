@@ -51,7 +51,11 @@ import type {
   IntakeAssetRecord,
   IntakeBatchRecord,
   IntakeWorkCandidate,
+  FollowUpAdvancedFilters,
+  SavedFollowUpCustomView,
+  FollowUpColumnKey,
 } from '../types';
+import { defaultFollowUpFilters } from '../lib/followUpSelectors';
 
 interface ItemModalState {
   open: boolean;
@@ -90,6 +94,10 @@ interface AppState {
   projectFilter: string;
   statusFilter: 'All' | FollowUpStatus;
   activeView: SavedViewKey;
+  followUpFilters: FollowUpAdvancedFilters;
+  selectedFollowUpIds: string[];
+  followUpColumns: FollowUpColumnKey[];
+  savedFollowUpViews: SavedFollowUpCustomView[];
   itemModal: ItemModalState;
   touchModalOpen: boolean;
   importModalOpen: boolean;
@@ -127,6 +135,14 @@ interface AppState {
   setProjectFilter: (value: string) => void;
   setStatusFilter: (value: 'All' | FollowUpStatus) => void;
   setActiveView: (value: SavedViewKey) => void;
+  setFollowUpFilters: (value: Partial<FollowUpAdvancedFilters>) => void;
+  resetFollowUpFilters: () => void;
+  toggleFollowUpSelection: (id: string) => void;
+  clearFollowUpSelection: () => void;
+  selectAllVisibleFollowUps: (ids: string[]) => void;
+  saveFollowUpCustomView: (name: string, search: string) => void;
+  applySavedFollowUpCustomView: (id: string) => void;
+  setFollowUpColumns: (columns: FollowUpColumnKey[]) => void;
   openCreateModal: () => void;
   openEditModal: (id: string) => void;
   closeItemModal: () => void;
@@ -164,6 +180,7 @@ interface AppState {
   markNudged: (id: string) => void;
   snoozeItem: (id: string, days: number) => void;
   cycleEscalation: (id: string) => void;
+  batchUpdateFollowUps: (ids: string[], patch: Partial<FollowUpItem>, summary: string) => void;
   updateDraftForItem: (id: string, draft: string) => void;
   generateDraftForItem: (id: string) => void;
   addProject: (input: Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>) => string;
@@ -421,7 +438,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'savedExecutionViews'>): PersistedPayload {
+function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'savedExecutionViews' | 'followUpFilters' | 'followUpColumns' | 'savedFollowUpViews'>): PersistedPayload {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -445,6 +462,9 @@ function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'com
       intakeBatches: state.intakeBatches,
       intakeWorkCandidates: state.intakeWorkCandidates,
       savedExecutionViews: state.savedExecutionViews,
+      followUpFilters: state.followUpFilters,
+      followUpColumns: state.followUpColumns,
+      savedFollowUpViews: state.savedFollowUpViews,
     },
   };
 }
@@ -613,6 +633,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   projectFilter: 'All',
   statusFilter: 'All',
   activeView: 'All',
+  followUpFilters: defaultFollowUpFilters,
+  selectedFollowUpIds: [],
+  followUpColumns: ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'],
+  savedFollowUpViews: [],
   itemModal: { open: false, mode: 'create', itemId: null },
   touchModalOpen: false,
   importModalOpen: false,
@@ -681,6 +705,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const intakeBatches = payload.auxiliary.intakeBatches ?? [];
       const intakeWorkCandidates = payload.auxiliary.intakeWorkCandidates ?? [];
       const savedExecutionViews = payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews;
+      const followUpFilters = payload.auxiliary.followUpFilters ?? defaultFollowUpFilters;
+      const followUpColumns = payload.auxiliary.followUpColumns?.length
+        ? payload.auxiliary.followUpColumns
+        : (['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'] as FollowUpColumnKey[]);
+      const savedFollowUpViews = payload.auxiliary.savedFollowUpViews ?? [];
       set({
         items,
         contacts,
@@ -706,6 +735,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         intakeBatches,
         intakeWorkCandidates,
         savedExecutionViews,
+        followUpFilters,
+        followUpColumns,
+        savedFollowUpViews,
         saveError: '',
         syncState: 'saved',
         lastSyncedAt: todayIso(),
@@ -732,6 +764,25 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setProjectFilter: (value) => set({ projectFilter: value }),
   setStatusFilter: (value) => set({ statusFilter: value }),
   setActiveView: (value) => set({ activeView: value }),
+  setFollowUpFilters: (value) => set((state) => ({ followUpFilters: { ...state.followUpFilters, ...value } })),
+  resetFollowUpFilters: () => set({ followUpFilters: defaultFollowUpFilters }),
+  toggleFollowUpSelection: (id) => set((state) => ({
+    selectedFollowUpIds: state.selectedFollowUpIds.includes(id)
+      ? state.selectedFollowUpIds.filter((value) => value !== id)
+      : [...state.selectedFollowUpIds, id],
+    selectedId: id,
+  })),
+  clearFollowUpSelection: () => set({ selectedFollowUpIds: [] }),
+  selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
+  saveFollowUpCustomView: (name, search) => set((state) => ({
+    savedFollowUpViews: [{ id: createId('FUV'), name, search, activeView: state.activeView, filters: state.followUpFilters, createdAt: todayIso() }, ...state.savedFollowUpViews],
+  })),
+  applySavedFollowUpCustomView: (id) => set((state) => {
+    const view = state.savedFollowUpViews.find((entry) => entry.id === id);
+    if (!view) return state;
+    return { search: view.search, activeView: view.activeView, followUpFilters: view.filters };
+  }),
+  setFollowUpColumns: (columns) => set({ followUpColumns: columns }),
   openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
   openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
   closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
@@ -1049,6 +1100,28 @@ export const useAppStore = create<AppState>()((set, get) => ({
         timeline: [buildTouchEvent(`Escalation moved to ${nextEscalation(item.escalationLevel)}.`, 'escalated'), ...item.timeline],
       }));
       return { items, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
+    });
+    queuePersist(get, set);
+  },
+  batchUpdateFollowUps: (ids, patch, summary) => {
+    if (ids.length === 0) return;
+    set((state) => {
+      const idSet = new Set(ids);
+      const items = state.items.map((item) => {
+        if (!idSet.has(item.id)) return item;
+        return normalizeItem({
+          ...item,
+          ...patch,
+          timeline: [buildTouchEvent(summary, 'bundle_action'), ...item.timeline],
+          lastActionAt: todayIso(),
+          lastCompletedAction: summary,
+          auditHistory: [
+            makeAuditEntry({ actorUserId: 'user-current', actorDisplayName: 'Current user', action: 'updated', summary }),
+            ...(item.auditHistory || []),
+          ],
+        });
+      });
+      return { items: applyTaskRollupsToItems(items, state.tasks), selectedFollowUpIds: [] };
     });
     queuePersist(get, set);
   },

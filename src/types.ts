@@ -38,7 +38,55 @@ export type SavedViewKey =
   | 'Needs nudge'
   | 'At risk'
   | 'Overdue'
-  | 'By project';
+  | 'By project'
+  | 'Waiting on others'
+  | 'Ready to close'
+  | 'Promises due this week'
+  | 'Blocked by child tasks';
+
+export type FollowUpDateRange = 'all' | 'overdue' | 'today' | 'this_week' | 'next_7_days';
+
+export interface FollowUpAdvancedFilters {
+  project: string;
+  status: 'All' | FollowUpStatus;
+  assignee: string;
+  owner: string;
+  waitingOn: string;
+  escalation: 'All' | EscalationLevel;
+  priority: 'All' | FollowUpPriority;
+  actionState: 'All' | ActionLifecycleState;
+  category: 'All' | ItemCategory;
+  dueDateRange: FollowUpDateRange;
+  nextTouchDateRange: FollowUpDateRange;
+  promisedDateRange: FollowUpDateRange;
+  linkedTaskState: 'all' | 'blocked_child' | 'overdue_child' | 'all_children_done' | 'has_open_children' | 'none';
+  cleanupOnly: boolean;
+}
+
+export type FollowUpColumnKey =
+  | 'title'
+  | 'project'
+  | 'owner'
+  | 'assignee'
+  | 'status'
+  | 'priority'
+  | 'dueDate'
+  | 'nextTouchDate'
+  | 'promisedDate'
+  | 'waitingOn'
+  | 'escalation'
+  | 'actionState'
+  | 'linkedTaskSummary'
+  | 'nextAction';
+
+export interface SavedFollowUpCustomView {
+  id: string;
+  name: string;
+  search: string;
+  activeView: SavedViewKey;
+  filters: FollowUpAdvancedFilters;
+  createdAt: string;
+}
 
 export type PersistenceMode = 'loading' | 'supabase' | 'tauri-sqlite' | 'browser';
 
@@ -588,6 +636,7 @@ export interface FollowUpFormInput {
   project: string;
   projectId?: string;
   owner: string;
+  assigneeDisplayName?: string;
   status: FollowUpStatus;
   priority: FollowUpPriority;
   dueDate: string;
@@ -1011,6 +1060,9 @@ export interface AppSnapshot {
   intakeBatches?: IntakeBatchRecord[];
   intakeWorkCandidates?: IntakeWorkCandidate[];
   savedExecutionViews?: SavedExecutionView[];
+  followUpFilters?: FollowUpAdvancedFilters;
+  followUpColumns?: FollowUpColumnKey[];
+  savedFollowUpViews?: SavedFollowUpCustomView[];
   teamMembers?: TeamMember[];
   currentUserId?: string;
 }

@@ -193,6 +193,9 @@ export interface IntakeEvidence {
   snippet: string;
   sourceRef: string;
   score?: number;
+  assetId?: string;
+  locator?: string;
+  sourceType?: 'email_header' | 'email_body' | 'pdf_page' | 'docx_paragraph' | 'sheet_row' | 'text';
 }
 
 export interface IntakeExistingMatch {
@@ -202,12 +205,15 @@ export interface IntakeExistingMatch {
   project: string;
   score: number;
   reason: string;
+  strategy?: 'duplicate' | 'update' | 'link';
+  matchedFields?: string[];
 }
 
 export interface IntakeAssetRecord {
   id: string;
   batchId: string;
   parentAssetId?: string;
+  rootAssetId?: string;
   fileName: string;
   fileType: string;
   sizeBytes: number;
@@ -225,6 +231,8 @@ export interface IntakeAssetRecord {
   attachmentIds: string[];
   sourceRefs: string[];
   contentHash: string;
+  extractionConfidence?: number;
+  parserStages?: string[];
 }
 
 export interface IntakeBatchRecord {
@@ -263,12 +271,15 @@ export interface IntakeWorkCandidate {
   tags: string[];
   explanation: string[];
   evidence: IntakeEvidence[];
+  fieldConfidence?: Record<string, number>;
   warnings: string[];
   duplicateMatches: IntakeExistingMatch[];
   existingRecordMatches: IntakeExistingMatch[];
   approvalStatus: IntakeCandidateDecision;
   createdRecordId?: string;
   linkedRecordId?: string;
+  sourceAssetIds?: string[];
+  intent?: 'new_work' | 'update' | 'reference';
   createdAt: string;
   updatedAt: string;
 }

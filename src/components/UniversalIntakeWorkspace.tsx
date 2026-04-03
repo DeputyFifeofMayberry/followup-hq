@@ -49,6 +49,7 @@ export function UniversalIntakeWorkspace() {
   const highConfidence = pending.filter((entry) => entry.confidence >= 0.9);
   const selectedAsset = intakeAssets.find((entry) => entry.id === activeAssetId) ?? intakeAssets[0];
   const selectedAssetCandidates = intakeWorkCandidates.filter((entry) => entry.assetId === selectedAsset?.id);
+  const childAssets = selectedAsset ? intakeAssets.filter((entry) => entry.parentAssetId === selectedAsset.id) : [];
 
   const byStatus = useMemo(() => ({
     parsed: intakeAssets.filter((asset) => asset.parseStatus === 'parsed').length,
@@ -61,7 +62,8 @@ export function UniversalIntakeWorkspace() {
     setLoading(true);
     await ingestIntakeFiles(Array.from(list), source);
     setLoading(false);
-    if (!activeAssetId && intakeAssets[0]) setActiveAssetId(intakeAssets[0].id);
+    const firstNew = useAppStore.getState().intakeAssets[0]?.id;
+    if (firstNew) setActiveAssetId(firstNew);
   };
 
   return (
@@ -122,9 +124,22 @@ export function UniversalIntakeWorkspace() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
                 <div><span className="font-semibold text-slate-900">File:</span> {selectedAsset.fileName}</div>
                 <div><span className="font-semibold text-slate-900">Type:</span> {selectedAsset.fileType} • {Math.round(selectedAsset.sizeBytes / 1024)} KB</div>
-                <div><span className="font-semibold text-slate-900">Parse quality:</span> {selectedAsset.parseQuality}</div>
-                <div><span className="font-semibold text-slate-900">Source refs:</span> {selectedAsset.sourceRefs.slice(0, 3).join(', ') || 'n/a'}</div>
+                <div><span className="font-semibold text-slate-900">Parse quality:</span> {selectedAsset.parseQuality} ({selectedAsset.extractionConfidence ?? 'n/a'})</div>
+                <div><span className="font-semibold text-slate-900">Source refs:</span> {selectedAsset.sourceRefs.slice(0, 4).join(', ') || 'n/a'}</div>
+                <div><span className="font-semibold text-slate-900">Stages:</span> {selectedAsset.parserStages?.join(' → ') || 'n/a'}</div>
               </div>
+              {childAssets.length > 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+                  <div className="mb-1 font-semibold text-slate-900">Attachments / child assets ({childAssets.length})</div>
+                  <div className="space-y-1">
+                    {childAssets.map((child) => (
+                      <button key={child.id} className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-left hover:border-sky-300" onClick={() => setActiveAssetId(child.id)}>
+                        {child.fileName} <span className="text-slate-500">({child.kind}, {child.parseStatus})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {selectedAsset.warnings.length > 0 ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">{selectedAsset.warnings.join(' • ')}</div> : null}
               {selectedAsset.errors.length > 0 ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">{selectedAsset.errors.join(' • ')}</div> : null}
               <div>
@@ -135,11 +150,20 @@ export function UniversalIntakeWorkspace() {
                 <div className="rounded-xl border border-slate-200 p-2">
                   <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence snippets</div>
                   <div className="space-y-2 text-xs">
-                    {selectedAssetCandidates.flatMap((candidate) => candidate.evidence).slice(0, 6).map((evidence) => (
-                      <div key={evidence.id} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                        <div className="font-medium text-slate-800">{evidence.field}</div>
-                        <div className="text-slate-600">{evidence.snippet}</div>
-                        <div className="text-[11px] text-slate-500">{evidence.sourceRef}</div>
+                    {Object.entries(selectedAssetCandidates
+                      .flatMap((candidate) => candidate.evidence)
+                      .reduce<Record<string, typeof selectedAssetCandidates[number]['evidence']>>((acc, evidence) => {
+                        acc[evidence.field] = acc[evidence.field] ? [...acc[evidence.field], evidence] : [evidence];
+                        return acc;
+                      }, {})).slice(0, 6).map(([field, evidences]) => (
+                      <div key={field} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                        <div className="font-medium text-slate-800">{field}</div>
+                        {evidences.slice(0, 2).map((evidence) => (
+                          <div key={evidence.id} className="mt-1">
+                            <div className="text-slate-600">{evidence.snippet}</div>
+                            <div className="text-[11px] text-slate-500">{evidence.sourceRef} {evidence.score ? `• score ${evidence.score}` : ''}</div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -179,7 +203,7 @@ export function UniversalIntakeWorkspace() {
                     <div className="font-semibold text-slate-700">Existing matches</div>
                     {candidate.existingRecordMatches.slice(0, 2).map((match) => (
                       <div key={match.id} className="mt-1 flex items-center justify-between gap-2">
-                        <div className="truncate text-slate-600">{match.recordType}: {match.title}</div>
+                        <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''})</div>
                         <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'link', match.id)}><Link2 className="h-3 w-3" /> Link</button>
                       </div>
                     ))}

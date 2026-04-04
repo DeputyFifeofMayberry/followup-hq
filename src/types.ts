@@ -330,10 +330,37 @@ export interface IntakeWorkCandidate {
   approvalStatus: IntakeCandidateDecision;
   createdRecordId?: string;
   linkedRecordId?: string;
+  reviewEdits?: Array<'title' | 'project' | 'owner' | 'dueDate' | 'nextStep'>;
   sourceAssetIds?: string[];
   intent?: 'new_work' | 'update' | 'reference';
   createdAt: string;
   updatedAt: string;
+}
+
+export type IntakeReviewerFeedbackDecision =
+  | 'approved_task'
+  | 'approved_followup'
+  | 'linked_existing'
+  | 'saved_reference'
+  | 'rejected';
+
+export type IntakeReviewerFeedbackField = 'type' | 'project' | 'owner' | 'dueDate' | 'title' | 'nextStep' | 'linking_decision';
+
+export interface IntakeReviewerFeedback {
+  id: string;
+  createdAt: string;
+  source: 'universal_intake' | 'forwarding' | 'quick_capture';
+  candidateId: string;
+  candidateKind: 'intake_work' | 'forwarded' | 'quick_capture';
+  sourceAssetId?: string;
+  forwardedEmailId?: string;
+  ruleIds?: string[];
+  suggestedType?: IntakeCandidateType | 'task' | 'followup' | 'reference';
+  suggestedAction?: IntakeWorkCandidate['suggestedAction'] | 'create_new';
+  finalDecision: IntakeReviewerFeedbackDecision;
+  overrideApplied: boolean;
+  correctedFields: IntakeReviewerFeedbackField[];
+  duplicateRiskOverride?: boolean;
 }
 
 export type IntakeReviewOutcome =
@@ -1207,6 +1234,7 @@ export interface AppSnapshot {
   intakeAssets?: IntakeAssetRecord[];
   intakeBatches?: IntakeBatchRecord[];
   intakeWorkCandidates?: IntakeWorkCandidate[];
+  intakeReviewerFeedback?: IntakeReviewerFeedback[];
   savedExecutionViews?: SavedExecutionView[];
   followUpFilters?: FollowUpAdvancedFilters;
   followUpColumns?: FollowUpColumnKey[];

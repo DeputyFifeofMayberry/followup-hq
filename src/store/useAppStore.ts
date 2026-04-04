@@ -53,6 +53,8 @@ import type {
   IntakeAssetRecord,
   IntakeBatchRecord,
   IntakeWorkCandidate,
+  IntakeReviewerFeedback,
+  IntakeReviewerFeedbackField,
   FollowUpAdvancedFilters,
   SavedFollowUpCustomView,
   FollowUpColumnKey,
@@ -141,6 +143,7 @@ interface AppState {
   intakeAssets: IntakeAssetRecord[];
   intakeBatches: IntakeBatchRecord[];
   intakeWorkCandidates: IntakeWorkCandidate[];
+  intakeReviewerFeedback: IntakeReviewerFeedback[];
   queuePreset: UnifiedQueuePreset;
   executionFilter: UnifiedQueueFilter;
   executionSort: UnifiedQueueSort;
@@ -510,7 +513,7 @@ function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: strin
   return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
-function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'savedExecutionViews' | 'followUpFilters' | 'followUpColumns' | 'savedFollowUpViews'>): PersistedPayload {
+function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'intakeReviewerFeedback' | 'savedExecutionViews' | 'followUpFilters' | 'followUpColumns' | 'savedFollowUpViews'>): PersistedPayload {
   return {
     items: state.items,
     contacts: state.contacts,
@@ -533,6 +536,7 @@ function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'com
       intakeAssets: state.intakeAssets,
       intakeBatches: state.intakeBatches,
       intakeWorkCandidates: state.intakeWorkCandidates,
+      intakeReviewerFeedback: state.intakeReviewerFeedback,
       savedExecutionViews: state.savedExecutionViews,
       followUpFilters: state.followUpFilters,
       followUpColumns: state.followUpColumns,
@@ -547,6 +551,10 @@ function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: Follo
 
 function makeAuditEntry(input: Omit<AuditEntry, 'id' | 'at'>): AuditEntry {
   return { id: createId('AUD'), at: todayIso(), ...input };
+}
+
+function appendReviewerFeedback(existing: IntakeReviewerFeedback[], feedback: Omit<IntakeReviewerFeedback, 'id' | 'createdAt'>): IntakeReviewerFeedback[] {
+  return [{ ...feedback, id: createId('IRF'), createdAt: todayIso() }, ...existing].slice(0, 800);
 }
 
 
@@ -737,6 +745,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   intakeAssets: [],
   intakeBatches: [],
   intakeWorkCandidates: [],
+  intakeReviewerFeedback: [],
   queuePreset: 'Today',
   executionFilter: {},
   executionSort: 'queue_score',
@@ -778,6 +787,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const intakeAssets = payload.auxiliary.intakeAssets ?? [];
       const intakeBatches = payload.auxiliary.intakeBatches ?? [];
       const intakeWorkCandidates = payload.auxiliary.intakeWorkCandidates ?? [];
+      const intakeReviewerFeedback = payload.auxiliary.intakeReviewerFeedback ?? [];
       const savedExecutionViews = payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews;
       const followUpFilters = payload.auxiliary.followUpFilters ?? defaultFollowUpFilters;
       const followUpColumns = payload.auxiliary.followUpColumns?.length
@@ -808,6 +818,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         intakeAssets,
         intakeBatches,
         intakeWorkCandidates,
+        intakeReviewerFeedback,
         savedExecutionViews,
         followUpFilters,
         followUpColumns,
@@ -1500,18 +1511,58 @@ export const useAppStore = create<AppState>()((set, get) => ({
     } else {
       state.addItem({ id: createId(), title: candidate.draft.title, source: 'Notes', project: candidate.detectedProject || 'General', owner: candidate.detectedOwner || 'Unassigned', status: 'Needs action', priority: candidate.priority, dueDate: candidate.detectedDueDate || addDaysIso(todayIso(), 1), lastTouchDate: todayIso(), nextTouchDate: candidate.detectedDueDate || addDaysIso(todayIso(), 2), nextAction: candidate.draft.nextAction || candidate.draft.title, summary: candidate.draft.summary, tags: ['Intake review'], sourceRef: 'Quick capture intake', sourceRefs: [], mergedItemIds: [], waitingOn: candidate.waitingOn, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3, needsCleanup: candidate.confidenceTier !== 'high', cleanupReasons: [] });
     }
-    set((inner) => ({ intakeCandidates: inner.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+    set((inner) => ({
+      intakeCandidates: inner.intakeCandidates.filter((entry) => entry.id !== candidateId),
+      intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+        source: 'quick_capture',
+        candidateId: candidate.id,
+        candidateKind: 'quick_capture',
+        suggestedType: candidate.suggestedType,
+        suggestedAction: 'create_new',
+        finalDecision: asType === 'task' ? 'approved_task' : 'approved_followup',
+        overrideApplied: asType !== candidate.suggestedType,
+        correctedFields: asType !== candidate.suggestedType ? ['type'] : [],
+      }),
+    }));
     queuePersist(get, set);
   },
   discardIntakeCandidate: (candidateId) => {
-    set((state) => ({ intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+    set((state) => {
+      const candidate = state.intakeCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      return {
+        intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId),
+        intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+          source: 'quick_capture',
+          candidateId: candidate.id,
+          candidateKind: 'quick_capture',
+          suggestedType: candidate.suggestedType,
+          suggestedAction: 'create_new',
+          finalDecision: 'rejected',
+          overrideApplied: true,
+          correctedFields: [],
+        }),
+      };
+    });
     queuePersist(get, set);
   },
   saveIntakeCandidateAsReference: (candidateId) => {
     const candidate = get().intakeCandidates.find((entry) => entry.id === candidateId);
     if (!candidate) return;
     get().addIntakeDocument({ name: candidate.draft.title, kind: 'Text', project: candidate.detectedProject, owner: candidate.detectedOwner, sourceRef: 'Quick capture', notes: candidate.rawText, tags: ['reference'] });
-    set((state) => ({ intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId) }));
+    set((state) => ({
+      intakeCandidates: state.intakeCandidates.filter((entry) => entry.id !== candidateId),
+      intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+        source: 'quick_capture',
+        candidateId: candidate.id,
+        candidateKind: 'quick_capture',
+        suggestedType: candidate.suggestedType,
+        suggestedAction: 'create_new',
+        finalDecision: 'saved_reference',
+        overrideApplied: true,
+        correctedFields: [],
+      }),
+    }));
   },
   ingestIntakeFiles: async (files, source = 'drop') => {
     if (!files.length) return;
@@ -1543,7 +1594,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   updateIntakeWorkCandidate: (candidateId, patch) => {
     set((state) => ({
-      intakeWorkCandidates: state.intakeWorkCandidates.map((candidate) => candidate.id === candidateId ? { ...candidate, ...patch, updatedAt: todayIso() } : candidate),
+      intakeWorkCandidates: state.intakeWorkCandidates.map((candidate) => {
+        if (candidate.id !== candidateId) return candidate;
+        const editKeys: IntakeReviewerFeedbackField[] = [];
+        if (patch.title !== undefined && patch.title !== candidate.title) editKeys.push('title');
+        if (patch.project !== undefined && patch.project !== candidate.project) editKeys.push('project');
+        if (patch.owner !== undefined && patch.owner !== candidate.owner) editKeys.push('owner');
+        if (patch.dueDate !== undefined && patch.dueDate !== candidate.dueDate) editKeys.push('dueDate');
+        if (patch.nextStep !== undefined && patch.nextStep !== candidate.nextStep) editKeys.push('nextStep');
+        const nextEdits = [...new Set([...(candidate.reviewEdits ?? []), ...editKeys])] as IntakeWorkCandidate['reviewEdits'];
+        return { ...candidate, ...patch, reviewEdits: nextEdits, updatedAt: todayIso() };
+      }),
     }));
     queuePersist(get, set);
   },
@@ -1555,6 +1616,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (decision === 'reject') {
       set((inner) => ({
         intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, approvalStatus: 'rejected', updatedAt: todayIso() } : entry),
+        intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+          source: 'universal_intake',
+          candidateId: candidate.id,
+          candidateKind: 'intake_work',
+          sourceAssetId: candidate.assetId,
+          suggestedType: candidate.candidateType,
+          suggestedAction: candidate.suggestedAction,
+          finalDecision: 'rejected',
+          overrideApplied: true,
+          correctedFields: candidate.reviewEdits ?? [],
+        }),
       }));
       queuePersist(get, set);
       return;
@@ -1572,6 +1644,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
       set((inner) => ({
         intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, approvalStatus: 'reference', updatedAt: todayIso() } : entry),
+        intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+          source: 'universal_intake',
+          candidateId: candidate.id,
+          candidateKind: 'intake_work',
+          sourceAssetId: candidate.assetId,
+          suggestedType: candidate.candidateType,
+          suggestedAction: candidate.suggestedAction,
+          finalDecision: 'saved_reference',
+          overrideApplied: true,
+          correctedFields: candidate.reviewEdits ?? [],
+        }),
       }));
       queuePersist(get, set);
       return;
@@ -1580,6 +1663,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (decision === 'link' && linkedRecordId) {
       set((inner) => ({
         intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, linkedRecordId, approvalStatus: 'linked', updatedAt: todayIso() } : entry),
+        intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+          source: 'universal_intake',
+          candidateId: candidate.id,
+          candidateKind: 'intake_work',
+          sourceAssetId: candidate.assetId,
+          suggestedType: candidate.candidateType,
+          suggestedAction: candidate.suggestedAction,
+          finalDecision: 'linked_existing',
+          overrideApplied: true,
+          correctedFields: [...(candidate.reviewEdits ?? []), 'linking_decision'],
+        }),
       }));
       queuePersist(get, set);
       return;
@@ -1608,6 +1702,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
       set((inner) => ({
         intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, createdRecordId: id, approvalStatus: 'imported', updatedAt: todayIso() } : entry),
+        intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+          source: 'universal_intake',
+          candidateId: candidate.id,
+          candidateKind: 'intake_work',
+          sourceAssetId: candidate.assetId,
+          suggestedType: candidate.candidateType,
+          suggestedAction: candidate.suggestedAction,
+          finalDecision: 'approved_task',
+          overrideApplied: candidate.candidateType !== 'task',
+          correctedFields: [...(candidate.reviewEdits ?? []), ...(candidate.candidateType !== 'task' ? (['type'] as IntakeReviewerFeedbackField[]) : [])],
+          duplicateRiskOverride: !safety.safeToCreateNew && !!options?.overrideUnsafeCreate,
+        }),
       }));
       queuePersist(get, set);
       return;
@@ -1643,6 +1749,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
     set((inner) => ({
       intakeWorkCandidates: inner.intakeWorkCandidates.map((entry) => entry.id === candidateId ? { ...entry, createdRecordId: followupId, approvalStatus: 'imported', updatedAt: todayIso() } : entry),
+      intakeReviewerFeedback: appendReviewerFeedback(inner.intakeReviewerFeedback, {
+        source: 'universal_intake',
+        candidateId: candidate.id,
+        candidateKind: 'intake_work',
+        sourceAssetId: candidate.assetId,
+        suggestedType: candidate.candidateType,
+        suggestedAction: candidate.suggestedAction,
+        finalDecision: 'approved_followup',
+        overrideApplied: candidate.candidateType !== 'followup',
+        correctedFields: [...(candidate.reviewEdits ?? []), ...(candidate.candidateType !== 'followup' ? (['type'] as IntakeReviewerFeedbackField[]) : [])],
+        duplicateRiskOverride: !safety.safeToCreateNew && !!options?.overrideUnsafeCreate,
+      }),
     }));
     queuePersist(get, set);
   },
@@ -1967,6 +2085,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const type = asType ?? (candidate.suggestedType === 'followup' ? 'followup' : 'task');
       const safety = evaluateForwardedImportSafety(candidate);
       if (!safety.safeToCreateNew && !options?.overrideUnsafeCreate) return state;
+      const ruleIds = state.forwardedRoutingAudit.find((entry) => entry.forwardedEmailId === candidate.forwardedEmailId)?.ruleIds ?? [];
 
       if (type === 'task') {
         const task = buildTaskFromForwarded(
@@ -1982,6 +2101,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
               ? { ...entry, status: 'approved', createdTaskId: task.id, updatedAt: todayIso() }
               : entry
           ),
+          intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+            source: 'forwarding',
+            candidateId: candidate.id,
+            candidateKind: 'forwarded',
+            forwardedEmailId: candidate.forwardedEmailId,
+            suggestedType: candidate.suggestedType,
+            suggestedAction: 'create_new',
+            finalDecision: 'approved_task',
+            overrideApplied: candidate.suggestedType !== 'task',
+            correctedFields: candidate.suggestedType !== 'task' ? ['type'] : [],
+            duplicateRiskOverride: !safety.safeToCreateNew && !!options?.overrideUnsafeCreate,
+            ruleIds,
+          }),
         };
       }
 
@@ -1999,40 +2131,104 @@ export const useAppStore = create<AppState>()((set, get) => ({
             ? { ...entry, status: 'approved', createdFollowUpId: item.id, updatedAt: todayIso() }
             : entry
         ),
+        intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+          source: 'forwarding',
+          candidateId: candidate.id,
+          candidateKind: 'forwarded',
+          forwardedEmailId: candidate.forwardedEmailId,
+          suggestedType: candidate.suggestedType,
+          suggestedAction: 'create_new',
+          finalDecision: 'approved_followup',
+          overrideApplied: candidate.suggestedType !== 'followup',
+          correctedFields: candidate.suggestedType !== 'followup' ? ['type'] : [],
+          duplicateRiskOverride: !safety.safeToCreateNew && !!options?.overrideUnsafeCreate,
+          ruleIds,
+        }),
       };
     });
     queuePersist(get, set);
   },
   rejectForwardedCandidate: (candidateId) => {
-    set((state) => ({
-      forwardedCandidates: state.forwardedCandidates.map((entry) =>
-        entry.id === candidateId
-          ? { ...entry, status: 'rejected', updatedAt: todayIso() }
-          : entry
-      ),
-    }));
+    set((state) => {
+      const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      const ruleIds = state.forwardedRoutingAudit.find((entry) => entry.forwardedEmailId === candidate.forwardedEmailId)?.ruleIds ?? [];
+      return {
+        forwardedCandidates: state.forwardedCandidates.map((entry) =>
+          entry.id === candidateId
+            ? { ...entry, status: 'rejected', updatedAt: todayIso() }
+            : entry
+        ),
+        intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+          source: 'forwarding',
+          candidateId: candidate.id,
+          candidateKind: 'forwarded',
+          forwardedEmailId: candidate.forwardedEmailId,
+          suggestedType: candidate.suggestedType,
+          suggestedAction: 'create_new',
+          finalDecision: 'rejected',
+          overrideApplied: true,
+          correctedFields: [],
+          ruleIds,
+        }),
+      };
+    });
     queuePersist(get, set);
   },
 
   saveForwardedCandidateAsReference: (candidateId) => {
-    set((state) => ({
-      forwardedCandidates: state.forwardedCandidates.map((entry) =>
-        entry.id === candidateId
-          ? { ...entry, status: 'reference', updatedAt: todayIso() }
-          : entry
-      ),
-    }));
+    set((state) => {
+      const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      const ruleIds = state.forwardedRoutingAudit.find((entry) => entry.forwardedEmailId === candidate.forwardedEmailId)?.ruleIds ?? [];
+      return {
+        forwardedCandidates: state.forwardedCandidates.map((entry) =>
+          entry.id === candidateId
+            ? { ...entry, status: 'reference', updatedAt: todayIso() }
+            : entry
+        ),
+        intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+          source: 'forwarding',
+          candidateId: candidate.id,
+          candidateKind: 'forwarded',
+          forwardedEmailId: candidate.forwardedEmailId,
+          suggestedType: candidate.suggestedType,
+          suggestedAction: 'create_new',
+          finalDecision: 'saved_reference',
+          overrideApplied: candidate.suggestedType !== 'reference',
+          correctedFields: [],
+          ruleIds,
+        }),
+      };
+    });
     queuePersist(get, set);
   },
 
   linkForwardedCandidateToExisting: (candidateId, itemId) => {
-    set((state) => ({
-      forwardedCandidates: state.forwardedCandidates.map((entry) =>
-        entry.id === candidateId
-          ? { ...entry, status: 'linked', linkedItemId: itemId, updatedAt: todayIso() }
-          : entry
-      ),
-    }));
+    set((state) => {
+      const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
+      if (!candidate) return state;
+      const ruleIds = state.forwardedRoutingAudit.find((entry) => entry.forwardedEmailId === candidate.forwardedEmailId)?.ruleIds ?? [];
+      return {
+        forwardedCandidates: state.forwardedCandidates.map((entry) =>
+          entry.id === candidateId
+            ? { ...entry, status: 'linked', linkedItemId: itemId, updatedAt: todayIso() }
+            : entry
+        ),
+        intakeReviewerFeedback: appendReviewerFeedback(state.intakeReviewerFeedback, {
+          source: 'forwarding',
+          candidateId: candidate.id,
+          candidateKind: 'forwarded',
+          forwardedEmailId: candidate.forwardedEmailId,
+          suggestedType: candidate.suggestedType,
+          suggestedAction: 'create_new',
+          finalDecision: 'linked_existing',
+          overrideApplied: true,
+          correctedFields: ['linking_decision'],
+          ruleIds,
+        }),
+      };
+    });
     queuePersist(get, set);
   },
 

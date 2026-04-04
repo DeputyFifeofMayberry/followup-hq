@@ -72,7 +72,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
     <AppShellCard className="space-y-4 outlook-command-surface" surface="command">
       <SectionHeader
         title="Email Intake"
-        subtitle="Forwarded email uses the same Intake lifecycle: received, parsed, reviewed, and then imported, linked, referenced, or rejected."
+        subtitle="Forwarded email follows the same Intake lifecycle and tuning loop: received, parsed, reviewed, and finalized as imported, linked, referenced, or rejected."
         actions={
           <div className="flex flex-wrap gap-2 tonal-chip-panel">
             <Badge variant="success">Forwarding-first workflow</Badge>
@@ -92,7 +92,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
         {activeTab === 'history' ? (
           <div className="surface-block text-sm text-slate-700">
-            Intake history lives in persistent batches and assets. Select any item to review source material, parse status, and final decision (Imported, Linked, Reference, or Rejected).
+            Intake history is outcome-first. Select any item to verify source evidence, rule influence, final decision, and whether reviewers overrode the suggested path.
           </div>
         ) : null}
         {activeTab === 'rules' ? <ForwardingIntakeWorkspace /> : null}

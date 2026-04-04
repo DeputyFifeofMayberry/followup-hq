@@ -60,6 +60,42 @@ export function FilterBar({ children }: PropsWithChildren) {
   return <div className="filter-bar">{children}</div>;
 }
 
+export function WorkspacePage({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`workspace-page ${className}`.trim()}>{children}</div>;
+}
+
+export function WorkspaceSummaryStrip({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <AppShellCard className={`workspace-summary-strip ${className}`.trim()} surface="hero">{children}</AppShellCard>;
+}
+
+export function WorkspacePrimaryLayout({
+  children,
+  inspectorWidth = '380px',
+  className = '',
+}: PropsWithChildren<{ inspectorWidth?: string; className?: string }>) {
+  return <div className={`workspace-primary-layout ${className}`.trim()} style={{ ['--workspace-inspector-width' as string]: inspectorWidth }}>{children}</div>;
+}
+
+export function WorkspaceToolbarRow({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`workspace-toolbar-row toolbar-row ${className}`.trim()}>{children}</div>;
+}
+
+export function WorkspaceInspectorSection({
+  title,
+  subtitle,
+  children,
+}: PropsWithChildren<{ title: string; subtitle?: string }>) {
+  return (
+    <section className="workspace-inspector-section inspector-block">
+      <div>
+        <div className="workspace-inspector-section-title">{title}</div>
+        {subtitle ? <p className="workspace-inspector-section-subtitle">{subtitle}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function PageSection({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <section className={`page-section ${className}`.trim()}>{children}</section>;
 }

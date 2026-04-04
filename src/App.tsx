@@ -26,7 +26,7 @@ import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
 import { getModeConfig, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
-import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill, WorkspacePage, WorkspacePrimaryLayout } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -272,16 +272,16 @@ function OverviewWorkspace({
 
 function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
   return (
-    <div className="space-y-4">
+    <WorkspacePage>
       <ControlBar />
-      <div className="tracker-main-grid">
+      <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <div className="space-y-5">
           <TrackerTable personalMode={personalMode} appMode={appMode} />
           <DuplicateReviewPanel />
         </div>
         <ItemDetailPanel personalMode={personalMode} />
-      </div>
-    </div>
+      </WorkspacePrimaryLayout>
+    </WorkspacePage>
   );
 }
 

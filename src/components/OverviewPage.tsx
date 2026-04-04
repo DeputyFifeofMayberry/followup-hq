@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, ChevronDown, Clock3, ExternalLink, FilePlus2, Link2, PauseCircle, Send, SlidersHorizontal, UserRoundCog } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow } from './ui/AppPrimitives';
 import type { AppMode, SavedViewKey, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -200,56 +200,34 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   };
 
   return (
-    <div className="space-y-5">
-      <AppShellCard className="overview-hero-card" surface="hero">
-        <SectionHeader title="Daily execution queue" subtitle={modeConfig.overviewSubtitle} />
+    <WorkspacePage>
+      <WorkspaceSummaryStrip className="overview-hero-card">
+        <SectionHeader title="Daily execution queue" subtitle={modeConfig.overviewSubtitle} compact />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
           <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
           <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
-        </div>
-      </AppShellCard>
-      <AppShellCard className="overview-flow-strip" surface="shell">
-        <div className="overview-flow-header">
-          <span className="overview-flow-label">Daily loop</span>
-          <p>Start here, then move through the loop: capture, triage, execute, close.</p>
-        </div>
-        <div className="overview-flow-steps" role="list" aria-label="Recommended daily workflow">
-          <span className="overview-flow-step" role="listitem">Capture</span>
-          <span className="overview-flow-step" role="listitem">Triage</span>
-          <span className="overview-flow-step" role="listitem">Execute</span>
-          <span className="overview-flow-step" role="listitem">Close</span>
         </div>
         <div className="overview-flow-actions">
           <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
           <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
           <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
         </div>
-      </AppShellCard>
+      </WorkspaceSummaryStrip>
 
-      <AppShellCard surface="muted">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Create work</div>
-            <div className="text-xs text-slate-600">Use <strong>Quick Add / Capture</strong> above as the default way to add follow-ups and tasks. Use structured forms only when you need detailed manual entry.</div>
-          </div>
-          <div className="text-xs text-slate-500">High-confidence captures add now. Lower-confidence captures go to review.</div>
-        </div>
-      </AppShellCard>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_360px]">
+      <WorkspacePrimaryLayout inspectorWidth="360px">
         <AppShellCard className="overview-main-panel" surface="data">
           <FilterBar>
             <SegmentedControl value={queuePreset} onChange={(value) => setQueuePreset(value as UnifiedQueuePreset)} options={presets.map((preset) => ({ value: preset, label: preset }))} />
           </FilterBar>
 
-          <div className="overview-toolbar-row toolbar-row">
+          <WorkspaceToolbarRow className="overview-toolbar-row">
             <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input workspace-search-input" placeholder="Search title, project, owner, assignee, tags, next action" />
             <select value={executionSort} onChange={(event) => setExecutionSort(event.target.value as UnifiedQueueSort)} className="field-input">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
             <select value={queueDensity} onChange={(event) => setQueueDensity(event.target.value as 'compact' | 'detailed')} className="field-input"><option value="compact">Compact rows</option><option value="detailed">Detailed rows</option></select>
             <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
             <button onClick={() => { setExecutionFilter({}); setPage(0); }} className="action-btn">Reset filters</button>
-          </div>
+          </WorkspaceToolbarRow>
 
           {advancedOpen ? (
             <div className="overview-advanced-filters advanced-filter-surface">
@@ -345,9 +323,8 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           <SectionHeader title="Queue inspector" subtitle="Context, risk, next action, and workflow controls." compact />
           {selected ? (
             <div className="space-y-3">
-              <div className="detail-card inspector-block">
+              <WorkspaceInspectorSection title="Selected record" subtitle={`${selected.recordType} · ${selected.project} · ${selected.assignee}`}>
                 <div className="text-sm font-semibold text-slate-950">{selected.title}</div>
-                <div className="mt-1 text-xs text-slate-500">{selected.recordType} • {selected.project} • {selected.assignee}</div>
                 <div className="overview-inspector-kpis">
                   <div><span>Status</span><strong>{selected.status}</strong></div>
                   <div><span>Why urgent</span><strong>{selected.queueReasons.join(' • ') || selected.whyInQueue}</strong></div>
@@ -355,9 +332,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                   <div><span>Linked status</span><strong>{selected.linkedRecordStatus || 'No link'}</strong></div>
                 </div>
                 <div className="overview-inspector-notes">Waiting on: {selected.waitingOn || '—'} • Block reason: {selected.blockReason || '—'} • Promised: {formatDate(selected.promisedDate)}</div>
-              </div>
+              </WorkspaceInspectorSection>
 
-              <div className="overview-action-stack">
+              <WorkspaceInspectorSection title="Primary actions">
+                <div className="overview-action-stack">
                 <button onClick={() => {
                   if (selected.recordType === 'followup') {
                     const note = window.prompt('Completion note for closeout (leave blank only if overriding):', '');
@@ -406,15 +384,18 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                 {!personalMode && selected.recordType === 'followup' ? <button onClick={() => updateItem(selected.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className={modeConfig.emphasizeCoordinationActions ? 'primary-btn justify-start' : 'action-btn justify-start'}><UserRoundCog className="h-4 w-4" />Reassign</button> : null}
                 <button onClick={openDetail} className="action-btn justify-start">Open detail <ExternalLink className="h-4 w-4" /></button>
               </div>
+              </WorkspaceInspectorSection>
 
-              <div className="overview-action-stack overview-action-stack-muted">
+              <WorkspaceInspectorSection title="Related workspaces">
+                <div className="overview-action-stack overview-action-stack-muted">
                 <button onClick={() => onOpenWorkspace('tasks')} className="action-btn justify-start"><Link2 className="h-4 w-4" />Task workspace <ArrowRight className="h-4 w-4" /></button>
                 {!personalMode ? <button onClick={() => onOpenWorkspace('projects')} className="action-btn justify-start"><AlertTriangle className="h-4 w-4" />Project risk view</button> : null}
               </div>
+              </WorkspaceInspectorSection>
             </div>
           ) : <EmptyState title="Nothing selected" message="Select a row to process work inline." />}
         </AppShellCard>
-      </div>
-    </div>
+      </WorkspacePrimaryLayout>
+    </WorkspacePage>
   );
 }

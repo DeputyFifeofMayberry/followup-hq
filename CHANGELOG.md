@@ -2,6 +2,11 @@
 
 ## 2026-04-04
 
+### Deficiency 2 Phase 2: correction workflow hardening follow-through
+- Tightened queue operational ranking with clearer next-step hints and stronger weighting for blockers, duplicate risk, and easy-win approvals so reviewers can process pending items in a deliberate order (`src/lib/intakeReviewQueue.ts`).
+- Added reviewer action-hint helpers for high-signal field triage (reason, recommended next step, and blocker emphasis), then wired those outputs directly into Intake Review so weak/conflicting fields are explicit and actionable (`src/lib/intakeEvidence.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Reworked the intake review workspace into a more guided left/center/right correction flow with inline field-status context, stronger readiness messaging, clearer decision emphasis, safer override presentation, and side-by-side match comparison ergonomics (`src/components/UniversalIntakeWorkspace.tsx`).
+
 ### Deficiency 2 Phase 2: intake review correction workbench
 - Reframed the Universal Intake workspace into a reviewer-first three-zone flow (prioritized review queue, guided candidate correction form, and evidence/match/safety inspector) so reviewers can correct weak fields and make decisions faster in one pass (`src/components/UniversalIntakeWorkspace.tsx`).
 - Added explicit review-readiness and operational priority shaping in intake queue construction (`ready to approve`, `ready after correction`, `needs link decision`, `reference likely`, `unsafe to create`) to better prioritize correction, duplicate handling, and quick wins (`src/lib/intakeReviewQueue.ts`).

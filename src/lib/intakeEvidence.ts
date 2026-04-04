@@ -40,6 +40,13 @@ export interface IntakeFieldReviewSummary {
   priorityReviewFields: IntakeFieldReview[];
 }
 
+export interface IntakeReviewerActionHint {
+  field: IntakeFieldReview;
+  reason: string;
+  nextStep: string;
+  isBlocker: boolean;
+}
+
 export interface IntakeReviewCompareRow {
   field: IntakeFieldReviewKey;
   label: string;
@@ -125,6 +132,22 @@ export function summarizeFieldReviews(fields: IntakeFieldReview[]): IntakeFieldR
 
 export function getActionableReviewFields(summary: IntakeFieldReviewSummary): IntakeFieldReview[] {
   return [...summary.conflicting, ...summary.missing, ...summary.weak];
+}
+
+export function getReviewBlockerFields(summary: IntakeFieldReviewSummary): IntakeFieldReview[] {
+  return summary.priorityReviewFields.filter((field) => ['missing', 'conflicting', 'weak'].includes(field.status));
+}
+
+export function buildReviewerActionHints(summary: IntakeFieldReviewSummary, limit = 8): IntakeReviewerActionHint[] {
+  return getActionableReviewFields(summary)
+    .map((field) => ({
+      field,
+      reason: getTopFieldReason(field),
+      nextStep: getFieldReviewerHint(field),
+      isBlocker: HIGH_VALUE_REVIEW_FIELDS.includes(field.key),
+    }))
+    .sort((a, b) => Number(b.isBlocker) - Number(a.isBlocker))
+    .slice(0, limit);
 }
 
 export function getFieldReviewerHint(field: IntakeFieldReview): string {

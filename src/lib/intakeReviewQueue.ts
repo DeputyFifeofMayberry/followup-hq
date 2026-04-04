@@ -33,6 +33,7 @@ export interface IntakeQueueItem {
   sortDate: string;
   readiness: 'ready_to_approve' | 'ready_after_correction' | 'needs_link_decision' | 'reference_likely' | 'unsafe_to_create';
   priorityScore: number;
+  nextStepHint: string;
 }
 
 export interface IntakeQueueFilters {
@@ -63,6 +64,21 @@ function readinessToPriority(readiness: IntakeQueueItem['readiness']): number {
   if (readiness === 'ready_after_correction') return 90;
   if (readiness === 'ready_to_approve') return 70;
   return 50;
+}
+
+function getNextStepHint(input: {
+  readiness: IntakeQueueItem['readiness'];
+  missingCriticalFields: number;
+  conflictingEvidence: boolean;
+  duplicateRisk: boolean;
+  likelyReference: boolean;
+}): string {
+  if (input.readiness === 'needs_link_decision' || input.duplicateRisk) return 'Compare top match and link if same work.';
+  if (input.likelyReference || input.readiness === 'reference_likely') return 'Save as reference unless actionable work is explicit.';
+  if (input.conflictingEvidence) return 'Resolve conflicting field signals before approval.';
+  if (input.missingCriticalFields > 0) return 'Fill missing critical fields (type/title/project/owner/due date).';
+  if (input.readiness === 'ready_to_approve') return 'Approve now and move to next.';
+  return 'Quick-check weak fields, then decide.';
 }
 
 function confidenceTier(score: number): IntakeConfidenceTier {
@@ -130,6 +146,7 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       + (missingCriticalFields * 6)
       + (conflictingEvidence ? 12 : 0)
       + (duplicateRisk ? 10 : 0)
+      + (readiness === 'ready_to_approve' && missingCriticalFields === 0 && !duplicateRisk ? 8 : 0)
       + (asset?.parseQuality === 'failed' ? 10 : asset?.parseQuality === 'weak' ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
 
@@ -154,6 +171,7 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       sortDate: candidate.updatedAt || candidate.createdAt,
       readiness,
       priorityScore,
+      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference }),
     };
   });
 }
@@ -212,6 +230,7 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       + (missingCriticalFields * 6)
       + (conflictingEvidence ? 12 : 0)
       + (duplicateRisk ? 10 : 0)
+      + (readiness === 'ready_to_approve' && missingCriticalFields === 0 && !duplicateRisk ? 8 : 0)
       + (candidate.parseQuality === 'weak' ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
 
@@ -235,6 +254,7 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       sortDate: candidate.updatedAt || candidate.createdAt,
       readiness,
       priorityScore,
+      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference }),
     };
   });
 }

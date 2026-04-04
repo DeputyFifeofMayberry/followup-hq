@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "tauri": "tauri",
-    "test": "tsc --noEmit",
+    "test": "npm run test:contracts && tsc --noEmit",
     "test:watch": "tsc --noEmit --watch",
-    "test:run": "tsc --noEmit"
+    "test:run": "npm run test",
+    "test:contracts": "node scripts/ui-contract-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

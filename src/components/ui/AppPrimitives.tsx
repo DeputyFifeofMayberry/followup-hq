@@ -1,4 +1,5 @@
-import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
+import { AlertTriangle, CheckCircle2, CircleAlert, CircleOff, LoaderCircle, SearchX, Sparkles } from 'lucide-react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PropsWithChildren, type ReactNode } from 'react';
 
 type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
 
@@ -131,9 +132,54 @@ export function WorkspaceHeaderMetaPill({ children, tone = 'default' }: PropsWit
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
   return (
-    <div className="empty-state" role="status" aria-live="polite">
-      <div className="empty-state-title">{title}</div>
-      <div className="empty-state-message">{message}</div>
+    <div className="state-panel state-panel-empty" role="status" aria-live="polite">
+      <div className="state-panel-icon" aria-hidden="true"><CircleOff size={18} /></div>
+      <div className="state-panel-title">{title}</div>
+      <div className="state-panel-message">{message}</div>
+    </div>
+  );
+}
+
+type StateTone = 'empty' | 'loading' | 'error' | 'warning' | 'success' | 'neutral';
+
+const stateIconByTone: Record<StateTone, ReactNode> = {
+  empty: <CircleOff size={18} />,
+  loading: <LoaderCircle size={18} className="state-spin" />,
+  error: <CircleAlert size={18} />,
+  warning: <AlertTriangle size={18} />,
+  success: <CheckCircle2 size={18} />,
+  neutral: <Sparkles size={18} />,
+};
+
+export function StatePanel({
+  title,
+  message,
+  tone = 'neutral',
+  compact = false,
+  action,
+}: {
+  title: string;
+  message: string;
+  tone?: StateTone;
+  compact?: boolean;
+  action?: ReactNode;
+}) {
+  return (
+    <div className={`state-panel state-panel-${tone} ${compact ? 'state-panel-compact' : ''}`.trim()} role="status" aria-live="polite">
+      <div className="state-panel-icon" aria-hidden="true">{stateIconByTone[tone]}</div>
+      <div className="state-panel-title">{title}</div>
+      <div className="state-panel-message">{message}</div>
+      {action ? <div className="state-panel-action">{action}</div> : null}
+    </div>
+  );
+}
+
+export function NoMatchesState({ title = 'No matches', message }: { title?: string; message: string }) {
+  return (
+    <div className="state-panel state-panel-empty" role="status" aria-live="polite">
+      <div className="state-panel-icon" aria-hidden="true"><SearchX size={18} /></div>
+      <div className="state-panel-title">{title}</div>
+      <div className="state-panel-message">{message}</div>
     </div>
   );
 }
@@ -151,7 +197,7 @@ export function SegmentedControl<T extends string>({
     <div className="segmented-control" role="tablist" aria-label="Segmented control">
       {options.map((option, index) => {
         const active = value === option.value;
-        const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+        const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
           event.preventDefault();
           const nextIndex = event.key === 'ArrowRight'
@@ -179,10 +225,46 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-export function AppModal({ children, size = 'standard', onBackdropClick }: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector'; onBackdropClick?: () => void }>) {
+export function AppModal({
+  children,
+  size = 'standard',
+  onBackdropClick,
+  onClose,
+  closeOnEscape = true,
+}: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector'; onBackdropClick?: () => void; onClose?: () => void; closeOnEscape?: boolean }>) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    panelRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!closeOnEscape || !onClose) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closeOnEscape, onClose]);
+
   return (
-    <div className="modal-backdrop" onClick={onBackdropClick}>
-      <div className={`modal-panel app-shell-card app-shell-card-modal modal-panel-${size}`}>{children}</div>
+    <div className="modal-backdrop" onClick={onBackdropClick} role="presentation">
+      <div
+        className={`modal-panel app-shell-card app-shell-card-modal modal-panel-${size}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Modal dialog"
+        ref={panelRef}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {children}
+      </div>
     </div>
   );
 }

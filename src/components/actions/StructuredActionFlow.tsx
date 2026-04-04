@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AppShellCard } from '../ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, StatePanel } from '../ui/AppPrimitives';
 
 interface StructuredActionFlowProps {
   open: boolean;
@@ -33,37 +33,24 @@ export function StructuredActionFlow({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <AppShellCard className="w-full max-w-xl space-y-3 p-4" surface="inspector">
-        <div>
-          <div className="text-base font-semibold text-slate-950">{title}</div>
-          {subtitle ? <p className="text-sm text-slate-600">{subtitle}</p> : null}
-        </div>
+    <AppModal size="compact" onClose={onCancel} onBackdropClick={onCancel}>
+      <AppModalHeader title={title} subtitle={subtitle} onClose={onCancel} closeLabel={cancelLabel} />
+      <AppModalBody>
         {children}
         {blockers.length ? <ActionMessage tone="danger" title="Blockers" lines={blockers} /> : null}
         {warnings.length ? <ActionMessage tone="warn" title="Warnings" lines={warnings} /> : null}
         {result ? <ActionMessage tone={result.tone} title="Result" lines={[result.message]} /> : null}
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="action-btn">{cancelLabel}</button>
-          <button onClick={onConfirm} disabled={confirmDisabled} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confirmLabel}</button>
-        </div>
-      </AppShellCard>
-    </div>
+      </AppModalBody>
+      <AppModalFooter>
+        <button onClick={onCancel} className="action-btn">{cancelLabel}</button>
+        <button onClick={onConfirm} disabled={confirmDisabled} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confirmLabel}</button>
+      </AppModalFooter>
+    </AppModal>
   );
 }
 
 function ActionMessage({ tone, title, lines }: { tone: 'success' | 'warn' | 'danger'; title: string; lines: string[] }) {
-  const toneClass = tone === 'danger'
-    ? 'border-rose-200 bg-rose-50 text-rose-900'
-    : tone === 'warn'
-      ? 'border-amber-200 bg-amber-50 text-amber-900'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  return (
-    <div className={`rounded-xl border p-2 text-xs ${toneClass}`}>
-      <div className="font-semibold">{title}</div>
-      {lines.map((line) => <div key={line}>{line}</div>)}
-    </div>
-  );
+  return <StatePanel compact tone={tone === 'danger' ? 'error' : tone === 'warn' ? 'warning' : 'success'} title={title} message={lines.join(' • ')} />;
 }
 
 export function CompletionNoteSection({ value, onChange, label = 'Completion note' }: { value: string; onChange: (value: string) => void; label?: string }) {

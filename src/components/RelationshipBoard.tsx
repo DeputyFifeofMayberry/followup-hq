@@ -11,7 +11,7 @@ import {
   sortRelationshipSummaries,
   type RelationshipSortKey,
 } from '../lib/relationshipSelectors';
-import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
+import { AppShellCard, SectionHeader, StatePanel } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode } from '../types';
 import { useExecutionQueueViewModel } from '../domains/shared';
@@ -132,14 +132,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
   const runRelationshipFlow = () => {
     if (!selected) return;
     if (relationshipFlow === 'watch') {
-      selected.entityType === 'contact' ? updateContact(selected.id, { relationshipStatus: 'Watch' }) : updateCompany(selected.id, { relationshipStatus: 'Watch' });
+      if (selected.entityType === 'contact') updateContact(selected.id, { relationshipStatus: 'Watch' });
+      else updateCompany(selected.id, { relationshipStatus: 'Watch' });
       setRelationshipResult({ tone: 'warn', message: `${selected.name} moved to Watch.` });
       return;
     }
     if (relationshipFlow === 'log_touch') {
-      selected.entityType === 'contact'
-        ? updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() })
-        : updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() });
+      if (selected.entityType === 'contact') updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() });
+      else updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() });
       setRelationshipResult({ tone: 'success', message: `Logged interaction for ${selected.name}.` });
       return;
     }
@@ -327,14 +327,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
                   <div className="space-y-2">
                     {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro text-xs">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></div>)}
-                    {selectedFollowUps.length === 0 ? <div className="text-xs text-slate-500">No linked follow-ups yet.</div> : null}
+                    {selectedFollowUps.length === 0 ? <StatePanel compact tone="empty" title="No linked follow-ups yet" message="Create or link follow-ups from relationship context actions." /> : null}
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked tasks</div>
                   <div className="space-y-2">
                     {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro text-xs">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></div>)}
-                    {selectedTasks.length === 0 ? <div className="text-xs text-slate-500">No tasks linked.</div> : null}
+                    {selectedTasks.length === 0 ? <StatePanel compact tone="empty" title="No linked tasks" message="Add a task to make execution ownership explicit." /> : null}
                   </div>
                 </div>
               </div>
@@ -343,7 +343,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div className="mb-2 text-sm font-semibold text-slate-900">Linked projects</div>
                 <div className="flex flex-wrap gap-2">
                   {selectedProjects.map((project) => <span key={project.id} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700">{project.name}</span>)}
-                  {selectedProjects.length === 0 ? <span className="text-xs text-slate-500">No linked projects.</span> : null}
+                  {selectedProjects.length === 0 ? <StatePanel compact tone="empty" title="No linked projects" message="Link a follow-up or task to map this relationship to projects." /> : null}
                 </div>
               </div>
 
@@ -386,7 +386,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               ) : null}
             </div>
           ) : (
-            <div className="rounded-2xl tonal-panel text-sm text-slate-500">No relationships match the current filters. Reset filters or lower pressure thresholds.</div>
+            <StatePanel tone="empty" title="No relationships match these filters" message="Reset filters or lower pressure thresholds to bring records back into view." />
           )}
 
           <div className="rounded-2xl tonal-panel text-xs text-slate-600">

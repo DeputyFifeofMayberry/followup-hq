@@ -26,6 +26,7 @@ import type {
   UnifiedQueueSort,
   UnifiedQueueDensity,
   ExecutionIntent,
+  ExecutionIntentSource,
   ExecutionSectionKey,
   ExecutionRouteTarget,
 } from '../types';
@@ -128,7 +129,7 @@ export interface AppStoreActions {
   setExecutionSelectedId: (id: string | null) => void;
   launchExecutionIntent: (intent: Omit<ExecutionIntent, 'createdAt'>) => void;
   clearExecutionIntent: () => void;
-  openExecutionLane: (target: Exclude<ExecutionRouteTarget, 'overview'>, options?: { recordId?: string; recordType?: 'task' | 'followup'; section?: ExecutionSectionKey; project?: string }) => void;
+  openExecutionLane: (target: Exclude<ExecutionRouteTarget, 'overview'>, options?: { recordId?: string; recordType?: 'task' | 'followup'; section?: ExecutionSectionKey; project?: string; source?: ExecutionIntentSource; sourceRecordId?: string; intentLabel?: string }) => void;
   stageIntakeCandidate: (candidate: any) => void;
   approveIntakeCandidate: (candidateId: string, mode?: 'task' | 'followup') => void;
   discardIntakeCandidate: (candidateId: string) => void;

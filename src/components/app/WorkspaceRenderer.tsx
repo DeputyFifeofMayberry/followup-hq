@@ -26,11 +26,11 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTra
     case 'exports':
       return <ExportWorkspace />;
     case 'outlook':
-      return <OutlookPanel showAdvanced={false} />;
+      return <OutlookPanel showAdvanced={false} setWorkspace={setWorkspace} />;
     case 'projects':
-      return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} />;
+      return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} setWorkspace={setWorkspace} />;
     case 'relationships':
-      return <RelationshipBoard appMode={appMode} />;
+      return <RelationshipBoard appMode={appMode} setWorkspace={setWorkspace} />;
     default:
       return (
         <OverviewPage

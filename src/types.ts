@@ -477,13 +477,17 @@ export interface SavedExecutionView {
 export type ExecutionSectionKey = 'now' | 'triage' | 'blocked' | 'ready_to_close' | 'quick_route';
 export type ExecutionRouteTarget = 'overview' | 'followups' | 'tasks';
 export type ExecutionIntentKind = 'open_record' | 'open_lane' | 'open_section';
+export type ExecutionIntentSource = 'overview' | 'outlook' | 'projects' | 'relationships';
 
 export interface ExecutionIntent {
   kind: ExecutionIntentKind;
   target: ExecutionRouteTarget;
+  source?: ExecutionIntentSource;
+  sourceRecordId?: string;
   recordType?: 'task' | 'followup';
   recordId?: string;
   section?: ExecutionSectionKey;
+  intentLabel?: string;
   preset?: UnifiedQueuePreset;
   filter?: UnifiedQueueFilter;
   project?: string;

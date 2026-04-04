@@ -86,9 +86,9 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Intake',
     shellTitle: 'Intake',
     shellPurpose: mode === 'personal'
-      ? 'Intake and review lane to capture inbound work before execution.'
-      : 'Team intake and review lane for routing inbound work into execution.',
-    category: 'core',
+      ? 'Support funnel for inbound capture, review, and handoff into Overview, Follow Ups, and Tasks.'
+      : 'Team support funnel for inbound material, review safety, and execution routing.',
+    category: 'support',
     startSurface: false,
     showUniversalCapture: true,
     healthLabel: ({ combinedCleanup }) => `${combinedCleanup} need cleanup`,
@@ -140,14 +140,14 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
     trackerOwnerContext: 'compact',
     overviewSubtitle: 'Start-of-day cockpit: process quickly, close loops, and keep momentum.',
     taskSubtitle: 'Execution-first task lane with minimal ownership overhead.',
-    projectsSubtitle: 'Support lens for project context, pressure checks, and reference detail.',
-    relationshipsSubtitle: 'Support lens for relationship context and next-touch clarity.',
+    projectsSubtitle: 'Project context lens for pressure, risk, and execution routing.',
+    relationshipsSubtitle: 'Coordination lens for stakeholder pressure and next-touch routing.',
     workspaceMeta: buildWorkspaceMeta('personal'),
   },
   team: {
     displayName: 'Team mode',
     shellLabel: 'Team coordination workspace',
-    shellDescription: 'Overview starts the day, then execution lanes carry follow-up, task, and intake throughput.',
+    shellDescription: 'Overview starts the day, Follow Ups + Tasks execute, and support views provide context and intake handoff.',
     supportViewsMuted: false,
     supportActionsSecondary: false,
     emphasizeCoordinationActions: true,
@@ -155,8 +155,8 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
     trackerOwnerContext: 'full',
     overviewSubtitle: 'Start-of-day cockpit with ownership, blockers, and intervention points.',
     taskSubtitle: 'Coordination-ready task lane with owner, assignee, and parent context.',
-    projectsSubtitle: 'Support view for project ownership, intervention, and portfolio pressure.',
-    relationshipsSubtitle: 'Support view for relationship ownership, risk, and follow-through.',
+    projectsSubtitle: 'Project pressure lens for ownership context, blockers, and lane routing.',
+    relationshipsSubtitle: 'Stakeholder coordination lens for pressure, risk, and follow-through.',
     workspaceMeta: buildWorkspaceMeta('team'),
   },
 };

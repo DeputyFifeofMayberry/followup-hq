@@ -7,6 +7,7 @@ import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { describeExecutionIntent } from '../lib/executionHandoff';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -181,7 +182,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
             <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
           </div>
-          {executionIntent?.target === 'tasks' ? <div className="text-xs text-slate-600">Opened from Overview with execution context{executionIntent.section ? `: ${executionIntent.section.replace('_', ' ')}` : ''}.</div> : null}
+          {executionIntent?.target === 'tasks' ? <div className="text-xs text-slate-600">{describeExecutionIntent(executionIntent)}</div> : null}
           <WorkspaceToolbarRow className="overview-support-row">
             <span className="overview-inline-guidance"><strong>Task loop:</strong> Scan queue → update status → resolve blocker/due date in inspector.</span>
             <span className="overview-inline-guidance">Follow-up relationship details stay in the right pane.</span>

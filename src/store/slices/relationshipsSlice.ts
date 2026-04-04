@@ -1,0 +1,23 @@
+import { createId, normalizeItem } from '../../lib/utils';
+import { normalizeCompany, normalizeContact } from '../../domains/relationships/helpers';
+import { applyTaskRollupsToItems, normalizeTask, normalizeTasks } from '../../domains/tasks/helpers';
+import { attachProjects, normalizeItems } from '../../domains/followups/helpers';
+import type { AppStore, AppStoreActions } from '../types';
+import type { SliceContext, SliceGet, SliceSet } from './types';
+
+export function createRelationshipsSlice(set: SliceSet, get: SliceGet, { queuePersist }: SliceContext): Pick<AppStoreActions,
+  'addContact' | 'updateContact' | 'reassignContactLinks' | 'mergeContacts' | 'deleteContact' | 'addCompany' | 'updateCompany' | 'reassignCompanyLinks' | 'mergeCompanies' | 'deleteCompany'
+> {
+  return {
+    addContact: (input) => { const id = createId('CT'); set((state: AppStore) => ({ contacts: [normalizeContact({ id, ...input }), ...state.contacts] })); queuePersist(); return id; },
+    updateContact: (id, patch) => { set((state: AppStore) => ({ contacts: state.contacts.map((contact) => (contact.id === id ? normalizeContact({ ...contact, ...patch }) : contact)) })); queuePersist(); },
+    reassignContactLinks: (fromId, toId) => { if (!fromId || !toId || fromId === toId) return; set((state: AppStore) => { const tasks = normalizeTasks(state.tasks.map((task) => (task.contactId === fromId ? normalizeTask({ ...task, contactId: toId }) : task))); const items = attachProjects(applyTaskRollupsToItems(normalizeItems(state.items.map((item) => (item.contactId === fromId ? normalizeItem({ ...item, contactId: toId }) : item))), tasks), state.projects); return { items, tasks, companies: state.companies.map((company) => (company.primaryContactId === fromId ? normalizeCompany({ ...company, primaryContactId: toId }) : company)) }; }); queuePersist(); },
+    mergeContacts: (baseId, duplicateId) => { if (!baseId || !duplicateId || baseId === duplicateId) return; get().reassignContactLinks(duplicateId, baseId); get().deleteContact(duplicateId); },
+    deleteContact: (id) => { set((state: AppStore) => { const tasks = normalizeTasks(state.tasks.map((task) => (task.contactId === id ? normalizeTask({ ...task, contactId: undefined }) : task))); const items = attachProjects(applyTaskRollupsToItems(normalizeItems(state.items.map((item) => (item.contactId === id ? normalizeItem({ ...item, contactId: undefined }) : item))), tasks), state.projects); return { contacts: state.contacts.filter((contact) => contact.id !== id), items, tasks, companies: state.companies.map((company) => (company.primaryContactId === id ? normalizeCompany({ ...company, primaryContactId: undefined }) : company)) }; }); queuePersist(); },
+    addCompany: (input) => { const id = createId('CO'); set((state: AppStore) => ({ companies: [normalizeCompany({ id, ...input }), ...state.companies] })); queuePersist(); return id; },
+    updateCompany: (id, patch) => { set((state: AppStore) => ({ companies: state.companies.map((company) => (company.id === id ? normalizeCompany({ ...company, ...patch }) : company)) })); queuePersist(); },
+    reassignCompanyLinks: (fromId, toId) => { if (!fromId || !toId || fromId === toId) return; set((state: AppStore) => { const tasks = normalizeTasks(state.tasks.map((task) => (task.companyId === fromId ? normalizeTask({ ...task, companyId: toId }) : task))); const items = attachProjects(applyTaskRollupsToItems(normalizeItems(state.items.map((item) => (item.companyId === fromId ? normalizeItem({ ...item, companyId: toId }) : item))), tasks), state.projects); return { contacts: state.contacts.map((contact) => (contact.companyId === fromId ? normalizeContact({ ...contact, companyId: toId }) : contact)), items, tasks }; }); queuePersist(); },
+    mergeCompanies: (baseId, duplicateId) => { if (!baseId || !duplicateId || baseId === duplicateId) return; get().reassignCompanyLinks(duplicateId, baseId); get().deleteCompany(duplicateId); },
+    deleteCompany: (id) => { set((state: AppStore) => { const tasks = normalizeTasks(state.tasks.map((task) => (task.companyId === id ? normalizeTask({ ...task, companyId: undefined }) : task))); const items = attachProjects(applyTaskRollupsToItems(normalizeItems(state.items.map((item) => (item.companyId === id ? normalizeItem({ ...item, companyId: undefined }) : item))), tasks), state.projects); return { companies: state.companies.filter((company) => company.id !== id), contacts: state.contacts.map((contact) => (contact.companyId === id ? normalizeContact({ ...contact, companyId: undefined }) : contact)), items, tasks }; }); queuePersist(); },
+  };
+}

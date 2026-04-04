@@ -1,0 +1,59 @@
+import { createId, todayIso } from '../../lib/utils';
+import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
+import type { AppStore, AppStoreActions } from '../types';
+import type { SliceSet } from './types';
+
+export function createUiSlice(set: SliceSet): Pick<AppStoreActions,
+  'setSelectedId' | 'setSearch' | 'setProjectFilter' | 'setStatusFilter' | 'setActiveView' | 'setFollowUpFilters' | 'resetFollowUpFilters' |
+  'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
+  'setFollowUpColumns' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
+  'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
+  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal'
+> {
+  return {
+    setSelectedId: (id) => set({ selectedId: id }),
+    setSearch: (value) => set({ search: value }),
+    setProjectFilter: (value) => set({ projectFilter: value }),
+    setStatusFilter: (value) => set({ statusFilter: value }),
+    setActiveView: (value) => set({ activeView: value }),
+    setFollowUpFilters: (value) => set((state: AppStore) => ({ followUpFilters: { ...state.followUpFilters, ...value } })),
+    resetFollowUpFilters: () => set({ followUpFilters: defaultFollowUpFilters }),
+    toggleFollowUpSelection: (id) => set((state: AppStore) => ({
+      selectedFollowUpIds: state.selectedFollowUpIds.includes(id) ? state.selectedFollowUpIds.filter((value) => value !== id) : [...state.selectedFollowUpIds, id],
+      selectedId: id,
+    })),
+    clearFollowUpSelection: () => set({ selectedFollowUpIds: [] }),
+    selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
+    saveFollowUpCustomView: (name, search) => set((state: AppStore) => ({
+      savedFollowUpViews: [{ id: createId('FUV'), name, search, activeView: state.activeView, filters: state.followUpFilters, createdAt: todayIso() }, ...state.savedFollowUpViews],
+    })),
+    applySavedFollowUpCustomView: (id) => set((state: AppStore) => {
+      const view = state.savedFollowUpViews.find((entry) => entry.id === id);
+      if (!view) return state;
+      return { search: view.search, activeView: view.activeView, followUpFilters: view.filters };
+    }),
+    setFollowUpColumns: (columns) => set({ followUpColumns: columns }),
+    openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+    openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
+    closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
+    openTouchModal: () => set({ touchModalOpen: true }),
+    closeTouchModal: () => set({ touchModalOpen: false }),
+    openImportModal: () => set({ importModalOpen: true }),
+    closeImportModal: () => set({ importModalOpen: false }),
+    openMergeModal: (baseId, candidateId) => set({ mergeModal: { open: true, baseId, candidateId }, selectedId: baseId }),
+    closeMergeModal: () => set({ mergeModal: { open: false, baseId: null, candidateId: null } }),
+    openDraftModal: (id) => set({ draftModal: { open: true, itemId: id }, selectedId: id }),
+    closeDraftModal: () => set({ draftModal: { open: false, itemId: null } }),
+    setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+    setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
+    setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
+    openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null }, itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
+    openCreateFromCapture: (draft) => set({
+      createWorkDraft: draft,
+      itemModal: draft.kind === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
+      taskModal: draft.kind === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
+    }),
+    openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
+    closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+  };
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-04
+
+### Phase 1 single daily cockpit foundation (IA + shell hierarchy)
+- Centralized workspace IA metadata in `src/lib/appModeConfig.ts` with a single workspace contract (label, purpose, category, daily-start flag, universal-capture visibility, primary action, and health label builder), while preserving existing internal workspace keys and mode behavior.
+- Refactored `src/App.tsx` to consume centralized workspace metadata for navigation sections, header copy, command palette workspace commands, and per-workspace primary actions, removing the duplicate inline shell workspace definitions.
+- Standardized user-facing naming so the `worklist` workspace is consistently presented as **Overview** and reinforced as the start-of-day surface with explicit shell/nav treatment.
+- Tightened shell hierarchy styling by strengthening core-vs-support nav separation, adding support mute behavior in personal mode, introducing a dedicated "Start here" nav indicator, and reducing header copy competition (`src/styles/shell.css`, `src/styles/workspaces.css`).
+- Updated lingering UI copy that still referenced "worklist" in user-facing text (`src/components/PersonalAgendaBoard.tsx`).
+
 ## 2026-04-03
 
 ### Phase 8 final graphics pass (left rail typography/color fix first)

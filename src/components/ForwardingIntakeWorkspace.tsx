@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Inbox, Link2, Plus, ShieldCheck, Wrench } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { formatDateTime } from '../lib/utils';
@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { ForwardedEmailProviderPayload, ForwardedRuleAction, ForwardedRuleCondition } from '../types';
 import { buildForwardedFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
+import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -27,6 +28,14 @@ const actionLabel: Record<ForwardedRuleAction, string> = {
   'set-owner': 'Set owner',
   'set-project': 'Set project',
   'set-default-priority': 'Set default priority',
+};
+
+const bucketLabels: Record<IntakeReviewBucket, string> = {
+  ready_to_approve: 'Ready to approve',
+  needs_correction: 'Needs correction',
+  link_duplicate_review: 'Link / duplicate review',
+  reference_likely: 'Reference likely',
+  finalized_history: 'Rejected / finalized history',
 };
 
 function describeConditions(conditions: ForwardedRuleCondition): string {
@@ -84,8 +93,25 @@ export function ForwardingIntakeWorkspace() {
   const [payloadText, setPayloadText] = useState(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
   const [manualRuleSubject, setManualRuleSubject] = useState('');
   const [candidateLinks, setCandidateLinks] = useState<Record<string, string>>({});
+  const [activeBucket, setActiveBucket] = useState<IntakeReviewBucket | 'all'>('all');
+  const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
+  const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
 
-  const pending = forwardedCandidates.filter((candidate) => candidate.status === 'pending');
+  const queue = useMemo(() => buildForwardedReviewQueue(forwardedCandidates), [forwardedCandidates]);
+  const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
+  const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
+  const filteredQueue = useMemo(() => {
+    const base = filterReviewQueue(queue, queueFilters);
+    const bucketed = activeBucket === 'all' ? base : base.filter((item) => item.bucket === activeBucket);
+    return sortReviewQueue(bucketed, sortKey);
+  }, [queue, queueFilters, activeBucket, sortKey]);
+  const pendingIds = useMemo(() => filteredQueue.filter((entry) => entry.status === 'pending').map((entry) => entry.id), [filteredQueue]);
+
+  useEffect(() => {
+    if (!pendingIds.includes(activeCandidateId || '')) setActiveCandidateId(pendingIds[0] ?? null);
+  }, [pendingIds, activeCandidateId]);
+
   const systemRules = forwardedRules.filter((rule) => rule.source === 'system').sort((a, b) => a.priority - b.priority);
   const userRules = forwardedRules.filter((rule) => rule.source === 'user').sort((a, b) => a.priority - b.priority);
 
@@ -94,14 +120,8 @@ export function ForwardingIntakeWorkspace() {
     const rejected = forwardedCandidates.filter((candidate) => candidate.status === 'rejected').length;
     const references = forwardedCandidates.filter((candidate) => candidate.status === 'reference').length;
     const lastIntake = forwardedEmails[0]?.receivedAt;
-    const strong = forwardedEmails.filter((email) => email.parseQuality === 'strong').length;
-    const partial = forwardedEmails.filter((email) => email.parseQuality === 'partial').length;
-    const weak = forwardedEmails.filter((email) => email.parseQuality === 'weak').length;
-    const blocked = forwardedRoutingAudit.filter((entry) => entry.result === 'blocked').length;
-    const duplicateLike = forwardedRoutingAudit.filter((entry) => entry.reasons.some((reason) => /duplicate/i.test(reason))).length;
-
-    return { approved, rejected, references, lastIntake, strong, partial, weak, blocked, duplicateLike };
-  }, [forwardedCandidates, forwardedEmails, forwardedRoutingAudit]);
+    return { approved, rejected, references, lastIntake };
+  }, [forwardedCandidates, forwardedEmails]);
 
   const recentHistory = useMemo(
     () => forwardedLedger.slice(0, 8).map((entry) => ({
@@ -113,190 +133,144 @@ export function ForwardingIntakeWorkspace() {
 
   const forwardingAddress = forwardedEmails[0]?.forwardingAddress ?? 'jared+in@yourdomain.com';
 
+  const runAndNext = (candidateId: string, fn: () => void) => {
+    const idx = pendingIds.indexOf(candidateId);
+    const nextId = idx >= 0 ? pendingIds[idx + 1] ?? pendingIds[idx - 1] ?? null : pendingIds[0] ?? null;
+    fn();
+    setActiveCandidateId(nextId);
+  };
+
   return (
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-base font-semibold text-slate-900">Email intake (forwarding-first)</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Forward messages to <span className="font-semibold text-slate-900">{forwardingAddress}</span>. Each inbound email is parsed and safely routed to
-          Intake Review before anything is created.
-        </p>
-        <div className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-          <div className="rounded-lg border border-slate-200 bg-white p-3"><span className="font-medium">Follow-ups</span> for active threads that need owner accountability.</div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3"><span className="font-medium">Tasks</span> for explicit work requests, due dates, or assignments.</div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3"><span className="font-medium">References</span> for useful context that should not enter active queues.</div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3"><span className="font-medium">Safety first:</span> uncertain or risky parses stay in review for human approval.</div>
-        </div>
+        <p className="mt-1 text-sm text-slate-600">Forward messages to <span className="font-semibold text-slate-900">{forwardingAddress}</span>. Pending queue is primary; rules and history support review decisions.</p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">Intake health</div>
-          <Badge variant="blue">Live pipeline</Badge>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Emails received</div><div className="text-lg font-semibold text-slate-900">{forwardedEmails.length}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Pending review</div><div className="text-lg font-semibold text-amber-700">{pending.length}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Approved / linked</div><div className="text-lg font-semibold text-emerald-700">{status.approved}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Rejected</div><div className="text-lg font-semibold text-rose-700">{status.rejected}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">References saved</div><div className="text-lg font-semibold text-slate-900">{status.references}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Last intake</div><div className="text-sm font-medium text-slate-900">{status.lastIntake ? formatDateTime(status.lastIntake) : 'No intake yet'}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Parse quality</div><div className="text-sm font-medium text-slate-900">Strong {status.strong} • Partial {status.partial} • Weak {status.weak}</div></div>
-          <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Duplicate / blocked</div><div className="text-sm font-medium text-slate-900">{status.duplicateLike} duplicate flags • {status.blocked} blocked</div></div>
-        </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Pending review</div><div className="text-lg font-semibold text-amber-700">{metrics.pendingCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Batch-safe</div><div className="text-lg font-semibold text-emerald-700">{metrics.batchSafeCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Duplicate / link review</div><div className="text-lg font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-lg font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-lg font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
       </div>
 
       <div className="rounded-xl border border-slate-200 p-3">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-900">Review queue</div>
-          <div className="flex items-center gap-2">
-            <button
-              className="action-btn"
-              onClick={() => pending.filter((candidate) => candidate.confidence >= 0.9).forEach((candidate) => approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType))}
-            >
-              Batch approve & import high-confidence
-            </button>
-            <Badge variant="warn">{pending.length} pending</Badge>
-          </div>
+          <button className="action-btn" onClick={() => pendingIds.forEach((candidateId) => {
+            const candidate = forwardedCandidates.find((entry) => entry.id === candidateId);
+            if (!candidate) return;
+            if (queue.find((entry) => entry.id === candidateId)?.batchSafe) {
+              approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType);
+            }
+          })}>Batch approve batch-safe ({metrics.batchSafeCount})</button>
         </div>
-        <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
-          Layout intent: left = pending list, center = parsed preview, right = confirmation actions. The review cards below preserve that flow in a compact single-column mode.
+        <div className="mb-2 flex flex-wrap gap-2 text-[11px]">
+          {(Object.keys(bucketLabels) as IntakeReviewBucket[]).map((bucket) => (
+            <button key={bucket} className={`rounded-full border px-2 py-1 ${activeBucket === bucket ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-600'}`} onClick={() => setActiveBucket(bucket)}>{bucketLabels[bucket]} ({bucketCounts[bucket]})</button>
+          ))}
+          <button className={`rounded-full border px-2 py-1 ${activeBucket === 'all' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-600'}`} onClick={() => setActiveBucket('all')}>All</button>
         </div>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2 text-xs">
+          <select className="field-input" value={queueFilters.confidenceTier ?? 'any'} onChange={(e) => setQueueFilters((f) => ({ ...f, confidenceTier: e.target.value as IntakeQueueFilters['confidenceTier'] }))}>
+            <option value="any">Any confidence</option><option value="high">High confidence</option><option value="medium">Medium confidence</option><option value="low">Low confidence</option>
+          </select>
+          <select className="field-input" value={sortKey} onChange={(e) => setSortKey(e.target.value as IntakeReviewSort)}>
+            <option value="newest">Newest first</option><option value="highest_confidence">Highest confidence first</option><option value="lowest_confidence">Weakest confidence first</option><option value="duplicate_risk_first">Duplicate risk first</option>
+          </select>
+          <label className="inline-flex items-center gap-1"><input type="checkbox" checked={queueFilters.batchSafeOnly ?? false} onChange={(e) => setQueueFilters((f) => ({ ...f, batchSafeOnly: e.target.checked }))} />Batch-safe only</label>
+          <label className="inline-flex items-center gap-1"><input type="checkbox" checked={queueFilters.duplicateRisk === 'only'} onChange={(e) => setQueueFilters((f) => ({ ...f, duplicateRisk: e.target.checked ? 'only' : 'all' }))} />Duplicate risk only</label>
+        </div>
+
         <div className="space-y-3">
-          {pending.map((candidate) => (
-            <div key={candidate.id} className="rounded-xl border border-slate-200 p-3">
-              {(() => {
-                const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
-                return (
-                  <>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">{candidate.normalizedSubject || '(no subject)'}</div>
-                  <div className="text-xs text-slate-500">From {candidate.originalSender} • alias {candidate.forwardingAlias} • suggested {candidate.suggestedType}</div>
+          {pendingIds.map((candidateId) => {
+            const candidate = forwardedCandidates.find((entry) => entry.id === candidateId);
+            const queueEntry = filteredQueue.find((entry) => entry.id === candidateId);
+            if (!candidate || !queueEntry) return null;
+            const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
+            return (
+              <div key={candidate.id} className={`rounded-xl border p-3 ${activeCandidateId === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => setActiveCandidateId(candidate.id)}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">{candidate.normalizedSubject || '(no subject)'}</div>
+                    <div className="text-xs text-slate-500">From {candidate.originalSender} • alias {candidate.forwardingAlias}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="blue">{bucketLabels[queueEntry.bucket]}</Badge>
+                    <Badge variant={queueEntry.batchSafe ? 'success' : 'warn'}>{queueEntry.batchSafe ? 'batch-safe' : 'manual review'}</Badge>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={candidate.parseQuality === 'strong' ? 'success' : candidate.parseQuality === 'partial' ? 'warn' : 'danger'}>{candidate.parseQuality} parse</Badge>
-                  <Badge variant="blue">confidence {candidate.confidence}</Badge>
-                </div>
-              </div>
 
-              {(candidate.warnings.length > 0 || candidate.duplicateWarnings.length > 0) ? (
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {candidate.warnings.slice(0, 3).map((warning) => <Badge key={warning} variant="warn">{warning}</Badge>)}
-                  {candidate.duplicateWarnings.slice(0, 2).map((warning) => <Badge key={warning} variant="danger">{warning}</Badge>)}
+                  {queueEntry.alerts.slice(0, 4).map((alert) => <Badge key={alert.code} variant={alert.tone}>{alert.label}</Badge>)}
                 </div>
-              ) : null}
 
-              {candidate.reasons.length ? (
-                <ul className="mt-2 list-disc pl-5 text-xs text-slate-600">
-                  {candidate.reasons.slice(0, 4).map((reason) => <li key={reason}>{reason}</li>)}
-                </ul>
-              ) : null}
-              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Field confidence snapshot</div>
-                <WeakFieldWarningGroup fields={[...fieldSummary.weak, ...fieldSummary.missing, ...fieldSummary.conflicting]} />
-                <div className="mt-2 grid gap-2 md:grid-cols-2">
-                  {fieldSummary.priorityReviewFields.map((field) => (
-                    <FieldReviewRow key={field.key} field={field} />
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 p-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button className="action-btn" onClick={() => approveForwardedCandidate(candidate.id, 'task')}>
-                      <CheckCircle2 className="h-4 w-4" /> Approve as task
-                    </button>
-                    <button className="action-btn" onClick={() => approveForwardedCandidate(candidate.id, 'followup')}>
-                      <ChevronRight className="h-4 w-4" /> Approve as follow-up
-                    </button>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">Task creates a work item; follow-up creates a thread-tracking item.</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Alternative actions</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button className="action-btn" onClick={() => saveForwardedCandidateAsReference(candidate.id)}>
-                      <FileText className="h-4 w-4" /> Save as reference
-                    </button>
-                    <button className="action-btn" onClick={() => rejectForwardedCandidate(candidate.id)}>
-                      <AlertTriangle className="h-4 w-4" /> Reject
-                    </button>
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Field confidence snapshot</div>
+                  <WeakFieldWarningGroup fields={[...fieldSummary.weak, ...fieldSummary.missing, ...fieldSummary.conflicting]} />
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    {fieldSummary.priorityReviewFields.map((field) => <FieldReviewRow key={field.key} field={field} />)}
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'ignore')}>Create ignore rule</button>
-                <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'review-task')}>Create review-as-task rule</button>
-                <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'allow-auto-followup')}>Create auto-follow-up rule</button>
-              </div>
+                <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                  <div className="rounded-lg border border-slate-200 p-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => approveForwardedCandidate(candidate.id, 'task'))}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => approveForwardedCandidate(candidate.id, 'followup'))}><ChevronRight className="h-4 w-4" /> Approve as follow-up</button>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Alternative actions</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => saveForwardedCandidateAsReference(candidate.id))}><FileText className="h-4 w-4" /> Save as reference</button>
+                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => rejectForwardedCandidate(candidate.id))}><AlertTriangle className="h-4 w-4" /> Reject</button>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select
-                  value={candidateLinks[candidate.id] ?? ''}
-                  onChange={(event) => setCandidateLinks((current) => ({ ...current, [candidate.id]: event.target.value }))}
-                  className="field-input min-w-64"
-                >
-                  <option value="">Choose an existing record to link…</option>
-                  {items.slice(0, 100).map((item) => (
-                    <option key={item.id} value={item.id}>{item.title} ({item.id})</option>
-                  ))}
-                </select>
-                <button
-                  className="action-btn"
-                  disabled={!candidateLinks[candidate.id]}
-                  onClick={() => {
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'ignore')}>Create ignore rule</button>
+                  <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'review-task')}>Create review-as-task rule</button>
+                  <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'allow-auto-followup')}>Create auto-follow-up rule</button>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select value={candidateLinks[candidate.id] ?? ''} onChange={(event) => setCandidateLinks((current) => ({ ...current, [candidate.id]: event.target.value }))} className="field-input min-w-64">
+                    <option value="">Choose an existing record to link…</option>
+                    {items.slice(0, 100).map((item) => <option key={item.id} value={item.id}>{item.title} ({item.id})</option>)}
+                  </select>
+                  <button className="action-btn" disabled={!candidateLinks[candidate.id]} onClick={() => runAndNext(candidate.id, () => {
                     const selected = candidateLinks[candidate.id];
                     if (!selected) return;
                     linkForwardedCandidateToExisting(candidate.id, selected);
-                  }}
-                >
-                  <Link2 className="h-4 w-4" /> Link existing record
-                </button>
+                  })}><Link2 className="h-4 w-4" /> Link existing</button>
+                </div>
               </div>
-                  </>
-                );
-              })()}
-            </div>
-          ))}
-          {pending.length === 0 ? <div className="text-sm text-slate-500">No pending emails. New forwarded emails will appear here for approval when needed.</div> : null}
+            );
+          })}
+          {pendingIds.length === 0 ? <div className="text-sm text-slate-500">No pending emails in this queue view.</div> : null}
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">Routing rules</div>
-          <Badge variant="neutral">{forwardedRules.length} total</Badge>
-        </div>
-
-        <div className="mb-3 rounded-lg border border-slate-200 p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Create rule</div>
-          <div className="flex flex-wrap gap-2">
-            <input className="field-input min-w-72" value={manualRuleSubject} onChange={(event) => setManualRuleSubject(event.target.value)} placeholder="Subject contains…" />
-            <button className="action-btn" onClick={() => {
-              if (!manualRuleSubject.trim()) return;
-              addManualForwardRule({
-                name: `Subject match: ${manualRuleSubject}`,
-                enabled: true,
-                priority: (forwardedRules.at(-1)?.priority ?? 100) + 10,
-                conditions: { subjectContains: manualRuleSubject.trim() },
-                action: 'review-task',
-                confidenceBoost: 0,
-              });
-              setManualRuleSubject('');
-            }}>
-              <Plus className="h-4 w-4" /> Add review rule
-            </button>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 p-3">
+          <div className="mb-2 flex items-center justify-between"><div className="text-sm font-semibold text-slate-900">Routing rules</div><Badge variant="neutral">{forwardedRules.length} total</Badge></div>
+          <div className="mb-3 rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Create rule</div>
+            <div className="flex flex-wrap gap-2">
+              <input className="field-input min-w-72" value={manualRuleSubject} onChange={(event) => setManualRuleSubject(event.target.value)} placeholder="Subject contains…" />
+              <button className="action-btn" onClick={() => {
+                if (!manualRuleSubject.trim()) return;
+                addManualForwardRule({ name: `Subject match: ${manualRuleSubject}`, enabled: true, priority: (forwardedRules.at(-1)?.priority ?? 100) + 10, conditions: { subjectContains: manualRuleSubject.trim() }, action: 'review-task', confidenceBoost: 0 });
+                setManualRuleSubject('');
+              }}><Plus className="h-4 w-4" /> Add review rule</button>
+            </div>
           </div>
-        </div>
-
-        {systemRules.length > 0 ? (
-          <div className="mb-3 space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">System rules</div>
-            {systemRules.map((rule) => (
+          <div className="space-y-2 max-h-[300px] overflow-auto pr-1">
+            {[...systemRules, ...userRules].map((rule) => (
               <div key={rule.id} className="rounded-xl border border-slate-200 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -304,52 +278,25 @@ export function ForwardingIntakeWorkspace() {
                     <div className="text-xs text-slate-500">{actionLabel[rule.action]} • priority {rule.priority}</div>
                     <div className="mt-1 text-xs text-slate-600">{describeConditions(rule.conditions)}</div>
                   </div>
-                  <Badge variant="blue">System</Badge>
+                  {rule.source === 'user' ? <div className="flex gap-2"><button className="action-btn" onClick={() => updateForwardRule(rule.id, { enabled: !rule.enabled })}>{rule.enabled ? 'Disable' : 'Enable'}</button><button className="action-btn action-btn-danger" onClick={() => deleteForwardRule(rule.id)}>Delete</button></div> : <Badge variant="blue">System</Badge>}
                 </div>
               </div>
             ))}
           </div>
-        ) : null}
-
-        <div className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">User rules</div>
-          {userRules.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500">No custom rules yet. Create one to automate recurring routing decisions.</div> : null}
-          {userRules.map((rule) => (
-            <div key={rule.id} className="rounded-xl border border-slate-200 p-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="text-sm font-medium text-slate-900">{rule.name}</div>
-                  <div className="text-xs text-slate-500">{actionLabel[rule.action]} • priority {rule.priority}</div>
-                  <div className="mt-1 text-xs text-slate-600">{describeConditions(rule.conditions)}</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="action-btn" onClick={() => updateForwardRule(rule.id, { enabled: !rule.enabled })}>{rule.enabled ? 'Disable' : 'Enable'}</button>
-                  <button className="action-btn" onClick={() => updateForwardRule(rule.id, { priority: Math.max(1, rule.priority - 10) })}>Increase priority</button>
-                  <button className="action-btn action-btn-danger" onClick={() => deleteForwardRule(rule.id)}>Delete</button>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
-      </div>
 
-      <div className="rounded-xl border border-slate-200 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">Recent intake history</div>
-          <Inbox className="h-4 w-4 text-slate-500" />
-        </div>
-        <div className="space-y-2">
-          {recentHistory.map(({ ledger, audit }) => (
-            <div key={ledger.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-              <div className="font-medium text-slate-900">{ledger.normalizedSubject || '(no subject)'}</div>
-              <div className="text-xs text-slate-500">{ledger.sender} • decision {ledger.lastRoutingDecision} • {formatDateTime(ledger.evaluatedAt)}</div>
-              {audit ? <div className="mt-1 text-xs text-slate-600">Confidence {audit.confidence} • {audit.reasons.slice(0, 2).join(' • ') || 'No extra reasons'}</div> : null}
-              <div className="mt-1 text-xs text-slate-600">
-                {ledger.linkedTaskId ? `Created task ${ledger.linkedTaskId}` : ledger.linkedFollowUpId ? `Created follow-up ${ledger.linkedFollowUpId}` : 'No item created'}
+        <div className="rounded-xl border border-slate-200 p-3">
+          <div className="mb-2 flex items-center justify-between"><div className="text-sm font-semibold text-slate-900">Recent intake history</div><Inbox className="h-4 w-4 text-slate-500" /></div>
+          <div className="space-y-2 max-h-[300px] overflow-auto pr-1">
+            {recentHistory.map(({ ledger, audit }) => (
+              <div key={ledger.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                <div className="font-medium text-slate-900">{ledger.normalizedSubject || '(no subject)'}</div>
+                <div className="text-xs text-slate-500">{ledger.sender} • decision {ledger.lastRoutingDecision} • {formatDateTime(ledger.evaluatedAt)}</div>
+                {audit ? <div className="mt-1 text-xs text-slate-600">Confidence {audit.confidence} • {audit.reasons.slice(0, 2).join(' • ') || 'No extra reasons'}</div> : null}
               </div>
-            </div>
-          ))}
-          {recentHistory.length === 0 ? <div className="text-sm text-slate-500">No intake history yet. Forwarded emails will appear here after processing.</div> : null}
+            ))}
+            {recentHistory.length === 0 ? <div className="text-sm text-slate-500">No intake history yet.</div> : null}
+          </div>
         </div>
       </div>
 
@@ -360,18 +307,14 @@ export function ForwardingIntakeWorkspace() {
           <textarea className="field-textarea" value={payloadText} onChange={(event) => setPayloadText(event.target.value)} />
           <div className="mt-2 flex gap-2">
             <button className="action-btn" onClick={() => {
-              try {
-                ingestForwardedEmailPayload(JSON.parse(payloadText) as ForwardedEmailProviderPayload);
-              } catch {
-                window.alert('Invalid JSON payload');
-              }
-            }}>
-              <ShieldCheck className="h-4 w-4" /> Ingest mock payload
-            </button>
+              try { ingestForwardedEmailPayload(JSON.parse(payloadText) as ForwardedEmailProviderPayload); } catch { window.alert('Invalid JSON payload'); }
+            }}><ShieldCheck className="h-4 w-4" /> Ingest mock payload</button>
             <Badge variant="neutral">For local testing only</Badge>
           </div>
         </div>
       </details>
+
+      <div className="text-xs text-slate-500">Outcomes: approved/linked {status.approved} • references {status.references} • rejected {status.rejected} • last intake {status.lastIntake ? formatDateTime(status.lastIntake) : 'none'}</div>
     </div>
   );
 }

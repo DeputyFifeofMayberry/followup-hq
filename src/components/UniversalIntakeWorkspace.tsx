@@ -5,6 +5,8 @@ import { useAppStore } from '../store/useAppStore';
 import { Badge } from './Badge';
 import { getAllowedIntakeActions, getIntakeLifecycleGroup, getIntakeLifecycleLabel, normalizeAssetStatus, normalizeWorkCandidateStatus } from '../lib/intakeLifecycle';
 import type { IntakeLifecycleStatus } from '../lib/intakeLifecycle';
+import { buildWorkCandidateFieldReviews, describeMatch, summarizeFieldReviews } from '../lib/intakeEvidence';
+import { FieldConfidenceChip, FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
 
 const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
   received: 'neutral',
@@ -57,6 +59,9 @@ export function UniversalIntakeWorkspace() {
   const selectedAsset = intakeAssets.find((entry) => entry.id === activeAssetId) ?? intakeAssets[0];
   const selectedAssetCandidates = intakeWorkCandidates.filter((entry) => entry.assetId === selectedAsset?.id);
   const selectedCandidate = pending.find((entry) => entry.id === activeCandidateId) ?? pending[0] ?? null;
+  const selectedCandidateFieldSummary = useMemo(() => selectedCandidate
+    ? summarizeFieldReviews(buildWorkCandidateFieldReviews(selectedCandidate))
+    : null, [selectedCandidate]);
   const needsReview = pending.filter((entry) => entry.confidence < 0.9);
   const childAssets = selectedAsset ? intakeAssets.filter((entry) => entry.parentAssetId === selectedAsset.id) : [];
 
@@ -217,6 +222,13 @@ export function UniversalIntakeWorkspace() {
           <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
             {pending.map((candidate) => (
               <article key={candidate.id} className={`rounded-xl border p-2 ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => setActiveCandidateId(candidate.id)}>
+                {(() => {
+                  const candidateFieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
+                  const isPriorityField = (key: 'title' | 'project') => candidateFieldSummary.weak.some((field) => field.key === key)
+                    || candidateFieldSummary.missing.some((field) => field.key === key)
+                    || candidateFieldSummary.conflicting.some((field) => field.key === key);
+                  return (
+                    <>
                 <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
                 <div className="mt-1 flex flex-wrap gap-1 text-xs">
                   <Badge variant="blue">{candidate.candidateType}</Badge>
@@ -226,6 +238,14 @@ export function UniversalIntakeWorkspace() {
                 </div>
                 <div className="mt-1 text-xs text-slate-600">{candidate.summary.slice(0, 160)}</div>
                 <div className="mt-1 text-[11px] text-slate-500">Project: {candidate.project || 'Unknown'} • Owner: {candidate.owner || 'Unknown'} • Due: {candidate.dueDate || 'n/a'}</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {candidateFieldSummary.priorityReviewFields.slice(0, 4).map((field) => (
+                    <span key={field.key} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600">
+                      {field.label}
+                      <FieldConfidenceChip status={field.status} />
+                    </span>
+                  ))}
+                </div>
                 <div className="mt-1 space-y-1 text-[11px] text-slate-600">
                   {candidate.explanation.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}
                 </div>
@@ -248,17 +268,20 @@ export function UniversalIntakeWorkspace() {
                 ) : null}
                 <div className="mt-2 grid grid-cols-2 gap-1">
                   <input
-                    className="field-input"
+                    className={`field-input ${isPriorityField('title') ? 'intake-field-input-priority' : ''}`}
                     value={candidate.title}
                     onChange={(event) => updateIntakeWorkCandidate(candidate.id, { title: event.target.value })}
                   />
                   <input
-                    className="field-input"
+                    className={`field-input ${isPriorityField('project') ? 'intake-field-input-priority' : ''}`}
                     value={candidate.project || ''}
                     placeholder="Project"
                     onChange={(event) => updateIntakeWorkCandidate(candidate.id, { project: event.target.value })}
                   />
                 </div>
+                    </>
+                  );
+                })()}
               </article>
             ))}
             {pending.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500">No pending candidates. Intake history is preserved in batch/asset records.</div> : null}
@@ -285,6 +308,35 @@ export function UniversalIntakeWorkspace() {
             Linked records available: {items.length} follow-ups • {tasks.length} tasks.
             <div className="mt-1 flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Pending review candidates allow: {getAllowedIntakeActions('review_needed').length} decisions (approve, link, reference, reject).</div>
           </div>
+          {selectedCandidate && selectedCandidateFieldSummary ? (
+            <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Review this parse</div>
+              <WeakFieldWarningGroup fields={[...selectedCandidateFieldSummary.weak, ...selectedCandidateFieldSummary.missing, ...selectedCandidateFieldSummary.conflicting]} />
+              <div className="space-y-2">
+                {selectedCandidateFieldSummary.priorityReviewFields.map((field) => (
+                  <FieldReviewRow
+                    key={field.key}
+                    field={field}
+                    onEdit={field.key === 'title'
+                      ? () => setActiveCandidateId(selectedCandidate.id)
+                      : field.key === 'project'
+                        ? () => setActiveCandidateId(selectedCandidate.id)
+                        : undefined}
+                  />
+                ))}
+              </div>
+              {selectedCandidate.existingRecordMatches.length > 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                  <div className="font-semibold text-slate-700">Match explainability</div>
+                  {selectedCandidate.existingRecordMatches.slice(0, 2).map((match) => (
+                    <div key={match.id} className="mt-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                      {describeMatch(match)}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

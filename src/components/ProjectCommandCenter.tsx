@@ -25,6 +25,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     addProject, updateProject, deleteProject, reassignProjectRecords,
     addIntakeDocument, updateTask, batchUpdateFollowUps, runValidatedBatchFollowUpTransition,
     openCreateFromCapture,
+    openRecordDrawer,
     setProjectFilter, setActiveView,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -42,6 +43,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     batchUpdateFollowUps: s.batchUpdateFollowUps,
     runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
     openCreateFromCapture: s.openCreateFromCapture,
+    openRecordDrawer: s.openRecordDrawer,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
   })));
@@ -260,6 +262,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => openCreateFlow('followup')} className="action-btn">Create follow-up</button>
                   <button onClick={() => openCreateFlow('task')} className="action-btn">Create task</button>
+                  <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn">Open record</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn">Open task lane</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
@@ -313,7 +316,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
                       <label key={item.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-xs">Open</button></div>
                       </label>
                     ))}
                   </div>
@@ -329,7 +332,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
                       <label key={task.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-xs">Open</button></div>
                       </label>
                     ))}
                   </div>

@@ -381,8 +381,8 @@ function MainApp() {
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
   const commands = [
-    { label: 'New follow-up', run: () => openCreateModal() },
-    { label: 'New task', run: () => openCreateTaskModal() },
+    { label: 'Quick Add follow-up', run: () => openCreateModal() },
+    { label: 'Quick Add task', run: () => openCreateTaskModal() },
     { label: 'Open worklist', run: () => setWorkspace('worklist') },
     { label: 'Open follow-ups', run: () => setWorkspace('followups') },
     { label: 'Open tasks', run: () => setWorkspace('tasks') },
@@ -391,9 +391,9 @@ function MainApp() {
   const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
-    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
-    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
+    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'Quick Add follow-up', run: openCreateModal, primary: true }] },
+    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Quick Add follow-up', run: openCreateModal, primary: true }] },
+    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Quick Add task', run: openCreateTaskModal, primary: true }] },
     outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [] },
     projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [] },
     relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [] },

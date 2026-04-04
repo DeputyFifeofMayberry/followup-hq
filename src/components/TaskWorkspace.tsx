@@ -152,7 +152,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   return (
     <div className="space-y-5">
       <AppShellCard surface="hero">
-        <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
+        <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Quick Add task</button>} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
           <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
@@ -216,7 +216,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                         <Badge variant="neutral">Due {formatDate(task.dueDate)}</Badge>
                       </div>
                       <div className="task-row-edit-controls">
-                        <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
+                        <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Mark done</button>
                         <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
                         <button onClick={() => updateTask(task.id, { deferredUntil: addDaysIso(todayIso(), 3), status: task.status === 'Done' ? 'To do' : task.status })} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
                       </div>
@@ -271,11 +271,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 <label className="field-block"><span className="field-label">Next step</span><textarea value={selectedTask.nextStep} onChange={(event) => updateTask(selectedTask.id, { nextStep: event.target.value })} className="field-textarea" /></label>
               </div>
 
-              {linkedFollowUp ? <div className="rounded-2xl tonal-panel"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Parent workflow summary</div><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Readiness: {parentOpen === 0 ? 'Ready to close/advance' : parentBlocked > 0 ? 'Blocked child pressure' : 'In progress'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open linked follow-up</button></div> : null}
+              {linkedFollowUp ? <div className="rounded-2xl tonal-panel"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Parent workflow summary</div><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Readiness: {parentOpen === 0 ? 'Ready to close/advance' : parentBlocked > 0 ? 'Blocked child pressure' : 'In progress'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open detail</button></div> : null}
               <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Task purpose</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.summary || 'No summary added yet.'}</p></div>
               <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Why task exists</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.contextNote || selectedTask.linkedProjectContext || 'Execution support task.'}</p></div>
             </div>
-          ) : (<EmptyState title="No task selected" message="Select a task to see details and actions." />)}
+          ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>
       </div>
     </div>

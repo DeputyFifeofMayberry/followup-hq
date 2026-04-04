@@ -56,7 +56,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.owner]);
 
   if (!item) {
-    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Focus panel</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to run action bundles and close the loop.</p></AppShellCard>;
+    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Focus panel</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to review details and run actions.</p></AppShellCard>;
   }
 
   const contact = contacts.find((entry) => entry.id === item.contactId);
@@ -85,7 +85,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
       <div className="detail-primary-actions mt-4">
         <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
         <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
-        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
+        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create linked task</button>
         <button onClick={() => { const openLinked = linkedTasks.filter((task) => task.status !== 'Done').length; if (openLinked > 0 && !window.confirm(`There are ${openLinked} open linked tasks. Close follow-up anyway?`)) return; updateItem(item.id, applyLifecycleBundle(item, 'resolve_and_close')); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
         <details className="detail-overflow-actions">
           <summary className="action-btn"><MoreHorizontal className="h-4 w-4" />More <ChevronDown className="h-4 w-4" /></summary>
@@ -130,12 +130,12 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div><div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div></div>
             </div>
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked tasks</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Create linked tasks</div>
               <div className="mt-2 space-y-2">
-                {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet.</div> : linkedTasks.map((task) => (
+                {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet. Create one from the action row above.</div> : linkedTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2 list-row-family">
                     <div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div>
-                    <button className="action-btn" onClick={() => openEditTaskModal(task.id)}>Open task</button>
+                    <button className="action-btn" onClick={() => openEditTaskModal(task.id)}>Open detail</button>
                   </div>
                 ))}
               </div>
@@ -168,7 +168,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
 
         {activeTab === 'notes' ? (
           <div className="detail-card inspector-block">
-            <div className="text-sm font-semibold text-slate-900">Running notes</div>
+            <div className="text-sm font-semibold text-slate-900">Notes</div>
             <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
             <div className="mt-3 flex justify-end"><button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="action-btn">Add note</button></div>
             <div className="mt-4 space-y-3">
@@ -179,7 +179,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
 
         {activeTab === 'activity' ? (
           <div className="detail-card inspector-block">
-            <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Recent activity</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show fewer' : 'Show more'}</button></div>
+            <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Recent activity</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button></div>
             <div className="timeline-list mt-3">{activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>)}</div>
           </div>
         ) : null}

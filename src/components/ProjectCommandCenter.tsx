@@ -109,7 +109,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
       id: createId(), title: 'New project follow-up', source: 'Notes', project: selectedProject.name, projectId: selectedProject.id,
       owner: selectedProject.owner, status: 'Needs action', priority: 'Medium', dueDate: addDaysIso(todayIso(), 2),
       lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), 2), nextAction: 'Define next action and assignee.', summary: '',
-      tags: ['Project scoped'], sourceRef: 'Project command center', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [],
+      tags: ['Project scoped'], sourceRef: 'Projects workspace', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [],
       category: 'General', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3,
     });
   };
@@ -125,18 +125,18 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
 
   const createProjectDoc = () => {
     if (!selectedProject) return;
-    addIntakeDocument({ name: `Reference - ${selectedProject.name}`, kind: 'Document', projectId: selectedProject.id, owner: selectedProject.owner, sourceRef: 'Project command center', notes: '' });
+    addIntakeDocument({ name: `Reference - ${selectedProject.name}`, kind: 'Document', projectId: selectedProject.id, owner: selectedProject.owner, sourceRef: 'Projects workspace', notes: '' });
   };
 
   return (
     <AppShellCard className="project-command-surface" surface="command">
-      <SectionHeader title="Project command center" subtitle="Curated command surface for portfolio scan, project health, and execution workflows." />
+      <SectionHeader title="Projects workspace" subtitle="Monitor project health, open work, and next actions in one place." />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">
           <div className="project-create-row">
             <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
             <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
-            <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Add</button>
+            <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Quick Add</button>
           </div>
 
           <div className="project-filter-panel advanced-filter-surface">
@@ -191,7 +191,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                   <p className="inspector-meta">Project-centered command view with health, open work, and execution actions.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Focus tracker</button>
+                  <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Open Follow Ups</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className="primary-btn"><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
@@ -227,9 +227,9 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
               </div>
 
               <div className="project-action-groups">
-                <button onClick={createProjectFollowUp} className="action-btn"><FileText className="h-4 w-4" />New follow-up</button>
-                <button onClick={createProjectTask} className="action-btn"><Plus className="h-4 w-4" />New task</button>
-                <button onClick={createProjectDoc} className="action-btn"><FolderOpen className="h-4 w-4" />Add intake doc</button>
+                <button onClick={createProjectFollowUp} className="action-btn"><FileText className="h-4 w-4" />Quick Add follow-up</button>
+                <button onClick={createProjectTask} className="action-btn"><Plus className="h-4 w-4" />Quick Add task</button>
+                <button onClick={createProjectDoc} className="action-btn"><FolderOpen className="h-4 w-4" />Quick Add intake doc</button>
                 <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Blocked work</button>
                 <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Overdue work</button>
                 <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Waiting work</button>

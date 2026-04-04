@@ -137,7 +137,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       <div className="smart-composer-head">
         <div className="flex flex-wrap items-center gap-2">
           <WandSparkles className="h-4 w-4 text-slate-600" />
-          <div className="text-sm font-semibold text-slate-900">Quick add</div>
+          <div className="text-sm font-semibold text-slate-900">Quick Add</div>
           <span className="smart-composer-kbd">⌘/Ctrl+J expand</span>
         </div>
         <button onClick={() => setExpanded((v) => !v)} className="action-btn !px-2.5 !py-1.5 text-xs">Advanced <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} /></button>
@@ -147,8 +147,8 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         <input value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
           if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
           if (event.key === 'Enter') { event.preventDefault(); saveDraft(false); }
-        }} placeholder={`Quick capture ${contextProject ? `for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
-        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save' : 'Stage review'}</button>
+        }} placeholder={`Quick Add ${contextProject ? `for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
+        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save' : 'Send to review'}</button>
       </div>
 
       {expanded && text.trim() ? (
@@ -161,7 +161,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
             {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
           </div>
           {needsCleanup ? <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">{parsed.cleanupReasons.map((reason) => <span key={reason} className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5">{cleanupLabel[reason]}</span>)}</div> : null}
-          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save + Open' : 'Stage + Open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open full editor</button></div>
+          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Save and open detail' : 'Send to review'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open full detail</button></div>
         </div>
       ) : null}
 

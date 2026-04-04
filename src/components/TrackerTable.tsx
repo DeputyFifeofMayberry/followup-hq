@@ -121,7 +121,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
             })}
           </tbody>
         </table>
-        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters, clear search, or create a follow-up." /></div> : null}
+        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." /></div> : null}
       </div>
       <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : 'Select rows to run bulk actions from the execution controls.'}</div>
     </AppShellCard>

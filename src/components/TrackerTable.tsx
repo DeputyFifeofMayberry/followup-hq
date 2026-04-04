@@ -149,7 +149,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
             })}
           </tbody>
         </table>
-        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters, clear search, or create a follow-up." /></div> : null}
+        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." /></div> : null}
       </div>
       <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : (modeConfig.trackerOwnerContext === 'compact' ? 'Execution view: owner details are reduced so next action and timing stay primary.' : 'Coordination view: owner and assignee context stays visible for assignment decisions.')}</div>
     </AppShellCard>

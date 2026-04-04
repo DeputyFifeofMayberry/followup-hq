@@ -87,7 +87,7 @@ export function ControlBar() {
         </div>
         <button onClick={openCreateModal} className="action-btn">
           <Plus className="h-4 w-4" />
-          Add follow-up
+          Quick Add follow-up
         </button>
       </div>
 
@@ -132,10 +132,10 @@ export function ControlBar() {
       </div>
 
       <div className="mt-2 flex flex-wrap gap-2">
-        <input value={customViewName} onChange={(event) => setCustomViewName(event.target.value)} className="field-input" placeholder="Save custom view name" />
-        <button className="action-btn" onClick={() => { if (!customViewName.trim()) return; saveFollowUpCustomView(customViewName.trim(), search); setCustomViewName(''); }}>Save current view</button>
+        <input value={customViewName} onChange={(event) => setCustomViewName(event.target.value)} className="field-input" placeholder="View name" />
+        <button className="action-btn" onClick={() => { if (!customViewName.trim()) return; saveFollowUpCustomView(customViewName.trim(), search); setCustomViewName(''); }}>Save view</button>
         {savedFollowUpViews.map((view) => <button key={view.id} className="action-btn" onClick={() => applySavedFollowUpCustomView(view.id)}>{view.name}</button>)}
-        <button className="action-btn" onClick={resetFollowUpFilters}>Reset filters</button>
+        <button className="action-btn" onClick={resetFollowUpFilters}>Reset</button>
       </div>
 
       {selectedFollowUpIds.length > 0 ? (
@@ -154,7 +154,7 @@ export function ControlBar() {
         <div className="followup-toolbar-foot mt-3">
           <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown</div>
           <div className="followup-action-row">
-            <button onClick={() => selectedItem && openEditModal(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Open details</button>
+            <button onClick={() => selectedItem && openEditModal(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Open detail</button>
             <button onClick={() => selectedItem && openTouchModal()} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Log touch</button>
             <button onClick={() => selectedItem && markNudged(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Mark nudged</button>
             <button onClick={() => { if (!selectedItem) return; if (selectedItem.status === 'Closed') { updateItem(selectedItem.id, { status: 'Needs action' }); return; } const note = window.prompt('Closeout note:', selectedItem.completionNote || ''); const result = attemptFollowUpTransition(selectedItem.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }); if (!result.applied && result.validation.overrideAllowed) { const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose anyway with override?`); if (!proceed) return; attemptFollowUpTransition(selectedItem.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true }); return; } if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">

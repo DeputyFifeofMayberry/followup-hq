@@ -180,8 +180,8 @@ export function ExportWorkspace() {
               <FileSpreadsheet className="h-4 w-4" />
               Export workspace
             </div>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-950">Build filtered follow-up and task reports</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-500">Choose the dataset, tighten the filters, and export a simple or detailed workbook. Combined exports generate separate sheets for follow-ups and tasks plus a summary sheet when enabled.</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-950">Export follow-up and task reports</h2>
+            <p className="mt-2 max-w-3xl text-sm text-slate-500">Choose a dataset, apply filters, then export a simple or detailed workbook. Combined exports include separate follow-up and task sheets plus an optional summary.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={resetFilters} className="action-btn"><RefreshCcw className="h-4 w-4" />Reset</button>

@@ -265,7 +265,7 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
                   <div className="space-y-2">
                     {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro text-xs">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></div>)}
-                    {selectedFollowUps.length === 0 ? <div className="text-xs text-slate-500">No follow-ups linked.</div> : null}
+                    {selectedFollowUps.length === 0 ? <div className="text-xs text-slate-500">No linked follow-ups yet.</div> : null}
                   </div>
                 </div>
                 <div>

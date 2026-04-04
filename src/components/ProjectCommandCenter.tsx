@@ -111,7 +111,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
       id: createId(), title: 'New project follow-up', source: 'Notes', project: selectedProject.name, projectId: selectedProject.id,
       owner: selectedProject.owner, status: 'Needs action', priority: 'Medium', dueDate: addDaysIso(todayIso(), 2),
       lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), 2), nextAction: 'Define next action and assignee.', summary: '',
-      tags: ['Project scoped'], sourceRef: 'Project command center', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [],
+      tags: ['Project scoped'], sourceRef: 'Projects workspace', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [],
       category: 'General', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3,
     });
   };
@@ -127,7 +127,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
   const createProjectDoc = () => {
     if (!selectedProject) return;
-    addIntakeDocument({ name: `Reference - ${selectedProject.name}`, kind: 'Document', projectId: selectedProject.id, owner: selectedProject.owner, sourceRef: 'Project command center', notes: '' });
+    addIntakeDocument({ name: `Reference - ${selectedProject.name}`, kind: 'Document', projectId: selectedProject.id, owner: selectedProject.owner, sourceRef: 'Projects workspace', notes: '' });
   };
 
   return (
@@ -138,7 +138,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
           <div className="project-create-row">
             <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
             <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
-            <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Add</button>
+            <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Quick Add</button>
           </div>
 
           <div className="project-filter-panel advanced-filter-surface">

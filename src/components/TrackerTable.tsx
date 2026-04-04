@@ -13,7 +13,7 @@ import { getModeConfig } from '../lib/appModeConfig';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
 
-export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { personalMode?: boolean; appMode?: AppMode }) {
+export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
   const { items, contacts, companies, selectedId, tasks, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -104,8 +104,8 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
-  return (
-    <AppShellCard className="p-0 tracker-table-surface" surface="data">
+  const tableBody = (
+    <>
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse tracker-table">
           <thead className="tracker-table-head">
@@ -152,6 +152,16 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
         {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." /></div> : null}
       </div>
       <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : (modeConfig.trackerOwnerContext === 'compact' ? 'Execution view: owner details are reduced so next action and timing stay primary.' : 'Coordination view: owner and assignee context stays visible for assignment decisions.')}</div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="tracker-table-surface tracker-table-embedded">{tableBody}</div>;
+  }
+
+  return (
+    <AppShellCard className="p-0 tracker-table-surface" surface="data">
+      {tableBody}
     </AppShellCard>
   );
 }

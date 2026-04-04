@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 3 Phase 1: architecture seam creation and stabilization
+- Established first-pass domain seams with new domain helper/type modules for follow-ups, tasks, projects, relationships, intake, and outlook so pure business transformations are no longer buried exclusively in the monolithic store (`src/domains/followups/helpers.ts`, `src/domains/tasks/helpers.ts`, `src/domains/projects/helpers.ts`, `src/domains/relationships/helpers.ts`, `src/domains/shared/audit.ts`, `src/domains/*/types.ts`).
+- Refactored `useAppStore` toward composition by extracting core pure helpers (normalization, task rollups, project derivation/attachment, duplicate refresh support, audit/reviewer builders, persisted payload shaping) into dedicated modules and introducing explicit initial-state groupings for business/ui/meta boundaries (`src/store/useAppStore.ts`, `src/store/state/initialState.ts`, `src/store/state/types.ts`, `src/store/state/persistence.ts`).
+- Reduced `App.tsx` orchestration sprawl by extracting workspace rendering and tracker workspace concerns into app-level components and moving workspace/command-palette glue into dedicated helper modules (`src/components/app/WorkspaceRenderer.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/lib/workspaceRegistry.ts`, `src/lib/commandPaletteConfig.ts`, `src/App.tsx`).
+- Preserved runtime behavior and persistence compatibility while creating safer seams for future Phase 2/3 extraction work; this phase intentionally keeps a single exported `useAppStore` and existing persistence contracts stable.
+
 ### Deficiency 2 Phase 3: reviewer-feedback tuning loop
 - Added a deterministic intake tuning model that converts recent reviewer feedback into operational posture outputs (trust posture, automation health, source direct-import readiness, bounded confidence floors, duplicate/link caution boosts, and explicit caution flags) with source-aware and field-aware correction analytics (`src/lib/intakeTuningModel.ts`).
 - Expanded tuning insights from passive chips into an explainable ops surface with correction hotspots by source, override-rate patterns, actionable thresholds, forwarding rule friction reasons, and review-safe suggestions that can be consumed by multiple workspaces (`src/lib/intakeTuningInsights.ts`).

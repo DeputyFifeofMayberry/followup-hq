@@ -2,11 +2,10 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { detectDuplicateReviews, buildPairKey } from '../lib/duplicateDetection';
 import { buildFollowUpFromDroppedEmail } from '../lib/emailDrop';
-import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso, addDaysIso, isTaskOverdue } from '../lib/utils';
+import { appendRunningNote, buildDraftText, buildTouchEvent, createId, normalizeItem, todayIso, addDaysIso, resolveProjectName } from '../lib/utils';
 import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, defaultExecutionViews, sortUnifiedQueue } from '../lib/unifiedQueue';
 import { createPersistenceQueue } from './persistenceQueue';
-import { isTauriRuntime, loadPersistedPayload, type PersistedPayload } from '../lib/persistence';
-import { getDefaultOutlookSettings } from '../lib/outlookGraph';
+import { isTauriRuntime, loadPersistedPayload } from '../lib/persistence';
 import { parseForwardedProviderPayload } from '../lib/forwardedEmailParser';
 import { buildForwardingAudit, buildForwardingCandidate, buildForwardedLedgerEntry, buildTaskFromForwarded, routeForwardedEmail } from '../lib/intakeRouting';
 import { getDefaultForwardedRules } from '../lib/intakeRules';
@@ -14,12 +13,8 @@ import { buildBatchRecord, buildCandidatesFromAsset, parseIntakeFile } from '../
 import type { UniversalCaptureDraft } from '../lib/universalCapture';
 import type {
   AppSnapshot,
-  CompanyRecord,
-  ContactRecord,
   DroppedEmailImport,
   DuplicateReview,
-  FollowUpItem,
-  FollowUpStatus,
   ImportPreviewRow,
   IntakeDocumentDisposition,
   IntakeDocumentKind,
@@ -29,10 +24,7 @@ import type {
   OutlookConnectionState,
   OutlookMessage,
   PersistenceMode,
-  ProjectRecord,
   SavedViewKey,
-  TaskItem,
-  TaskStatus,
   TimelineEvent,
   ForwardedEmailRecord,
   ForwardedEmailRule,
@@ -41,7 +33,6 @@ import type {
   ForwardedRoutingAuditEntry,
   ForwardedEmailProviderPayload,
   ForwardedRuleAction,
-  AuditEntry,
   IntakeCandidate,
   SavedExecutionView,
   UnifiedQueueFilter,
@@ -59,31 +50,26 @@ import type {
   SavedFollowUpCustomView,
   FollowUpColumnKey,
 } from '../types';
-import { defaultFollowUpFilters } from '../lib/followUpSelectors';
+import type { FollowUpItem, FollowUpStatus } from '../domains/followups/types';
+import type { TaskItem, TaskStatus } from '../domains/tasks/types';
+import type { ProjectRecord } from '../domains/projects/types';
+import type { CompanyRecord, ContactRecord } from '../domains/relationships/types';
 import { validateFollowUpTransition, validateTaskTransition, type WorkflowValidationResult } from '../lib/workflowPolicy';
 import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
+import { defaultFollowUpFilters } from '../lib/followUpSelectors';
+import { normalizeItems, applyItemRules, syncProjectNamePatch, withItemUpdate, buildFollowUpFromForwarded, buildImportedItem, nextEscalation, buildFollowUpFromOutlookImport, attachProjects } from '../domains/followups/helpers';
+import { normalizeTask, normalizeTasks, applyTaskRollupsToItems } from '../domains/tasks/helpers';
+import { normalizeCompany, normalizeContact } from '../domains/relationships/helpers';
+import { deriveProjects, projectCanonicalKey, stampProject } from '../domains/projects/helpers';
+import { appendReviewerFeedback, makeAuditEntry } from '../domains/shared/audit';
+import { initialBusinessState, initialMetaState, initialUiState } from './state/initialState';
+import type { DraftModalState, ItemModalState, MergeModalState, TaskModalState } from './state/types';
+import { buildPersistedPayload } from './state/persistence';
 
-interface ItemModalState {
-  open: boolean;
-  mode: 'create' | 'edit';
-  itemId: string | null;
-}
+const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
-interface MergeModalState {
-  open: boolean;
-  baseId: string | null;
-  candidateId: string | null;
-}
-
-interface DraftModalState {
-  open: boolean;
-  itemId: string | null;
-}
-
-interface TaskModalState {
-  open: boolean;
-  mode: 'create' | 'edit';
-  taskId: string | null;
+function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: string[]): DuplicateReview[] {
+  return detectDuplicateReviews(items, dismissedDuplicatePairs);
 }
 
 
@@ -258,381 +244,6 @@ interface AppState {
   confirmFollowUpSent: (id: string, notes?: string) => void;
 }
 
-const defaultOutlookConnection: OutlookConnectionState = {
-  settings: getDefaultOutlookSettings(),
-  mailboxLinked: false,
-  syncStatus: 'idle',
-  syncCursorByFolder: { inbox: {}, sentitems: {} },
-};
-
-function projectCanonicalKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function normalizeItems(items: FollowUpItem[]): FollowUpItem[] {
-  return items.map(normalizeItem).sort((a, b) => new Date(b.lastTouchDate).getTime() - new Date(a.lastTouchDate).getTime());
-}
-
-function normalizeTask(task: TaskItem): TaskItem {
-  const status = task.status || 'To do';
-  const updatedAt = todayIso();
-  return {
-    ...task,
-    project: (task.project || 'General').trim() || 'General',
-    owner: (task.owner || 'Unassigned').trim() || 'Unassigned',
-    assigneeUserId: task.assigneeUserId || undefined,
-    assigneeDisplayName: (task.assigneeDisplayName || task.owner || 'Unassigned').trim() || 'Unassigned',
-    title: task.title.trim(),
-    summary: (task.summary || '').trim(),
-    nextStep: (task.nextStep || '').trim(),
-    notes: (task.notes || '').trim(),
-    tags: [...new Set((task.tags || []).map((tag) => tag.trim()).filter(Boolean))],
-    dueDate: task.dueDate || undefined,
-    startDate: task.startDate || undefined,
-    startedAt: task.startedAt || (status === 'In progress' ? updatedAt : undefined),
-    deferredUntil: task.deferredUntil || undefined,
-    nextReviewAt: task.nextReviewAt || task.deferredUntil || undefined,
-    linkedFollowUpId: task.linkedFollowUpId || undefined,
-    linkedProjectContext: task.linkedProjectContext || undefined,
-    contextNote: task.contextNote || undefined,
-    blockReason: task.blockReason || undefined,
-    completionImpact: task.completionImpact || 'advance_parent',
-    contactId: task.contactId || undefined,
-    companyId: task.companyId || undefined,
-    status,
-    completedAt: status === 'Done' ? (task.completedAt || updatedAt) : undefined,
-    completionNote: task.completionNote || undefined,
-    createdAt: task.createdAt || updatedAt,
-    updatedAt,
-    needsCleanup: task.needsCleanup || false,
-    cleanupReasons: task.cleanupReasons || [],
-    recommendedAction: task.recommendedAction || (task.needsCleanup ? 'Review cleanup' : undefined),
-    lastCompletedAction: task.lastCompletedAction || undefined,
-    lastActionAt: task.lastActionAt || undefined,
-    createdByUserId: task.createdByUserId || 'user-seed',
-    createdByDisplayName: task.createdByDisplayName || 'System',
-    updatedByUserId: task.updatedByUserId || task.createdByUserId || 'user-seed',
-    updatedByDisplayName: task.updatedByDisplayName || task.createdByDisplayName || 'System',
-    visibilityScope: task.visibilityScope || 'team',
-    teamId: task.teamId || 'team-default',
-    watchers: task.watchers || [],
-    auditHistory: task.auditHistory || [],
-  };
-}
-
-function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
-  return tasks.map(normalizeTask).sort((a, b) => {
-    const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-    const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-    if (a.status === 'Done' && b.status !== 'Done') return 1;
-    if (a.status !== 'Done' && b.status === 'Done') return -1;
-    return aDue - bDue || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-  });
-}
-
-function normalizeContact(contact: ContactRecord): ContactRecord {
-  return {
-    ...contact,
-    name: (contact.name || '').trim(),
-    email: contact.email?.trim() || undefined,
-    phone: contact.phone?.trim() || undefined,
-    companyId: contact.companyId || undefined,
-    role: (contact.role || 'External').trim() || 'External',
-    title: contact.title?.trim() || undefined,
-    department: contact.department?.trim() || undefined,
-    preferredCommunicationMethod: contact.preferredCommunicationMethod || undefined,
-    internalOwner: contact.internalOwner?.trim() || undefined,
-    responsivenessRating: contact.responsivenessRating || undefined,
-    relationshipStatus: contact.relationshipStatus || 'Active',
-    lastContactedAt: contact.lastContactedAt || undefined,
-    lastResponseAt: contact.lastResponseAt || undefined,
-    escalationNotes: contact.escalationNotes?.trim() || undefined,
-    riskTier: contact.riskTier || 'Low',
-    active: contact.active ?? true,
-    notes: (contact.notes || '').trim(),
-    completionNote: contact.completionNote || undefined,
-    tags: [...new Set((contact.tags || []).map((tag) => tag.trim()).filter(Boolean))],
-  };
-}
-
-function normalizeCompany(company: CompanyRecord): CompanyRecord {
-  return {
-    ...company,
-    name: (company.name || '').trim(),
-    type: company.type || 'Other',
-    primaryContactId: company.primaryContactId || undefined,
-    internalOwner: company.internalOwner?.trim() || undefined,
-    relationshipStatus: company.relationshipStatus || 'Active',
-    responsivenessRating: company.responsivenessRating || undefined,
-    riskTier: company.riskTier || 'Low',
-    activeProjectCountCache: company.activeProjectCountCache || undefined,
-    lastReviewedAt: company.lastReviewedAt || undefined,
-    escalationNotes: company.escalationNotes?.trim() || undefined,
-    active: company.active ?? true,
-    notes: (company.notes || '').trim(),
-    completionNote: company.completionNote || undefined,
-    tags: [...new Set((company.tags || []).map((tag) => tag.trim()).filter(Boolean))],
-  };
-}
-
-function stampProject(project: ProjectRecord, patch: Partial<ProjectRecord> = {}): ProjectRecord {
-  return { ...project, ...patch, updatedAt: todayIso() };
-}
-
-function deriveProjects(items: FollowUpItem[], existing: ProjectRecord[] = [], tasks: TaskItem[] = []): ProjectRecord[] {
-  const byId = new Map(existing.map((project) => [project.id, project]));
-  const byName = new Map(existing.map((project) => [projectCanonicalKey(project.name), project]));
-  items.forEach((item) => {
-    const name = (item.project || 'General').trim() || 'General';
-    const existingById = item.projectId ? byId.get(item.projectId) : undefined;
-    const existingByName = byName.get(projectCanonicalKey(name));
-    if (existingById) {
-      byId.set(existingById.id, stampProject(existingById, { name, owner: item.owner || existingById.owner }));
-      byName.set(projectCanonicalKey(name), byId.get(existingById.id)!);
-      return;
-    }
-    if (existingByName) {
-      byId.set(existingByName.id, stampProject(existingByName, { owner: existingByName.owner || item.owner || 'Unassigned' }));
-      return;
-    }
-    const created = {
-      id: createId('PRJ'),
-      name,
-      owner: item.owner || 'Unassigned',
-      status: name === 'General' ? 'Active' : 'Active',
-      notes: '',
-      tags: [],
-      createdAt: todayIso(),
-      updatedAt: todayIso(),
-    } satisfies ProjectRecord;
-    byId.set(created.id, created);
-    byName.set(projectCanonicalKey(name), created);
-  });
-  tasks.forEach((task) => {
-    const name = (task.project || 'General').trim() || 'General';
-    const existingById = task.projectId ? byId.get(task.projectId) : undefined;
-    const existingByName = byName.get(projectCanonicalKey(name));
-    if (existingById) {
-      byId.set(existingById.id, stampProject(existingById, { name, owner: task.owner || existingById.owner }));
-      byName.set(projectCanonicalKey(name), byId.get(existingById.id)!);
-      return;
-    }
-    if (existingByName) {
-      byId.set(existingByName.id, stampProject(existingByName, { owner: existingByName.owner || task.owner || 'Unassigned' }));
-      return;
-    }
-    const created = {
-      id: createId('PRJ'),
-      name,
-      owner: task.owner || 'Unassigned',
-      status: 'Active',
-      notes: '',
-      tags: [],
-      createdAt: todayIso(),
-      updatedAt: todayIso(),
-    } satisfies ProjectRecord;
-    byId.set(created.id, created);
-    byName.set(projectCanonicalKey(name), created);
-  });
-  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function summarizeLinkedTasks(tasks: TaskItem[], followUpId: string) {
-  const linked = tasks.filter((task) => task.linkedFollowUpId === followUpId);
-  const blocked = linked.filter((task) => task.status === 'Blocked').length;
-  const overdue = linked.filter((task) => isTaskOverdue(task)).length;
-  const open = linked.filter((task) => task.status !== 'Done').length;
-  const done = linked.filter((task) => task.status === 'Done').length;
-  const allDone = linked.length > 0 && open === 0;
-  return { total: linked.length, blocked, overdue, open, done, allDone };
-}
-
-function applyTaskRollupsToItems(items: FollowUpItem[], tasks: TaskItem[]): FollowUpItem[] {
-  return items.map((item) => {
-    const summary = summarizeLinkedTasks(tasks, item.id);
-    if (summary.total === 0) {
-      return normalizeItem({
-        ...item,
-        linkedTaskCount: 0,
-        openLinkedTaskCount: 0,
-        blockedLinkedTaskCount: 0,
-        overdueLinkedTaskCount: 0,
-        doneLinkedTaskCount: 0,
-        allLinkedTasksDone: false,
-        childWorkflowSignal: 'on_track',
-      });
-    }
-    const signal = summary.blocked > 0 ? 'blocked' : summary.overdue > 0 ? 'overdue' : summary.allDone ? 'ready_to_close' : 'on_track';
-    const recommendedAction = summary.allDone
-      ? 'Close out'
-      : summary.blocked > 0
-        ? 'Create task'
-        : item.recommendedAction;
-    const nextAction = summary.allDone
-      ? 'All linked tasks are done. Review and close out parent follow-up.'
-      : summary.blocked > 0
-        ? `Resolve ${summary.blocked} blocked linked task${summary.blocked > 1 ? 's' : ''} before next move.`
-        : item.nextAction;
-    return normalizeItem({
-      ...item,
-      linkedTaskCount: summary.total,
-      openLinkedTaskCount: summary.open,
-      blockedLinkedTaskCount: summary.blocked,
-      overdueLinkedTaskCount: summary.overdue,
-      doneLinkedTaskCount: summary.done,
-      allLinkedTasksDone: summary.allDone,
-      childWorkflowSignal: signal,
-      recommendedAction,
-      nextAction,
-    });
-  });
-}
-
-function attachProjects(items: FollowUpItem[], projects: ProjectRecord[]): FollowUpItem[] {
-  return normalizeItems(items.map((item) => {
-    const name = resolveProjectName(item.projectId, item.project, projects);
-    const project = item.projectId ? projects.find((entry) => entry.id === item.projectId) : projects.find((entry) => projectCanonicalKey(entry.name) === projectCanonicalKey(name));
-    return normalizeItem({ ...item, projectId: project?.id ?? item.projectId, project: project?.name ?? name });
-  }));
-}
-
-function applyItemRules(item: FollowUpItem): FollowUpItem {
-  const cadenceDays = item.cadenceDays && item.cadenceDays > 0 ? item.cadenceDays : item.status === 'Waiting on external' ? 3 : item.status === 'At risk' ? 1 : 4;
-  const nextTouchDate = item.nextTouchDate || addDaysIso(item.lastTouchDate || todayIso(), cadenceDays);
-  const escalationLevel = item.status === 'At risk' && item.escalationLevel === 'None' ? 'Watch' : item.escalationLevel;
-  const owesNextAction = item.status === 'Waiting on external' && item.owesNextAction === 'Unknown' ? 'Client' : item.owesNextAction;
-  return normalizeItem({ ...item, cadenceDays, nextTouchDate, escalationLevel, owesNextAction });
-}
-
-function syncProjectNamePatch(patch: Partial<FollowUpItem>, projects: ProjectRecord[]): Partial<FollowUpItem> {
-  const projectName = resolveProjectName(patch.projectId, patch.project, projects);
-  return { ...patch, project: projectName };
-}
-
-function refreshDuplicates(items: FollowUpItem[], dismissedDuplicatePairs: string[]): DuplicateReview[] {
-  return detectDuplicateReviews(items, dismissedDuplicatePairs);
-}
-
-function buildPersistedPayload(state: Pick<AppState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'intakeReviewerFeedback' | 'savedExecutionViews' | 'followUpFilters' | 'followUpColumns' | 'savedFollowUpViews'>): PersistedPayload {
-  return {
-    items: state.items,
-    contacts: state.contacts,
-    companies: state.companies,
-    projects: state.projects,
-    tasks: state.tasks,
-    auxiliary: {
-      intakeSignals: state.intakeSignals,
-      intakeDocuments: state.intakeDocuments,
-      dismissedDuplicatePairs: state.dismissedDuplicatePairs,
-      droppedEmailImports: state.droppedEmailImports,
-      outlookConnection: state.outlookConnection,
-      outlookMessages: state.outlookMessages,
-      forwardedEmails: state.forwardedEmails,
-      forwardedRules: state.forwardedRules,
-      forwardedCandidates: state.forwardedCandidates,
-      forwardedLedger: state.forwardedLedger,
-      forwardedRoutingAudit: state.forwardedRoutingAudit,
-      intakeCandidates: state.intakeCandidates,
-      intakeAssets: state.intakeAssets,
-      intakeBatches: state.intakeBatches,
-      intakeWorkCandidates: state.intakeWorkCandidates,
-      intakeReviewerFeedback: state.intakeReviewerFeedback,
-      savedExecutionViews: state.savedExecutionViews,
-      followUpFilters: state.followUpFilters,
-      followUpColumns: state.followUpColumns,
-      savedFollowUpViews: state.savedFollowUpViews,
-    },
-  };
-}
-
-function withItemUpdate(items: FollowUpItem[], id: string, updater: (item: FollowUpItem) => FollowUpItem): FollowUpItem[] {
-  return normalizeItems(items.map((item) => (item.id === id ? updater(item) : item)));
-}
-
-function makeAuditEntry(input: Omit<AuditEntry, 'id' | 'at'>): AuditEntry {
-  return { id: createId('AUD'), at: todayIso(), ...input };
-}
-
-function appendReviewerFeedback(existing: IntakeReviewerFeedback[], feedback: Omit<IntakeReviewerFeedback, 'id' | 'createdAt'>): IntakeReviewerFeedback[] {
-  return [{ ...feedback, id: createId('IRF'), createdAt: todayIso() }, ...existing].slice(0, 800);
-}
-
-
-
-function buildFollowUpFromForwarded(record: ForwardedEmailRecord, owner = 'Jared', project = 'General', projectId?: string): FollowUpItem {
-  return normalizeItem({
-    id: createId(),
-    title: record.originalSubject || '(no subject)',
-    source: 'Email',
-    project,
-    projectId,
-    owner,
-    status: record.parsedCommandHints.type === 'followup' ? 'Waiting on external' : 'Needs action',
-    priority: (record.parsedCommandHints.priority as FollowUpItem['priority']) ?? 'Medium',
-    dueDate: record.parsedCommandHints.dueDate ?? addDaysIso(todayIso(), 2),
-    promisedDate: undefined,
-    lastTouchDate: todayIso(),
-    nextTouchDate: addDaysIso(todayIso(), 1),
-    nextAction: record.parsedCommandHints.type === 'followup' ? `Follow up with ${record.parsedCommandHints.waitingOn ?? record.originalSender}` : 'Review forwarded email and assign next action.',
-    summary: record.bodyText.slice(0, 280),
-    tags: ['Forwarded Intake', ...record.parsedCommandHints.tags],
-    sourceRef: `Forwarded/${record.id}`,
-    sourceRefs: [`Forwarded/${record.id}`, ...record.sourceMessageIdentifiers],
-    mergedItemIds: [],
-    waitingOn: record.parsedCommandHints.waitingOn,
-    notes: [`Forwarded alias: ${record.forwardingAlias}`, `Sender: ${record.originalSender}`].join('\n'),
-    timeline: [buildTouchEvent('Created from forwarded email intake.', 'imported')],
-    category: 'Coordination',
-    owesNextAction: record.parsedCommandHints.type === 'followup' ? 'Client' : 'Internal',
-    escalationLevel: 'None',
-    cadenceDays: 3,
-    draftFollowUp: '',
-  });
-}
-function buildImportedItem(row: ImportPreviewRow): FollowUpItem {
-  return normalizeItem({
-    id: createId(),
-    title: row.title,
-    source: row.source,
-    project: row.project,
-    projectId: row.projectId,
-    owner: row.owner,
-    status: row.status,
-    priority: row.priority,
-    dueDate: row.dueDate,
-    promisedDate: undefined,
-    lastTouchDate: todayIso(),
-    nextTouchDate: addDaysIso(row.dueDate, -1),
-    nextAction: row.nextAction,
-    summary: row.summary,
-    tags: row.tags,
-    sourceRef: row.sourceRef,
-    sourceRefs: [row.sourceRef],
-    mergedItemIds: [],
-    waitingOn: undefined,
-    notes: row.notes,
-    timeline: [buildTouchEvent('Imported through the CSV / Excel intake wizard.', 'imported')],
-    category: row.source === 'Excel' ? 'Issue' : row.source === 'Email' ? 'Coordination' : 'General',
-    owesNextAction: row.source === 'Excel' ? 'Internal' : 'Unknown',
-    escalationLevel: row.priority === 'Critical' ? 'Critical' : 'None',
-    cadenceDays: 3,
-    draftFollowUp: '',
-  });
-}
-
-function nextEscalation(current: FollowUpItem['escalationLevel']): FollowUpItem['escalationLevel'] {
-  switch (current) {
-    case 'None':
-      return 'Watch';
-    case 'Watch':
-      return 'Escalate';
-    case 'Escalate':
-      return 'Critical';
-    default:
-      return 'None';
-  }
-}
-
 async function ensureValidOutlookAccessToken(connection: OutlookConnectionState): Promise<OutlookConnectionState> {
   const graph = await import('../lib/outlookGraph');
   if (!connection.tokens) throw new Error('Connect Outlook first.');
@@ -646,41 +257,6 @@ async function ensureValidOutlookAccessToken(connection: OutlookConnectionState)
     syncStatus: 'connected',
     lastError: undefined,
   };
-}
-
-
-
-function buildFollowUpFromOutlookImport(message: OutlookMessage, owner: string, project: string, projectId?: string): FollowUpItem {
-  const dueDateBase = message.receivedDateTime ?? message.sentDateTime ?? todayIso();
-  return normalizeItem({
-    id: createId(),
-    title: message.subject || '(no subject)',
-    source: 'Email',
-    project,
-    projectId,
-    owner,
-    status: message.folder === 'sentitems' ? 'Waiting on external' : 'Needs action',
-    priority: message.flagStatus === 'flagged' || message.importance === 'high' ? 'High' : 'Medium',
-    dueDate: dueDateBase,
-    promisedDate: undefined,
-    lastTouchDate: todayIso(),
-    nextTouchDate: addDaysIso(todayIso(), 2),
-    nextAction: message.folder === 'sentitems' ? 'Review thread status and send a follow-up if no reply has come in.' : 'Read the message and assign ownership.',
-    summary: message.bodyPreview,
-    tags: ['Outlook', message.folder === 'sentitems' ? 'Sent' : 'Inbox', ...(message.categories ?? [])],
-    sourceRef: message.sourceRef,
-    sourceRefs: [message.sourceRef, message.webLink ?? '', message.conversationId ?? '', message.internetMessageId ?? ''].filter(Boolean),
-    mergedItemIds: [],
-    waitingOn: message.folder === 'sentitems' ? message.toRecipients[0] || 'Email response' : undefined,
-    notes: [`Outlook conversation: ${message.conversationId ?? 'n/a'}`, `From: ${message.from}`].join('\n'),
-    timeline: [buildTouchEvent('Created from Outlook mailbox import.', 'imported')],
-    category: 'Coordination',
-    owesNextAction: message.folder === 'sentitems' ? 'Client' : 'Internal',
-    escalationLevel: 'None',
-    cadenceDays: 3,
-    threadKey: message.conversationId,
-    draftFollowUp: '',
-  });
 }
 
 let enqueuePersist: (() => void) | null = null;
@@ -700,57 +276,9 @@ function queuePersist(get: () => AppState, set: (partial: Partial<AppState>) => 
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
-  items: [],
-  contacts: [],
-  companies: [],
-  projects: [],
-  tasks: [],
-  intakeSignals: [],
-  intakeDocuments: [],
-  dismissedDuplicatePairs: [],
-  selectedId: null,
-  search: '',
-  projectFilter: 'All',
-  statusFilter: 'All',
-  activeView: 'All',
-  followUpFilters: defaultFollowUpFilters,
-  selectedFollowUpIds: [],
-  followUpColumns: ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'assignee', 'nextAction'],
-  savedFollowUpViews: [],
-  itemModal: { open: false, mode: 'create', itemId: null },
-  touchModalOpen: false,
-  importModalOpen: false,
-  mergeModal: { open: false, baseId: null, candidateId: null },
-  draftModal: { open: false, itemId: null },
-  taskModal: { open: false, mode: 'create', taskId: null },
-  createWorkDraft: null,
-  selectedTaskId: null,
-  taskOwnerFilter: 'All',
-  taskStatusFilter: 'All',
-  hydrated: false,
-  persistenceMode: 'loading',
-  saveError: '',
-  syncState: 'checking',
-  lastSyncedAt: undefined,
-  duplicateReviews: [],
-  outlookConnection: defaultOutlookConnection,
-  outlookMessages: [],
-  droppedEmailImports: [],
-  forwardedEmails: [],
-  forwardedRules: getDefaultForwardedRules(),
-  forwardedCandidates: [],
-  forwardedLedger: [],
-  forwardedRoutingAudit: [],
-  intakeCandidates: [],
-  intakeAssets: [],
-  intakeBatches: [],
-  intakeWorkCandidates: [],
-  intakeReviewerFeedback: [],
-  queuePreset: 'Today',
-  executionFilter: {},
-  executionSort: 'queue_score',
-  queueDensity: 'compact',
-  savedExecutionViews: defaultExecutionViews,
+  ...initialBusinessState,
+  ...initialUiState,
+  ...initialMetaState,
   initializeApp: async () => {
     if (get().hydrated) return;
     try {

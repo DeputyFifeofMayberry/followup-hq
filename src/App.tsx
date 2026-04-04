@@ -281,7 +281,7 @@ function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; ap
     <WorkspacePage>
       <WorkspaceTopStack>
         <WorkspaceSummaryStrip className="overview-hero-card">
-          <SectionHeader title="Follow-up execution queue" subtitle={personalMode ? 'Daily follow-through, ownership, and closure in one lane.' : 'Team ownership, nudges, and closeout decisions in one lane.'} actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>} compact />
+          <SectionHeader title="Follow-up execution lane" subtitle={personalMode ? 'Run follow-up commitments and close loops quickly.' : 'Run team follow-up commitments, nudges, and closeout decisions.'} actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>} compact />
           <div className="overview-stat-grid overview-stat-grid-compact">
             <StatTile label="Visible follow-ups" value={followUpStats.total} helper="Current filtered queue" />
             <StatTile label="Overdue" value={followUpStats.overdue} helper="Past due date" tone={followUpStats.overdue ? 'warn' : 'default'} />
@@ -289,14 +289,14 @@ function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; ap
             <StatTile label="Open tasks" value={openTaskCount} helper="Cross-workspace pressure" />
           </div>
           <div className="workspace-toolbar-row overview-support-row">
-            <span className="overview-inline-guidance"><strong>Follow-up loop:</strong> Filter queue → run quick actions → review detail panel.</span>
+            <span className="overview-inline-guidance"><strong>Follow-up loop:</strong> Scan queue → run quick actions → finish decisions in inspector.</span>
             <span className="overview-inline-guidance">Bulk actions appear below filters whenever rows are selected.</span>
           </div>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel tracker-workspace-main" surface="data">
-          <SectionHeader title="Follow-up queue" subtitle="Primary execution table with parallel controls and bulk actions." compact />
+          <SectionHeader title="Follow-up queue" subtitle="Focused lane list with contextual bulk actions and inspector-first decisions." compact />
           <ControlBar compact />
           <TrackerTable personalMode={personalMode} appMode={appMode} embedded />
           <DuplicateReviewPanel />

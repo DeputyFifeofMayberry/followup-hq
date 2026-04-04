@@ -394,6 +394,7 @@ function MainApp() {
         return (
           <OverviewWorkspace
             personalMode={appMode === 'personal'}
+            appMode={appMode}
             onOpenTrackerView={openTrackerView}
             onOpenWorkspace={(value) => {
               if (value === 'tracker' || value === 'followups') return setWorkspace('followups');
@@ -405,10 +406,6 @@ function MainApp() {
         );
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
-
-  const openQuickAdd = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('followuphq:open-quick-add', { detail: { focus: true, expand: true } }));
-  }, []);
 
   const commands = [
     { label: 'New follow-up', run: () => openCreateModal() },
@@ -491,9 +488,9 @@ function MainApp() {
             </div>
             <div className="workspace-header-meta">
               <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <WorkspaceHeaderMetaPill tone="info">{workspaceHealth[workspace]}</WorkspaceHeaderMetaPill>
+              <WorkspaceHeaderMetaPill tone="info">{currentMeta.health}</WorkspaceHeaderMetaPill>
               <div className="workspace-header-actions">
-                {resolvedHeaderActions.map((action) => (
+                {currentMeta.actions.map((action) => (
                   <button key={action.label} type="button" onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
                     {action.primary ? <Sparkles className="h-4 w-4" /> : null}
                     {action.label}

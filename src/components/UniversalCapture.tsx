@@ -178,7 +178,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         <button onClick={() => setExpanded((v) => !v)} className="action-btn !px-2.5 !py-1.5 text-xs">Capture details <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} /></button>
       </div>
 
-      <p className="mt-1 text-xs text-slate-600">Quick Add is part of Intake: high-confidence captures are imported now, while uncertain captures go to Review for a decision.</p>
+      <p className="mt-1 text-xs text-slate-600">Quick Add is part of the Intake review loop: high-confidence captures import now, and uncertain captures go to Review so corrections and overrides can improve future tuning.</p>
 
       <div className="mt-2 flex gap-2">
         <input ref={inputRef} value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
@@ -216,7 +216,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       {intakeCandidates.length > 0 ? (
         <div className="mt-3 form-section">
           <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900"><Inbox className="h-4 w-4" />Intake Review queue ({intakeCandidates.length})</div>
-          <p className="mb-2 text-xs text-slate-600">These candidates are in {getIntakeLifecycleLabel('review_needed')}. Quick Add shows only the next few; use the Intake workspace for full queue triage, filtering, and batch-safe review.</p>
+          <p className="mb-2 text-xs text-slate-600">These candidates are in {getIntakeLifecycleLabel('review_needed')}. Quick Add shows only the next few; use the Intake workspace for queue health, correction hotspots, and batch-safe review.</p>
           <div className="mb-2"><button className="action-btn !px-2 !py-1" onClick={() => window.dispatchEvent(new CustomEvent('followuphq:open-intake-workspace'))}>Open intake review workspace</button></div>
           <div className="space-y-2">
             {intakeCandidates.slice(0, 3).map((candidate) => (

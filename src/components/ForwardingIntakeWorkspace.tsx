@@ -9,6 +9,7 @@ import { buildForwardedFieldReviews, summarizeFieldReviews } from '../lib/intake
 import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
 import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
 import { describeFinalizedOutcome, evaluateForwardedImportSafety } from '../lib/intakeImportSafety';
+import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -63,6 +64,7 @@ export function ForwardingIntakeWorkspace() {
     forwardedRules,
     forwardedLedger,
     forwardedRoutingAudit,
+    intakeReviewerFeedback,
     items,
     ingestForwardedEmailPayload,
     approveForwardedCandidate,
@@ -79,6 +81,7 @@ export function ForwardingIntakeWorkspace() {
     forwardedRules: s.forwardedRules,
     forwardedLedger: s.forwardedLedger,
     forwardedRoutingAudit: s.forwardedRoutingAudit,
+    intakeReviewerFeedback: s.intakeReviewerFeedback,
     items: s.items,
     ingestForwardedEmailPayload: s.ingestForwardedEmailPayload,
     approveForwardedCandidate: s.approveForwardedCandidate,
@@ -134,6 +137,14 @@ export function ForwardingIntakeWorkspace() {
   );
 
   const forwardingAddress = forwardedEmails[0]?.forwardingAddress ?? 'jared+in@yourdomain.com';
+  const tuningInsights = useMemo(() => buildIntakeTuningInsights({
+    intakeWorkCandidates: [],
+    forwardedCandidates,
+    forwardedRules,
+    forwardedRoutingAudit,
+    feedback: intakeReviewerFeedback,
+  }), [forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
+  const ruleInsightById = useMemo(() => Object.fromEntries(tuningInsights.ruleInsights.map((entry) => [entry.ruleId, entry])), [tuningInsights.ruleInsights]);
 
   const runAndNext = (candidateId: string, fn: () => void) => {
     const idx = pendingIds.indexOf(candidateId);
@@ -165,6 +176,15 @@ export function ForwardingIntakeWorkspace() {
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Duplicate / link review</div><div className="text-lg font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-lg font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-lg font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="text-sm font-semibold text-slate-900">Forwarding tuning snapshot</div>
+        <div className="mt-2 flex flex-wrap gap-1 text-xs">
+          {tuningInsights.weakParseHotspots.map((chip) => <Badge key={chip.label} variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.label}: {chip.value}</Badge>)}
+        </div>
+        <ul className="mt-2 space-y-1 text-xs text-slate-600">
+          {tuningInsights.tuningSuggestions.slice(0, 3).map((suggestion) => <li key={suggestion}>• {suggestion}</li>)}
+        </ul>
       </div>
 
       <div className="rounded-xl border border-slate-200 p-3">
@@ -244,6 +264,7 @@ export function ForwardingIntakeWorkspace() {
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-slate-500">Create rule from this candidate:</span>
                   <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'ignore')}>Create ignore rule</button>
                   <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'review-task')}>Create review-as-task rule</button>
                   <button className="action-btn" onClick={() => addForwardRuleFromCandidate(candidate.id, 'allow-auto-followup')}>Create auto-follow-up rule</button>
@@ -318,6 +339,16 @@ export function ForwardingIntakeWorkspace() {
                     <div className="text-sm font-medium text-slate-900">{rule.name}</div>
                     <div className="text-xs text-slate-500">{actionLabel[rule.action]} • priority {rule.priority}</div>
                     <div className="mt-1 text-xs text-slate-600">{describeConditions(rule.conditions)}</div>
+                    {ruleInsightById[rule.id] ? (
+                      <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
+                        <Badge variant="neutral">Hits {ruleInsightById[rule.id].hits}</Badge>
+                        <Badge variant="success">Approved {ruleInsightById[rule.id].approved}</Badge>
+                        <Badge variant="warn">Noisy {ruleInsightById[rule.id].rejectedOrReference + ruleInsightById[rule.id].overrides}</Badge>
+                        <Badge variant={ruleInsightById[rule.id].quality === 'strong' ? 'success' : ruleInsightById[rule.id].quality === 'noisy' ? 'danger' : 'warn'}>
+                          {ruleInsightById[rule.id].quality}
+                        </Badge>
+                      </div>
+                    ) : null}
                   </div>
                   {rule.source === 'user' ? <div className="flex gap-2"><button className="action-btn" onClick={() => updateForwardRule(rule.id, { enabled: !rule.enabled })}>{rule.enabled ? 'Disable' : 'Enable'}</button><button className="action-btn action-btn-danger" onClick={() => deleteForwardRule(rule.id)}>Delete</button></div> : <Badge variant="blue">System</Badge>}
                 </div>
@@ -332,8 +363,8 @@ export function ForwardingIntakeWorkspace() {
             {recentHistory.map(({ ledger, audit }) => (
               <div key={ledger.id} className="rounded-lg border border-slate-200 p-3 text-sm">
                 <div className="font-medium text-slate-900">{ledger.normalizedSubject || '(no subject)'}</div>
-                <div className="text-xs text-slate-500">{ledger.sender} • decision {ledger.lastRoutingDecision} • {describeFinalizedOutcome({ status: ledger.lastRoutingDecision === 'reference' ? 'reference' : undefined })} • {formatDateTime(ledger.evaluatedAt)}</div>
-                {audit ? <div className="mt-1 text-xs text-slate-600">Confidence {audit.confidence} • {audit.reasons.slice(0, 2).join(' • ') || 'No extra reasons'}</div> : null}
+                <div className="text-xs text-slate-500">{ledger.sender} • final {ledger.lastRoutingDecision} • {describeFinalizedOutcome({ status: ledger.lastRoutingDecision === 'reference' ? 'reference' : undefined })} • {formatDateTime(ledger.evaluatedAt)}</div>
+                {audit ? <div className="mt-1 text-xs text-slate-600">Confidence {audit.confidence} • Rules: {audit.ruleIds.length ? audit.ruleIds.length : 'none'} • {audit.reasons.slice(0, 2).join(' • ') || 'No extra reasons'}</div> : null}
               </div>
             ))}
             {recentHistory.length === 0 ? <div className="text-sm text-slate-500">No intake history yet.</div> : null}

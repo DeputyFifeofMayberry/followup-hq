@@ -19,6 +19,7 @@ import {
   type IntakeReviewSort,
 } from '../lib/intakeReviewQueue';
 import { describeFinalizedOutcome, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
+import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
 
 const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
   received: 'neutral',
@@ -46,6 +47,10 @@ export function UniversalIntakeWorkspace() {
     intakeBatches,
     intakeAssets,
     intakeWorkCandidates,
+    intakeReviewerFeedback,
+    forwardedCandidates,
+    forwardedRules,
+    forwardedRoutingAudit,
     items,
     tasks,
     ingestIntakeFiles,
@@ -56,6 +61,10 @@ export function UniversalIntakeWorkspace() {
     intakeBatches: s.intakeBatches,
     intakeAssets: s.intakeAssets,
     intakeWorkCandidates: s.intakeWorkCandidates,
+    intakeReviewerFeedback: s.intakeReviewerFeedback,
+    forwardedCandidates: s.forwardedCandidates,
+    forwardedRules: s.forwardedRules,
+    forwardedRoutingAudit: s.forwardedRoutingAudit,
     items: s.items,
     tasks: s.tasks,
     ingestIntakeFiles: s.ingestIntakeFiles,
@@ -75,6 +84,13 @@ export function UniversalIntakeWorkspace() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets), [intakeWorkCandidates, intakeAssets]);
+  const tuningInsights = useMemo(() => buildIntakeTuningInsights({
+    intakeWorkCandidates,
+    forwardedCandidates,
+    forwardedRules,
+    forwardedRoutingAudit,
+    feedback: intakeReviewerFeedback,
+  }), [intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
   const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
   const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
   const filteredQueue = useMemo(() => {
@@ -177,6 +193,27 @@ export function UniversalIntakeWorkspace() {
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Link / duplicate review</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Weak/conflicting</div><div className="text-xl font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-xl font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="mb-2 text-sm font-semibold text-slate-900">Intake quality summary</div>
+        <div className="grid gap-2 md:grid-cols-3">
+          {tuningInsights.qualitySummary.map((chip) => (
+            <div key={chip.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <div className="text-slate-500">{chip.label}</div>
+              <div className="text-base font-semibold text-slate-900">{chip.value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Most corrected fields</div>
+            <div className="flex flex-wrap gap-1">{tuningInsights.correctionHotspots.map((chip) => <Badge key={chip.label} variant={chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.label}: {chip.value}</Badge>)}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Recent override patterns</div>
+            <div className="flex flex-wrap gap-1">{tuningInsights.overridePatterns.map((chip) => <Badge key={chip.label} variant={chip.tone === 'warn' ? 'warn' : 'blue'}>{chip.label}: {chip.value}</Badge>)}</div>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-12">

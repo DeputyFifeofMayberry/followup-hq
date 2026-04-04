@@ -30,6 +30,7 @@ const sortOptions: Array<{ value: UnifiedQueueSort; label: string }> = [
 ];
 
 const PAGE_SIZE = 50;
+const DEFAULT_VISIBLE_ROW_CHIPS = 2;
 
 export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   const {
@@ -297,19 +298,29 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
               pagedQueue.map((row) => {
                 const active = row.id === selectedId;
                 const checked = selectedRows.includes(row.id);
+                const rowChips = [
+                  <Badge key="priority" variant={priorityTone(row.priority)}>{row.priority}</Badge>,
+                  <Badge key="urgency" variant={row.queueFlags.overdue ? 'danger' : row.queueFlags.blocked ? 'warn' : 'neutral'}>{row.whyInQueue}</Badge>,
+                ];
                 return (
                   <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active list-row-family list-row-family-active' : 'overview-priority-row list-row-family'}>
                     <input aria-label={`Select ${row.title}`} type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
                     <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
-                      <div className="overview-priority-title">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
-                      <div className="overview-priority-meta">{row.project} • {personalMode ? `Next action: ${row.primaryNextAction}` : `Owner ${row.owner} • Assignee ${row.assignee}`} • Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
-                      {queueDensity === 'detailed' ? <div className="overview-priority-meta">Summary: {row.summary || '—'} • Waiting on: {row.waitingOn || '—'} • Notes: {row.notesPreview || '—'} • Recent: {row.recentActivity || '—'}</div> : null}
-                      <div className="overview-priority-meta">Why urgent: {row.queueReasons.join(' • ') || row.whyInQueue}</div>
+                      <div className="scan-row-layout">
+                        <div className="scan-row-content">
+                          <div className="scan-row-primary">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
+                          <div className="scan-row-secondary">{row.project} • {personalMode ? `Next action: ${row.primaryNextAction}` : `Owner ${row.owner} • Assignee ${row.assignee}`}</div>
+                          <div className="scan-row-meta">Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
+                          {queueDensity === 'detailed' ? <div className="scan-row-meta">Summary: {row.summary || '—'} • Waiting on: {row.waitingOn || '—'} • Notes: {row.notesPreview || '—'} • Recent: {row.recentActivity || '—'}</div> : null}
+                          <div className="scan-row-meta">Why urgent: {row.queueReasons.join(' • ') || row.whyInQueue}</div>
+                        </div>
+                        <div className="scan-row-sidecar">
+                          <div className="scan-row-badge-cluster">
+                            {rowChips.slice(0, DEFAULT_VISIBLE_ROW_CHIPS)}
+                          </div>
+                        </div>
+                      </div>
                     </button>
-                    <div className="overview-priority-badges">
-                      <Badge variant={priorityTone(row.priority)}>{row.priority}</Badge>
-                      <Badge variant={row.queueFlags.overdue ? 'danger' : row.queueFlags.blocked ? 'warn' : 'neutral'}>{row.whyInQueue}</Badge>
-                    </div>
                   </div>
                 );
               })

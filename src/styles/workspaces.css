@@ -122,6 +122,33 @@
 .workspace-data-row-compact { padding: 0.65rem 0.75rem; }
 .workspace-data-row-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .workspace-data-row-controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.scan-row-layout { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.7rem; width: 100%; }
+.scan-row-content { min-width: 0; display: grid; gap: 0.26rem; }
+.scan-row-primary { font-size: 0.9rem; font-weight: 650; color: #0f172a; line-height: 1.3; }
+.scan-row-secondary { font-size: 0.76rem; color: #5d7188; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-row-meta { font-size: 0.72rem; color: #71849a; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-row-sidecar { display: grid; gap: 0.4rem; justify-items: end; min-width: 220px; }
+.scan-row-badge-cluster { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.3rem; }
+.scan-row-action-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  border-left: 1px solid #d6e1ed;
+  padding-left: 0.5rem;
+}
+.scan-row-support-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; padding-top: 0.2rem; }
+.scan-chip-secondary { opacity: 0.88; }
+
+.row-action-cell { border-left: 1px solid #d3deea; background: #f3f7fc; }
+.row-action-cell .action-btn { border-color: #c7d3e1; background: #ffffff; }
+.tracker-cell-support { color: #64748b; font-size: 0.78rem; }
+.tracker-cell-identity { min-width: 280px; }
+.tracker-cell-identity .tracker-title-primary { font-weight: 650; color: #0f172a; }
+.tracker-cell-identity .tracker-title-secondary { font-size: 0.72rem; color: #64748b; }
+.tracker-cell-inline-edit .field-input { border-color: #cfd9e6; background: #f8fbff; color: #475569; }
+.tracker-head-cell-support .tracker-head-btn { color: #64748b; font-size: 0.74rem; font-weight: 600; }
+.tracker-head-cell-action .tracker-head-btn { justify-content: flex-end; color: #52657e; }
 
 .tracker-main-grid { display: grid; gap: var(--workspace-region-gap, 0.95rem); grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--workspace-inspector-width, 420px), 42vw)); align-items: start; }
 .tracker-workspace-main { gap: 0.65rem; }

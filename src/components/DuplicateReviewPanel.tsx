@@ -17,14 +17,14 @@ export function DuplicateReviewPanel() {
   const baseItem = items.find((item) => item.id === currentReview?.itemId) ?? null;
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-slate-50/75 shadow-sm duplicate-review-panel">
       <div className="border-b border-slate-200 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Duplicate review</h2>
-            <p className="mt-1 text-sm text-slate-500">Potential overlaps across sources so one issue does not become several competing records.</p>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700">Duplicate review</h2>
+            <p className="mt-1 text-xs text-slate-500">Potential overlaps across sources so one issue does not become several competing records.</p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
             <CopyCheck className="h-4 w-4" />
             {duplicateReviews.length} item{duplicateReviews.length === 1 ? '' : 's'} flagged
           </div>

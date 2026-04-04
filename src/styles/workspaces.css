@@ -65,6 +65,15 @@
   align-items: start;
 }
 .workspace-toolbar-row { align-items: center; }
+.workspace-control-stack {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid #d5dfeb;
+  background: #f6faff;
+  border-radius: 0.9rem;
+  padding: 0.55rem;
+}
+.workspace-support-copy { font-size: 0.74rem; color: #5f728b; }
 .overview-hero-card { display: grid; gap: 0.55rem; }
 .overview-support-row {
   flex-wrap: wrap;
@@ -97,6 +106,7 @@
 }
 .workspace-inspector-section-title { font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #5f728b; }
 .workspace-inspector-section-subtitle { margin: 0.22rem 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.35; }
+.workspace-inspector-section { display: grid; gap: 0.55rem; }
 .workspace-list-panel,
 .workspace-inspector-panel { padding: var(--workspace-panel-padding, 0.9rem); display: grid; gap: 0.75rem; }
 .workspace-list-content { border: 1px solid #cfdaea; border-radius: 0.8rem; background: #eef4fb; padding: 0.6rem; display: grid; gap: 0.45rem; }
@@ -113,7 +123,13 @@
 .workspace-data-row-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .workspace-data-row-controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
-.tracker-main-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.7fr) 420px; align-items: start; }
+.tracker-main-grid { display: grid; gap: var(--workspace-region-gap, 0.95rem); grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--workspace-inspector-width, 420px), 42vw)); align-items: start; }
+.tracker-workspace-main { gap: 0.65rem; }
+.followup-control-stack { margin-bottom: 0.1rem; }
+.followup-filter-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.followup-saved-views-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.tracker-table-embedded { border: 1px solid #cfdaea; border-radius: 0.8rem; background: #eef4fb; overflow: hidden; }
+.duplicate-review-panel { margin-top: 0.1rem; }
 .tracker-detail-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
 .tracker-row { cursor: pointer; border-bottom: 1px solid #d6e0eb; }
 .tracker-row:focus-visible { box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.45); }

@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
@@ -164,7 +164,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   return (
     <WorkspacePage>
       <WorkspaceTopStack>
-        <WorkspaceSummaryStrip>
+        <WorkspaceSummaryStrip className="overview-hero-card">
           <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
           <div className="overview-stat-grid overview-stat-grid-compact">
             <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
@@ -172,44 +172,51 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <StatTile label="Blocked" value={summary.blocked} helper="Waiting on dependency" tone={summary.blocked ? 'warn' : 'default'} />
             <StatTile label="Deferred" value={summary.deferred} helper="Snoozed out of active queue" />
           </div>
+          <WorkspaceToolbarRow className="overview-support-row">
+            <span className="overview-inline-guidance"><strong>Execution loop:</strong> Select → Update state → Resolve blockers → Close.</span>
+            <span className="overview-inline-guidance">Use advanced filters for owner, parent status, linked state, and tags.</span>
+          </WorkspaceToolbarRow>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel" surface="data">
-          <FilterBar>
-            <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
-          </FilterBar>
+          <SectionHeader title="Task queue" subtitle="Primary execution lane. Inspector supports context and actions." compact />
+          <div className="workspace-control-stack">
+            <FilterBar>
+              <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
+            </FilterBar>
 
-          <WorkspaceToolbarRow className="task-primary-controls">
-            <label className="field-block">
-              <span className="field-label">Search</span>
-              <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, block reason, context, tags" className="field-input search-field-input" /></div>
-            </label>
-            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
-            <select value={density} onChange={(event) => setDensity(event.target.value as typeof density)} className="field-input"><option value="compact">Compact rows</option><option value="comfortable">Comfortable rows</option></select>
-            <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
-            <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-          </WorkspaceToolbarRow>
+            <WorkspaceToolbarRow className="task-primary-controls">
+              <label className="field-block">
+                <span className="field-label">Search queue</span>
+                <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, block reason, context, tags" className="field-input search-field-input" /></div>
+              </label>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
+              <select value={density} onChange={(event) => setDensity(event.target.value as typeof density)} className="field-input"><option value="compact">Compact rows</option><option value="comfortable">Comfortable rows</option></select>
+              <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
+              <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
+              <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset filters</button>
+            </WorkspaceToolbarRow>
 
-          {advancedOpen ? (
-            <div className="task-advanced-controls advanced-filter-surface">
-              <div className={`grid gap-2 ${personalMode ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
-                <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
-                {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
-                <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
-                {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
-                <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
-                <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
+            {advancedOpen ? (
+              <div className="task-advanced-controls advanced-filter-surface">
+                <div className={`grid gap-2 ${personalMode ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+                  <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
+                  {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
+                  <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
+                  {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
+                  <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
+                  <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => setBlockedOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${blockedOnly ? 'bg-slate-900 text-white' : ''}`}>Blocked only</button>
+                  <button onClick={() => setDeferredOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${deferredOnly ? 'bg-slate-900 text-white' : ''}`}>Deferred only</button>
+                  <button onClick={() => setCleanupOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${cleanupOnly ? 'bg-slate-900 text-white' : ''}`}>Cleanup only</button>
+                </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => setBlockedOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${blockedOnly ? 'bg-slate-900 text-white' : ''}`}>Blocked only</button>
-                <button onClick={() => setDeferredOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${deferredOnly ? 'bg-slate-900 text-white' : ''}`}>Deferred only</button>
-                <button onClick={() => setCleanupOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${cleanupOnly ? 'bg-slate-900 text-white' : ''}`}>Cleanup only</button>
-                <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
-              </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <div className="workspace-list-content task-list-content">
             {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try a different filter or add a task." /> : filteredTasks.map((task) => {
@@ -250,17 +257,19 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
         <AppShellCard className="workspace-inspector-panel task-inspector-panel premium-inspector" surface="inspector">
           {selectedTask ? (
-            <div className="space-y-5">
-              <div className="flex items-start justify-between gap-3">
+            <div className="space-y-3">
+              <WorkspaceInspectorSection title="Selected task" subtitle={`${selectedTask.project} · ${selectedTask.assigneeDisplayName || selectedTask.owner}`}>
+                <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="inspector-kicker">{personalMode ? 'Task execution panel' : 'Task coordination panel'}</div>
                   <h3 className="inspector-title">{selectedTask.title}</h3>
-                  <p className="inspector-meta">{selectedTask.project} · {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
+                  <p className="inspector-meta">{personalMode ? 'Task execution panel' : 'Task coordination panel'}</p>
                 </div>
                 <div className="flex gap-2"><button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button><button onClick={() => deleteTask(selectedTask.id)} className="action-btn text-rose-600"><Trash2 className="h-4 w-4" />Delete</button></div>
               </div>
+              </WorkspaceInspectorSection>
 
-              <div className="task-inspector-actions">
+              <WorkspaceInspectorSection title="Primary actions">
+                <div className="task-inspector-actions">
                 <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
                 <button onClick={() => updateTaskWithStatus(selectedTask, 'Blocked')} className="action-btn">Block</button>
                 <button onClick={() => updateTask(selectedTask.id, { status: selectedTask.status === 'Blocked' ? 'In progress' : selectedTask.status, blockReason: undefined })} className="action-btn">Unblock</button>
@@ -268,8 +277,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 <button onClick={() => updateTask(selectedTask.id, { startDate: todayIso(), startedAt: selectedTask.startedAt || todayIso() })} className="action-btn">Start today</button>
                 <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
               </div>
+              </WorkspaceInspectorSection>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <WorkspaceInspectorSection title="Task metrics">
+                <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.status}</div></div>
                 <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Impact</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.completionImpact || 'advance_parent'}</div></div>
                 <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Start</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.startDate)}</div></div>
@@ -277,18 +288,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Deferred until</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.deferredUntil)}</div></div>
                 <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Block reason</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.blockReason || '—'}</div></div>
               </div>
+              </WorkspaceInspectorSection>
 
-              <div className="grid gap-3">
+              <WorkspaceInspectorSection title="Task details">
+                <div className="grid gap-3">
                 <label className="field-block"><span className="field-label">Block reason</span><input value={selectedTask.blockReason || ''} onChange={(event) => updateTask(selectedTask.id, { blockReason: event.target.value, status: 'Blocked' })} className="field-input" /></label>
                 <label className="field-block"><span className="field-label">Completion note</span><input value={selectedTask.completionNote || ''} onChange={(event) => updateTask(selectedTask.id, { completionNote: event.target.value })} className="field-input" /></label>
                 <label className="field-block"><span className="field-label">Defer until</span><input type="date" value={toDateInputValue(selectedTask.deferredUntil)} onChange={(event) => updateTask(selectedTask.id, { deferredUntil: event.target.value ? fromDateInputValue(event.target.value) : undefined, nextReviewAt: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
                 <label className="field-block"><span className="field-label">Assignee</span><input value={selectedTask.assigneeDisplayName || selectedTask.owner} onChange={(event) => updateTask(selectedTask.id, { assigneeDisplayName: event.target.value })} className="field-input" /></label>
                 <label className="field-block"><span className="field-label">Next step</span><textarea value={selectedTask.nextStep} onChange={(event) => updateTask(selectedTask.id, { nextStep: event.target.value })} className="field-textarea" /></label>
               </div>
+              </WorkspaceInspectorSection>
 
-              {linkedFollowUp ? <div className="rounded-2xl tonal-panel"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Parent workflow summary</div><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Readiness: {parentOpen === 0 ? 'Ready to close/advance' : parentBlocked > 0 ? 'Blocked child pressure' : 'In progress'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open detail</button></div> : null}
-              <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Task purpose</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.summary || 'No summary added yet.'}</p></div>
-              <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Why task exists</div><p className="mt-2 text-sm leading-6 text-slate-700">{selectedTask.contextNote || selectedTask.linkedProjectContext || 'Execution support task.'}</p></div>
+              {linkedFollowUp ? <WorkspaceInspectorSection title="Parent workflow summary"><div className="rounded-2xl tonal-panel"><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Readiness: {parentOpen === 0 ? 'Ready to close/advance' : parentBlocked > 0 ? 'Blocked child pressure' : 'In progress'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open detail</button></div></WorkspaceInspectorSection> : null}
+              <WorkspaceInspectorSection title="Task purpose"><p className="text-sm leading-6 text-slate-700">{selectedTask.summary || 'No summary added yet.'}</p></WorkspaceInspectorSection>
+              <WorkspaceInspectorSection title="Why task exists"><p className="text-sm leading-6 text-slate-700">{selectedTask.contextNote || selectedTask.linkedProjectContext || 'Execution support task.'}</p></WorkspaceInspectorSection>
             </div>
           ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>

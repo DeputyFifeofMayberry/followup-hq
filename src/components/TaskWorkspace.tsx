@@ -5,7 +5,8 @@ import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
-import type { FollowUpStatus, TaskItem } from '../types';
+import { getModeConfig } from '../lib/appModeConfig';
+import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -20,8 +21,8 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
   { value: 'recent', label: 'Recently updated' },
 ];
 
-export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useAppStore(useShallow((s) => ({
+export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     items: s.items,
     projects: s.projects,
@@ -38,6 +39,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     attemptTaskTransition: s.attemptTaskTransition,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'due' | 'priority' | 'updated'>('due');
   const [mode, setMode] = useState<TaskMode>('dueNow');
@@ -161,7 +163,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   return (
     <div className="space-y-5">
       <AppShellCard surface="hero">
-        <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
+        <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
           <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
@@ -192,7 +194,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
                 {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
                 <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
-                <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select>
+                {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
                 <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
                 <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
               </div>
@@ -247,7 +249,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="inspector-kicker">Task control panel</div>
+                  <div className="inspector-kicker">{personalMode ? 'Task execution panel' : 'Task coordination panel'}</div>
                   <h3 className="inspector-title">{selectedTask.title}</h3>
                   <p className="inspector-meta">{selectedTask.project} · {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
                 </div>

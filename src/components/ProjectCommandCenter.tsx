@@ -13,10 +13,11 @@ import {
 import { addDaysIso, createId, formatDate, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import type { ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
+import type { AppMode, ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
+import { getModeConfig } from '../lib/appModeConfig';
 
-export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void }) {
+export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team' }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode }) {
   const {
     items, contacts, companies, projects, tasks, intakeDocuments,
     addProject, updateProject, deleteProject, reassignProjectRecords,
@@ -42,6 +43,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
     setActiveView: s.setActiveView,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '');
   const [copied, setCopied] = useState(false);
   const [displayMode, setDisplayMode] = useState<ProjectCardDisplayMode>('expanded');
@@ -130,7 +132,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
 
   return (
     <AppShellCard className="project-command-surface" surface="command">
-      <SectionHeader title="Project command center" subtitle="Curated command surface for portfolio scan, project health, and execution workflows." />
+      <SectionHeader title={appMode === 'personal' ? 'Project support lens' : 'Project command center'} subtitle={modeConfig.projectsSubtitle} />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">
           <div className="project-create-row">
@@ -192,7 +194,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Focus tracker</button>
-                  <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className="primary-btn"><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
+                  <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
 
@@ -227,9 +229,10 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
               </div>
 
               <div className="project-action-groups">
-                <button onClick={createProjectFollowUp} className="action-btn"><FileText className="h-4 w-4" />New follow-up</button>
-                <button onClick={createProjectTask} className="action-btn"><Plus className="h-4 w-4" />New task</button>
-                <button onClick={createProjectDoc} className="action-btn"><FolderOpen className="h-4 w-4" />Add intake doc</button>
+                <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project context actions</div>
+                <button onClick={createProjectFollowUp} className="action-btn !px-2.5 !py-1.5 text-xs"><FileText className="h-4 w-4" />Add project-scoped follow-up</button>
+                <button onClick={createProjectTask} className="action-btn !px-2.5 !py-1.5 text-xs"><Plus className="h-4 w-4" />Add project-scoped task</button>
+                <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
                 <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Blocked work</button>
                 <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Overdue work</button>
                 <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Waiting work</button>

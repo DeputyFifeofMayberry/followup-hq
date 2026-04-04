@@ -2,19 +2,21 @@ import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, ChevronDown, Clock3,
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
-import type { SavedViewKey, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
+import type { AppMode, SavedViewKey, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
 import type { FollowUpItem } from '../types';
+import { getModeConfig } from '../lib/appModeConfig';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   personalMode?: boolean;
+  appMode?: AppMode;
 }
 
 const presets: UnifiedQueuePreset[] = ['Today', 'Due now', 'This week', 'Waiting on others', 'Needs nudge', 'Blocked / at risk', 'Cleanup', 'Recently updated'];
@@ -29,7 +31,7 @@ const sortOptions: Array<{ value: UnifiedQueueSort; label: string }> = [
 
 const PAGE_SIZE = 50;
 
-export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false }: OverviewPageProps) {
+export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   const {
     getUnifiedQueue,
     setSelectedId,
@@ -82,6 +84,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
     })),
   );
 
+  const modeConfig = getModeConfig(appMode);
   const queue = getUnifiedQueue();
   const [selectedId, setSelectedIdLocal] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -199,11 +202,38 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   return (
     <div className="space-y-5">
       <AppShellCard className="overview-hero-card" surface="hero">
-        <SectionHeader title="Daily execution queue" subtitle={personalMode ? 'Start here: triage and complete real work with minimal context switching.' : 'Team queue with pressure, blockers, and ownership clarity in one flow.'} />
+        <SectionHeader title="Daily execution queue" subtitle={modeConfig.overviewSubtitle} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
           <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
           <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
+        </div>
+      </AppShellCard>
+      <AppShellCard className="overview-flow-strip" surface="shell">
+        <div className="overview-flow-header">
+          <span className="overview-flow-label">Daily loop</span>
+          <p>Start here, then move through the loop: capture, triage, execute, close.</p>
+        </div>
+        <div className="overview-flow-steps" role="list" aria-label="Recommended daily workflow">
+          <span className="overview-flow-step" role="listitem">Capture</span>
+          <span className="overview-flow-step" role="listitem">Triage</span>
+          <span className="overview-flow-step" role="listitem">Execute</span>
+          <span className="overview-flow-step" role="listitem">Close</span>
+        </div>
+        <div className="overview-flow-actions">
+          <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
+          <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
+          <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
+        </div>
+      </AppShellCard>
+
+      <AppShellCard surface="muted">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Create work</div>
+            <div className="text-xs text-slate-600">Use <strong>Quick Add / Capture</strong> above as the default way to add follow-ups and tasks. Use structured forms only when you need detailed manual entry.</div>
+          </div>
+          <div className="text-xs text-slate-500">High-confidence captures add now. Lower-confidence captures go to review.</div>
         </div>
       </AppShellCard>
 
@@ -226,7 +256,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
               <div className="grid gap-2 md:grid-cols-3">
                 <select value={executionFilter.types?.[0] || 'all'} onChange={(event) => setExecutionFilter({ ...executionFilter, types: event.target.value === 'all' ? undefined : [event.target.value as 'task' | 'followup'] })} className="field-input"><option value="all">All types</option><option value="task">Tasks</option><option value="followup">Follow-ups</option></select>
                 <input value={executionFilter.project?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, project: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Project" />
-                <input value={executionFilter.owner?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, owner: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Owner" />
+                {!personalMode ? <input value={executionFilter.owner?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, owner: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Owner" /> : null}
                 <input value={executionFilter.assignee?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, assignee: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Assignee" />
                 <select value={executionFilter.waitingOn === undefined ? 'any' : executionFilter.waitingOn ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, waitingOn: event.target.value === 'any' ? undefined : event.target.value === 'yes' })} className="field-input"><option value="any">Any waiting state</option><option value="yes">Waiting on others</option><option value="no">Not waiting</option></select>
                 <select value={executionFilter.linkedState || 'any'} onChange={(event) => setExecutionFilter({ ...executionFilter, linkedState: event.target.value === 'any' ? undefined : event.target.value as 'linked' | 'unlinked' })} className="field-input"><option value="any">Linked + unlinked</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
@@ -277,7 +307,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           ) : null}
 
           <div className="overview-priority-list overview-priority-list-premium">
-            {!queue.length ? <EmptyState title="No work in this queue" message="Switch presets or create a task/follow-up." /> : (
+            {!queue.length ? <EmptyState title="No work in this queue" message="Switch presets or use Quick Add / Capture to create new work." /> : (
               pagedQueue.map((row) => {
                 const active = row.id === selectedId;
                 const checked = selectedRows.includes(row.id);
@@ -286,7 +316,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                     <input aria-label={`Select ${row.title}`} type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
                     <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
                       <div className="overview-priority-title">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
-                      <div className="overview-priority-meta">{row.project} • {row.assignee} • Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
+                      <div className="overview-priority-meta">{row.project} • {personalMode ? `Next action: ${row.primaryNextAction}` : `Owner ${row.owner} • Assignee ${row.assignee}`} • Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
                       {queueDensity === 'detailed' ? <div className="overview-priority-meta">Summary: {row.summary || '—'} • Waiting on: {row.waitingOn || '—'} • Notes: {row.notesPreview || '—'} • Recent: {row.recentActivity || '—'}</div> : null}
                       <div className="overview-priority-meta">Why urgent: {row.queueReasons.join(' • ') || row.whyInQueue}</div>
                     </button>
@@ -373,7 +403,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                   });
                 }} className="action-btn justify-start"><FilePlus2 className="h-4 w-4" />Create linked task</button> : null}
                 {selected.recordType === 'followup' ? <button onClick={() => { setSelectedId(selected.id); openDraftModal(selected.id); }} className="action-btn justify-start"><Send className="h-4 w-4" />Open send flow</button> : null}
-                {!personalMode && selected.recordType === 'followup' ? <button onClick={() => updateItem(selected.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className="action-btn justify-start"><UserRoundCog className="h-4 w-4" />Reassign</button> : null}
+                {!personalMode && selected.recordType === 'followup' ? <button onClick={() => updateItem(selected.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className={modeConfig.emphasizeCoordinationActions ? 'primary-btn justify-start' : 'action-btn justify-start'}><UserRoundCog className="h-4 w-4" />Reassign</button> : null}
                 <button onClick={openDetail} className="action-btn justify-start">Open detail <ExternalLink className="h-4 w-4" /></button>
               </div>
 

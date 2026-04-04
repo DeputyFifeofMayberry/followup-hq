@@ -10,6 +10,7 @@ import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
 import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
 import { describeFinalizedOutcome, evaluateForwardedImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
+import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -103,7 +104,15 @@ export function ForwardingIntakeWorkspace() {
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
 
-  const queue = useMemo(() => buildForwardedReviewQueue(forwardedCandidates), [forwardedCandidates]);
+  const tuningModel = useMemo(() => buildIntakeTuningModel({
+    intakeWorkCandidates: [],
+    forwardedCandidates,
+    forwardedRules,
+    forwardedRoutingAudit,
+    feedback: intakeReviewerFeedback,
+  }), [forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
+
+  const queue = useMemo(() => buildForwardedReviewQueue(forwardedCandidates, tuningModel), [forwardedCandidates, tuningModel]);
   const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
   const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
   const filteredQueue = useMemo(() => {

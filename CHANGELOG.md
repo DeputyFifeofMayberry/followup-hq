@@ -2,6 +2,14 @@
 
 ## 2026-04-04
 
+### Deficiency 2 Phase 3: reviewer-feedback tuning loop
+- Added a deterministic intake tuning model that converts recent reviewer feedback into operational posture outputs (trust posture, automation health, source direct-import readiness, bounded confidence floors, duplicate/link caution boosts, and explicit caution flags) with source-aware and field-aware correction analytics (`src/lib/intakeTuningModel.ts`).
+- Expanded tuning insights from passive chips into an explainable ops surface with correction hotspots by source, override-rate patterns, actionable thresholds, forwarding rule friction reasons, and review-safe suggestions that can be consumed by multiple workspaces (`src/lib/intakeTuningInsights.ts`).
+- Wired tuning outputs into intake queue behavior so `ready now`, `batch-safe`, prioritization, and alerts now account for tuning pressure (noisy sources, due-date/project guards, duplicate caution) without hidden parser mutation (`src/lib/intakeReviewQueue.ts`).
+- Upgraded Universal Intake workspace with a concise operations tuning panel showing trust/automation posture, direct-import readiness by source, noisy-rule diagnostics, and explicit caution recommendations so reviewers can see why review posture changes over time (`src/components/UniversalIntakeWorkspace.tsx`).
+- Improved forwarding intake routing quality visibility by feeding the same tuning model into queue safety behavior and by surfacing rule-level friction reasons directly in the rule list (`src/components/ForwardingIntakeWorkspace.tsx`).
+- Improved Quick Add trust messaging by applying tuning-based readiness floors/guards and presenting contextual “why review is recommended” posture copy tied to recent reviewer behavior (`src/components/UniversalCapture.tsx`).
+
 ### Deficiency 2 Phase 2: correction workflow hardening follow-through
 - Tightened queue operational ranking with clearer next-step hints and stronger weighting for blockers, duplicate risk, and easy-win approvals so reviewers can process pending items in a deliberate order (`src/lib/intakeReviewQueue.ts`).
 - Added reviewer action-hint helpers for high-signal field triage (reason, recommended next step, and blocker emphasis), then wired those outputs directly into Intake Review so weak/conflicting fields are explicit and actionable (`src/lib/intakeEvidence.ts`, `src/components/UniversalIntakeWorkspace.tsx`).

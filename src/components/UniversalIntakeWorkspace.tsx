@@ -24,7 +24,8 @@ import {
   type IntakeReviewSort,
 } from '../lib/intakeReviewQueue';
 import { describeFinalizedOutcome, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
-import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
+import { buildIntakeTuningInsights, toneFromReadiness } from '../lib/intakeTuningInsights';
+import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
   ready_to_approve: 'Ready now',
@@ -90,7 +91,14 @@ export function UniversalIntakeWorkspace() {
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; decision: 'approve_task' | 'approve_followup' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets), [intakeWorkCandidates, intakeAssets]);
+  const tuningModel = useMemo(() => buildIntakeTuningModel({
+    intakeWorkCandidates,
+    forwardedCandidates,
+    forwardedRules,
+    forwardedRoutingAudit,
+    feedback: intakeReviewerFeedback,
+  }), [intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
+  const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets, tuningModel), [intakeWorkCandidates, intakeAssets, tuningModel]);
   const tuningInsights = useMemo(() => buildIntakeTuningInsights({
     intakeWorkCandidates,
     forwardedCandidates,
@@ -436,14 +444,70 @@ export function UniversalIntakeWorkspace() {
       ) : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="mb-2 text-sm font-semibold text-slate-900">Intake quality summary</div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {tuningInsights.qualitySummary.map((chip) => (
-            <div key={chip.label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <div className="text-slate-500">{chip.label}</div>
-              <div className="text-base font-semibold text-slate-900">{chip.value}</div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-slate-900">Intake tuning ops panel</div>
+          <div className="flex flex-wrap gap-1">
+            <Badge variant={tuningInsights.trustPosture === 'stable' ? 'success' : tuningInsights.trustPosture === 'caution' ? 'warn' : 'danger'}>Trust posture: {tuningInsights.trustPosture}</Badge>
+            <Badge variant={tuningInsights.automationHealth === 'strong' ? 'success' : tuningInsights.automationHealth === 'watch' ? 'warn' : 'danger'}>Automation health: {tuningInsights.automationHealth}</Badge>
+          </div>
+        </div>
+
+        <div className="grid gap-2 lg:grid-cols-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Correction hotspots</div>
+            {tuningInsights.correctionHotspots.map((chip) => <div key={chip.label} className="mb-1 flex items-center justify-between"><span className="text-slate-600">{chip.label}</span><Badge variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.value}</Badge></div>)}
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Override patterns + weak parse pressure</div>
+            {tuningInsights.overridePatterns.map((chip) => <div key={chip.label} className="mb-1 flex items-center justify-between"><span className="text-slate-600">{chip.label}</span><Badge variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.value}</Badge></div>)}
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tuningInsights.weakParseHotspots.map((chip) => <Badge key={chip.label} variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.label}: {chip.value}</Badge>)}
             </div>
-          ))}
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Automation thresholds</div>
+            {tuningInsights.qualitySummary.map((chip) => <div key={chip.label} className="mb-1 flex items-center justify-between"><span className="text-slate-600">{chip.label}</span><Badge variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : chip.tone === 'success' ? 'success' : 'blue'}>{chip.value}</Badge></div>)}
+            <div className="mt-2 space-y-1 text-slate-600">
+              <div>Due-date guard: <span className="font-semibold">{tuningInsights.thresholds.requireStrongDueDateEvidence ? 'active' : 'inactive'}</span></div>
+              <div>Project guard: <span className="font-semibold">{tuningInsights.thresholds.requireStrongProjectEvidence ? 'active' : 'inactive'}</span></div>
+              <div>Duplicate caution: <span className="font-semibold">{tuningInsights.thresholds.duplicateCautionBoost ? 'boosted' : 'normal'}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 grid gap-2 lg:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Direct-import readiness by source</div>
+            <div className="space-y-1">
+              {tuningInsights.directImportReadiness.map((entry) => (
+                <div key={entry.source} className="rounded border border-slate-200 bg-white p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-800">{entry.source}</span>
+                    <Badge variant={toneFromReadiness(entry.readiness)}>{entry.readiness.replace('_', ' ')}</Badge>
+                  </div>
+                  <div className="mt-1 text-slate-600">{entry.reason}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-slate-700">Noisy forwarding rules + tuning suggestions</div>
+            <div className="space-y-1">
+              {tuningInsights.ruleInsights.slice(0, 4).map((rule) => (
+                <div key={rule.ruleId} className="rounded border border-slate-200 bg-white p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-800">{rule.ruleName}</span>
+                    <Badge variant={rule.quality === 'strong' ? 'success' : rule.quality === 'watch' ? 'warn' : 'danger'}>{rule.quality}</Badge>
+                  </div>
+                  <div className="mt-1 text-slate-600">hits {rule.hits} • approved {rule.approved} • overrides {rule.overrides} • rejected/reference {rule.rejectedOrReference}</div>
+                  <div className="mt-1 text-slate-500">{rule.reason}</div>
+                </div>
+              ))}
+              <ul className="list-disc pl-4 text-slate-600">
+                {tuningInsights.tuningSuggestions.slice(0, 4).map((suggestion) => <li key={suggestion}>{suggestion}</li>)}
+              </ul>
+            </div>
+          </div>
         </div>
         <div className="mt-2 text-xs text-slate-600">Linked records available: {items.length} follow-ups • {tasks.length} tasks • Batches: {intakeBatches.length}.</div>
       </div>

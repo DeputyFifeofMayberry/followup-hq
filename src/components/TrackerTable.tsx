@@ -14,7 +14,7 @@ import { getModeConfig } from '../lib/appModeConfig';
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { personalMode?: boolean; appMode?: AppMode }) {
-  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, tasks, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
@@ -37,7 +37,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
-  const baseColumns: Record<FollowUpColumnKey, ColumnDef<FollowUpItem>> = {
+  const baseColumns = useMemo<Record<FollowUpColumnKey, ColumnDef<FollowUpItem>>>(() => ({
     title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="tracker-title-primary">{row.original.title}</div><div className="tracker-title-secondary">{personalMode ? row.original.project : row.original.id}</div></div> },
     project: { accessorKey: 'project', header: 'Project' },
     owner: { accessorKey: 'owner', header: 'Owner' },
@@ -52,7 +52,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
     actionState: { accessorKey: 'actionState', header: 'Action state', cell: ({ row }) => row.original.actionState || 'Draft created' },
     linkedTaskSummary: { id: 'linkedTaskSummary', accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`, header: 'Linked tasks', cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open` },
     nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
-  };
+  }), [personalMode]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
     const effectiveColumnOrder = personalMode && followUpColumns.includes('owner') && followUpColumns.includes('assignee')
@@ -100,7 +100,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode, baseColumns, tasks, attemptFollowUpTransition]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 

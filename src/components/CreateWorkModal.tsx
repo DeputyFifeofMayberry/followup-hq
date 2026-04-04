@@ -160,7 +160,7 @@ export function CreateWorkModal() {
     setTaskForm(defaultTask);
     setShowAdvanced(false);
     setModalMode('fast');
-  }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open]);
+  }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
 
   if (!open) return null;
 

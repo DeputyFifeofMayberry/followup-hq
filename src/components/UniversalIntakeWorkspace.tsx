@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -60,12 +60,12 @@ export function UniversalIntakeWorkspace() {
     failed: intakeAssets.filter((asset) => asset.parseStatus === 'failed').length,
   }), [intakeAssets]);
 
-  const applyAndNext = (decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
+  const applyAndNext = useCallback((decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
     if (!selectedCandidate) return;
     decideIntakeWorkCandidate(selectedCandidate.id, decision, linkedRecordId);
     const next = useAppStore.getState().intakeWorkCandidates.find((entry) => entry.approvalStatus === 'pending');
     setActiveCandidateId(next?.id ?? null);
-  };
+  }, [decideIntakeWorkCandidate, selectedCandidate]);
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
     if (!list?.length) return;
@@ -90,7 +90,7 @@ export function UniversalIntakeWorkspace() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pending, selectedCandidate]);
+  }, [pending, selectedCandidate, applyAndNext]);
 
   return (
     <div className="space-y-4">

@@ -45,9 +45,9 @@ export function WorkspaceSidebar({ workspace, onChange }: WorkspaceSidebarProps)
   return (
     <aside className="workspace-sidebar-shell">
       <div className="workspace-brand-card">
-        <div className="workspace-brand-kicker">FollowUp HQ</div>
-        <div className="workspace-brand-title">Clear, focused follow-up management.</div>
-        <div className="workspace-brand-copy">Make today’s priorities obvious. Keep project pressure, intake, and accountability in separate, easy-to-read workspaces.</div>
+        <div className="workspace-brand-kicker">SetPoint</div>
+        <div className="workspace-brand-title">From intake to closeout.</div>
+        <div className="workspace-brand-copy">Construction execution workspace for routing inbound work, driving commitments, and maintaining project and stakeholder control.</div>
       </div>
 
       <div className="workspace-sidebar-section">

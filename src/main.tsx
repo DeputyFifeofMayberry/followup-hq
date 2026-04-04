@@ -27,7 +27,7 @@ class RootErrorBoundary extends React.Component<React.PropsWithChildren, RootErr
             <div className="w-full rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
               <StatePanel
                 tone="error"
-                title="FollowUp HQ hit a runtime error"
+                title="SetPoint hit a runtime error"
                 message="The app stopped rendering. Use the details below to fix the crash instead of getting a blank white page."
               />
               <pre className="mt-4 max-h-60 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-rose-100">

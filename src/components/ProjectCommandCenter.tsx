@@ -17,12 +17,14 @@ import type { AppMode, ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } fr
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { getModeConfig, type WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
+import { BatchSummarySection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team', setWorkspace }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     items, contacts, companies, projects, tasks, intakeDocuments,
     addProject, updateProject, deleteProject, reassignProjectRecords,
-    addIntakeDocument, updateTask, batchUpdateFollowUps,
+    addIntakeDocument, updateTask, batchUpdateFollowUps, runValidatedBatchFollowUpTransition,
+    openCreateFromCapture,
     setProjectFilter, setActiveView,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -38,6 +40,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     addIntakeDocument: s.addIntakeDocument,
     updateTask: s.updateTask,
     batchUpdateFollowUps: s.batchUpdateFollowUps,
+    runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
+    openCreateFromCapture: s.openCreateFromCapture,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
   })));
@@ -55,6 +59,15 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   const [deleteTargetProjectId, setDeleteTargetProjectId] = useState('');
   const [selectedFollowUpIds, setSelectedFollowUpIds] = useState<string[]>([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [bulkFlow, setBulkFlow] = useState<null | 'followup_close' | 'followup_escalate' | 'followup_snooze' | 'task_close' | 'task_escalate' | 'task_snooze'>(null);
+  const [bulkDate, setBulkDate] = useState('');
+  const [bulkWarnings, setBulkWarnings] = useState<string[]>([]);
+  const [bulkBlockers, setBulkBlockers] = useState<string[]>([]);
+  const [bulkResult, setBulkResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+  const [bulkAffected, setBulkAffected] = useState(0);
+  const [bulkSkipped, setBulkSkipped] = useState(0);
+  const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
+  const [deleteResult, setDeleteResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectOwner, setNewProjectOwner] = useState('Jared');
 
@@ -109,6 +122,77 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   const createProjectDoc = () => {
     if (!selectedProject) return;
     addIntakeDocument({ name: `Reference - ${selectedProject.name}`, kind: 'Document', projectId: selectedProject.id, owner: selectedProject.owner, sourceRef: 'Projects workspace', notes: '' });
+  };
+
+  const openCreateFlow = (kind: 'followup' | 'task') => {
+    if (!selectedProject) return;
+    openCreateFromCapture({
+      kind,
+      rawText: `Created from project command center (${selectedProject.name})`,
+      title: '',
+      project: selectedProject.name,
+      projectId: selectedProject.id,
+      owner: selectedProject.owner,
+      assigneeDisplayName: selectedProject.owner,
+      priority: 'Medium',
+      confidence: 1,
+      cleanupReasons: [],
+      contextNote: `Origin: Projects workspace (${selectedProject.name}).`,
+    });
+  };
+
+  const openBulkFlow = (flow: NonNullable<typeof bulkFlow>) => {
+    setBulkFlow(flow);
+    setBulkWarnings([]);
+    setBulkBlockers([]);
+    setBulkResult(null);
+    setBulkSkipped(0);
+    const selectedCount = flow.startsWith('followup') ? selectedFollowUpIds.length : selectedTaskIds.length;
+    setBulkAffected(selectedCount);
+    if (flow.includes('snooze')) setBulkDate(addDaysIso(todayIso(), 2).slice(0, 10));
+  };
+
+  const applyBulkFlow = () => {
+    if (!bulkFlow) return;
+    if (bulkFlow.startsWith('followup')) {
+      if (bulkFlow === 'followup_close') {
+        const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete' });
+        setBulkWarnings(result.warnings);
+        setBulkAffected(result.affected);
+        setBulkSkipped(result.skipped);
+        setBulkResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Closed ${result.affected} follow-up(s), skipped ${result.skipped}.` });
+        return;
+      }
+      if (bulkFlow === 'followup_escalate') {
+        batchUpdateFollowUps(selectedFollowUpIds, { escalationLevel: 'Critical' }, 'Bulk escalated from project center');
+        setBulkResult({ tone: 'success', message: `Escalated ${selectedFollowUpIds.length} follow-up(s).` });
+        return;
+      }
+      if (!bulkDate) {
+        setBulkBlockers(['Snooze requires a target date.']);
+        return;
+      }
+      batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: new Date(`${bulkDate}T00:00:00`).toISOString() }, `Bulk snoozed to ${bulkDate} from project center`);
+      setBulkResult({ tone: 'success', message: `Snoozed ${selectedFollowUpIds.length} follow-up(s).` });
+      return;
+    }
+    if (bulkFlow === 'task_close') {
+      selectedTaskIds.forEach((id) => updateTask(id, { status: 'Done' }));
+      setBulkResult({ tone: 'success', message: `Closed ${selectedTaskIds.length} task(s).` });
+      return;
+    }
+    if (bulkFlow === 'task_escalate') {
+      selectedTaskIds.forEach((id) => updateTask(id, { status: 'Blocked' }));
+      setBulkResult({ tone: 'success', message: `Escalated ${selectedTaskIds.length} task(s) to Blocked.` });
+      return;
+    }
+    if (!bulkDate) {
+      setBulkBlockers(['Snooze requires a target date.']);
+      return;
+    }
+    const iso = new Date(`${bulkDate}T00:00:00`).toISOString();
+    selectedTaskIds.forEach((id) => updateTask(id, { deferredUntil: iso, status: 'To do' }));
+    setBulkResult({ tone: 'success', message: `Deferred ${selectedTaskIds.length} task(s) until ${bulkDate}.` });
   };
 
   return (
@@ -174,6 +258,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <p className="inspector-meta">Pressure and health context for this project. Route execution-heavy work into Follow Ups or Tasks.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button onClick={() => openCreateFlow('followup')} className="action-btn">Create follow-up</button>
+                  <button onClick={() => openCreateFlow('task')} className="action-btn">Create task</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn">Open task lane</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
@@ -232,9 +318,9 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                     ))}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'Closed', actionState: 'Complete' }, 'Bulk closed from project center')} className="action-btn">Bulk close</button>
-                    <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { escalationLevel: 'Critical' }, 'Bulk escalated from project center')} className="action-btn">Bulk escalate</button>
-                    <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: addDaysIso(todayIso(), 2) }, 'Bulk snoozed +2 days from project center')} className="action-btn">Bulk snooze</button>
+                    <button onClick={() => openBulkFlow('followup_close')} className="action-btn">Bulk close</button>
+                    <button onClick={() => openBulkFlow('followup_escalate')} className="action-btn">Bulk escalate</button>
+                    <button onClick={() => openBulkFlow('followup_snooze')} className="action-btn">Bulk snooze</button>
                   </div>
                 </div>
 
@@ -248,9 +334,9 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                     ))}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => selectedTaskIds.forEach((id) => updateTask(id, { status: 'Done' }))} className="action-btn">Bulk close</button>
-                    <button onClick={() => selectedTaskIds.forEach((id) => updateTask(id, { status: 'Blocked' }))} className="action-btn">Bulk escalate</button>
-                    <button onClick={() => selectedTaskIds.forEach((id) => updateTask(id, { deferredUntil: addDaysIso(todayIso(), 2), status: 'To do' }))} className="action-btn">Bulk snooze</button>
+                    <button onClick={() => openBulkFlow('task_close')} className="action-btn">Bulk close</button>
+                    <button onClick={() => openBulkFlow('task_escalate')} className="action-btn">Bulk escalate</button>
+                    <button onClick={() => openBulkFlow('task_snooze')} className="action-btn">Bulk snooze</button>
                   </div>
                 </div>
               </div>
@@ -275,12 +361,49 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               <div className="rounded-2xl border border-rose-200 p-4">
                 <div className="mb-2 text-sm font-semibold text-rose-700">Archive / delete project</div>
                 <button onClick={() => { setDeleteFlowOpen((prev) => !prev); setDeleteTargetProjectId(projects.find((project) => project.name === 'General')?.id || ''); }} className="action-btn action-btn-danger">{deleteFlowOpen ? 'Hide delete workflow' : 'Open safe delete workflow'}</button>
-                {deleteFlowOpen ? <div className="mt-3 space-y-2 text-sm"><div>Impacted records: {selectedRow.openFollowUps.length} follow-ups, {selectedRow.openTasks.length} tasks, {selectedRow.intakeDocs.length} docs.</div><select value={deleteTargetProjectId} onChange={(e) => setDeleteTargetProjectId(e.target.value)} className="field-input">{projects.filter((project) => project.id !== selectedProject.id).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><div className="flex flex-wrap gap-2"><button onClick={() => reassignProjectRecords(selectedProject.id, deleteTargetProjectId, ['followups', 'tasks', 'docs'])} className="action-btn">Reassign child records</button><button onClick={() => deleteProject(selectedProject.id, deleteTargetProjectId)} className="action-btn action-btn-danger">Confirm delete</button></div></div> : null}
+                {deleteFlowOpen ? <div className="mt-3 space-y-2 text-sm"><div>Impacted records: {selectedRow.openFollowUps.length} follow-ups, {selectedRow.openTasks.length} tasks, {selectedRow.intakeDocs.length} docs.</div><select value={deleteTargetProjectId} onChange={(e) => setDeleteTargetProjectId(e.target.value)} className="field-input">{projects.filter((project) => project.id !== selectedProject.id).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><div className="flex flex-wrap gap-2"><button onClick={() => { reassignProjectRecords(selectedProject.id, deleteTargetProjectId, ['followups', 'tasks', 'docs']); setDeleteWarnings([`Reassigned child records from ${selectedProject.name} to ${projects.find((project) => project.id === deleteTargetProjectId)?.name || 'target project'}.`]); setDeleteResult({ tone: 'success', message: 'Child records reassigned.' }); }} className="action-btn">Reassign child records</button><button onClick={() => { if (!deleteTargetProjectId) { setDeleteWarnings(['Select a reassignment target before deleting.']); return; } deleteProject(selectedProject.id, deleteTargetProjectId); setDeleteResult({ tone: 'warn', message: `Deleted ${selectedProject.name} and reassigned linked records.` }); }} className="action-btn action-btn-danger">Confirm delete</button></div></div> : null}
               </div>
             </>
           ) : null}
         </div>
       </div>
+      <StructuredActionFlow
+        open={!!bulkFlow}
+        title={bulkFlow?.startsWith('followup') ? 'Project follow-up bulk action' : 'Project task bulk action'}
+        subtitle="Use structured review for high-impact project-wide actions."
+        onCancel={() => setBulkFlow(null)}
+        onConfirm={applyBulkFlow}
+        confirmLabel="Apply action"
+        warnings={bulkWarnings}
+        blockers={bulkBlockers}
+        result={bulkResult}
+      >
+        <BatchSummarySection selected={bulkFlow?.startsWith('followup') ? selectedFollowUpIds.length : selectedTaskIds.length} affected={bulkAffected} skipped={bulkSkipped} />
+        {bulkFlow?.includes('snooze') ? <DateSection label="Snooze until" value={bulkDate} onChange={setBulkDate} /> : null}
+      </StructuredActionFlow>
+      <StructuredActionFlow
+        open={deleteFlowOpen}
+        title="Project delete / reassign workflow"
+        subtitle="High-risk workflow: review impacted records and reassignment target."
+        onCancel={() => setDeleteFlowOpen(false)}
+        onConfirm={() => {
+          if (!selectedProject || !deleteTargetProjectId) {
+            setDeleteWarnings(['Pick a reassignment target before running delete.']);
+            return;
+          }
+          deleteProject(selectedProject.id, deleteTargetProjectId);
+          setDeleteResult({ tone: 'warn', message: `Deleted ${selectedProject.name} after reassignment.` });
+          setDeleteFlowOpen(false);
+        }}
+        confirmLabel="Delete project safely"
+        warnings={deleteWarnings}
+        blockers={!deleteTargetProjectId ? ['Reassignment target is required.'] : []}
+        result={deleteResult}
+      >
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          Impacted records: {selectedRow?.openFollowUps.length ?? 0} follow-ups, {selectedRow?.openTasks.length ?? 0} tasks, {selectedRow?.intakeDocs.length ?? 0} docs.
+        </div>
+      </StructuredActionFlow>
     </AppShellCard>
   );
 }

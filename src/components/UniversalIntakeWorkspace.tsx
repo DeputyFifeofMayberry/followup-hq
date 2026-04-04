@@ -28,6 +28,7 @@ import { buildIntakeTuningInsights, toneFromReadiness } from '../lib/intakeTunin
 import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
 import type { WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
+import { StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
   ready_to_approve: 'Ready now',
@@ -92,6 +93,9 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
   const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; decision: 'approve_task' | 'approve_followup' } | null>(null);
   const [lastHandoff, setLastHandoff] = useState<{ target: 'followups' | 'tasks'; recordId?: string; label: string } | null>(null);
+  const [decisionFlow, setDecisionFlow] = useState<null | 'approve_task' | 'approve_followup' | 'link' | 'reference' | 'reject'>(null);
+  const [decisionWarnings, setDecisionWarnings] = useState<string[]>([]);
+  const [decisionResult, setDecisionResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { openExecutionLane } = useExecutionQueueViewModel();
 
@@ -193,6 +197,32 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
   const updateCandidateField = <K extends keyof IntakeWorkCandidate>(key: K, value: IntakeWorkCandidate[K]) => {
     if (!selectedCandidate) return;
     updateIntakeWorkCandidate(selectedCandidate.id, { [key]: value } as Partial<IntakeWorkCandidate>);
+  };
+
+  const openDecisionFlow = (decision: NonNullable<typeof decisionFlow>) => {
+    setDecisionFlow(decision);
+    setDecisionWarnings([]);
+    setDecisionResult(null);
+  };
+
+  const applyDecisionFlow = () => {
+    if (!selectedCandidate || !decisionFlow) return;
+    if (decisionFlow === 'approve_task' || decisionFlow === 'approve_followup') {
+      requestCreateApproval(selectedCandidate, decisionFlow);
+      setDecisionResult({ tone: 'success', message: `Applied ${decisionFlow === 'approve_task' ? 'task' : 'follow-up'} approval decision.` });
+      return;
+    }
+    if (decisionFlow === 'link') {
+      if (!selectedCandidate.existingRecordMatches[0]) {
+        setDecisionWarnings(['No existing match available to link.']);
+        return;
+      }
+      applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id);
+      setDecisionResult({ tone: 'success', message: 'Linked to best existing record.' });
+      return;
+    }
+    applyAndNext(selectedCandidate, decisionFlow);
+    setDecisionResult({ tone: decisionFlow === 'reject' ? 'warn' : 'success', message: `Applied ${decisionFlow} decision.` });
   };
 
   const renderFieldMeta = (key: IntakeFieldReview['key']) => {
@@ -359,11 +389,11 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
               <div className="rounded-xl border border-slate-200 p-3">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Decision area</div>
                 <div className="flex flex-wrap gap-2">
-                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => requestCreateApproval(selectedCandidate, 'approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => requestCreateApproval(selectedCandidate, 'approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
-                  <button className={selectedQueueItem.readiness === 'needs_link_decision' && selectedCandidate.existingRecordMatches[0] ? 'primary-btn' : 'action-btn'} onClick={() => selectedCandidate.existingRecordMatches[0] ? applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id) : undefined} disabled={!selectedCandidate.existingRecordMatches[0]}><Link2 className="h-4 w-4" /> Link best match</button>
-                  <button className={selectedQueueItem.readiness === 'reference_likely' ? 'primary-btn' : 'action-btn'} onClick={() => applyAndNext(selectedCandidate, 'reference')}><Save className="h-4 w-4" /> Save reference</button>
-                  <button className="action-btn action-btn-danger" onClick={() => applyAndNext(selectedCandidate, 'reject')}><XCircle className="h-4 w-4" /> Reject</button>
+                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
+                  <button className={selectedQueueItem.readiness === 'needs_link_decision' && selectedCandidate.existingRecordMatches[0] ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('link')} disabled={!selectedCandidate.existingRecordMatches[0]}><Link2 className="h-4 w-4" /> Link best match</button>
+                  <button className={selectedQueueItem.readiness === 'reference_likely' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('reference')}><Save className="h-4 w-4" /> Save reference</button>
+                  <button className="action-btn action-btn-danger" onClick={() => openDecisionFlow('reject')}><XCircle className="h-4 w-4" /> Reject</button>
                 </div>
                 <div className="mt-2 text-xs text-slate-600">Keyboard: [A] follow-up, [T] task, [L] link top match, [S] reference, [R] reject, [N] next.</div>
               </div>
@@ -543,6 +573,21 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
         </div>
         <div className="mt-2 text-xs text-slate-600">Linked records available: {items.length} follow-ups • {tasks.length} tasks • Batches: {intakeBatches.length}.</div>
       </div>
+      <StructuredActionFlow
+        open={!!decisionFlow}
+        title="Intake decision review"
+        subtitle="Use shared decision handling before creating, linking, or rejecting."
+        onCancel={() => setDecisionFlow(null)}
+        onConfirm={applyDecisionFlow}
+        confirmLabel="Apply decision"
+        warnings={decisionWarnings}
+        blockers={decisionFlow === 'link' && !selectedCandidate?.existingRecordMatches[0] ? ['Link requires an existing record match.'] : []}
+        result={decisionResult}
+      >
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          Decision: {decisionFlow?.replace('_', ' ')}. Candidate: {selectedCandidate?.title || 'No candidate selected'}.
+        </div>
+      </StructuredActionFlow>
     </div>
   );
 }

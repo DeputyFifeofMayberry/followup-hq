@@ -11,8 +11,9 @@ import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
 
-const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
+const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'linkedTaskSummary', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction', 'promisedDate']);
+const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
   const { items, contacts, companies, selectedId, tasks, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
@@ -70,33 +71,38 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
       ...dynamic,
       {
         id: 'quickActions',
-        header: 'Quick actions',
+        header: 'Actions & edits',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex gap-1 tracker-cell-inline-edit">
-            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => {
-              event.stopPropagation();
-              if (row.original.status === 'Closed') {
-                updateItem(row.original.id, { status: 'Needs action' });
-                return;
-              }
-              const note = window.prompt('Close follow-up note (required unless override):', row.original.completionNote || '');
-              const baseValidation = validateFollowUpTransition({ record: row.original, from: row.original.status, to: 'Closed', patch: { status: 'Closed', completionNote: note || undefined }, context: { tasks } });
-              if (!baseValidation.allowed && baseValidation.overrideAllowed) {
-                const proceed = window.confirm(`${baseValidation.blockers.join(' ')}\nClose parent anyway with override?`);
-                if (!proceed) return;
-                attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
-                return;
-              }
-              if (!baseValidation.allowed) {
-                window.alert(baseValidation.blockers.join(' '));
-                return;
-              }
-              const result = attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
-              if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
-            }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
-            <input aria-label={`Next touch date for ${row.original.title}`} className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
+          <div className="tracker-action-tools tracker-cell-inline-edit">
+            <div className="tracker-action-buttons">
+              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => {
+                event.stopPropagation();
+                if (row.original.status === 'Closed') {
+                  updateItem(row.original.id, { status: 'Needs action' });
+                  return;
+                }
+                const note = window.prompt('Close follow-up note (required unless override):', row.original.completionNote || '');
+                const baseValidation = validateFollowUpTransition({ record: row.original, from: row.original.status, to: 'Closed', patch: { status: 'Closed', completionNote: note || undefined }, context: { tasks } });
+                if (!baseValidation.allowed && baseValidation.overrideAllowed) {
+                  const proceed = window.confirm(`${baseValidation.blockers.join(' ')}\nClose parent anyway with override?`);
+                  if (!proceed) return;
+                  attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
+                  return;
+                }
+                if (!baseValidation.allowed) {
+                  window.alert(baseValidation.blockers.join(' '));
+                  return;
+                }
+                const result = attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
+                if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
+              }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
+            </div>
+            <label className="tracker-action-date">
+              <span>Next touch</span>
+              <input aria-label={`Next touch date for ${row.original.title}`} className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
+            </label>
           </div>
         ),
       },
@@ -116,6 +122,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
                   <th key={header.id} scope="col" className={[
                     'tracker-head-cell',
                     header.id === 'title' ? 'tracker-head-cell-identity' : '',
+                    TIMING_COLUMNS.has(header.id) ? 'tracker-head-cell-timing' : '',
                     SUPPORT_COLUMNS.has(header.id) ? 'tracker-head-cell-support' : '',
                     header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
                   ].filter(Boolean).join(' ')} aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
@@ -151,6 +158,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
                     <td key={cell.id} className={[
                       'tracker-cell',
                       cell.column.id === 'title' ? 'tracker-cell-identity' : '',
+                      TIMING_COLUMNS.has(cell.column.id) ? 'tracker-cell-timing' : '',
                       SUPPORT_COLUMNS.has(cell.column.id) ? 'tracker-cell-support' : '',
                       cell.column.id === 'quickActions' ? 'row-action-cell' : '',
                     ].filter(Boolean).join(' ')}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>

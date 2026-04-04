@@ -81,8 +81,19 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
 
   return (
     <div className="workspace-control-stack followup-control-stack">
+      <WorkspaceToolbarRow className="followup-primary-head">
+        <div>
+          <h2 className="followup-primary-title">Follow Ups workspace</h2>
+          <p className="followup-primary-subtitle">Scan queue first, then apply quick updates and batch actions.</p>
+        </div>
+        <button onClick={openCreateModal} className="action-btn">
+          <Plus className="h-4 w-4" />
+          Add follow-up
+        </button>
+      </WorkspaceToolbarRow>
+
       <FilterBar>
-        <div className="followup-chip-row">
+        <div className="followup-chip-row followup-chip-strip">
           {chips.map(({ key, label, count, icon: Icon }) => (
             <button key={key} onClick={() => setActiveView(key)} className={activeView === key ? 'followup-chip followup-chip-active' : 'followup-chip'}>
               {Icon ? <Icon className="h-4 w-4" /> : null}
@@ -116,12 +127,14 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         <select value={activeView} onChange={(event) => setActiveView(event.target.value as SavedViewKey)} className="field-input">
           {ALL_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
         </select>
+        <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
+          <option value="All">All statuses</option><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+        </select>
+        <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">
+          {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
+        </select>
         <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
         <button className="action-btn" onClick={resetFollowUpFilters}>Reset filters</button>
-        <button onClick={openCreateModal} className="action-btn">
-          <Plus className="h-4 w-4" />
-          Add follow-up
-        </button>
       </WorkspaceToolbarRow>
 
       {advancedOpen ? (
@@ -129,15 +142,12 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
           <select value={followUpFilters.project} onChange={(event) => setFollowUpFilters({ project: event.target.value })} className="field-input">
             {projects.map((project) => <option key={project} value={project}>{project}</option>)}
           </select>
-          <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
-            <option value="All">All statuses</option><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
-          </select>
-          <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
           <select value={followUpFilters.assignee} onChange={(event) => setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
           <select value={followUpFilters.priority} onChange={(event) => setFollowUpFilters({ priority: event.target.value as typeof followUpFilters.priority })} className="field-input"><option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
           <select value={followUpFilters.escalation} onChange={(event) => setFollowUpFilters({ escalation: event.target.value as typeof followUpFilters.escalation })} className="field-input"><option value="All">All escalation</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option></select>
           <select value={followUpFilters.linkedTaskState} onChange={(event) => setFollowUpFilters({ linkedTaskState: event.target.value as typeof followUpFilters.linkedTaskState })} className="field-input"><option value="all">All linked task states</option><option value="blocked_child">Blocked child</option><option value="overdue_child">Overdue child</option><option value="all_children_done">All children done</option><option value="has_open_children">Has open children</option><option value="none">No linked tasks</option></select>
-          <div className="followup-saved-views-row">
+          <div className="followup-saved-views-row followup-secondary-utility">
+            <span className="followup-secondary-label">Saved views</span>
             <input value={customViewName} onChange={(event) => setCustomViewName(event.target.value)} className="field-input" placeholder="View name" />
             <button className="action-btn" onClick={() => { if (!customViewName.trim()) return; saveFollowUpCustomView(customViewName.trim(), search); setCustomViewName(''); }}>Save view</button>
             {savedFollowUpViews.map((view) => <button key={view.id} className="action-btn" onClick={() => applySavedFollowUpCustomView(view.id)}>{view.name}</button>)}

@@ -715,7 +715,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   activeView: 'All',
   followUpFilters: defaultFollowUpFilters,
   selectedFollowUpIds: [],
-  followUpColumns: ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'],
+  followUpColumns: ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'assignee', 'nextAction'],
   savedFollowUpViews: [],
   itemModal: { open: false, mode: 'create', itemId: null },
   touchModalOpen: false,
@@ -792,7 +792,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const followUpFilters = payload.auxiliary.followUpFilters ?? defaultFollowUpFilters;
       const followUpColumns = payload.auxiliary.followUpColumns?.length
         ? payload.auxiliary.followUpColumns
-        : (['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'] as FollowUpColumnKey[]);
+        : (['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'assignee', 'nextAction'] as FollowUpColumnKey[]);
       const savedFollowUpViews = payload.auxiliary.savedFollowUpViews ?? [];
       set({
         items,

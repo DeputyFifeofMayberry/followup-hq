@@ -1600,8 +1600,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
         if (patch.title !== undefined && patch.title !== candidate.title) editKeys.push('title');
         if (patch.project !== undefined && patch.project !== candidate.project) editKeys.push('project');
         if (patch.owner !== undefined && patch.owner !== candidate.owner) editKeys.push('owner');
+        if (patch.assignee !== undefined && patch.assignee !== candidate.assignee) editKeys.push('assignee');
         if (patch.dueDate !== undefined && patch.dueDate !== candidate.dueDate) editKeys.push('dueDate');
+        if (patch.priority !== undefined && patch.priority !== candidate.priority) editKeys.push('priority');
+        if (patch.waitingOn !== undefined && patch.waitingOn !== candidate.waitingOn) editKeys.push('waitingOn');
         if (patch.nextStep !== undefined && patch.nextStep !== candidate.nextStep) editKeys.push('nextStep');
+        if (patch.summary !== undefined && patch.summary !== candidate.summary) editKeys.push('summary');
+        if (patch.candidateType !== undefined && patch.candidateType !== candidate.candidateType) editKeys.push('type');
         const nextEdits = [...new Set([...(candidate.reviewEdits ?? []), ...editKeys])] as IntakeWorkCandidate['reviewEdits'];
         return { ...candidate, ...patch, reviewEdits: nextEdits, updatedAt: todayIso() };
       }),

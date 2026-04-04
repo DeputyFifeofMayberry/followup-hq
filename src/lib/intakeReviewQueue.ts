@@ -31,6 +31,8 @@ export interface IntakeQueueItem {
   batchExclusionReasons: string[];
   alerts: IntakeReviewerAlert[];
   sortDate: string;
+  readiness: 'ready_to_approve' | 'ready_after_correction' | 'needs_link_decision' | 'reference_likely' | 'unsafe_to_create';
+  priorityScore: number;
 }
 
 export interface IntakeQueueFilters {
@@ -55,6 +57,14 @@ const SCORE_BY_BUCKET: Record<IntakeReviewBucket, number> = {
   finalized_history: 0,
 };
 
+function readinessToPriority(readiness: IntakeQueueItem['readiness']): number {
+  if (readiness === 'unsafe_to_create') return 120;
+  if (readiness === 'needs_link_decision') return 110;
+  if (readiness === 'ready_after_correction') return 90;
+  if (readiness === 'ready_to_approve') return 70;
+  return 50;
+}
+
 function confidenceTier(score: number): IntakeConfidenceTier {
   if (score >= 0.9) return 'high';
   if (score >= 0.7) return 'medium';
@@ -73,6 +83,7 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
     const duplicateRisk = safety.duplicateRiskLevel !== 'low';
     const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only' || safety.recommendedDecision === 'save_reference';
     const status = candidate.approvalStatus === 'pending' ? 'pending' : 'finalized';
+    const hasCriticalBlockers = safety.blockers.length > 0 || conflictingEvidence;
 
     const alerts: IntakeReviewerAlert[] = [];
     if (!candidate.dueDate) alerts.push({ code: 'missing_due_date', label: 'Missing due date', tone: 'warn' });
@@ -92,15 +103,35 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       && asset?.parseQuality !== 'weak'
       && asset?.parseQuality !== 'failed';
 
-    const bucket: IntakeReviewBucket = status === 'finalized'
-      ? 'finalized_history'
+    const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
+      ? 'ready_to_approve'
       : likelyReference
         ? 'reference_likely'
-        : duplicateRisk
+        : hasCriticalBlockers
+          ? 'unsafe_to_create'
+          : duplicateRisk
+            ? 'needs_link_decision'
+            : missingCriticalFields > 0 || candidate.confidence < 0.75 || asset?.parseQuality === 'weak' || asset?.parseQuality === 'failed'
+              ? 'ready_after_correction'
+              : 'ready_to_approve';
+
+    const bucket: IntakeReviewBucket = status === 'finalized'
+      ? 'finalized_history'
+      : readiness === 'reference_likely'
+        ? 'reference_likely'
+        : readiness === 'needs_link_decision'
           ? 'link_duplicate_review'
-          : conflictingEvidence || missingCriticalFields > 0 || candidate.confidence < 0.7
+          : readiness === 'ready_after_correction' || readiness === 'unsafe_to_create'
             ? 'needs_correction'
             : 'ready_to_approve';
+
+    const priorityScore = (status === 'pending' ? 1000 : 0)
+      + readinessToPriority(readiness)
+      + (missingCriticalFields * 6)
+      + (conflictingEvidence ? 12 : 0)
+      + (duplicateRisk ? 10 : 0)
+      + (asset?.parseQuality === 'failed' ? 10 : asset?.parseQuality === 'weak' ? 6 : 0)
+      + Math.round((1 - candidate.confidence) * 10);
 
     return {
       id: candidate.id,
@@ -121,6 +152,8 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       batchExclusionReasons: safety.batchExclusionReasons,
       alerts,
       sortDate: candidate.updatedAt || candidate.createdAt,
+      readiness,
+      priorityScore,
     };
   });
 }
@@ -134,6 +167,7 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
     const conflictingEvidence = candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning));
     const likelyReference = candidate.suggestedType === 'reference';
     const status = candidate.status === 'pending' ? 'pending' : 'finalized';
+    const hasCriticalBlockers = safety.blockers.length > 0 || conflictingEvidence;
 
     const alerts: IntakeReviewerAlert[] = [];
     if (!candidate.parsedProject) alerts.push({ code: 'missing_project', label: 'Missing project', tone: 'warn' });
@@ -151,15 +185,35 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       && !likelyReference
       && missingCriticalFields === 0;
 
-    const bucket: IntakeReviewBucket = status === 'finalized'
-      ? 'finalized_history'
+    const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
+      ? 'ready_to_approve'
       : likelyReference
         ? 'reference_likely'
-        : duplicateRisk
+        : hasCriticalBlockers
+          ? 'unsafe_to_create'
+          : duplicateRisk
+            ? 'needs_link_decision'
+            : missingCriticalFields > 0 || candidate.parseQuality !== 'strong'
+              ? 'ready_after_correction'
+              : 'ready_to_approve';
+
+    const bucket: IntakeReviewBucket = status === 'finalized'
+      ? 'finalized_history'
+      : readiness === 'reference_likely'
+        ? 'reference_likely'
+        : readiness === 'needs_link_decision'
           ? 'link_duplicate_review'
-          : conflictingEvidence || missingCriticalFields > 0 || candidate.parseQuality !== 'strong'
+          : readiness === 'ready_after_correction' || readiness === 'unsafe_to_create'
             ? 'needs_correction'
             : 'ready_to_approve';
+
+    const priorityScore = (status === 'pending' ? 1000 : 0)
+      + readinessToPriority(readiness)
+      + (missingCriticalFields * 6)
+      + (conflictingEvidence ? 12 : 0)
+      + (duplicateRisk ? 10 : 0)
+      + (candidate.parseQuality === 'weak' ? 6 : 0)
+      + Math.round((1 - candidate.confidence) * 10);
 
     return {
       id: candidate.id,
@@ -179,6 +233,8 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       batchExclusionReasons: safety.batchExclusionReasons,
       alerts,
       sortDate: candidate.updatedAt || candidate.createdAt,
+      readiness,
+      priorityScore,
     };
   });
 }
@@ -201,6 +257,7 @@ export function filterReviewQueue(queue: IntakeQueueItem[], filters: IntakeQueue
 export function sortReviewQueue(queue: IntakeQueueItem[], sort: IntakeReviewSort): IntakeQueueItem[] {
   return [...queue].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+    if (a.priorityScore !== b.priorityScore) return b.priorityScore - a.priorityScore;
     if (a.bucket !== b.bucket) return SCORE_BY_BUCKET[b.bucket] - SCORE_BY_BUCKET[a.bucket];
 
     if (sort === 'highest_confidence') return b.confidence - a.confidence;

@@ -16,6 +16,7 @@ import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode } from '../types';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import type { WorkspaceKey } from '../lib/appModeConfig';
+import { StructuredActionFlow } from './actions/StructuredActionFlow';
 
 export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
@@ -34,6 +35,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     mergeContacts,
     mergeCompanies,
     projects,
+    openCreateFromCapture,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -50,6 +52,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     mergeContacts: s.mergeContacts,
     mergeCompanies: s.mergeCompanies,
     projects: s.projects,
+    openCreateFromCapture: s.openCreateFromCapture,
   })));
   const { openExecutionLane } = useExecutionQueueViewModel();
 
@@ -63,6 +66,10 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEntityType, setSelectedEntityType] = useState<'contact' | 'company'>('contact');
+  const [relationshipFlow, setRelationshipFlow] = useState<null | 'watch' | 'log_touch' | 'delete_contact' | 'delete_company' | 'reassign_contact' | 'reassign_company' | 'merge_contact' | 'merge_company'>(null);
+  const [relationshipTargetId, setRelationshipTargetId] = useState('');
+  const [relationshipWarnings, setRelationshipWarnings] = useState<string[]>([]);
+  const [relationshipResult, setRelationshipResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
   const ownerSummary = useMemo(() => buildOwnerSummary(items, tasks), [items, tasks]);
   const relationshipRows = useMemo(() => buildRelationshipSummaries(items, tasks, contacts, companies), [items, tasks, contacts, companies]);
@@ -102,6 +109,60 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     tasks: tasks.filter((task) => selected.entityType === 'contact' ? task.contactId === selected.id : task.companyId === selected.id).length,
     contacts: selected.entityType === 'company' ? contacts.filter((contact) => contact.companyId === selected.id).length : 0,
   } : { followUps: 0, tasks: 0, contacts: 0 };
+
+  const openCreateWorkFromRelationship = (kind: 'followup' | 'task') => {
+    if (!selected) return;
+    openCreateFromCapture({
+      kind,
+      rawText: `Created from relationship board (${selected.name})`,
+      title: '',
+      project: selectedProjects[0]?.name,
+      projectId: selectedProjects[0]?.id,
+      owner: selected.internalOwner || (selected.entityType === 'contact' ? selectedContact?.internalOwner : selectedCompany?.internalOwner) || 'Unassigned',
+      assigneeDisplayName: selected.internalOwner || 'Unassigned',
+      priority: selected.riskTier === 'Critical' ? 'Critical' : selected.riskTier === 'High' ? 'High' : 'Medium',
+      contactId: selected.entityType === 'contact' ? selected.id : undefined,
+      companyId: selected.entityType === 'company' ? selected.id : selectedContact?.companyId,
+      confidence: 1,
+      cleanupReasons: [],
+      contextNote: `Origin: Relationship board (${selected.entityType}:${selected.name}).`,
+    });
+  };
+
+  const runRelationshipFlow = () => {
+    if (!selected) return;
+    if (relationshipFlow === 'watch') {
+      selected.entityType === 'contact' ? updateContact(selected.id, { relationshipStatus: 'Watch' }) : updateCompany(selected.id, { relationshipStatus: 'Watch' });
+      setRelationshipResult({ tone: 'warn', message: `${selected.name} moved to Watch.` });
+      return;
+    }
+    if (relationshipFlow === 'log_touch') {
+      selected.entityType === 'contact'
+        ? updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() })
+        : updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() });
+      setRelationshipResult({ tone: 'success', message: `Logged interaction for ${selected.name}.` });
+      return;
+    }
+    if (relationshipFlow === 'delete_contact' && selectedContact) {
+      deleteContact(selectedContact.id);
+      setRelationshipResult({ tone: 'warn', message: `Deleted ${selectedContact.name} with safe unlinking.` });
+      return;
+    }
+    if (relationshipFlow === 'delete_company' && selectedCompany) {
+      deleteCompany(selectedCompany.id);
+      setRelationshipResult({ tone: 'warn', message: `Deleted ${selectedCompany.name} with safe unlinking.` });
+      return;
+    }
+    if (!relationshipTargetId) {
+      setRelationshipWarnings(['Select a target relationship first.']);
+      return;
+    }
+    if (relationshipFlow === 'reassign_contact' && selectedContact) reassignContactLinks(selectedContact.id, relationshipTargetId);
+    if (relationshipFlow === 'reassign_company' && selectedCompany) reassignCompanyLinks(selectedCompany.id, relationshipTargetId);
+    if (relationshipFlow === 'merge_contact' && selectedContact) mergeContacts(relationshipTargetId, selectedContact.id);
+    if (relationshipFlow === 'merge_company' && selectedCompany) mergeCompanies(relationshipTargetId, selectedCompany.id);
+    setRelationshipResult({ tone: 'success', message: 'Relationship operation completed.' });
+  };
 
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
@@ -236,12 +297,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
+                  <button onClick={() => openCreateWorkFromRelationship('followup')} className="action-btn !px-2.5 !py-1.5 text-xs">Add follow-up</button>
+                  <button onClick={() => openCreateWorkFromRelationship('task')} className="action-btn !px-2.5 !py-1.5 text-xs">Add task</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minOverduePressure: 1 }))} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue</button>
-                  <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { relationshipStatus: 'Watch' }) : updateCompany(selected.id, { relationshipStatus: 'Watch' }))} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
-                  <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() }) : updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() }))} className="action-btn">Log interaction</button>
+                  <button onClick={() => { setRelationshipFlow('watch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
+                  <button onClick={() => { setRelationshipFlow('log_touch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn">Log interaction</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, section: 'triage', intentLabel: `next touch ${selected.name}` }); setWorkspace('followups'); }} className="action-btn">Route next touch</button>
                 </div>
               </div>
@@ -296,12 +359,9 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                     <select value={selectedContact.riskTier || 'Low'} onChange={(e) => updateContact(selectedContact.id, { riskTier: e.target.value as typeof selectedContact.riskTier })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <select defaultValue="" onChange={(e) => { if (!e.target.value) return; reassignContactLinks(selectedContact.id, e.target.value); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <select defaultValue="" onChange={(e) => { if (!e.target.value) return; mergeContacts(e.target.value, selectedContact.id); }} className="field-input max-w-xs"><option value="">Merge into…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <button onClick={() => {
-                      if (!window.confirm(`Delete ${selectedContact.name}? This will unlink ${linkedCounts.followUps} follow-ups and ${linkedCounts.tasks} tasks.`)) return;
-                      deleteContact(selectedContact.id);
-                    }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
+                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                    <button onClick={() => { setRelationshipFlow('delete_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
                   </div>
                 </div>
               ) : null}
@@ -318,12 +378,9 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                     <textarea value={selectedCompany.escalationNotes || ''} onChange={(e) => updateCompany(selectedCompany.id, { escalationNotes: e.target.value })} placeholder="Escalation notes" className="field-textarea" />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <select defaultValue="" onChange={(e) => { if (!e.target.value) return; reassignCompanyLinks(selectedCompany.id, e.target.value); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <select defaultValue="" onChange={(e) => { if (!e.target.value) return; mergeCompanies(e.target.value, selectedCompany.id); }} className="field-input max-w-xs"><option value="">Merge into…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <button onClick={() => {
-                      if (!window.confirm(`Delete ${selectedCompany.name}? This will unlink ${linkedCounts.followUps} follow-ups, ${linkedCounts.tasks} tasks, and ${linkedCounts.contacts} contacts.`)) return;
-                      deleteCompany(selectedCompany.id);
-                    }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
+                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                    <button onClick={() => { setRelationshipFlow('delete_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
                   </div>
                 </div>
               ) : null}
@@ -338,6 +395,21 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
           </div>
         </div>
       </div>
+      <StructuredActionFlow
+        open={!!relationshipFlow}
+        title="Relationship action review"
+        subtitle="Use one consistent flow for high-risk relationship actions."
+        onCancel={() => setRelationshipFlow(null)}
+        onConfirm={runRelationshipFlow}
+        confirmLabel="Apply action"
+        warnings={relationshipWarnings}
+        blockers={(relationshipFlow?.includes('reassign') || relationshipFlow?.includes('merge')) && !relationshipTargetId ? ['Select a reassignment/merge target first.'] : []}
+        result={relationshipResult}
+      >
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          Linked impact: {linkedCounts.followUps} follow-ups, {linkedCounts.tasks} tasks{selected?.entityType === 'company' ? `, ${linkedCounts.contacts} contacts` : ''}.
+        </div>
+      </StructuredActionFlow>
     </AppShellCard>
   );
 }

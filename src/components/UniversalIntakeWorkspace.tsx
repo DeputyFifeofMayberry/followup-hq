@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, SkipForward, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, SkipForward, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Badge } from './Badge';
 import { getAllowedIntakeActions } from '../lib/intakeLifecycle';
 import type { IntakeCandidateType, IntakeWorkCandidate } from '../types';
 import {
   buildCandidateMatchCompareRows,
+  buildReviewerActionHints,
   buildWorkCandidateFieldReviews,
   describeMatch,
-  getActionableReviewFields,
-  getFieldReviewerHint,
-  getTopFieldReason,
   summarizeFieldReviews,
   type IntakeFieldReview,
 } from '../lib/intakeEvidence';
@@ -30,21 +28,21 @@ import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
   ready_to_approve: 'Ready now',
-  needs_correction: 'Fix fields',
-  link_duplicate_review: 'Link / duplicate',
+  needs_correction: 'Needs correction',
+  link_duplicate_review: 'Needs link decision',
   reference_likely: 'Reference likely',
   finalized_history: 'Finalized',
 };
 
 const readinessCopy = {
-  ready_to_approve: { tone: 'success' as const, title: 'Ready to create', body: 'Critical fields look safe and duplicate risk is low.' },
-  ready_after_correction: { tone: 'warn' as const, title: 'Ready after correction', body: 'Fix weak or missing fields, then approve.' },
-  needs_link_decision: { tone: 'danger' as const, title: 'Needs link decision', body: 'Strong match risk detected. Link existing before creating new.' },
-  reference_likely: { tone: 'neutral' as const, title: 'Reference likely', body: 'This looks informational. Save as reference unless work is clear.' },
-  unsafe_to_create: { tone: 'danger' as const, title: 'Unsafe to create new', body: 'Blockers detected. Use safer alternatives before override.' },
+  ready_to_approve: { tone: 'success' as const, title: 'Ready to create', body: 'Critical fields are strong and duplicate risk is low.' },
+  ready_after_correction: { tone: 'warn' as const, title: 'Ready after correction', body: 'Fix weak fields first, then approve.' },
+  needs_link_decision: { tone: 'danger' as const, title: 'Needs link decision', body: 'A likely duplicate exists. Link existing before creating new.' },
+  reference_likely: { tone: 'neutral' as const, title: 'Reference likely', body: 'This appears informational. Save as reference unless clear new work exists.' },
+  unsafe_to_create: { tone: 'danger' as const, title: 'Unsafe to create', body: 'Blockers exist. Resolve issues or choose safer alternatives.' },
 };
 
-const statusTone: Record<IntakeFieldReview['status'], string> = {
+const statusTone: Record<IntakeFieldReview['status'], 'success' | 'warn' | 'danger' | 'blue' | 'neutral'> = {
   strong: 'success',
   medium: 'blue',
   weak: 'warn',
@@ -102,21 +100,25 @@ export function UniversalIntakeWorkspace() {
   }), [intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
   const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
   const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
+
   const filteredQueue = useMemo(() => {
     const base = filterReviewQueue(queue, queueFilters);
     const bucketed = activeBucket === 'all' ? base : base.filter((item) => item.bucket === activeBucket);
     return sortReviewQueue(bucketed, sortKey);
-  }, [queue, queueFilters, activeBucket, sortKey]);
+  }, [activeBucket, queue, queueFilters, sortKey]);
 
   const pendingQueue = useMemo(() => filteredQueue.filter((entry) => entry.status === 'pending'), [filteredQueue]);
   const pendingQueueIds = useMemo(() => pendingQueue.map((entry) => entry.id), [pendingQueue]);
+
   const selectedCandidate = intakeWorkCandidates.find((entry) => entry.id === activeCandidateId && pendingQueueIds.includes(entry.id))
     ?? intakeWorkCandidates.find((entry) => entry.id === pendingQueueIds[0])
     ?? null;
   const selectedQueueItem = pendingQueue.find((entry) => entry.id === selectedCandidate?.id);
-  const selectedCandidateFieldSummary = useMemo(() => selectedCandidate ? summarizeFieldReviews(buildWorkCandidateFieldReviews(selectedCandidate)) : null, [selectedCandidate]);
-  const selectedAsset = intakeAssets.find((entry) => entry.id === selectedCandidate?.assetId);
+  const selectedFieldSummary = useMemo(() => selectedCandidate ? summarizeFieldReviews(buildWorkCandidateFieldReviews(selectedCandidate)) : null, [selectedCandidate]);
   const selectedSafety = selectedCandidate ? evaluateIntakeImportSafety(selectedCandidate) : null;
+  const selectedAsset = intakeAssets.find((entry) => entry.id === selectedCandidate?.assetId);
+  const actionHints = useMemo(() => selectedFieldSummary ? buildReviewerActionHints(selectedFieldSummary) : [], [selectedFieldSummary]);
+  const fieldLookup = useMemo(() => new Map((selectedFieldSummary?.priorityReviewFields ?? []).map((field) => [field.key, field])), [selectedFieldSummary]);
 
   const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => {
     const currentIds = pendingQueueIds;
@@ -134,13 +136,6 @@ export function UniversalIntakeWorkspace() {
     }
     setGuardedApproval({ candidateId: candidate.id, decision });
   }, [applyAndNext]);
-
-  const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
-    if (!list?.length) return;
-    setLoading(true);
-    await ingestIntakeFiles(Array.from(list), source);
-    setLoading(false);
-  };
 
   useEffect(() => {
     if (!selectedCandidate && pendingQueueIds[0]) setActiveCandidateId(pendingQueueIds[0]);
@@ -163,7 +158,14 @@ export function UniversalIntakeWorkspace() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pendingQueueIds, selectedCandidate, applyAndNext, requestCreateApproval]);
+  }, [applyAndNext, pendingQueueIds, requestCreateApproval, selectedCandidate]);
+
+  const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
+    if (!list?.length) return;
+    setLoading(true);
+    await ingestIntakeFiles(Array.from(list), source);
+    setLoading(false);
+  };
 
   const queuePosition = selectedCandidate ? pendingQueueIds.findIndex((id) => id === selectedCandidate.id) + 1 : 0;
 
@@ -172,22 +174,29 @@ export function UniversalIntakeWorkspace() {
     updateIntakeWorkCandidate(selectedCandidate.id, { [key]: value } as Partial<IntakeWorkCandidate>);
   };
 
+  const renderFieldMeta = (key: IntakeFieldReview['key']) => {
+    const field = fieldLookup.get(key);
+    if (!field) return null;
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+        <Badge variant={statusTone[field.status]}>{field.status}</Badge>
+        <span className="text-slate-600">{field.reasons[0] || 'Needs verification.'}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div
         className={`rounded-2xl border-2 border-dashed p-5 transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50'}`}
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragging(false);
-          void onFiles(event.dataTransfer.files, 'drop');
-        }}
+        onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-base font-semibold text-slate-900">Universal Intake Review Workbench</div>
-            <div className="text-sm text-slate-600">Fix weak fields, verify evidence, compare matches, decide safely, and move to next.</div>
+            <div className="text-sm text-slate-600">Queue by risk, correct weak fields inline, verify matches, then decide and move to next.</div>
           </div>
           <div className="flex gap-2">
             <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Choose files</button>
@@ -230,13 +239,14 @@ export function UniversalIntakeWorkspace() {
             <label className="inline-flex items-center gap-1"><input type="checkbox" checked={queueFilters.duplicateRisk === 'only'} onChange={(e) => setQueueFilters((f) => ({ ...f, duplicateRisk: e.target.checked ? 'only' : 'all' }))} />Duplicate risk only</label>
           </div>
 
-          <div className="max-h-[640px] space-y-2 overflow-auto pr-1">
-            {pendingQueue.map((queueEntry) => {
+          <div className="max-h-[700px] space-y-2 overflow-auto pr-1">
+            {pendingQueue.map((queueEntry, idx) => {
               const candidate = intakeWorkCandidates.find((entry) => entry.id === queueEntry.id);
               if (!candidate) return null;
               const selected = selectedCandidate?.id === candidate.id;
               return (
                 <button key={candidate.id} className={`w-full rounded-xl border p-2 text-left ${selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white'}`} onClick={() => setActiveCandidateId(candidate.id)}>
+                  <div className="flex items-center justify-between gap-2 text-xs text-slate-500"><span>#{idx + 1}</span><span>{queueEntry.nextStepHint}</span></div>
                   <div className="truncate text-sm font-medium text-slate-900">{candidate.title || '(untitled candidate)'}</div>
                   <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
                     <Badge variant={readinessCopy[queueEntry.readiness].tone}>{readinessCopy[queueEntry.readiness].title}</Badge>
@@ -252,12 +262,12 @@ export function UniversalIntakeWorkspace() {
         </section>
 
         <section className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-3">
-          {!selectedCandidate || !selectedCandidateFieldSummary || !selectedQueueItem || !selectedSafety ? <div className="text-sm text-slate-500">Select a queue candidate to start correction.</div> : (
+          {!selectedCandidate || !selectedQueueItem || !selectedSafety ? <div className="text-sm text-slate-500">Select a queue candidate to start correction.</div> : (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">Candidate correction workspace</div>
-                  <div className="text-xs text-slate-500">Reviewing {queuePosition} of {pendingQueueIds.length}. {readinessCopy[selectedQueueItem.readiness].body}</div>
+                  <div className="text-xs text-slate-500">Reviewing {queuePosition} of {pendingQueueIds.length}. {selectedQueueItem.nextStepHint}</div>
                 </div>
                 <button className="action-btn" onClick={() => {
                   const idx = pendingQueueIds.findIndex((entry) => entry === selectedCandidate.id);
@@ -266,9 +276,9 @@ export function UniversalIntakeWorkspace() {
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-                <div className="font-semibold">Reviewer readiness</div>
-                <div className="mt-1">{readinessCopy[selectedQueueItem.readiness].title} — {readinessCopy[selectedQueueItem.readiness].body}</div>
-                {selectedSafety.blockers[0] ? <div className="mt-1 text-rose-700">{selectedSafety.blockers[0]}</div> : null}
+                <div className="font-semibold">Review readiness</div>
+                <div className="mt-1"><Badge variant={readinessCopy[selectedQueueItem.readiness].tone}>{readinessCopy[selectedQueueItem.readiness].title}</Badge> <span className="ml-1">{readinessCopy[selectedQueueItem.readiness].body}</span></div>
+                {selectedSafety.blockers[0] ? <div className="mt-2 rounded-md bg-rose-100 px-2 py-1 text-rose-800">{selectedSafety.blockers[0]}</div> : null}
               </div>
 
               <div className="rounded-xl border border-slate-200 p-3">
@@ -278,12 +288,17 @@ export function UniversalIntakeWorkspace() {
                     <select className="field-input" value={selectedCandidate.candidateType} onChange={(event) => updateCandidateField('candidateType', event.target.value as IntakeCandidateType)}>
                       <option value="followup">followup</option><option value="task">task</option><option value="reference">reference</option><option value="update_existing_followup">update existing followup</option><option value="update_existing_task">update existing task</option>
                     </select>
+                    {renderFieldMeta('type')}
                   </label>
-                  <label className="field-block"><span className="field-label">Due date</span><input className="field-input" value={selectedCandidate.dueDate || ''} placeholder="YYYY-MM-DD" onChange={(event) => updateCandidateField('dueDate', event.target.value)} /></label>
-                  <label className="field-block sm:col-span-2"><span className="field-label">Title</span><input className="field-input" value={selectedCandidate.title || ''} onChange={(event) => updateCandidateField('title', event.target.value)} /></label>
-                  <label className="field-block"><span className="field-label">Project</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateCandidateField('project', event.target.value)} /></label>
-                  <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateCandidateField('owner', event.target.value)} /></label>
+                  <label className="field-block"><span className="field-label">Due date</span><input className="field-input" value={selectedCandidate.dueDate || ''} placeholder="YYYY-MM-DD" onChange={(event) => updateCandidateField('dueDate', event.target.value)} />{renderFieldMeta('dueDate')}</label>
+                  <label className="field-block sm:col-span-2"><span className="field-label">Title</span><input className="field-input" value={selectedCandidate.title || ''} onChange={(event) => updateCandidateField('title', event.target.value)} />{renderFieldMeta('title')}</label>
+                  <label className="field-block"><span className="field-label">Project</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateCandidateField('project', event.target.value)} />{renderFieldMeta('project')}</label>
+                  <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateCandidateField('owner', event.target.value)} />{renderFieldMeta('owner')}</label>
                   <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={selectedCandidate.assignee || ''} onChange={(event) => updateCandidateField('assignee', event.target.value)} /></label>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:col-span-2 text-xs">
+                    <div className="font-semibold text-slate-700">Existing link recommendation</div>
+                    <div className="mt-1 text-slate-600">{selectedCandidate.existingRecordMatches[0] ? describeMatch(selectedCandidate.existingRecordMatches[0]) : 'No strong match detected.'}</div>
+                  </div>
                 </div>
               </div>
 
@@ -297,7 +312,7 @@ export function UniversalIntakeWorkspace() {
                   </label>
                   <label className="field-block"><span className="field-label">Waiting on</span><input className="field-input" value={selectedCandidate.waitingOn || ''} onChange={(event) => updateCandidateField('waitingOn', event.target.value)} /></label>
                   <label className="field-block sm:col-span-2"><span className="field-label">Next step / next action</span><input className="field-input" value={selectedCandidate.nextStep || ''} onChange={(event) => updateCandidateField('nextStep', event.target.value)} /></label>
-                  <label className="field-block sm:col-span-2"><span className="field-label">Summary</span><textarea className="field-textarea !min-h-[100px]" value={selectedCandidate.summary || ''} onChange={(event) => updateCandidateField('summary', event.target.value)} /></label>
+                  <label className="field-block sm:col-span-2"><span className="field-label">Summary</span><textarea className="field-textarea !min-h-[90px]" value={selectedCandidate.summary || ''} onChange={(event) => updateCandidateField('summary', event.target.value)} /></label>
                 </div>
               </div>
 
@@ -315,7 +330,7 @@ export function UniversalIntakeWorkspace() {
 
               {guardedApproval?.candidateId === selectedCandidate.id ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs">
-                  <div className="font-semibold text-rose-700">Override required before creating new work</div>
+                  <div className="font-semibold text-rose-700"><AlertTriangle className="mr-1 inline h-4 w-4" /> Override required before creating new work</div>
                   <div className="mt-1 text-rose-700">{[...selectedSafety.blockers, ...selectedSafety.warnings].slice(0, 2).join(' ') || 'Use safer alternatives first.'}</div>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {selectedCandidate.existingRecordMatches[0] ? <button className="action-btn" onClick={() => { setGuardedApproval(null); applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id); }}><Link2 className="h-3 w-3" /> Link best match</button> : null}
@@ -330,42 +345,42 @@ export function UniversalIntakeWorkspace() {
         </section>
 
         <section className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-3">
-          {!selectedCandidate || !selectedCandidateFieldSummary || !selectedSafety || !selectedQueueItem ? <div className="text-sm text-slate-500">Evidence and match inspector appears when a candidate is active.</div> : (
+          {!selectedCandidate || !selectedFieldSummary || !selectedSafety || !selectedQueueItem ? <div className="text-sm text-slate-500">Evidence and match inspector appears when a candidate is active.</div> : (
             <div className="space-y-3">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Evidence + match inspector</div>
-                <div className="text-xs text-slate-500">Use this pane to understand why a field is weak and what to do next.</div>
+                <div className="text-xs text-slate-500">Understand what is weak, why it was inferred, and what action is safest.</div>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs">
                 <div className="font-semibold text-slate-700">Field actions needed</div>
-                <div className="mt-2 space-y-2 max-h-[260px] overflow-auto pr-1">
-                  {getActionableReviewFields(selectedCandidateFieldSummary).slice(0, 8).map((field) => (
-                    <div key={field.key} className="rounded-lg border border-slate-200 bg-white p-2">
+                <div className="mt-2 space-y-2 max-h-[270px] overflow-auto pr-1">
+                  {actionHints.map((hint) => (
+                    <div key={hint.field.key} className={`rounded-lg border p-2 ${hint.isBlocker ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-slate-800">{field.label}</span>
-                        <Badge variant={statusTone[field.status] as 'success' | 'warn' | 'danger' | 'blue' | 'neutral'}>{field.status}</Badge>
+                        <span className="font-semibold text-slate-800">{hint.field.label}{hint.isBlocker ? ' (critical)' : ''}</span>
+                        <Badge variant={statusTone[hint.field.status]}>{hint.field.status}</Badge>
                       </div>
-                      <div className="mt-1 text-slate-700">{field.value || 'Missing value'}</div>
-                      <div className="mt-1 text-slate-500">Why: {getTopFieldReason(field)}</div>
-                      <div className="mt-1 text-sky-700">Next: {getFieldReviewerHint(field)}</div>
-                      {field.sourceRefs[0] ? <div className="mt-1 text-[11px] text-slate-500">Source: {field.sourceRefs[0].sourceRef}{field.sourceRefs[0].locator ? ` (${field.sourceRefs[0].locator})` : ''}</div> : null}
+                      <div className="mt-1 text-slate-700">{hint.field.value || 'Missing value'}</div>
+                      <div className="mt-1 text-slate-600">Why: {hint.reason}</div>
+                      <div className="mt-1 text-sky-700">Next: {hint.nextStep}</div>
+                      {hint.field.sourceRefs[0] ? <div className="mt-1 text-[11px] text-slate-500">Source: {hint.field.sourceRefs[0].sourceRef}{hint.field.sourceRefs[0].locator ? ` (${hint.field.sourceRefs[0].locator})` : ''}</div> : null}
                     </div>
                   ))}
-                  {getActionableReviewFields(selectedCandidateFieldSummary).length === 0 ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">No weak/missing/conflicting fields. Candidate appears ready.</div> : null}
+                  {actionHints.length === 0 ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">No weak/missing/conflicting fields. Candidate appears ready.</div> : null}
                 </div>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs">
                 <div className="font-semibold text-slate-700">Link vs create guidance</div>
-                <div className="mt-1 text-slate-600">{selectedQueueItem.readiness === 'needs_link_decision' ? 'Duplicate risk is elevated. Linking existing record is the safer default.' : 'Create new is allowed only when blockers are clear and match risk is low.'}</div>
+                <div className="mt-1 text-slate-600">{selectedQueueItem.readiness === 'needs_link_decision' ? 'Duplicate risk is elevated. Linking existing is the safer default.' : 'Create new only after blockers and high-risk mismatches are resolved.'}</div>
                 {selectedCandidate.existingRecordMatches.slice(0, 3).map((match, idx) => {
                   const compareRows = buildCandidateMatchCompareRows(selectedCandidate, match);
                   return (
-                    <div key={match.id} className={`mt-2 rounded-lg border p-2 ${idx === 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                    <div key={match.id} className={`mt-2 rounded-lg border p-2 ${idx === 0 ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-semibold text-slate-800">{match.recordType}: {match.title}</div>
-                        <button className="action-btn" onClick={() => applyAndNext(selectedCandidate, 'link', match.id)}><Link2 className="h-3 w-3" /> Link existing</button>
+                        <button className={idx === 0 ? 'primary-btn' : 'action-btn'} onClick={() => applyAndNext(selectedCandidate, 'link', match.id)}><Link2 className="h-3 w-3" /> Link{idx === 0 ? ' best match' : ' existing'}</button>
                       </div>
                       <div className="mt-1 text-slate-600">{describeMatch(match)}</div>
                       <div className="mt-2 grid grid-cols-3 gap-1 text-[11px]">

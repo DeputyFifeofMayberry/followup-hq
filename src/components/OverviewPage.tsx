@@ -210,6 +210,16 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
         </div>
       </AppShellCard>
 
+      <AppShellCard surface="muted">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Create work</div>
+            <div className="text-xs text-slate-600">Use <strong>Quick Add / Capture</strong> above as the default way to add follow-ups and tasks. Use structured forms only when you need detailed manual entry.</div>
+          </div>
+          <div className="text-xs text-slate-500">High-confidence captures add now. Lower-confidence captures go to review.</div>
+        </div>
+      </AppShellCard>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_360px]">
         <AppShellCard className="overview-main-panel" surface="data">
           <FilterBar>
@@ -280,7 +290,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           ) : null}
 
           <div className="overview-priority-list overview-priority-list-premium">
-            {!queue.length ? <EmptyState title="No work in this queue" message="Switch presets or create a task/follow-up." /> : (
+            {!queue.length ? <EmptyState title="No work in this queue" message="Switch presets or use Quick Add / Capture to create new work." /> : (
               pagedQueue.map((row) => {
                 const active = row.id === selectedId;
                 const checked = selectedRows.includes(row.id);

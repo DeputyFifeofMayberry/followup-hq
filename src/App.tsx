@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Plus, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
@@ -402,6 +402,10 @@ function MainApp() {
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
+  const openQuickAdd = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('followuphq:open-quick-add', { detail: { focus: true, expand: true } }));
+  }, []);
+
   const commands = [
     { label: 'New follow-up', run: () => openCreateModal() },
     { label: 'New task', run: () => openCreateTaskModal() },
@@ -485,7 +489,7 @@ function MainApp() {
               <div className="workspace-header-actions">
                 {currentMeta.actions.map((action) => (
                   <button key={action.label} type="button" onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
-                    {action.primary ? <Plus className="h-4 w-4" /> : null}
+                    {action.primary ? <Sparkles className="h-4 w-4" /> : null}
                     {action.label}
                   </button>
                 ))}

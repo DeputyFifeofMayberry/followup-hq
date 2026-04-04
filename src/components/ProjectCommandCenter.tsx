@@ -227,9 +227,10 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
               </div>
 
               <div className="project-action-groups">
-                <button onClick={createProjectFollowUp} className="action-btn"><FileText className="h-4 w-4" />New follow-up</button>
-                <button onClick={createProjectTask} className="action-btn"><Plus className="h-4 w-4" />New task</button>
-                <button onClick={createProjectDoc} className="action-btn"><FolderOpen className="h-4 w-4" />Add intake doc</button>
+                <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project context actions</div>
+                <button onClick={createProjectFollowUp} className="action-btn !px-2.5 !py-1.5 text-xs"><FileText className="h-4 w-4" />Add project-scoped follow-up</button>
+                <button onClick={createProjectTask} className="action-btn !px-2.5 !py-1.5 text-xs"><Plus className="h-4 w-4" />Add project-scoped task</button>
+                <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
                 <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Blocked work</button>
                 <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Overdue work</button>
                 <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Waiting work</button>

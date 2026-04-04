@@ -2,6 +2,14 @@
 
 ## 2026-04-04
 
+
+### Deficiency 3 Phase 2: store composition and domain slice ownership
+- Converted `useAppStore` from a giant implementation file into composition/bootstrap wiring that assembles dedicated slices for follow-ups, tasks, projects/intake docs, relationships, intake workflows, forwarding workflows, Outlook workflows, execution view controls, UI state, and initialization/meta concerns (`src/store/useAppStore.ts`, `src/store/slices/*.ts`).
+- Introduced explicit internal store composition types and slice plumbing so internal ownership is clearer (`src/store/types.ts`, `src/store/slices/types.ts`).
+- Added shared mutation effect helpers to centralize repeated post-mutation recomputation chains (project derivation, project attachment, task rollups, duplicate refresh), reducing ad hoc side-effect duplication across actions (`src/store/useCases/mutationEffects.ts`).
+- Preserved one public `useAppStore` API and existing persistence payload/bootstrapping behavior while moving domain mutation implementations into slice modules for safer future boundary hardening.
+
+
 ### Deficiency 3 Phase 1: architecture seam creation and stabilization
 - Established first-pass domain seams with new domain helper/type modules for follow-ups, tasks, projects, relationships, intake, and outlook so pure business transformations are no longer buried exclusively in the monolithic store (`src/domains/followups/helpers.ts`, `src/domains/tasks/helpers.ts`, `src/domains/projects/helpers.ts`, `src/domains/relationships/helpers.ts`, `src/domains/shared/audit.ts`, `src/domains/*/types.ts`).
 - Refactored `useAppStore` toward composition by extracting core pure helpers (normalization, task rollups, project derivation/attachment, duplicate refresh support, audit/reviewer builders, persisted payload shaping) into dedicated modules and introducing explicit initial-state groupings for business/ui/meta boundaries (`src/store/useAppStore.ts`, `src/store/state/initialState.ts`, `src/store/state/types.ts`, `src/store/state/persistence.ts`).

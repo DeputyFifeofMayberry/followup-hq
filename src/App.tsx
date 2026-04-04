@@ -18,7 +18,7 @@ import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
 import { getModeConfig, getWorkspaceOrder, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
-import { buildCommandPaletteConfig, filterCommands } from './lib/commandPaletteConfig';
+import { buildCommandPaletteConfig, buildGlobalRecordSearchIndex, filterCommands, type AppCommandGroup } from './lib/commandPaletteConfig';
 import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
@@ -240,13 +240,19 @@ function MainApp() {
       setSelectedId: s.setSelectedId,
     })),
   );
-  const { openCreateModal, openCreateTaskModal, items, tasks, selectedId } = useAppStore(
+  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
+      openRecordDrawer: s.openRecordDrawer,
+      openExecutionLane: s.openExecutionLane,
       items: s.items,
       tasks: s.tasks,
+      projects: s.projects,
+      contacts: s.contacts,
+      companies: s.companies,
       selectedId: s.selectedId,
+      selectedTaskId: s.selectedTaskId,
     })),
   );
 
@@ -357,8 +363,30 @@ function MainApp() {
     openCreateModal,
     openCreateTaskModal,
     setWorkspace,
-  }), [modeConfig.workspaceMeta, openCreateModal, openCreateTaskModal, orderedWorkspaces]);
+    openRecordDrawer,
+    openProjectContext: (projectName: string) => {
+      openExecutionLane('followups', { project: projectName, source: 'projects', intentLabel: `project context ${projectName}` });
+      setProjectFilter(projectName);
+      setWorkspace('followups');
+    },
+    openSelectedInDrawer: () => {
+      if (selectedTaskId) {
+        openRecordDrawer({ type: 'task', id: selectedTaskId });
+        return;
+      }
+      if (selectedId) {
+        openRecordDrawer({ type: 'followup', id: selectedId });
+      }
+    },
+    recordIndex: buildGlobalRecordSearchIndex({ items, tasks, projects, contacts, companies }),
+  }), [modeConfig.workspaceMeta, openCreateModal, openCreateTaskModal, orderedWorkspaces, openRecordDrawer, openExecutionLane, setProjectFilter, selectedTaskId, selectedId, items, tasks, projects, contacts, companies]);
   const visibleCommands = useMemo(() => filterCommands(commands, commandQuery), [commands, commandQuery]);
+  const groupedVisibleCommands = useMemo(() => {
+    const groups: AppCommandGroup[] = ['Create', 'Navigation', 'Records', 'Workspaces'];
+    return groups
+      .map((group) => ({ group, commands: visibleCommands.filter((command) => command.group === group) }))
+      .filter((entry) => entry.commands.length > 0);
+  }, [visibleCommands]);
 
   const currentMeta = modeConfig.workspaceMeta[workspace];
   const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });
@@ -467,13 +495,38 @@ function MainApp() {
                   ref={commandSearchRef}
                   className="field-input search-field-input"
                   type="search"
-                  placeholder="Type command or workspace"
+                  placeholder="Type command, workspace, or record"
                   value={commandQuery}
                   onChange={(event) => setCommandQuery(event.target.value)}
                 />
               </div>
             </label>
-            <div className="space-y-2">{visibleCommands.length ? visibleCommands.map((command) => <button type="button" key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}</div>
+            <div className="space-y-3">
+              {groupedVisibleCommands.length ? groupedVisibleCommands.map((grouped) => (
+                <section key={grouped.group} className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{grouped.group}</div>
+                  <div className="space-y-2">
+                    {grouped.commands.map((command) => (
+                      <button
+                        type="button"
+                        key={command.id}
+                        className="saved-view-card w-full justify-between"
+                        onClick={() => {
+                          command.run();
+                          setShowCommand(false);
+                        }}
+                      >
+                        <span className="text-left">
+                          <span>{command.label}</span>
+                          {command.subtitle ? <span className="block text-xs text-slate-500">{command.subtitle}</span> : null}
+                        </span>
+                        <Search className="h-4 w-4" />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}
+            </div>
               </AppModalBody>
             </div>
           </AppModal>

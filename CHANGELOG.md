@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 1 Phase 4: global record search + expanded command palette navigation
+- Added a typed global in-memory record search index that reuses shared record descriptors (`toRecordDescriptor`) across follow-ups, tasks, projects, contacts, and companies, plus lightweight linked-reference hints for command-driven record jumps (`src/lib/commandPaletteConfig.ts`, `src/lib/recordContext.ts`).
+- Expanded command palette coverage from create/workspace only into a grouped command system (Create, Navigation, Records, Workspaces) with direct record open, linked-record jump commands, project context open commands, and “open selected item in universal drawer” behavior while keeping existing workspace/open-create actions intact (`src/lib/commandPaletteConfig.ts`, `src/App.tsx`).
+- Upgraded command matching from simple substring checks to ranked matching with exact/starts-with/token-aware scoring and record/context-aware search text so object navigation is faster and more relevant (`src/lib/commandPaletteConfig.ts`).
+- Updated command palette rendering to show grouped result sections and contextual subtitles so users can quickly distinguish record type/context before opening (`src/App.tsx`).
+
 ### Deficiency 1 Phase 3: relationship-aware actions + parent/child rollups
 - Added shared child-work rollup helpers that centralize linked-task counts, blocked/overdue/ready signals, and explicit readiness explanations so follow-up readiness messaging is derived consistently in one place (`src/lib/childWorkRollups.ts`, `src/domains/tasks/helpers.ts`, `src/lib/workflowPolicy.ts`).
 - Extended follow-up and task detail experiences with relationship-aware operations (create child task from parent, link/unlink existing task-child relationships, open parent from child, open child from parent) while preserving existing creation/edit flows (`src/components/ItemDetailPanel.tsx`, `src/components/TaskWorkspace.tsx`).

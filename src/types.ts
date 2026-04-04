@@ -330,7 +330,7 @@ export interface IntakeWorkCandidate {
   approvalStatus: IntakeCandidateDecision;
   createdRecordId?: string;
   linkedRecordId?: string;
-  reviewEdits?: Array<'title' | 'project' | 'owner' | 'dueDate' | 'nextStep'>;
+  reviewEdits?: Array<'type' | 'title' | 'project' | 'owner' | 'assignee' | 'dueDate' | 'priority' | 'waitingOn' | 'nextStep' | 'summary' | 'linking_decision'>;
   sourceAssetIds?: string[];
   intent?: 'new_work' | 'update' | 'reference';
   createdAt: string;
@@ -344,7 +344,18 @@ export type IntakeReviewerFeedbackDecision =
   | 'saved_reference'
   | 'rejected';
 
-export type IntakeReviewerFeedbackField = 'type' | 'project' | 'owner' | 'dueDate' | 'title' | 'nextStep' | 'linking_decision';
+export type IntakeReviewerFeedbackField =
+  | 'type'
+  | 'project'
+  | 'owner'
+  | 'assignee'
+  | 'dueDate'
+  | 'title'
+  | 'priority'
+  | 'waitingOn'
+  | 'nextStep'
+  | 'summary'
+  | 'linking_decision';
 
 export interface IntakeReviewerFeedback {
   id: string;

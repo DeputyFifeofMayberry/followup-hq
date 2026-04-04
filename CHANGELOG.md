@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 2 Phase 2: intake review correction workbench
+- Reframed the Universal Intake workspace into a reviewer-first three-zone flow (prioritized review queue, guided candidate correction form, and evidence/match/safety inspector) so reviewers can correct weak fields and make decisions faster in one pass (`src/components/UniversalIntakeWorkspace.tsx`).
+- Added explicit review-readiness and operational priority shaping in intake queue construction (`ready to approve`, `ready after correction`, `needs link decision`, `reference likely`, `unsafe to create`) to better prioritize correction, duplicate handling, and quick wins (`src/lib/intakeReviewQueue.ts`).
+- Expanded field-review helpers with actionable reviewer hints, top reasons, and candidate-vs-existing compare rows so the UI can answer “why weak” and “what next” directly during correction (`src/lib/intakeEvidence.ts`).
+- Extended reviewer edit tracking to include type, assignee, priority, waiting on, and summary corrections so review decisions capture richer correction intent (`src/store/useAppStore.ts`, `src/types.ts`).
+
 ### Deficiency 2 Phase 1: trustworthy Quick Add foundation
 - Replaced the old heuristic-only Quick Add parsing path with a layered parser foundation in `src/lib/universalCapture.ts` (normalize input, explicit token extraction, known entity matching, kind/due/priority inference, title and next-step derivation, field-level evidence, and confidence calculation).
 - Added context-aware project/owner matching priority so explicit tokens win first, then active context, then known exact/fuzzy entity matches, then recent-entry fallback—with explicit field evidence showing where each choice came from.

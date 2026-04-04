@@ -40,6 +40,14 @@ export interface IntakeFieldReviewSummary {
   priorityReviewFields: IntakeFieldReview[];
 }
 
+export interface IntakeReviewCompareRow {
+  field: IntakeFieldReviewKey;
+  label: string;
+  candidateValue: string;
+  existingValue: string;
+  alignment: 'same' | 'different' | 'missing_candidate' | 'missing_existing';
+}
+
 export const HIGH_VALUE_REVIEW_FIELDS: IntakeFieldReviewKey[] = ['type', 'project', 'owner', 'dueDate', 'title', 'existingLink'];
 
 const FIELD_LABELS: Record<IntakeFieldReviewKey, string> = {
@@ -113,6 +121,51 @@ export function summarizeFieldReviews(fields: IntakeFieldReview[]): IntakeFieldR
   });
   summary.priorityReviewFields = fields.filter((field) => HIGH_VALUE_REVIEW_FIELDS.includes(field.key));
   return summary;
+}
+
+export function getActionableReviewFields(summary: IntakeFieldReviewSummary): IntakeFieldReview[] {
+  return [...summary.conflicting, ...summary.missing, ...summary.weak];
+}
+
+export function getFieldReviewerHint(field: IntakeFieldReview): string {
+  if (field.status === 'strong') return 'Looks safe. Confirm and keep moving.';
+  if (field.status === 'medium') return 'Reasonable signal. Confirm quickly before approving.';
+  if (field.status === 'conflicting') return 'Signals conflict. Pick one value and document your correction.';
+  if (field.status === 'missing') return `Missing ${field.label.toLowerCase()}. Add it before creating new work.`;
+  return `Weak ${field.label.toLowerCase()}. Strengthen with a clearer value or link to existing record.`;
+}
+
+export function getTopFieldReason(field: IntakeFieldReview): string {
+  return field.reasons[0] || field.evidenceSnippets[0] || `No strong evidence found for ${field.label.toLowerCase()}.`;
+}
+
+export function buildCandidateMatchCompareRows(candidate: IntakeWorkCandidate, match?: IntakeExistingMatch): IntakeReviewCompareRow[] {
+  if (!match) return [];
+  const candidateType = candidate.candidateType.replace('update_existing_', 'update ').replace('_', ' ');
+  const project = candidate.project || '';
+  const dueDate = candidate.dueDate || '';
+  const waitingOn = candidate.waitingOn || '';
+  const summary = candidate.summary || '';
+
+  const rows: Array<{ field: IntakeFieldReviewKey; label: string; candidateValue?: string; existingValue?: string }> = [
+    { field: 'type', label: 'Type', candidateValue: candidateType, existingValue: match.recordType },
+    { field: 'title', label: 'Title', candidateValue: candidate.title, existingValue: match.title },
+    { field: 'project', label: 'Project', candidateValue: project, existingValue: match.project },
+    { field: 'dueDate', label: 'Due date', candidateValue: dueDate, existingValue: match.matchedFields?.includes('dueDate') ? 'Likely aligned' : '' },
+    { field: 'waitingOn', label: 'Waiting on', candidateValue: waitingOn, existingValue: match.matchedFields?.includes('waitingOn') ? 'Likely aligned' : '' },
+    { field: 'summary', label: 'Summary', candidateValue: summary, existingValue: match.reason || '' },
+  ];
+
+  return rows.map((row) => {
+    const candidateValue = (row.candidateValue || '').trim();
+    const existingValue = (row.existingValue || '').trim();
+    let alignment: IntakeReviewCompareRow['alignment'] = 'different';
+    if (!candidateValue && !existingValue) alignment = 'same';
+    else if (!candidateValue) alignment = 'missing_candidate';
+    else if (!existingValue) alignment = 'missing_existing';
+    else if (candidateValue.toLowerCase() === existingValue.toLowerCase()) alignment = 'same';
+    return { field: row.field, label: row.label, candidateValue: candidateValue || '—', existingValue: existingValue || '—', alignment };
+  });
 }
 
 export function buildWorkCandidateFieldReviews(candidate: IntakeWorkCandidate): IntakeFieldReview[] {

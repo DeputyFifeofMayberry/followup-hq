@@ -26,7 +26,8 @@ import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
 import { getModeConfig, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
-import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill, WorkspacePage, WorkspacePrimaryLayout } from './components/ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalHeader, SectionHeader, SegmentedControl, StatTile, WorkspaceHeaderMetaPill, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceTopStack } from './components/ui/AppPrimitives';
+import { buildFollowUpCounts, selectFollowUpRows } from './lib/followUpSelectors';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -271,9 +272,36 @@ function OverviewWorkspace({
 }
 
 function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
+  const { items, contacts, companies, search, activeView, followUpFilters, tasks, openCreateModal } = useAppStore(
+    useShallow((s) => ({
+      items: s.items,
+      contacts: s.contacts,
+      companies: s.companies,
+      search: s.search,
+      activeView: s.activeView,
+      followUpFilters: s.followUpFilters,
+      tasks: s.tasks,
+      openCreateModal: s.openCreateModal,
+    })),
+  );
+  const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
+  const followUpStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
+  const openTaskCount = useMemo(() => tasks.filter((task) => task.status !== 'Done').length, [tasks]);
+
   return (
     <WorkspacePage>
-      <ControlBar />
+      <WorkspaceTopStack>
+        <WorkspaceSummaryStrip>
+          <SectionHeader title="Follow-up execution queue" subtitle={personalMode ? 'Daily follow-through, ownership, and closure in one lane.' : 'Team ownership, nudges, and closeout decisions in one lane.'} actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>} compact />
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <StatTile label="Visible follow-ups" value={followUpStats.total} helper="Current filtered queue" />
+            <StatTile label="Overdue" value={followUpStats.overdue} helper="Past due date" tone={followUpStats.overdue ? 'warn' : 'default'} />
+            <StatTile label="Needs nudge" value={followUpStats.needsNudge} helper="Touch timing drift" tone={followUpStats.needsNudge ? 'warn' : 'default'} />
+            <StatTile label="Open tasks" value={openTaskCount} helper="Cross-workspace pressure" />
+          </div>
+        </WorkspaceSummaryStrip>
+        <ControlBar compact />
+      </WorkspaceTopStack>
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <div className="space-y-5">
           <TrackerTable personalMode={personalMode} appMode={appMode} />

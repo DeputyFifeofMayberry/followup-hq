@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, ChevronDown, Clock3, ExternalLink, FilePlus2, Link2, PauseCircle, Send, SlidersHorizontal, UserRoundCog } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import type { AppMode, SavedViewKey, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -201,19 +201,22 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
 
   return (
     <WorkspacePage>
-      <WorkspaceSummaryStrip className="overview-hero-card">
-        <SectionHeader title="Daily execution queue" subtitle={modeConfig.overviewSubtitle} compact />
-        <div className="overview-stat-grid overview-stat-grid-compact">
-          <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
-          <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
-          <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
-        </div>
-        <div className="overview-flow-actions">
-          <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
-          <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
-          <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
-        </div>
-      </WorkspaceSummaryStrip>
+      <WorkspaceTopStack>
+        <WorkspaceSummaryStrip className="overview-hero-card">
+          <SectionHeader title="Daily execution queue" subtitle={modeConfig.overviewSubtitle} compact />
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
+            <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
+            <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
+          </div>
+          <WorkspaceToolbarRow>
+            <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
+            <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
+            <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
+            <span className="text-xs text-slate-500">Use presets and filters below to work the queue directly.</span>
+          </WorkspaceToolbarRow>
+        </WorkspaceSummaryStrip>
+      </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="360px">
         <AppShellCard className="overview-main-panel" surface="data">

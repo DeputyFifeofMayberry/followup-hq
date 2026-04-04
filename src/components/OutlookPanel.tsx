@@ -72,7 +72,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
     <AppShellCard className="space-y-4 outlook-command-surface" surface="command">
       <SectionHeader
         title="Email Intake"
-        subtitle="Recommended path: forward emails into intake, review what gets created, and keep routing predictable."
+        subtitle="Forwarded email uses the same Intake lifecycle: received, parsed, reviewed, and then imported, linked, referenced, or rejected."
         actions={
           <div className="flex flex-wrap gap-2 tonal-chip-panel">
             <Badge variant="success">Forwarding-first workflow</Badge>
@@ -83,7 +83,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         }
       />
         <div className="flex flex-wrap gap-2 tonal-chip-panel toolbar-row">
-          <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>Review Queue</button>
+          <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>Intake Review</button>
           <button className={`outlook-tab-btn ${activeTab === 'history' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
           <button className={`outlook-tab-btn ${activeTab === 'rules' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
           <button className={`outlook-tab-btn ${activeTab === 'settings' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
@@ -92,7 +92,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
         {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
         {activeTab === 'history' ? (
           <div className="surface-block text-sm text-slate-700">
-            Intake history is now represented by persistent batches and assets in the Universal Intake Workspace. Select any asset to inspect extracted text, evidence, parse status, and candidate outcomes.
+            Intake history lives in persistent batches and assets. Select any item to review source material, parse status, and final decision (Imported, Linked, Reference, or Rejected).
           </div>
         ) : null}
         {activeTab === 'rules' ? <ForwardingIntakeWorkspace /> : null}

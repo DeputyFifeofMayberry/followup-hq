@@ -15,9 +15,9 @@ const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
 
 const actionLabel: Record<ForwardedRuleAction, string> = {
   ignore: 'Ignore matching emails',
-  'review-task': 'Send to review as task',
-  'review-followup': 'Send to review as follow-up',
-  'review-reference': 'Send to review as reference',
+  'review-task': 'Send to Review as task',
+  'review-followup': 'Send to Review as follow-up',
+  'review-reference': 'Send to Review as reference',
   'allow-auto-task': 'Auto-create task',
   'allow-auto-followup': 'Auto-create follow-up',
   'block-auto-create': 'Block auto-create',
@@ -117,7 +117,7 @@ export function ForwardingIntakeWorkspace() {
         <h3 className="text-base font-semibold text-slate-900">Email intake (forwarding-first)</h3>
         <p className="mt-1 text-sm text-slate-600">
           Forward messages to <span className="font-semibold text-slate-900">{forwardingAddress}</span>. Each inbound email is parsed and safely routed to
-          a review queue before anything is created.
+          Intake Review before anything is created.
         </p>
         <div className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-white p-3"><span className="font-medium">Follow-ups</span> for active threads that need owner accountability.</div>
@@ -152,7 +152,7 @@ export function ForwardingIntakeWorkspace() {
               className="action-btn"
               onClick={() => pending.filter((candidate) => candidate.confidence >= 0.9).forEach((candidate) => approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType))}
             >
-              Batch approve high-confidence
+              Batch approve & import high-confidence
             </button>
             <Badge variant="warn">{pending.length} pending</Badge>
           </div>

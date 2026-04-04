@@ -2,6 +2,13 @@
 
 ## 2026-04-04
 
+### Deficiency 2 Phase 1: trustworthy Quick Add foundation
+- Replaced the old heuristic-only Quick Add parsing path with a layered parser foundation in `src/lib/universalCapture.ts` (normalize input, explicit token extraction, known entity matching, kind/due/priority inference, title and next-step derivation, field-level evidence, and confidence calculation).
+- Added context-aware project/owner matching priority so explicit tokens win first, then active context, then known exact/fuzzy entity matches, then recent-entry fallback—with explicit field evidence showing where each choice came from.
+- Expanded capture parse output to include field-level evidence (status, confidence, source, and reasons), parser notes, and normalized token output so downstream UI/review flows can explain parser decisions instead of only showing a single confidence score.
+- Tightened direct import gating in Quick Add by requiring strong title + kind confidence, safe ownership/project detection, and no conflicts before auto-import; otherwise capture routes to Intake Review with clearer warning language.
+- Updated Quick Add parse preview messaging and field trust UI to show evidence status (explicit/matched/contextual/inferred/missing) and stronger direct-import vs review-needed trust cues (`src/components/UniversalCapture.tsx`, `src/lib/intakeEvidence.ts`).
+
 ### Phase 3 single daily cockpit overhaul (execution-lane cohesion)
 - Reworked Follow Ups and Tasks into clearer sibling execution lanes with the same rhythm: compact summary strip, focused control row, queue-first list area, contextual state strip, and right-side inspector action depth (`src/App.tsx`, `src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`).
 - Reduced default control-surface density in both lanes by keeping search + top filters visible and moving lower-frequency filters/saved-view management behind `View options` progressive disclosure (`src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`).

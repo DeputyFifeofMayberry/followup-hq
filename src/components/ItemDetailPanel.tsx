@@ -10,6 +10,8 @@ import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 import { getLinkedTasksForFollowUp, getRelatedRecordBundle } from '../lib/recordContext';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
+import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
+import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 
 type DetailTab = 'overview' | 'actions' | 'notes' | 'activity';
 
@@ -84,6 +86,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const linkedTasks = getLinkedTasksForFollowUp(item.id, tasks);
   const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
   const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks);
+  const closeout = evaluateFollowUpCloseout(item, tasks);
   const doneLinkedTasks = childRollup.done;
   const blockedLinkedTasks = childRollup.blocked;
   const overdueLinkedTasks = childRollup.overdue;
@@ -157,6 +160,17 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 space-y-1 text-xs text-slate-600">{childRollup.explanations.map((reason) => <div key={reason}>• {reason}</div>)}</div><div className="mt-1 text-xs text-slate-500">Related records {relatedBundle.counts.relationships} · Activity events {relatedBundle.counts.timelineEvents}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
+            </div>
+            <div className="detail-card inspector-block">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Closeout readiness</div>
+              <div className="mt-2">
+                <CloseoutReadinessCard
+                  evaluation={closeout}
+                  onAddCompletionNote={() => setActiveAction('close')}
+                  onOpenTask={(taskId) => { setSelectedTaskId(taskId); openRecordDrawer({ type: 'task', id: taskId }); }}
+                  onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: item.id })}
+                />
+              </div>
             </div>
 
             <div className="detail-card detail-facts-grid inspector-block">

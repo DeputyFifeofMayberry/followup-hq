@@ -6,6 +6,8 @@ import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { getRelatedRecordBundle, type RecordDescriptor, type RecordType } from '../lib/recordContext';
 import { useAppStore } from '../store/useAppStore';
 import { EmptyState } from './ui/AppPrimitives';
+import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
+import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 
 const typeLabel: Record<RecordType, string> = {
   followup: 'Follow-up',
@@ -49,6 +51,12 @@ export function UniversalRecordDrawer() {
     const item = items.find((entry) => entry.id === recordDrawerRef.id);
     if (!item) return null;
     return buildFollowUpChildRollup(item.id, item.status, tasks);
+  }, [recordDrawerRef, items, tasks]);
+  const closeout = useMemo(() => {
+    if (!recordDrawerRef || recordDrawerRef.type !== 'followup') return null;
+    const item = items.find((entry) => entry.id === recordDrawerRef.id);
+    if (!item) return null;
+    return evaluateFollowUpCloseout(item, tasks);
   }, [recordDrawerRef, items, tasks]);
 
   const parentFollowUp = useMemo(() => {
@@ -122,6 +130,13 @@ export function UniversalRecordDrawer() {
                   <>
                     <div className="text-xs text-slate-600">{childRollup?.summaryLabel || 'No linked child tasks.'}</div>
                     {(childRollup?.explanations || []).map((reason) => <div key={reason} className="text-xs text-slate-600">• {reason}</div>)}
+                    {closeout ? (
+                      <CloseoutReadinessCard
+                        evaluation={closeout}
+                        onOpenTask={(taskId) => openRecordDrawer({ type: 'task', id: taskId })}
+                        onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: recordDrawerRef.id })}
+                      />
+                    ) : null}
                     {bundle.related.filter((entry) => entry.type === 'task').slice(0, 3).map((entry) => (
                       <button key={entry.id} onClick={() => openRecordDrawer({ type: 'task', id: entry.id })} className="record-drawer-link-row">
                         <div className="text-sm font-medium text-slate-900"><ArrowRight className="inline h-3.5 w-3.5" />Open child task</div>

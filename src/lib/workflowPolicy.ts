@@ -1,5 +1,6 @@
 import type { FollowUpItem, FollowUpStatus, TaskItem, TaskStatus } from '../types';
 import { buildFollowUpChildRollup } from './childWorkRollups';
+import { evaluateFollowUpCloseout } from './closeoutReadiness';
 
 export interface WorkflowValidationResult {
   allowed: boolean;
@@ -63,31 +64,19 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
 
   const tasks = context?.tasks ?? [];
   const childRollup = buildFollowUpChildRollup(record.id, record.status, tasks);
+  const closeout = to === 'Closed' ? evaluateFollowUpCloseout(record, tasks, patch) : null;
 
   if (to === 'Closed') {
-    const closureNote = (patch?.completionNote ?? record.completionNote ?? '').trim();
-    const hasReceipt = (patch?.actionReceipts ?? record.actionReceipts ?? []).some((receipt) => receipt.confirmed);
-    const hasAcknowledge = override;
-
-    if (!closureNote && !hasReceipt && !hasAcknowledge) {
-      blockers.push('Closing follow-up needs completion note, confirmation receipt, or explicit override acknowledgement.');
+    if (closeout?.hardBlockers.length) {
+      blockers.push(...closeout.hardBlockers.map((condition) => condition.detail));
       requiredFields.push('completionNote or action receipt');
     }
-
-    if (childRollup.open > 0) {
-      warnings.push(`Cannot close cleanly: ${childRollup.open} linked task${childRollup.open === 1 ? '' : 's'} still open.`);
-    }
-
-    if (childRollup.blocked > 0) {
-      warnings.push(`Strong warning: ${childRollup.blocked} linked task${childRollup.blocked === 1 ? ' is' : 's are'} blocked.`);
-    }
-
-    if (childRollup.overdue > 0) {
-      warnings.push(`Child task overdue: ${childRollup.overdue} linked task${childRollup.overdue === 1 ? '' : 's'} late.`);
-    }
-
-    if (childRollup.open > 0 && !override) {
-      blockers.push('Review linked tasks first or close with explicit override.');
+    warnings.push(
+      ...(closeout?.overrideRequired ?? []).map((condition) => condition.detail),
+      ...(closeout?.warnings ?? []).map((condition) => condition.detail),
+    );
+    if ((closeout?.overrideRequired.length || 0) > 0 && !override) {
+      blockers.push('Resolve closeout conditions first or close with explicit override.');
     }
   }
 
@@ -124,7 +113,7 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
     blockers,
     warnings,
     requiredFields,
-    overrideAllowed: to === 'Closed' && childRollup.open > 0,
+    overrideAllowed: to === 'Closed' && (closeout?.overrideRequired.length || 0) > 0,
     recommendedNextActions,
     readyToClose: childRollup.allDone,
   });

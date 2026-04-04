@@ -23,21 +23,21 @@ import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedContro
 
 type WorkspaceKey = ModeWorkspaceKey;
 
-function FollowUpHQMark() {
+function SetPointMark() {
   return (
-    <svg viewBox="0 0 720 520" role="img" aria-label="FollowUp HQ construction themed logo" className="login-hero-mark">
+    <svg viewBox="0 0 720 520" role="img" aria-label="SetPoint execution workspace mark" className="login-hero-mark">
       <defs>
         <linearGradient id="heroSteel" x1="0%" x2="100%" y1="0%" y2="100%">
           <stop offset="0%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#94a3b8" />
         </linearGradient>
         <linearGradient id="heroAccent" x1="0%" x2="100%" y1="0%" y2="0%">
-          <stop offset="0%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#f97316" />
+          <stop offset="0%" stopColor="#14b8a6" />
+          <stop offset="100%" stopColor="#0ea5e9" />
         </linearGradient>
         <linearGradient id="heroDark" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stopColor="#0f172a" />
-          <stop offset="100%" stopColor="#1e293b" />
+          <stop offset="0%" stopColor="#111827" />
+          <stop offset="100%" stopColor="#0f172a" />
         </linearGradient>
       </defs>
 
@@ -45,7 +45,7 @@ function FollowUpHQMark() {
       <rect x="38" y="44" width="616" height="404" rx="36" fill="url(#heroDark)" stroke="rgba(248,250,252,0.12)" />
 
       <g opacity="0.2">
-        <path d="M84 366 210 246l72 68 122-132 64 57 85-81" fill="none" stroke="#38bdf8" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M84 366 210 246l72 68 122-132 64 57 85-81" fill="none" stroke="#14b8a6" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M86 396h520" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
         <path d="M120 154h122" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
         <path d="M120 182h86" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
@@ -59,26 +59,27 @@ function FollowUpHQMark() {
         <rect x="22" y="176" width="90" height="14" rx="7" fill="#334155" />
         <rect x="22" y="210" width="126" height="32" rx="16" fill="#0ea5e9" opacity="0.85" />
 
-        <path d="M58 42c6-40 36-64 81-64 45 0 74 24 81 64" fill="#f59e0b" />
-        <path d="M44 42h174" stroke="#fdba74" strokeWidth="13" strokeLinecap="round" />
-        <path d="M79 42v38M137 42v38M194 42v38" stroke="#fcd34d" strokeWidth="10" strokeLinecap="round" />
+        <path d="M58 42c6-40 36-64 81-64 45 0 74 24 81 64" fill="#0f766e" />
+        <path d="M44 42h174" stroke="#14b8a6" strokeWidth="13" strokeLinecap="round" />
+        <path d="M79 42v38M137 42v38M194 42v38" stroke="#5eead4" strokeWidth="10" strokeLinecap="round" />
         <path d="M158 35c18 8 27 25 29 53" fill="none" stroke="#6b7280" strokeWidth="7" strokeLinecap="round" />
         <rect x="178" y="85" width="26" height="82" rx="13" fill="url(#heroSteel)" transform="rotate(17 178 85)" />
       </g>
 
       <g transform="translate(308 150)">
-        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">FollowUp</text>
-        <text x="2" y="206" fontSize="96" fontWeight="800" fill="url(#heroAccent)" letterSpacing="1">HQ</text>
-        <path d="M2 228h244" stroke="#fb923c" strokeWidth="10" strokeLinecap="round" />
+        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">SetPoint</text>
+        <text x="2" y="206" fontSize="44" fontWeight="700" fill="url(#heroAccent)" letterSpacing="2">FROM INTAKE TO CLOSEOUT</text>
+        <path d="M2 228h420" stroke="#2dd4bf" strokeWidth="10" strokeLinecap="round" />
         <path d="M284 42h104" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
         <path d="M336 42v96" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
         <path d="M292 138h88" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
         <path d="M352 154h72" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-        <circle cx="426" cy="154" r="18" fill="#f59e0b" />
+        <circle cx="426" cy="154" r="18" fill="#14b8a6" />
       </g>
     </svg>
   );
 }
+
 
 function MissingSupabaseConfigScreen() {
   return (
@@ -88,7 +89,7 @@ function MissingSupabaseConfigScreen() {
           <StatePanel
             tone="warning"
             title="Supabase setup needed"
-            message="FollowUp HQ needs valid Supabase environment variables before the app can load."
+            message="SetPoint needs valid Supabase environment variables before the app can load."
           />
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
             <div className="font-medium text-slate-900">Current issue</div>
@@ -135,31 +136,31 @@ function LoginScreen() {
       <div className="login-layout">
         <section className="login-brand-panel">
           <div className="login-brand-header">
-            <div className="login-brand-badge">Construction follow-up command center</div>
+            <div className="login-brand-badge">SetPoint • Construction execution workspace</div>
             <div className="login-brand-copy">
-              <h1>Professional follow-up control for active construction work.</h1>
+              <h1>From intake to closeout.</h1>
               <p>
-                Keep emails, field issues, commitments, and project actions in one clean system built for execution.
+                Capture inbound work, route it into execution lanes, and close it out with accountable coordination across projects and stakeholders.
               </p>
             </div>
           </div>
 
           <div className="login-hero-panel">
-            <FollowUpHQMark />
+            <SetPointMark />
           </div>
 
           <div className="login-brand-points">
             <div className="login-point-card">
               <HardHat className="h-5 w-5" />
-              <div>Track field issues, RFIs, and owner commitments with less clutter.</div>
+              <div>Intake and triage keep field updates, RFIs, and commitments aligned before work starts.</div>
             </div>
             <div className="login-point-card">
               <Building2 className="h-5 w-5" />
-              <div>Organize work by project, owner, urgency, and next touch date.</div>
+              <div>Follow Ups and Tasks drive execution with ownership, due dates, and next actions.</div>
             </div>
             <div className="login-point-card">
               <ShieldCheck className="h-5 w-5" />
-              <div>Secure cloud-backed access through your FollowUp HQ account.</div>
+              <div>Projects, Relationships, and Exports maintain pressure visibility and reporting confidence.</div>
             </div>
           </div>
         </section>
@@ -167,13 +168,13 @@ function LoginScreen() {
         <section className="login-card-wrap">
           <div className="login-card">
             <div className="login-card-topbar">
-              <div className="login-chip">FollowUp HQ</div>
+              <div className="login-chip">SetPoint</div>
               <div className="login-chip login-chip-muted">Secure sign-in</div>
             </div>
 
             <div className="login-card-copy">
               <h2>Sign in</h2>
-              <p>Access your live follow-up data, project board, and saved workspace.</p>
+              <p>Enter your execution workspace to move inbound work through routing, accountability, and closeout.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form">
@@ -214,7 +215,7 @@ function LoginScreen() {
               ) : null}
 
               <button type="submit" disabled={submitting} className="login-submit-btn">
-                {submitting ? 'Signing in...' : 'Sign in to FollowUp HQ'}
+                {submitting ? 'Signing in...' : 'Sign in to SetPoint'}
               </button>
             </form>
 
@@ -368,8 +369,8 @@ function MainApp() {
         <aside className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
-            <div className="app-brand-title">FollowUp HQ</div>
-            <div className="app-brand-subline">Construction operations command</div>
+            <div className="app-brand-title">SetPoint</div>
+            <div className="app-brand-subline">From intake to closeout.</div>
           </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
@@ -414,7 +415,7 @@ function MainApp() {
               </section>
             ))}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open SetPoint command palette</button></div>
         </aside>
 
           <main className="app-main-pane">
@@ -465,7 +466,7 @@ function MainApp() {
                   ref={commandSearchRef}
                   className="field-input search-field-input"
                   type="search"
-                  placeholder="Type command name"
+                  placeholder="Type command or workspace"
                   value={commandQuery}
                   onChange={(event) => setCommandQuery(event.target.value)}
                 />
@@ -531,7 +532,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
         <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center justify-center">
-          <StatePanel tone="loading" title="Loading session" message="Checking your FollowUp HQ session and workspace context..." />
+          <StatePanel tone="loading" title="Loading session" message="Checking your SetPoint session and workspace context..." />
         </div>
       </div>
     );

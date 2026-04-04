@@ -1,9 +1,9 @@
 .app-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% -12%, rgba(180, 83, 9, 0.22), transparent 32%),
-    radial-gradient(circle at 92% 4%, rgba(14, 116, 144, 0.12), transparent 30%),
-    linear-gradient(165deg, #0a1220 0%, #101a2b 46%, #121e31 100%);
+    radial-gradient(circle at 10% -12%, rgba(15, 118, 110, 0.24), transparent 34%),
+    radial-gradient(circle at 92% 4%, rgba(14, 165, 233, 0.14), transparent 32%),
+    linear-gradient(165deg, #0a1220 0%, #0f1a2d 46%, #122238 100%);
   padding: clamp(0.85rem, 1.4vw, 1.4rem);
 }
 
@@ -28,7 +28,7 @@
 
 .app-nav-rail {
   border: 1px solid rgba(100, 116, 139, 0.4);
-  background: linear-gradient(180deg, rgba(8, 14, 27, 0.98), rgba(12, 20, 35, 0.985));
+  background: linear-gradient(180deg, rgba(8, 14, 27, 0.98), rgba(9, 22, 34, 0.99));
   border-radius: calc(var(--radius-xl) - 0.1rem);
   padding: 1rem 0.9rem 0.9rem;
   box-shadow: 0 20px 46px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(148, 163, 184, 0.12);
@@ -41,7 +41,15 @@
 }
 .app-brand-eyebrow,
 .nav-text-brand-eyebrow { color: #c1cfdf; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.app-brand-title { color: var(--text-inverse); font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
+.app-brand-title { color: var(--text-inverse); font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; display: inline-flex; align-items: center; gap: 0.42rem; }
+.app-brand-title::before {
+  content: '';
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  border: 2px solid rgba(45, 212, 191, 0.9);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.16);
+}
 .app-brand-subline,
 .nav-text-brand-subline { color: #91a2ba; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.01em; margin-top: 0.26rem; }
 .nav-section-stack { display: grid; gap: 0.86rem; }
@@ -56,7 +64,7 @@
 /* Nav card states mirror the row grammar: default -> hover -> active -> muted-support. */
 .nav-card { border: 1px solid rgba(71, 85, 105, 0.38); border-radius: 0.92rem; padding: 0.6rem 0.66rem; background: rgba(15, 23, 42, 0.16); transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 .nav-card:hover { border-color: rgba(148, 163, 184, 0.52); background: rgba(30, 41, 59, 0.34); transform: translateY(-1px); }
-.nav-card-active { border-color: rgba(251, 191, 36, 0.82); background: linear-gradient(145deg, rgba(71, 49, 17, 0.62), rgba(30, 41, 59, 0.76)); box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2), 0 8px 18px rgba(15, 23, 42, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
+.nav-card-active { border-color: rgba(45, 212, 191, 0.82); background: linear-gradient(145deg, rgba(15, 75, 70, 0.62), rgba(30, 41, 59, 0.76)); box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.2), 0 8px 18px rgba(15, 23, 42, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
 .nav-card-core:not(.nav-card-active) { border-color: rgba(100, 116, 139, 0.52); background: rgba(30, 41, 59, 0.3); }
 .nav-card-core:not(.nav-card-active) .nav-label-primary { color: #cfdcf0; }
 .nav-card-primary-inactive .nav-label-primary { font-weight: 590; }
@@ -77,15 +85,15 @@
 .nav-card-active .nav-label-icon,
 .nav-card-active .nav-label-primary { color: var(--text-inverse); }
 .nav-card-active .nav-icon-shell {
-  border-color: rgba(251, 191, 36, 0.58);
-  background: rgba(124, 45, 18, 0.42);
+  border-color: rgba(45, 212, 191, 0.58);
+  background: rgba(15, 118, 110, 0.42);
 }
 .nav-card-muted { border-color: rgba(71, 85, 105, 0.28); background: rgba(15, 23, 42, 0.08); }
 .nav-card-muted .nav-label-primary { color: #9db0c9; font-weight: 530; }
 .nav-card-muted .nav-label-icon { color: #8497b2; }
 .nav-section-support .nav-card:not(.nav-card-active) { background: rgba(15, 23, 42, 0.07); }
 .nav-pill { min-width: 1.2rem; padding: 0.02rem 0.28rem; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.28); background: rgba(30, 41, 59, 0.24); text-align: center; }
-.nav-card-active .nav-pill { border-color: rgba(251, 191, 36, 0.42); background: rgba(120, 53, 15, 0.36); }
+.nav-card-active .nav-pill { border-color: rgba(45, 212, 191, 0.42); background: rgba(15, 118, 110, 0.36); }
 .nav-pill-text { color: #dbe7f7; font-size: 0.64rem; font-weight: 600; }
 .nav-command-btn { width: 100%; justify-content: flex-start; display: inline-flex; align-items: center; gap: var(--space-2); border-radius: 0.78rem; padding: 0.5rem 0.64rem; border: 1px dashed rgba(100, 116, 139, 0.42); background: rgba(15, 23, 42, 0.16); color: #9db2cd; font-size: 0.75rem; font-weight: 540; }
 .nav-command-btn:hover { border-color: rgba(148, 163, 184, 0.56); color: #d5e1f1; background: rgba(30, 41, 59, 0.26); }
@@ -118,9 +126,9 @@
 
 .nav-start-pill {
   border-radius: 999px;
-  border: 1px solid rgba(251, 191, 36, 0.42);
-  background: rgba(120, 53, 15, 0.22);
-  color: #fde68a;
+  border: 1px solid rgba(45, 212, 191, 0.42);
+  background: rgba(15, 118, 110, 0.22);
+  color: #ccfbf1;
   font-size: 0.56rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -129,9 +137,9 @@
 }
 
 .nav-card-active .nav-start-pill {
-  background: rgba(180, 83, 9, 0.36);
-  border-color: rgba(251, 191, 36, 0.72);
-  color: #fef3c7;
+  background: rgba(13, 148, 136, 0.38);
+  border-color: rgba(45, 212, 191, 0.72);
+  color: #f0fdfa;
 }
 
 .app-capture-slot {

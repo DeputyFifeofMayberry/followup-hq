@@ -96,7 +96,7 @@ export function buildReplyGapInsights(messages: OutlookMessage[], items: FollowU
       hasTrackedItem: tracked,
       reason: tracked
         ? `Sent thread has no reply after ${waitingDays} days and is already linked to a tracked record.`
-        : `Sent thread has no reply after ${waitingDays} days and is not yet tracked in FollowUp HQ.`,
+        : `Sent thread has no reply after ${waitingDays} days and is not yet tracked in SetPoint.`,
       webLink: latestSent.webLink,
     });
   });
@@ -143,7 +143,7 @@ export function buildThreadSuggestions(messages: OutlookMessage[], items: Follow
     if (ageDays >= 4) reasons.push(`Latest thread activity is ${ageDays} days old.`);
     if (projectHint !== 'General') reasons.push(`Likely project match: ${projectHint}.`);
     if (sentWithoutReply) reasons.push(`No inbound reply after the last sent email for ${sentWithoutReply.waitingDays} days.`);
-    if (tracked) reasons.push('A matching FollowUp HQ record already exists.');
+    if (tracked) reasons.push('A matching SetPoint record already exists.');
 
     if (sentWithoutReply) {
       suggestedStatus = sentWithoutReply.waitingDays >= 7 ? 'At risk' : 'Waiting on external';

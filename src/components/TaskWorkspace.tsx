@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
@@ -163,15 +163,17 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   return (
     <WorkspacePage>
-      <WorkspaceSummaryStrip>
-        <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
-        <div className="overview-stat-grid overview-stat-grid-compact">
-          <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
-          <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
-          <StatTile label="Blocked" value={summary.blocked} helper="Waiting on dependency" tone={summary.blocked ? 'warn' : 'default'} />
-          <StatTile label="Deferred" value={summary.deferred} helper="Snoozed out of active queue" />
-        </div>
-      </WorkspaceSummaryStrip>
+      <WorkspaceTopStack>
+        <WorkspaceSummaryStrip>
+          <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
+            <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
+            <StatTile label="Blocked" value={summary.blocked} helper="Waiting on dependency" tone={summary.blocked ? 'warn' : 'default'} />
+            <StatTile label="Deferred" value={summary.deferred} helper="Snoozed out of active queue" />
+          </div>
+        </WorkspaceSummaryStrip>
+      </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel" surface="data">

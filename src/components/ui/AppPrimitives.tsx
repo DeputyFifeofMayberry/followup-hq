@@ -61,7 +61,7 @@ export function FilterBar({ children }: PropsWithChildren) {
 }
 
 export function WorkspacePage({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <div className={`workspace-page ${className}`.trim()}>{children}</div>;
+  return <div className={`workspace-page workspace-page-contract ${className}`.trim()}>{children}</div>;
 }
 
 export function WorkspaceSummaryStrip({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
@@ -74,6 +74,10 @@ export function WorkspacePrimaryLayout({
   className = '',
 }: PropsWithChildren<{ inspectorWidth?: string; className?: string }>) {
   return <div className={`workspace-primary-layout ${className}`.trim()} style={{ ['--workspace-inspector-width' as string]: inspectorWidth }}>{children}</div>;
+}
+
+export function WorkspaceTopStack({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`workspace-top-stack ${className}`.trim()}>{children}</div>;
 }
 
 export function WorkspaceToolbarRow({ children, className = '' }: PropsWithChildren<{ className?: string }>) {

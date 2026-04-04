@@ -4,11 +4,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
-import { AppShellCard, FilterBar } from './ui/AppPrimitives';
+import { AppShellCard, FilterBar, WorkspaceToolbarRow } from './ui/AppPrimitives';
 
 const ALL_VIEWS: SavedViewKey[] = ['All', 'Today', 'Waiting', 'Waiting on others', 'Needs nudge', 'At risk', 'Overdue', 'Ready to close', 'Promises due this week', 'Blocked by child tasks', 'By project'];
 
-export function ControlBar() {
+export function ControlBar({ compact = true }: { compact?: boolean }) {
   const {
     items,
     contacts,
@@ -80,16 +80,26 @@ export function ControlBar() {
 
   return (
     <AppShellCard className="p-4">
-      <div className="followup-toolbar-head">
-        <div>
-          <div className="text-lg font-semibold text-slate-950">Follow-up workspace</div>
-          <div className="mt-1 text-sm text-slate-500">Scan first. Core edits happen in-row; deeper updates happen in detail panel.</div>
+      {!compact ? (
+        <div className="followup-toolbar-head">
+          <div>
+            <div className="text-lg font-semibold text-slate-950">Follow-up workspace</div>
+            <div className="mt-1 text-sm text-slate-500">Scan first. Core edits happen in-row; deeper updates happen in detail panel.</div>
+          </div>
+          <button onClick={openCreateModal} className="action-btn">
+            <Plus className="h-4 w-4" />
+            Quick Add follow-up
+          </button>
         </div>
-        <button onClick={openCreateModal} className="action-btn">
-          <Plus className="h-4 w-4" />
-          Quick Add follow-up
-        </button>
-      </div>
+      ) : (
+        <WorkspaceToolbarRow>
+          <button onClick={openCreateModal} className="action-btn">
+            <Plus className="h-4 w-4" />
+            Quick Add follow-up
+          </button>
+          <div className="text-xs text-slate-500">Primary edits stay in-row; deeper updates live in inspector.</div>
+        </WorkspaceToolbarRow>
+      )}
 
       <FilterBar>
         <div className="followup-chip-row">

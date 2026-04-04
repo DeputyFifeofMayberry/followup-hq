@@ -51,14 +51,24 @@
 
 .workspace-master-detail { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.55fr) 420px; }
 .workspace-master-detail-today { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.45fr); }
-.workspace-page { display: grid; gap: 0.85rem; }
-.workspace-summary-strip { padding: 0.85rem 0.95rem; }
-.workspace-primary-layout { display: grid; gap: 0.95rem; grid-template-columns: minmax(0, 1fr) minmax(320px, var(--workspace-inspector-width, 380px)); align-items: start; }
+.workspace-page { display: grid; gap: var(--workspace-region-gap, 0.85rem); }
+.workspace-page-contract {
+  --workspace-region-gap: 0.75rem;
+  --workspace-panel-padding: 0.82rem;
+}
+.workspace-top-stack { display: grid; gap: var(--workspace-region-gap, 0.85rem); }
+.workspace-summary-strip { padding: 0.72rem var(--workspace-panel-padding, 0.95rem); }
+.workspace-primary-layout {
+  display: grid;
+  gap: var(--workspace-region-gap, 0.95rem);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--workspace-inspector-width, 380px), 42vw));
+  align-items: start;
+}
 .workspace-toolbar-row { align-items: center; }
 .workspace-inspector-section-title { font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #5f728b; }
 .workspace-inspector-section-subtitle { margin: 0.22rem 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.35; }
 .workspace-list-panel,
-.workspace-inspector-panel { padding: 0.9rem; display: grid; gap: 0.8rem; }
+.workspace-inspector-panel { padding: var(--workspace-panel-padding, 0.9rem); display: grid; gap: 0.75rem; }
 .workspace-list-content { border: 1px solid #cfdaea; border-radius: 0.8rem; background: #eef4fb; padding: 0.6rem; display: grid; gap: 0.45rem; }
 .workspace-list-head { display: grid; gap: 0.65rem; }
 .workspace-list-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
@@ -109,6 +119,10 @@
   .tracker-detail-panel { position: static; max-height: none; }
   .tracker-table td, .tracker-table th { white-space: normal; }
   .workspace-header-actions { width: 100%; justify-content: flex-start; }
+  .workspace-page-contract {
+    --workspace-region-gap: 0.65rem;
+    --workspace-panel-padding: 0.74rem;
+  }
 }
 
 @media (max-width: 1100px) {

@@ -29,14 +29,25 @@ import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHead
 
 type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 
-const navItems: Array<{ key: WorkspaceKey; label: string; icon: typeof ListChecks }> = [
-  { key: 'worklist', label: 'Worklist', icon: ListChecks },
-  { key: 'followups', label: 'Follow Ups', icon: Activity },
-  { key: 'tasks', label: 'Tasks', icon: ListTodo },
-  { key: 'outlook', label: 'Intake', icon: Inbox },
-  { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
-  { key: 'relationships', label: 'Relationships', icon: Users },
-  { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
+const navSections: Array<{ title: string; tone?: 'support'; items: Array<{ key: WorkspaceKey; label: string; icon: typeof ListChecks }> }> = [
+  {
+    title: 'Core workflow',
+    items: [
+      { key: 'worklist', label: 'Overview', icon: ListChecks },
+      { key: 'followups', label: 'Follow Ups', icon: Activity },
+      { key: 'tasks', label: 'Tasks', icon: ListTodo },
+      { key: 'outlook', label: 'Intake', icon: Inbox },
+    ],
+  },
+  {
+    title: 'Supporting views',
+    tone: 'support',
+    items: [
+      { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
+      { key: 'relationships', label: 'Relationships', icon: Users },
+      { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
+    ],
+  },
 ];
 
 function FollowUpHQMark() {
@@ -376,7 +387,18 @@ function MainApp() {
       case 'relationships':
         return <RelationshipBoard />;
       default:
-        return <OverviewWorkspace personalMode={appMode === 'personal'} onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
+        return (
+          <OverviewWorkspace
+            personalMode={appMode === 'personal'}
+            onOpenTrackerView={openTrackerView}
+            onOpenWorkspace={(value) => {
+              if (value === 'tracker' || value === 'followups') return setWorkspace('followups');
+              if (value === 'queue' || value === 'overview') return setWorkspace('worklist');
+              if (value === 'outlook') return setWorkspace('outlook');
+              return setWorkspace(value as WorkspaceKey);
+            }}
+          />
+        );
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
@@ -385,10 +407,9 @@ function MainApp() {
   }, []);
 
   const commands = [
-    { label: 'Open Quick Add', run: openQuickAdd },
-    { label: 'Open Structured follow-up form', run: () => openCreateModal() },
-    { label: 'Open Structured task form', run: () => openCreateTaskModal() },
-    { label: 'Open worklist', run: () => setWorkspace('worklist') },
+    { label: 'New follow-up', run: () => openCreateModal() },
+    { label: 'New task', run: () => openCreateTaskModal() },
+    { label: 'Open overview', run: () => setWorkspace('worklist') },
     { label: 'Open follow-ups', run: () => setWorkspace('followups') },
     { label: 'Open tasks', run: () => setWorkspace('tasks') },
     { label: 'Open intake', run: () => setWorkspace('outlook') },
@@ -396,15 +417,16 @@ function MainApp() {
   const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
-    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }] },
-    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New task (structured)', run: openCreateTaskModal }] },
-    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }] },
-    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
-    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
-    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Export snapshots when you need external reporting.' : 'Export team-facing reporting and cadence summaries.', health: 'Export-ready data', actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }] },
+    worklist: { title: 'Overview', purpose: 'Start here each day to triage work, review intake, and move into execution.', health: `${navCounts.worklist || 0} due now across your execution loop`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
+    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Execution workspace for moving commitments forward and closing loops.' : 'Execution workspace for team follow-up ownership, nudges, and closure.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
+    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Execution workspace for shipping assigned work with low friction.' : 'Execution workspace for task throughput, assignees, and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
+    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Core workflow intake lane: capture and clean work before execution.' : 'Core workflow intake lane for routing inbound work into team execution.', health: `${combinedCleanup} need cleanup`, actions: [] },
+    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Supporting view for project context behind your core daily execution.' : 'Supporting view for project-level pressure, risk, and escalation context.', health: `${items.length} linked follow-ups`, actions: [] },
+    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Supporting view for relationship context while you run core workflows.' : 'Supporting view for relationship heat, history, and communication context.', health: `${items.length} connected threads`, actions: [] },
+    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Supporting view for snapshots and reporting outside daily execution.' : 'Supporting view for team reporting packs and external status exports.', health: 'Export-ready data', actions: [] },
   };
   const currentMeta = workspaceMeta[workspace];
+  const showUniversalCapture = ['worklist', 'followups', 'tasks', 'outlook'].includes(workspace);
 
   return (
     <div className="app-shell text-slate-900">
@@ -417,28 +439,39 @@ function MainApp() {
             <div className="app-brand-title">FollowUp HQ</div>
             <div className="app-brand-subline">Construction operations command</div>
           </div>
-          <div className="grid gap-2">
-            {navItems.map(({ key, label, icon: Icon }) => {
-              const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
-              return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setWorkspace(key)}
-                className={[
-                  'nav-card',
-                  workspace === key ? 'nav-card-active' : '',
-                  deemphasized ? 'nav-card-muted' : '',
-                ].filter(Boolean).join(' ')}
-                aria-current={workspace === key ? 'page' : undefined}
+          <div className="nav-section-stack">
+            {navSections.map((section) => (
+              <section
+                key={section.title}
+                className={section.tone === 'support' ? 'nav-section nav-section-support' : 'nav-section'}
+                aria-label={section.title}
               >
-                <div className="nav-card-row">
-                  <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>
-                  {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
+                <div className="nav-section-heading">{section.title}</div>
+                <div className="grid gap-2">
+                  {section.items.map(({ key, label, icon: Icon }) => {
+                    const deemphasized = section.tone === 'support' || (appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setWorkspace(key)}
+                        className={[
+                          'nav-card',
+                          workspace === key ? 'nav-card-active' : '',
+                          deemphasized ? 'nav-card-muted' : '',
+                        ].filter(Boolean).join(' ')}
+                        aria-current={workspace === key ? 'page' : undefined}
+                      >
+                        <div className="nav-card-row">
+                          <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>
+                          {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </button>
-              );
-            })}
+              </section>
+            ))}
           </div>
           <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
         </aside>
@@ -463,7 +496,7 @@ function MainApp() {
               </div>
             </div>
             </header>
-            <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+            {showUniversalCapture ? <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} /> : null}
             {workspaceBody}
           </main>
         </div>

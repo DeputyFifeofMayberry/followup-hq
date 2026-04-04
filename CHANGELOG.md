@@ -2,6 +2,11 @@
 
 ## 2026-04-04
 
+### Deficiency 1 Phase 5: closeout orchestration + readiness explanations
+- Added a shared follow-up closeout readiness evaluator that centralizes hard blockers, override-required conditions, warnings, and ready signals with plain-language explanations (open/blocked/overdue child tasks, missing completion context, unresolved waiting state, and intake-review ambiguity) to power cross-record close decisions consistently (`src/lib/closeoutReadiness.ts`).
+- Updated follow-up transition validation to consume centralized closeout readiness logic for close transitions, preserving current transition APIs while making override requirements and blocker/warning messaging consistent and explainable (`src/lib/workflowPolicy.ts`).
+- Introduced a reusable closeout readiness UI card and surfaced it across key execution surfaces so users can see why closure is blocked, what can close with override, and what to do next (open blocking child task, add completion note, review linked records) (`src/components/CloseoutReadinessCard.tsx`, `src/components/ItemDetailPanel.tsx`, `src/components/UniversalRecordDrawer.tsx`, `src/components/OverviewPage.tsx`, `src/components/TaskWorkspace.tsx`).
+
 ### Deficiency 1 Phase 4: global record search + expanded command palette navigation
 - Added a typed global in-memory record search index that reuses shared record descriptors (`toRecordDescriptor`) across follow-ups, tasks, projects, contacts, and companies, plus lightweight linked-reference hints for command-driven record jumps (`src/lib/commandPaletteConfig.ts`, `src/lib/recordContext.ts`).
 - Expanded command palette coverage from create/workspace only into a grouped command system (Create, Navigation, Records, Workspaces) with direct record open, linked-record jump commands, project context open commands, and “open selected item in universal drawer” behavior while keeping existing workspace/open-create actions intact (`src/lib/commandPaletteConfig.ts`, `src/App.tsx`).

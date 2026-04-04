@@ -11,6 +11,8 @@ import type { FollowUpItem, UnifiedQueueItem } from '../types';
 import { getModeConfig } from '../lib/appModeConfig';
 import { ExecutionQueueList, ExecutionSection } from './execution/ExecutionSection';
 import { BatchSummarySection, CompletionNoteSection, DateSection, OverrideConfirmationSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
+import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
@@ -69,6 +71,9 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
+  const items = useAppStore((s) => s.items);
+  const tasks = useAppStore((s) => s.tasks);
+  const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const selectedId = executionSelectedId;
   const [page, setPage] = useState(0);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -117,6 +122,8 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   }, [queue, selectedId, setExecutionSelectedId]);
 
   const selected = queue.find((row) => row.id === selectedId) || null;
+  const selectedFollowUpRecord = selected?.recordType === 'followup' ? items.find((entry) => entry.id === selected.id) : null;
+  const selectedCloseout = selectedFollowUpRecord ? evaluateFollowUpCloseout(selectedFollowUpRecord, tasks) : null;
   const pagedQueue = useMemo(() => queue.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [queue, page]);
 
 
@@ -518,6 +525,16 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                   {!personalMode && selected.recordType === 'followup' ? <button onClick={() => updateItem(selected.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className={modeConfig.emphasizeCoordinationActions ? 'primary-btn justify-start' : 'action-btn justify-start'}><UserRoundCog className="h-4 w-4" />Reassign</button> : null}
                 </div>
               </WorkspaceInspectorSection>
+              {selected.recordType === 'followup' && selectedCloseout ? (
+                <WorkspaceInspectorSection title="Closeout orchestration" subtitle="What is blocking closure and what to do next.">
+                  <CloseoutReadinessCard
+                    evaluation={selectedCloseout}
+                    onAddCompletionNote={() => openFlow('close_followup', { note: '' })}
+                    onOpenTask={(taskId) => { setExecutionSelectedId(taskId); openRecordDrawer({ type: 'task', id: taskId }); }}
+                    onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: selected.id })}
+                  />
+                </WorkspaceInspectorSection>
+              ) : null}
 
               <WorkspaceInspectorSection title="Open in workspace">
                 <div className="overview-action-stack overview-action-stack-muted">

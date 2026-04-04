@@ -11,6 +11,8 @@ import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActio
 import { describeExecutionIntent } from '../lib/executionHandoff';
 import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/recordContext';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
+import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
+import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -124,6 +126,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
   const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
+  const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks) : null;
   const parentCandidates = selectedTask ? items.filter((item) => item.project === selectedTask.project && item.status !== 'Closed') : [];
 
   const summary = useMemo(() => ({
@@ -321,6 +324,15 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       <div className="mt-1 text-sm text-slate-700">Open linked tasks: {linkedTaskOpenCount}</div>
                       <div className="mt-1 text-sm text-slate-700">Impact rule: {selectedTask.completionImpact || 'advance_parent'}</div>
                       <div className="mt-2 space-y-1 text-xs text-slate-600">{(linkedParentRollup?.explanations || []).map((reason) => <div key={reason}>• {reason}</div>)}</div>
+                      {linkedParentCloseout ? (
+                        <div className="mt-2">
+                          <CloseoutReadinessCard
+                            evaluation={linkedParentCloseout}
+                            onOpenTask={(taskId) => openRecordDrawer({ type: 'task', id: taskId })}
+                            onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: linkedFollowUp.id })}
+                          />
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button>
                         <button onClick={() => updateTask(selectedTask.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from parent follow-up' })} className="action-btn !px-2.5 !py-1.5 text-xs"><Unlink2 className="h-4 w-4" />Unlink parent</button>

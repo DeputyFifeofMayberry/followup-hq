@@ -58,6 +58,7 @@ import type {
   FollowUpColumnKey,
 } from '../types';
 import { defaultFollowUpFilters } from '../lib/followUpSelectors';
+import { validateFollowUpTransition, validateTaskTransition, type WorkflowValidationResult } from '../lib/workflowPolicy';
 
 interface ItemModalState {
   open: boolean;
@@ -82,6 +83,17 @@ interface TaskModalState {
   taskId: string | null;
 }
 
+
+interface WorkflowTransitionAttempt {
+  applied: boolean;
+  validation: WorkflowValidationResult;
+}
+
+interface BatchWorkflowResult {
+  affected: number;
+  skipped: number;
+  warnings: string[];
+}
 interface AppState {
   items: FollowUpItem[];
   contacts: ContactRecord[];
@@ -172,6 +184,9 @@ interface AppState {
   addRunningNote: (id: string, note: string) => void;
   addTask: (task: TaskItem) => void;
   updateTask: (id: string, patch: Partial<TaskItem>) => void;
+  attemptFollowUpTransition: (id: string, status: FollowUpStatus, patch?: Partial<FollowUpItem>, options?: { override?: boolean }) => WorkflowTransitionAttempt;
+  attemptTaskTransition: (id: string, status: TaskStatus, patch?: Partial<TaskItem>) => WorkflowTransitionAttempt;
+  runValidatedBatchFollowUpTransition: (ids: string[], status: FollowUpStatus, patch?: Partial<FollowUpItem>, options?: { override?: boolean }) => BatchWorkflowResult;
   deleteTask: (id: string) => void;
   importItems: (rows: ImportPreviewRow[]) => void;
   addDroppedEmailImports: (imports: DroppedEmailImport[]) => void;
@@ -942,6 +957,54 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
     queuePersist(get, set);
   },
+
+  attemptFollowUpTransition: (id, status, patch = {}, options) => {
+    const state = get();
+    const record = state.items.find((item) => item.id === id);
+    if (!record) {
+      return { applied: false, validation: { allowed: false, blockers: ['Follow-up not found.'], warnings: [], requiredFields: [], overrideAllowed: false, recommendedNextActions: [], readyToClose: false } };
+    }
+    const mergedPatch = { ...patch, status };
+    const validation = validateFollowUpTransition({
+      record,
+      from: record.status,
+      to: status,
+      patch: mergedPatch,
+      context: { tasks: state.tasks },
+      override: !!options?.override,
+    });
+    if (!validation.allowed) return { applied: false, validation };
+    get().updateItem(id, mergedPatch);
+    return { applied: true, validation };
+  },
+  attemptTaskTransition: (id, status, patch = {}) => {
+    const state = get();
+    const record = state.tasks.find((task) => task.id === id);
+    if (!record) {
+      return { applied: false, validation: { allowed: false, blockers: ['Task not found.'], warnings: [], requiredFields: [], overrideAllowed: false, recommendedNextActions: [], readyToClose: false } };
+    }
+    const mergedPatch = { ...patch, status };
+    const validation = validateTaskTransition({ record, from: record.status, to: status, patch: mergedPatch });
+    if (!validation.allowed) return { applied: false, validation };
+    get().updateTask(id, mergedPatch);
+    return { applied: true, validation };
+  },
+  runValidatedBatchFollowUpTransition: (ids, status, patch = {}, options) => {
+    const warnings: string[] = [];
+    let affected = 0;
+    let skipped = 0;
+    ids.forEach((id) => {
+      const result = get().attemptFollowUpTransition(id, status, patch, options);
+      if (result.applied) {
+        affected += 1;
+      } else {
+        skipped += 1;
+        if (result.validation.blockers.length) warnings.push(`${id}: ${result.validation.blockers.join(' ')}`);
+      }
+      if (result.validation.warnings.length) warnings.push(`${id}: ${result.validation.warnings.join(' ')}`);
+    });
+    return { affected, skipped, warnings };
+  },
   addTask: (task) => {
     set((state) => {
       const normalized = normalizeTask({
@@ -1163,6 +1226,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   batchUpdateFollowUps: (ids, patch, summary) => {
     if (ids.length === 0) return;
+    if (patch.status) {
+      get().runValidatedBatchFollowUpTransition(ids, patch.status, patch);
+      set({ selectedFollowUpIds: [] });
+      queuePersist(get, set);
+      return;
+    }
+    if (patch.nextTouchDate && !patch.snoozedUntilDate) {
+      ids.forEach((id) => {
+        get().attemptFollowUpTransition(id, 'Waiting internal', { ...patch, snoozedUntilDate: patch.nextTouchDate });
+      });
+      set({ selectedFollowUpIds: [] });
+      queuePersist(get, set);
+      return;
+    }
     set((state) => {
       const idSet = new Set(ids);
       const items = state.items.map((item) => {

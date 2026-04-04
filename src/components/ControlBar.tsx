@@ -32,6 +32,8 @@ export function ControlBar() {
     saveFollowUpCustomView,
     applySavedFollowUpCustomView,
     batchUpdateFollowUps,
+    attemptFollowUpTransition,
+    runValidatedBatchFollowUpTransition,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -55,6 +57,8 @@ export function ControlBar() {
     saveFollowUpCustomView: s.saveFollowUpCustomView,
     applySavedFollowUpCustomView: s.applySavedFollowUpCustomView,
     batchUpdateFollowUps: s.batchUpdateFollowUps,
+    attemptFollowUpTransition: s.attemptFollowUpTransition,
+    runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
   })));
   const [customViewName, setCustomViewName] = useState('');
 
@@ -140,9 +144,9 @@ export function ControlBar() {
           <div className="followup-action-row">
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).')} className="action-btn">Mark nudged</button>
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'In progress' }, 'Status changed to In progress (batch).')} className="action-btn">Set In progress</button>
-            <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'Closed' }, 'Closed follow-up (batch).')} className="action-btn">Close</button>
+            <button onClick={() => { const note = window.prompt('Batch close note (applied to all):',''); const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: note || undefined }); window.alert(`Batch close: ${result.affected} affected, ${result.skipped} skipped.${result.warnings.length ? `\n${result.warnings.slice(0,4).join('\n')}` : ''}`); }} className="action-btn">Close</button>
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { escalationLevel: 'Escalate' }, 'Escalation set to Escalate (batch).')} className="action-btn">Escalate</button>
-            <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: new Date(Date.now() + 3 * 86400000).toISOString() }, 'Snoozed 3 days (batch).')} className="action-btn">Snooze 3d</button>
+            <button onClick={() => { const until = new Date(Date.now() + 3 * 86400000).toISOString(); batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: until, snoozedUntilDate: until }, 'Snoozed 3 days (batch).'); }} className="action-btn">Snooze 3d</button>
             <button onClick={clearFollowUpSelection} className="action-btn">Clear selection</button>
           </div>
         </div>
@@ -153,7 +157,7 @@ export function ControlBar() {
             <button onClick={() => selectedItem && openEditModal(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Open details</button>
             <button onClick={() => selectedItem && openTouchModal()} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Log touch</button>
             <button onClick={() => selectedItem && markNudged(selectedItem.id)} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">Mark nudged</button>
-            <button onClick={() => selectedItem && updateItem(selectedItem.id, { status: selectedItem.status === 'Closed' ? 'Needs action' : 'Closed' })} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">
+            <button onClick={() => { if (!selectedItem) return; if (selectedItem.status === 'Closed') { updateItem(selectedItem.id, { status: 'Needs action' }); return; } const note = window.prompt('Closeout note:', selectedItem.completionNote || ''); const result = attemptFollowUpTransition(selectedItem.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }); if (!result.applied && result.validation.overrideAllowed) { const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose anyway with override?`); if (!proceed) return; attemptFollowUpTransition(selectedItem.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true }); return; } if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} disabled={!selectedItem} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">
               <CheckCircle2 className="h-4 w-4" />
               {selectedItem?.status === 'Closed' ? 'Reopen' : 'Close'}
             </button>

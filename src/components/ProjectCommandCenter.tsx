@@ -13,10 +13,11 @@ import {
 import { addDaysIso, createId, formatDate, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import type { ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
+import type { AppMode, ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
+import { getModeConfig } from '../lib/appModeConfig';
 
-export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void }) {
+export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team' }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode }) {
   const {
     items, contacts, companies, projects, tasks, intakeDocuments,
     addProject, updateProject, deleteProject, reassignProjectRecords,
@@ -42,6 +43,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
     setActiveView: s.setActiveView,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '');
   const [copied, setCopied] = useState(false);
   const [displayMode, setDisplayMode] = useState<ProjectCardDisplayMode>('expanded');
@@ -130,7 +132,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
 
   return (
     <AppShellCard className="project-command-surface" surface="command">
-      <SectionHeader title="Project command center" subtitle="Curated command surface for portfolio scan, project health, and execution workflows." />
+      <SectionHeader title={appMode === 'personal' ? 'Project support lens' : 'Project command center'} subtitle={modeConfig.projectsSubtitle} />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">
           <div className="project-create-row">
@@ -192,7 +194,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem }: { onFocusTr
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Focus tracker</button>
-                  <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className="primary-btn"><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
+                  <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
 

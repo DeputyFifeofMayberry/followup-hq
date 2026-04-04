@@ -1498,3 +1498,9 @@ select, select * {
   .overview-priority-row { grid-template-columns: 1fr; align-items: flex-start; }
   .overview-priority-badges { justify-content: flex-start; }
 }
+
+.workspace-shell-subcopy {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}

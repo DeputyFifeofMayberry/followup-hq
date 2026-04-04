@@ -4,14 +4,15 @@ import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import type { FollowUpColumnKey, FollowUpItem } from '../types';
+import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
 import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
+import { getModeConfig } from '../lib/appModeConfig';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
 
-export function TrackerTable({ personalMode = false }: { personalMode?: boolean }) {
+export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { personalMode?: boolean; appMode?: AppMode }) {
   const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -29,6 +30,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     markNudged: s.markNudged,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
+  const modeConfig = getModeConfig(appMode);
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
@@ -50,7 +52,10 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
   };
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
-    const dynamic = columnOrder.filter((key) => followUpColumns.includes(key)).map((key) => baseColumns[key]);
+    const effectiveColumnOrder = personalMode && followUpColumns.includes('owner') && followUpColumns.includes('assignee')
+      ? columnOrder.filter((key) => key !== 'owner')
+      : columnOrder;
+    const dynamic = effectiveColumnOrder.filter((key) => followUpColumns.includes(key)).map((key) => baseColumns[key]);
     return [
       {
         id: 'select',
@@ -72,7 +77,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
@@ -123,7 +128,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         </table>
         {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No items found" message="Adjust filters, clear search, or create a follow-up." /></div> : null}
       </div>
-      <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : 'Select rows to run bulk actions from the execution controls.'}</div>
+      <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : (modeConfig.trackerOwnerContext === 'compact' ? 'Execution view: owner details are reduced so next action and timing stay primary.' : 'Coordination view: owner and assignee context stays visible for assignment decisions.')}</div>
     </AppShellCard>
   );
 }

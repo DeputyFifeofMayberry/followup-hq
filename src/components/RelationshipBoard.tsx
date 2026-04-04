@@ -12,8 +12,10 @@ import {
   type RelationshipSortKey,
 } from '../lib/relationshipSelectors';
 import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
+import { getModeConfig } from '../lib/appModeConfig';
+import type { AppMode } from '../types';
 
-export function RelationshipBoard() {
+export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
   const {
     items,
     tasks,
@@ -52,6 +54,7 @@ export function RelationshipBoard() {
     projects: s.projects,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -104,7 +107,7 @@ export function RelationshipBoard() {
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="command">
       <div className="border-b border-slate-200 px-5 py-4">
-        <SectionHeader title="Relationship command center" subtitle="Scan pressure across contacts and companies, then jump directly into the work creating risk." />
+        <SectionHeader title={appMode === 'personal' ? 'Relationship support lens' : 'Relationship command center'} subtitle={modeConfig.relationshipsSubtitle} />
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
@@ -187,7 +190,7 @@ export function RelationshipBoard() {
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
               <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="field-input" />
               <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="field-input" />
-              <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className="primary-btn"><PlusCircle className="h-4 w-4" />Add</button>
+              <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
             </div>
           </div>
 
@@ -198,7 +201,7 @@ export function RelationshipBoard() {
               <select value={companyType} onChange={(e) => setCompanyType(e.target.value as typeof companyType)} className="field-input">
                 <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
               </select>
-              <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className="primary-btn"><PlusCircle className="h-4 w-4" />Add</button>
+              <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
             </div>
           </div>
         </div>

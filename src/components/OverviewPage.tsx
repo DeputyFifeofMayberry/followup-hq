@@ -209,70 +209,75 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
             <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
             <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
           </div>
-          <WorkspaceToolbarRow>
-            <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
-            <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
-            <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
-            <span className="text-xs text-slate-500">Use presets and filters below to work the queue directly.</span>
+          <WorkspaceToolbarRow className="overview-support-row">
+            <span className="overview-inline-guidance"><strong>Daily loop:</strong> Capture → Triage → Execute → Close</span>
+            <span className="overview-inline-guidance">Need new work? Use Quick Add / Capture, then return here to process from the queue.</span>
+            <button onClick={() => onOpenWorkspace('outlook')} className="action-btn !px-2.5 !py-1 text-xs">Open intake</button>
+            <button onClick={() => onOpenWorkspace('followups')} className="action-btn !px-2.5 !py-1 text-xs">Follow-ups</button>
+            <button onClick={() => onOpenWorkspace('tasks')} className="action-btn !px-2.5 !py-1 text-xs">Tasks</button>
           </WorkspaceToolbarRow>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="360px">
         <AppShellCard className="overview-main-panel" surface="data">
-          <FilterBar>
-            <SegmentedControl value={queuePreset} onChange={(value) => setQueuePreset(value as UnifiedQueuePreset)} options={presets.map((preset) => ({ value: preset, label: preset }))} />
-          </FilterBar>
+          <SectionHeader title="Execution queue" subtitle="Work from this queue first. Inspector is for context and follow-through." compact />
 
-          <WorkspaceToolbarRow className="overview-toolbar-row">
-            <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input workspace-search-input" placeholder="Search title, project, owner, assignee, tags, next action" />
-            <select value={executionSort} onChange={(event) => setExecutionSort(event.target.value as UnifiedQueueSort)} className="field-input">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
-            <select value={queueDensity} onChange={(event) => setQueueDensity(event.target.value as 'compact' | 'detailed')} className="field-input"><option value="compact">Compact rows</option><option value="detailed">Detailed rows</option></select>
-            <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-            <button onClick={() => { setExecutionFilter({}); setPage(0); }} className="action-btn">Reset filters</button>
-          </WorkspaceToolbarRow>
+          <div className="overview-control-stack">
+            <FilterBar>
+              <SegmentedControl value={queuePreset} onChange={(value) => setQueuePreset(value as UnifiedQueuePreset)} options={presets.map((preset) => ({ value: preset, label: preset }))} />
+            </FilterBar>
 
-          {advancedOpen ? (
-            <div className="overview-advanced-filters advanced-filter-surface">
-              <div className="grid gap-2 md:grid-cols-3">
-                <select value={executionFilter.types?.[0] || 'all'} onChange={(event) => setExecutionFilter({ ...executionFilter, types: event.target.value === 'all' ? undefined : [event.target.value as 'task' | 'followup'] })} className="field-input"><option value="all">All types</option><option value="task">Tasks</option><option value="followup">Follow-ups</option></select>
-                <input value={executionFilter.project?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, project: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Project" />
-                {!personalMode ? <input value={executionFilter.owner?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, owner: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Owner" /> : null}
-                <input value={executionFilter.assignee?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, assignee: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Assignee" />
-                <select value={executionFilter.waitingOn === undefined ? 'any' : executionFilter.waitingOn ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, waitingOn: event.target.value === 'any' ? undefined : event.target.value === 'yes' })} className="field-input"><option value="any">Any waiting state</option><option value="yes">Waiting on others</option><option value="no">Not waiting</option></select>
-                <select value={executionFilter.linkedState || 'any'} onChange={(event) => setExecutionFilter({ ...executionFilter, linkedState: event.target.value === 'any' ? undefined : event.target.value as 'linked' | 'unlinked' })} className="field-input"><option value="any">Linked + unlinked</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
-                <select value={executionFilter.blockedOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, blockedOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Blocked any</option><option value="yes">Blocked only</option></select>
-                <select value={executionFilter.deferredOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, deferredOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Deferred any</option><option value="yes">Deferred only</option></select>
-                <select value={executionFilter.cleanupOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, cleanupOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Cleanup any</option><option value="yes">Cleanup only</option></select>
-              </div>
-              <div className="grid gap-2 md:grid-cols-3">
-                <input type="date" value={executionFilter.dueDateFrom ? executionFilter.dueDateFrom.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, dueDateFrom: event.target.value ? new Date(`${event.target.value}T00:00:00`).toISOString() : undefined })} className="field-input" />
-                <input type="date" value={executionFilter.dueDateTo ? executionFilter.dueDateTo.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, dueDateTo: event.target.value ? new Date(`${event.target.value}T23:59:59`).toISOString() : undefined })} className="field-input" />
-                <input type="date" value={executionFilter.nextTouchDateFrom ? executionFilter.nextTouchDateFrom.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, nextTouchDateFrom: event.target.value ? new Date(`${event.target.value}T00:00:00`).toISOString() : undefined })} className="field-input" />
-              </div>
-              <div className="overview-saved-views-row">
-                {savedExecutionViews.slice(0, 6).map((view) => <button key={view.id} onClick={() => applyExecutionView(view.id)} className="action-btn !px-2.5 !py-1 text-xs">{view.name}</button>)}
-                <button onClick={() => saveExecutionView(`Saved ${new Date().toLocaleTimeString()}`)} className="action-btn !px-2.5 !py-1 text-xs">Save current view</button>
-              </div>
-            </div>
-          ) : null}
+            <WorkspaceToolbarRow className="overview-toolbar-row">
+              <input value={executionFilter.search || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, search: event.target.value || undefined })} className="field-input workspace-search-input" placeholder="Search title, project, owner, assignee, tags, next action" />
+              <select value={executionSort} onChange={(event) => setExecutionSort(event.target.value as UnifiedQueueSort)} className="field-input">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+              <select value={queueDensity} onChange={(event) => setQueueDensity(event.target.value as 'compact' | 'detailed')} className="field-input"><option value="compact">Compact rows</option><option value="detailed">Detailed rows</option></select>
+              <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
+              <button onClick={() => { setExecutionFilter({}); setPage(0); }} className="action-btn">Reset filters</button>
+            </WorkspaceToolbarRow>
 
-          {selectedItems.length > 0 ? (
-            <div className="overview-bulk-strip bulk-action-strip">
-              <span className="px-2 py-1 font-semibold text-slate-700">{selectedItems.length} selected</span>
-              <button onClick={() => runBulk('close-followups')} className="action-btn !px-2.5 !py-1 text-xs">Close follow-ups</button>
-              <button onClick={() => runBulk('done-tasks')} className="action-btn !px-2.5 !py-1 text-xs">Mark tasks done</button>
-              <button onClick={() => runBulk('nudge')} className="action-btn !px-2.5 !py-1 text-xs">Mark nudged</button>
-              <button onClick={() => runBulk('snooze')} className="action-btn !px-2.5 !py-1 text-xs">Snooze follow-ups</button>
-              <button onClick={() => runBulk('escalate')} className="action-btn !px-2.5 !py-1 text-xs">Escalate</button>
-              <button onClick={() => runBulk('de-escalate')} className="action-btn !px-2.5 !py-1 text-xs">De-escalate</button>
-              <button onClick={() => setSelectedRows([])} className="action-btn !px-2.5 !py-1 text-xs">Clear</button>
-              {lastBulkUndo.length ? <button onClick={() => {
-                lastBulkUndo.forEach((entry) => updateItem(entry.id, entry.before));
-                setLastBulkUndo([]);
-              }} className="action-btn !px-2.5 !py-1 text-xs">Undo last bulk</button> : null}
-            </div>
-          ) : null}
+            {advancedOpen ? (
+              <div className="overview-advanced-filters advanced-filter-surface">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <select value={executionFilter.types?.[0] || 'all'} onChange={(event) => setExecutionFilter({ ...executionFilter, types: event.target.value === 'all' ? undefined : [event.target.value as 'task' | 'followup'] })} className="field-input"><option value="all">All types</option><option value="task">Tasks</option><option value="followup">Follow-ups</option></select>
+                  <input value={executionFilter.project?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, project: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Project" />
+                  {!personalMode ? <input value={executionFilter.owner?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, owner: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Owner" /> : null}
+                  <input value={executionFilter.assignee?.[0] || ''} onChange={(event) => setExecutionFilter({ ...executionFilter, assignee: event.target.value ? [event.target.value] : undefined })} className="field-input" placeholder="Assignee" />
+                  <select value={executionFilter.waitingOn === undefined ? 'any' : executionFilter.waitingOn ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, waitingOn: event.target.value === 'any' ? undefined : event.target.value === 'yes' })} className="field-input"><option value="any">Any waiting state</option><option value="yes">Waiting on others</option><option value="no">Not waiting</option></select>
+                  <select value={executionFilter.linkedState || 'any'} onChange={(event) => setExecutionFilter({ ...executionFilter, linkedState: event.target.value === 'any' ? undefined : event.target.value as 'linked' | 'unlinked' })} className="field-input"><option value="any">Linked + unlinked</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
+                  <select value={executionFilter.blockedOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, blockedOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Blocked any</option><option value="yes">Blocked only</option></select>
+                  <select value={executionFilter.deferredOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, deferredOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Deferred any</option><option value="yes">Deferred only</option></select>
+                  <select value={executionFilter.cleanupOnly ? 'yes' : 'no'} onChange={(event) => setExecutionFilter({ ...executionFilter, cleanupOnly: event.target.value === 'yes' ? true : undefined })} className="field-input"><option value="no">Cleanup any</option><option value="yes">Cleanup only</option></select>
+                </div>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <input type="date" value={executionFilter.dueDateFrom ? executionFilter.dueDateFrom.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, dueDateFrom: event.target.value ? new Date(`${event.target.value}T00:00:00`).toISOString() : undefined })} className="field-input" />
+                  <input type="date" value={executionFilter.dueDateTo ? executionFilter.dueDateTo.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, dueDateTo: event.target.value ? new Date(`${event.target.value}T23:59:59`).toISOString() : undefined })} className="field-input" />
+                  <input type="date" value={executionFilter.nextTouchDateFrom ? executionFilter.nextTouchDateFrom.slice(0, 10) : ''} onChange={(event) => setExecutionFilter({ ...executionFilter, nextTouchDateFrom: event.target.value ? new Date(`${event.target.value}T00:00:00`).toISOString() : undefined })} className="field-input" />
+                </div>
+                <div className="overview-saved-views-row">
+                  {savedExecutionViews.slice(0, 6).map((view) => <button key={view.id} onClick={() => applyExecutionView(view.id)} className="action-btn !px-2.5 !py-1 text-xs">{view.name}</button>)}
+                  <button onClick={() => saveExecutionView(`Saved ${new Date().toLocaleTimeString()}`)} className="action-btn !px-2.5 !py-1 text-xs">Save current view</button>
+                </div>
+              </div>
+            ) : null}
+
+            {selectedItems.length > 0 ? (
+              <div className="overview-bulk-strip bulk-action-strip">
+                <span className="px-2 py-1 font-semibold text-slate-700">{selectedItems.length} selected</span>
+                <button onClick={() => runBulk('close-followups')} className="action-btn !px-2.5 !py-1 text-xs">Close follow-ups</button>
+                <button onClick={() => runBulk('done-tasks')} className="action-btn !px-2.5 !py-1 text-xs">Mark tasks done</button>
+                <button onClick={() => runBulk('nudge')} className="action-btn !px-2.5 !py-1 text-xs">Mark nudged</button>
+                <button onClick={() => runBulk('snooze')} className="action-btn !px-2.5 !py-1 text-xs">Snooze follow-ups</button>
+                <button onClick={() => runBulk('escalate')} className="action-btn !px-2.5 !py-1 text-xs">Escalate</button>
+                <button onClick={() => runBulk('de-escalate')} className="action-btn !px-2.5 !py-1 text-xs">De-escalate</button>
+                <button onClick={() => setSelectedRows([])} className="action-btn !px-2.5 !py-1 text-xs">Clear</button>
+                {lastBulkUndo.length ? <button onClick={() => {
+                  lastBulkUndo.forEach((entry) => updateItem(entry.id, entry.before));
+                  setLastBulkUndo([]);
+                }} className="action-btn !px-2.5 !py-1 text-xs">Undo last bulk</button> : null}
+              </div>
+            ) : null}
+          </div>
 
           {bulkPreview ? (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">

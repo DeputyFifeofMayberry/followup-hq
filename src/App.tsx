@@ -25,9 +25,10 @@ import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
+import { getModeConfig, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
 import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
-type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
+type WorkspaceKey = ModeWorkspaceKey;
 
 const navItems: Array<{ key: WorkspaceKey; label: string; icon: typeof ListChecks }> = [
   { key: 'worklist', label: 'Worklist', icon: ListChecks },
@@ -248,21 +249,23 @@ function OverviewWorkspace({
   onOpenTrackerView,
   onOpenWorkspace,
   personalMode,
+  appMode,
 }: {
   onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   onOpenWorkspace: (workspace: string) => void;
   personalMode: boolean;
+  appMode: AppMode;
 }) {
-  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} personalMode={personalMode} />;
+  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} personalMode={personalMode} appMode={appMode} />;
 }
 
-function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
+function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
   return (
     <div className="space-y-4">
       <ControlBar />
       <div className="tracker-main-grid">
         <div className="space-y-5">
-          <TrackerTable personalMode={personalMode} />
+          <TrackerTable personalMode={personalMode} appMode={appMode} />
           <DuplicateReviewPanel />
         </div>
         <ItemDetailPanel personalMode={personalMode} />
@@ -364,19 +367,19 @@ function MainApp() {
   const workspaceBody = useMemo(() => {
     switch (workspace) {
       case 'followups':
-        return <TrackerWorkspace personalMode={appMode === 'personal'} />;
+        return <TrackerWorkspace personalMode={appMode === 'personal'} appMode={appMode} />;
       case 'tasks':
-        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} />;
+        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
       case 'exports':
         return <ExportWorkspace />;
       case 'outlook':
         return <OutlookPanel showAdvanced={false} />;
       case 'projects':
-        return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} />;
+        return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} />;
       case 'relationships':
-        return <RelationshipBoard />;
+        return <RelationshipBoard appMode={appMode} />;
       default:
-        return <OverviewWorkspace personalMode={appMode === 'personal'} onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
+        return <OverviewWorkspace personalMode={appMode === 'personal'} appMode={appMode} onOpenTrackerView={openTrackerView} onOpenWorkspace={(value) => setWorkspace(value === 'tracker' ? 'followups' : value === 'queue' ? 'worklist' : value as WorkspaceKey)} />;
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
@@ -390,16 +393,24 @@ function MainApp() {
   ];
   const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
-  const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
-    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
-    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
-    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [] },
-    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [] },
-    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [] },
-    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Export snapshots when you need external reporting.' : 'Export team-facing reporting and cadence summaries.', health: 'Export-ready data', actions: [] },
+  const modeConfig = getModeConfig(appMode);
+  const workspaceMeta = modeConfig.workspaceMeta;
+  const workspaceHealth: Record<WorkspaceKey, string> = {
+    worklist: `${navCounts.worklist || 0} items due now`,
+    followups: `${navCounts.followups || 0} active follow-ups`,
+    tasks: `${navCounts.tasks || 0} open tasks`,
+    outlook: `${combinedCleanup} need cleanup`,
+    projects: `${items.length} linked follow-ups`,
+    relationships: `${items.length} connected threads`,
+    exports: 'Export-ready data',
   };
+
   const currentMeta = workspaceMeta[workspace];
+  const resolvedHeaderActions = currentMeta.actions.flatMap((action) => {
+    if (action.actionKey === 'new-followup') return [{ label: action.label, run: openCreateModal, primary: action.primary }];
+    if (action.actionKey === 'new-task') return [{ label: action.label, run: openCreateTaskModal, primary: action.primary }];
+    return [];
+  });
 
   return (
     <div className="app-shell text-slate-900">
@@ -408,13 +419,13 @@ function MainApp() {
       <div className="app-shell-layout">
         <aside className="app-nav-rail" aria-label="Primary workspace navigation">
           <div className="app-brand-block">
-            <div className="app-brand-eyebrow">Daily execution workspace</div>
+            <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
             <div className="app-brand-title">FollowUp HQ</div>
             <div className="app-brand-subline">Construction operations command</div>
           </div>
           <div className="grid gap-2">
             {navItems.map(({ key, label, icon: Icon }) => {
-              const deemphasized = appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
+              const deemphasized = modeConfig.supportViewsMuted ? (key === 'projects' || key === 'relationships' || key === 'exports') : false;
               return (
               <button
                 key={key}
@@ -441,15 +452,16 @@ function MainApp() {
           <main className="app-main-pane">
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
             <div>
-              <div className="workspace-label">{appMode === 'personal' ? 'Personal mode' : 'Team mode'}</div>
+              <div className="workspace-label">{modeConfig.displayName}</div>
               <h1>{currentMeta.title}</h1>
               <p>{currentMeta.purpose}</p>
+              <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
             </div>
             <div className="workspace-header-meta">
               <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <WorkspaceHeaderMetaPill tone="info">{currentMeta.health}</WorkspaceHeaderMetaPill>
+              <WorkspaceHeaderMetaPill tone="info">{workspaceHealth[workspace]}</WorkspaceHeaderMetaPill>
               <div className="workspace-header-actions">
-                {currentMeta.actions.map((action) => (
+                {resolvedHeaderActions.map((action) => (
                   <button key={action.label} type="button" onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
                     {action.primary ? <Plus className="h-4 w-4" /> : null}
                     {action.label}

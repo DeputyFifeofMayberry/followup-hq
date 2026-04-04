@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { buildOwnerSummary, buildProjectDashboard } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
+import { StatePanel } from './ui/AppPrimitives';
 
 type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
 
@@ -33,7 +34,7 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><BriefcaseBusiness className="h-4 w-4" />Project exposure</div>
           <div className="space-y-2">
-            {!hydrated ? <div className="text-sm text-slate-500">Loading project exposure…</div> : projectSummary.slice(0, 8).map((project) => (
+            {!hydrated ? <StatePanel compact tone="loading" title="Loading project exposure" message="Preparing project-level health and risk counts." /> : projectSummary.slice(0, 8).map((project) => (
               <button key={project.project} onClick={() => onOpenWorkspace('projects')} className="w-full rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:bg-slate-50">
                 <div className="font-medium text-slate-900">{project.project}</div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
@@ -42,13 +43,13 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
                 </div>
               </button>
             ))}
-            {hydrated && projectSummary.length === 0 ? <div className="text-sm text-slate-500">No projects loaded yet.</div> : null}
+            {hydrated && projectSummary.length === 0 ? <StatePanel compact tone="empty" title="No projects loaded yet" message="Create a project or import records to populate this dashboard." /> : null}
           </div>
         </div>
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><Users className="h-4 w-4" />Owner workload</div>
           <div className="space-y-2">
-            {!hydrated ? <div className="text-sm text-slate-500">Loading owner workload…</div> : ownerSummary.map((owner) => (
+            {!hydrated ? <StatePanel compact tone="loading" title="Loading owner workload" message="Aggregating active and escalated work per owner." /> : ownerSummary.map((owner) => (
               <button key={owner.owner} onClick={() => onOpenTrackerView('All')} className="w-full rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:bg-slate-50">
                 <div className="font-medium text-slate-900">{owner.owner}</div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
@@ -57,19 +58,19 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
                 </div>
               </button>
             ))}
-            {hydrated && ownerSummary.length === 0 ? <div className="text-sm text-slate-500">No owner workload yet.</div> : null}
+            {hydrated && ownerSummary.length === 0 ? <StatePanel compact tone="empty" title="No owner workload yet" message="Workload appears once follow-ups are assigned to owners." /> : null}
           </div>
         </div>
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><TriangleAlert className="h-4 w-4" />Waiting on board</div>
           <div className="space-y-2">
-            {!hydrated ? <div className="text-sm text-slate-500">Loading waiting on board…</div> : waitingBoard.map(([who, count]) => (
+            {!hydrated ? <StatePanel compact tone="loading" title="Loading waiting board" message="Collecting who is currently blocking progress." /> : waitingBoard.map(([who, count]) => (
               <button key={who} onClick={() => onOpenTrackerView('Waiting')} className="w-full rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:bg-slate-50">
                 <div className="font-medium text-slate-900">{who}</div>
                 <div className="mt-1 text-xs text-slate-600">{count} open item{count === 1 ? '' : 's'} are waiting here.</div>
               </button>
             ))}
-            {hydrated && waitingBoard.length === 0 ? <div className="text-sm text-slate-500">No waiting-on parties logged yet.</div> : null}
+            {hydrated && waitingBoard.length === 0 ? <StatePanel compact tone="empty" title="No waiting-on parties yet" message="Waiting accountability appears as follow-ups enter waiting states." /> : null}
           </div>
         </div>
       </div>

@@ -19,7 +19,7 @@ import type { AppMode } from './types';
 import { getModeConfig, getWorkspaceOrder, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
 import { buildCommandPaletteConfig, filterCommands } from './lib/commandPaletteConfig';
 import { workspaceIcons } from './lib/workspaceRegistry';
-import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -85,10 +85,11 @@ function MissingSupabaseConfigScreen() {
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
       <div className="mx-auto flex min-h-[80vh] max-w-[760px] items-center justify-center">
         <div className="w-full rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-amber-900">Supabase setup needed</h1>
-          <p className="mt-2 text-sm text-amber-800">
-            FollowUp HQ needs valid Supabase environment variables before the app can load.
-          </p>
+          <StatePanel
+            tone="warning"
+            title="Supabase setup needed"
+            message="FollowUp HQ needs valid Supabase environment variables before the app can load."
+          />
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
             <div className="font-medium text-slate-900">Current issue</div>
             <code className="mt-2 block rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-800">{supabaseConfigError ?? 'Supabase configuration unavailable.'}</code>
@@ -470,7 +471,7 @@ function MainApp() {
                 />
               </div>
             </label>
-            <div className="space-y-2">{visibleCommands.length ? visibleCommands.map((command) => <button type="button" key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>) : <div className="empty-state"><div className="empty-state-title">No matching command</div><div className="empty-state-message">Try a shorter keyword such as “task” or “follow”.</div></div>}</div>
+            <div className="space-y-2">{visibleCommands.length ? visibleCommands.map((command) => <button type="button" key={command.label} className="saved-view-card w-full justify-between" onClick={() => { command.run(); setShowCommand(false); }}><span>{command.label}</span><Search className="h-4 w-4" /></button>) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}</div>
               </AppModalBody>
             </div>
           </AppModal>
@@ -530,9 +531,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
         <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center justify-center">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 px-6 py-5 text-sm text-slate-600 shadow-sm">
-            Loading session...
-          </div>
+          <StatePanel tone="loading" title="Loading session" message="Checking your FollowUp HQ session and workspace context..." />
         </div>
       </div>
     );

@@ -5,6 +5,8 @@ import { Badge } from './Badge';
 import { formatDateTime } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { ForwardedEmailProviderPayload, ForwardedRuleAction, ForwardedRuleCondition } from '../types';
+import { buildForwardedFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
+import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -163,6 +165,10 @@ export function ForwardingIntakeWorkspace() {
         <div className="space-y-3">
           {pending.map((candidate) => (
             <div key={candidate.id} className="rounded-xl border border-slate-200 p-3">
+              {(() => {
+                const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
+                return (
+                  <>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">{candidate.normalizedSubject || '(no subject)'}</div>
@@ -186,6 +192,15 @@ export function ForwardingIntakeWorkspace() {
                   {candidate.reasons.slice(0, 4).map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
               ) : null}
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Field confidence snapshot</div>
+                <WeakFieldWarningGroup fields={[...fieldSummary.weak, ...fieldSummary.missing, ...fieldSummary.conflicting]} />
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  {fieldSummary.priorityReviewFields.map((field) => (
+                    <FieldReviewRow key={field.key} field={field} />
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-3 grid gap-2 lg:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 p-2">
@@ -242,6 +257,9 @@ export function ForwardingIntakeWorkspace() {
                   <Link2 className="h-4 w-4" /> Link existing record
                 </button>
               </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
           {pending.length === 0 ? <div className="text-sm text-slate-500">No pending emails. New forwarded emails will appear here for approval when needed.</div> : null}

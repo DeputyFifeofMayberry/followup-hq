@@ -4,10 +4,12 @@ import { getRecentEntryContext } from '../lib/dataEntryDefaults';
 import { getIntakeDecisionLabel, getIntakeLifecycleLabel } from '../lib/intakeLifecycle';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { addDaysIso, createId, todayIso } from '../lib/utils';
+import { buildCaptureFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { FollowUpItem, IntakeCandidate, TaskItem } from '../types';
 import { Badge } from './Badge';
+import { FieldConfidenceChip } from './intake/FieldReview';
 
 export function UniversalCapture({ contextProject, contextOwner, contextFollowUpId }: { contextProject?: string; contextOwner?: string; contextFollowUpId?: string | null; }) {
   const { projects, contacts, addItem, addTask, openEditModal, openEditTaskModal, openCreateFromCapture, addProject, addContact, stageIntakeCandidate, intakeCandidates, approveIntakeCandidate, discardIntakeCandidate, saveIntakeCandidateAsReference } = useAppStore(useShallow((s) => ({
@@ -73,6 +75,20 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
     parsed.dueDate ? `Detected due date: ${new Date(parsed.dueDate).toLocaleDateString()}` : 'Due date missing',
     `Detected type: ${parsed.kind}`,
   ];
+  const fieldReviewSummary = useMemo(() => summarizeFieldReviews(buildCaptureFieldReviews({
+    kind: parsed.kind,
+    title: parsed.title,
+    rawText: parsed.rawText,
+    project: parsed.project,
+    owner: parsed.owner,
+    dueDate: parsed.dueDate,
+    priority: parsed.priority,
+    waitingOn: parsed.waitingOn,
+    nextAction: parsed.nextAction,
+    nextStep: parsed.nextStep,
+    confidence: parsed.confidence,
+    cleanupReasons: parsed.cleanupReasons,
+  })), [parsed]);
 
   const findProject = (name?: string): { id: string; name: string } => {
     const recentContext = getRecentEntryContext();
@@ -180,6 +196,17 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
           </div>
           <div className="grid gap-2 text-xs md:grid-cols-2">
             {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
+          </div>
+          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Field trust summary</div>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {fieldReviewSummary.priorityReviewFields.map((field) => (
+                <div key={field.key} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 text-xs">
+                  <span className="text-slate-700">{field.label}: <span className="font-medium text-slate-900">{field.value || 'Missing'}</span></span>
+                  <FieldConfidenceChip status={field.status} />
+                </div>
+              ))}
+            </div>
           </div>
           {needsCleanup ? <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">{parsed.cleanupReasons.map((reason) => <span key={reason} className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5">{cleanupLabel[reason]}</span>)}</div> : null}
           <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Approve & import now + open' : 'Send to Review + open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open structured form</button></div>

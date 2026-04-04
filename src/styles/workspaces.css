@@ -143,24 +143,36 @@
 
 .row-action-cell { border-left: 1px solid #d3deea; background: #f3f7fc; }
 .row-action-cell .action-btn { border-color: #c7d3e1; background: #ffffff; }
+.tracker-action-tools { display: grid; gap: 0.35rem; justify-items: end; min-width: 210px; }
+.tracker-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.28rem; }
+.tracker-action-date { display: grid; gap: 0.22rem; justify-items: end; color: #6b7d92; font-size: 0.66rem; font-weight: 650; letter-spacing: 0.03em; text-transform: uppercase; }
 .tracker-cell-support { color: #64748b; font-size: 0.78rem; }
+.tracker-cell-timing { color: #1f3146; font-weight: 620; }
 .tracker-cell-identity { min-width: 280px; }
 .tracker-cell-identity .tracker-title-primary { font-weight: 650; color: #0f172a; }
 .tracker-cell-identity .tracker-title-secondary { font-size: 0.72rem; color: #64748b; }
 .tracker-cell-inline-edit .field-input { border-color: #cfd9e6; background: #f8fbff; color: #475569; }
+.tracker-head-cell-timing .tracker-head-btn { color: #334a63; }
 .tracker-head-cell-support .tracker-head-btn { color: #64748b; font-size: 0.74rem; font-weight: 600; }
 .tracker-head-cell-action .tracker-head-btn { justify-content: flex-end; color: #52657e; }
 
 .tracker-main-grid { display: grid; gap: var(--workspace-region-gap, 0.95rem); grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--workspace-inspector-width, 420px), 42vw)); align-items: start; }
 .tracker-workspace-main { gap: 0.65rem; }
 .followup-control-stack { margin-bottom: 0.1rem; }
+.followup-primary-head { justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #dbe5f1; padding-bottom: 0.48rem; margin-bottom: 0.08rem; }
+.followup-primary-title { margin: 0; font-size: 0.93rem; font-weight: 700; color: #0f172a; }
+.followup-primary-subtitle { margin: 0.2rem 0 0; font-size: 0.75rem; color: #5f728b; }
+.followup-chip-strip { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.08rem; }
 .followup-filter-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .followup-saved-views-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.followup-secondary-utility { border-top: 1px dashed #cbd8e6; padding-top: 0.48rem; margin-top: 0.1rem; opacity: 0.9; }
+.followup-secondary-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6a7c91; align-self: center; }
 .tracker-table-embedded { border: 1px solid #cfdaea; border-radius: 0.8rem; background: #eef4fb; overflow: hidden; }
 .duplicate-review-panel { margin-top: 0.1rem; }
 .tracker-detail-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
 .tracker-row { cursor: pointer; border-bottom: 1px solid #d6e0eb; }
 .tracker-row:focus-visible { box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.45); }
+.tracker-row-active { border-color: #7fa1c6; background: #e8f1fb; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.16); }
 .tracker-table-surface { overflow: hidden; }
 .tracker-table-head { position: sticky; top: 0; z-index: 2; background: #e9f0f9; border-bottom: 1px solid #c7d4e4; }
 .tracker-table td, .tracker-table th { white-space: nowrap; }

@@ -3,10 +3,21 @@ import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Badge } from './Badge';
-import { getAllowedIntakeActions, getIntakeLifecycleGroup, getIntakeLifecycleLabel, normalizeAssetStatus, normalizeWorkCandidateStatus } from '../lib/intakeLifecycle';
+import { getAllowedIntakeActions, getIntakeLifecycleLabel, normalizeAssetStatus, normalizeWorkCandidateStatus } from '../lib/intakeLifecycle';
 import type { IntakeLifecycleStatus } from '../lib/intakeLifecycle';
+import type { IntakeWorkCandidate } from '../types';
 import { buildWorkCandidateFieldReviews, describeMatch, summarizeFieldReviews } from '../lib/intakeEvidence';
-import { FieldConfidenceChip, FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
+import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
+import {
+  buildIntakeReviewQueue,
+  buildQueueBucketCounts,
+  buildQueueMetrics,
+  filterReviewQueue,
+  sortReviewQueue,
+  type IntakeQueueFilters,
+  type IntakeReviewBucket,
+  type IntakeReviewSort,
+} from '../lib/intakeReviewQueue';
 
 const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
   received: 'neutral',
@@ -19,6 +30,14 @@ const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'succe
   reference: 'neutral',
   rejected: 'danger',
   failed: 'danger',
+};
+
+const bucketLabels: Record<IntakeReviewBucket, string> = {
+  ready_to_approve: 'Ready to approve',
+  needs_correction: 'Needs correction',
+  link_duplicate_review: 'Link / duplicate review',
+  reference_likely: 'Reference likely',
+  finalized_history: 'Rejected / finalized history',
 };
 
 export function UniversalIntakeWorkspace() {
@@ -48,21 +67,28 @@ export function UniversalIntakeWorkspace() {
   const [loading, setLoading] = useState(false);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(intakeAssets[0]?.id ?? null);
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [activeBucket, setActiveBucket] = useState<IntakeReviewBucket | 'all'>('all');
+  const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
+  const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const pending = intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending');
-  const finalized = intakeWorkCandidates.filter((entry) => {
-    const status = normalizeWorkCandidateStatus(entry.approvalStatus);
-    return getIntakeLifecycleGroup(status) === 'finalized';
-  });
-  const highConfidence = pending.filter((entry) => entry.confidence >= 0.9);
+  const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets), [intakeWorkCandidates, intakeAssets]);
+  const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
+  const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
+  const filteredQueue = useMemo(() => {
+    const base = filterReviewQueue(queue, queueFilters);
+    const bucketed = activeBucket === 'all' ? base : base.filter((item) => item.bucket === activeBucket);
+    return sortReviewQueue(bucketed, sortKey);
+  }, [queue, queueFilters, activeBucket, sortKey]);
+
+  const pendingQueueIds = useMemo(() => filteredQueue.filter((entry) => entry.status === 'pending').map((entry) => entry.id), [filteredQueue]);
   const selectedAsset = intakeAssets.find((entry) => entry.id === activeAssetId) ?? intakeAssets[0];
-  const selectedAssetCandidates = intakeWorkCandidates.filter((entry) => entry.assetId === selectedAsset?.id);
-  const selectedCandidate = pending.find((entry) => entry.id === activeCandidateId) ?? pending[0] ?? null;
+  const selectedCandidate = intakeWorkCandidates.find((entry) => entry.id === activeCandidateId && pendingQueueIds.includes(entry.id))
+    ?? intakeWorkCandidates.find((entry) => entry.id === pendingQueueIds[0])
+    ?? null;
   const selectedCandidateFieldSummary = useMemo(() => selectedCandidate
     ? summarizeFieldReviews(buildWorkCandidateFieldReviews(selectedCandidate))
     : null, [selectedCandidate]);
-  const needsReview = pending.filter((entry) => entry.confidence < 0.9);
   const childAssets = selectedAsset ? intakeAssets.filter((entry) => entry.parentAssetId === selectedAsset.id) : [];
 
   const byStatus = useMemo(() => ({
@@ -71,12 +97,13 @@ export function UniversalIntakeWorkspace() {
     failed: intakeAssets.filter((asset) => asset.parseStatus === 'failed').length,
   }), [intakeAssets]);
 
-  const applyAndNext = useCallback((decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
-    if (!selectedCandidate) return;
-    decideIntakeWorkCandidate(selectedCandidate.id, decision, linkedRecordId);
-    const next = useAppStore.getState().intakeWorkCandidates.find((entry) => entry.approvalStatus === 'pending');
-    setActiveCandidateId(next?.id ?? null);
-  }, [decideIntakeWorkCandidate, selectedCandidate]);
+  const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
+    const currentIds = pendingQueueIds;
+    const idx = currentIds.indexOf(candidate.id);
+    const nextId = idx >= 0 ? currentIds[idx + 1] ?? currentIds[idx - 1] ?? null : currentIds[0] ?? null;
+    decideIntakeWorkCandidate(candidate.id, decision, linkedRecordId);
+    setActiveCandidateId(nextId);
+  }, [decideIntakeWorkCandidate, pendingQueueIds]);
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
     if (!list?.length) return;
@@ -88,20 +115,25 @@ export function UniversalIntakeWorkspace() {
   };
 
   useEffect(() => {
+    if (!selectedCandidate && pendingQueueIds[0]) setActiveCandidateId(pendingQueueIds[0]);
+  }, [pendingQueueIds, selectedCandidate]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!selectedCandidate) return;
-      if (event.key === 'a') applyAndNext('approve_followup');
-      if (event.key === 't') applyAndNext('approve_task');
-      if (event.key === 'r') applyAndNext('reject');
-      if (event.key === 'l' && selectedCandidate.existingRecordMatches[0]) applyAndNext('link', selectedCandidate.existingRecordMatches[0].id);
+      if (event.key === 'a') applyAndNext(selectedCandidate, 'approve_followup');
+      if (event.key === 't') applyAndNext(selectedCandidate, 'approve_task');
+      if (event.key === 's') applyAndNext(selectedCandidate, 'reference');
+      if (event.key === 'r') applyAndNext(selectedCandidate, 'reject');
+      if (event.key === 'l' && selectedCandidate.existingRecordMatches[0]) applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id);
       if (event.key === 'n') {
-        const idx = pending.findIndex((entry) => entry.id === selectedCandidate.id);
-        setActiveCandidateId(pending[Math.min(pending.length - 1, Math.max(0, idx + 1))]?.id ?? null);
+        const idx = pendingQueueIds.findIndex((entry) => entry === selectedCandidate.id);
+        setActiveCandidateId(pendingQueueIds[Math.min(pendingQueueIds.length - 1, Math.max(0, idx + 1))] ?? null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pending, selectedCandidate, applyAndNext]);
+  }, [pendingQueueIds, selectedCandidate, applyAndNext]);
 
   return (
     <div className="space-y-4">
@@ -118,14 +150,22 @@ export function UniversalIntakeWorkspace() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-base font-semibold text-slate-900">Universal Intake Workspace</div>
-            <div className="text-sm text-slate-600">Drop mixed files (emails, Word, Excel, CSV, PDFs, text, HTML). Intake moves each item from received → parsed → review → decision.</div>
+            <div className="text-sm text-slate-600">Reviewer queue cockpit: triage by bucket, filter by risk, and move decision-to-decision with review-next flow.</div>
           </div>
           <div className="flex gap-2">
             <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Choose files</button>
-            <button className="action-btn" onClick={batchApproveHighConfidence} disabled={highConfidence.length === 0}>Batch approve high confidence ({highConfidence.length})</button>
+            <button className="action-btn" onClick={batchApproveHighConfidence} disabled={metrics.batchSafeCount === 0}>Batch approve batch-safe ({metrics.batchSafeCount})</button>
           </div>
         </div>
         <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Pending</div><div className="text-xl font-semibold text-amber-700">{metrics.pendingCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Batch-safe</div><div className="text-xl font-semibold text-emerald-700">{metrics.batchSafeCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Link / duplicate review</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Weak/conflicting</div><div className="text-xl font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-xl font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-12">
@@ -183,115 +223,85 @@ export function UniversalIntakeWorkspace() {
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Extracted content preview</div>
                 <pre className="max-h-[380px] overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700">{selectedAsset.extractedText || '(no extracted text)'}</pre>
               </div>
-              {selectedAssetCandidates.length > 0 ? (
-                <div className="rounded-xl border border-slate-200 p-2">
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence snippets</div>
-                  <div className="space-y-2 text-xs">
-                    {Object.entries(selectedAssetCandidates
-                      .flatMap((candidate) => candidate.evidence)
-                      .reduce<Record<string, typeof selectedAssetCandidates[number]['evidence']>>((acc, evidence) => {
-                        acc[evidence.field] = acc[evidence.field] ? [...acc[evidence.field], evidence] : [evidence];
-                        return acc;
-                      }, {})).slice(0, 6).map(([field, evidences]) => (
-                      <div key={field} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                        <div className="font-medium text-slate-800">{field}</div>
-                        {evidences.slice(0, 2).map((evidence) => (
-                          <div key={evidence.id} className="mt-1">
-                            <div className="text-slate-600">{evidence.snippet}</div>
-                            <div className="text-[11px] text-slate-500">{evidence.sourceRef} {evidence.score ? `• score ${evidence.score}` : ''}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
           )}
         </section>
 
         <section className="lg:col-span-4 rounded-2xl border border-slate-200 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">Intake review queue</div>
-            <Badge variant="warn">Pending {pending.length}</Badge>
-          </div>
+          <div className="mb-2 text-sm font-semibold text-slate-900">Intake review queue</div>
           <div className="mb-2 flex flex-wrap gap-2 text-[11px]">
-            <Badge variant="success">High confidence queue {highConfidence.length}</Badge>
-            <Badge variant="warn">Needs review queue {needsReview.length}</Badge>
-          </div>
-          <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
-            {pending.map((candidate) => (
-              <article key={candidate.id} className={`rounded-xl border p-2 ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => setActiveCandidateId(candidate.id)}>
-                {(() => {
-                  const candidateFieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
-                  const isPriorityField = (key: 'title' | 'project') => candidateFieldSummary.weak.some((field) => field.key === key)
-                    || candidateFieldSummary.missing.some((field) => field.key === key)
-                    || candidateFieldSummary.conflicting.some((field) => field.key === key);
-                  return (
-                    <>
-                <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
-                <div className="mt-1 flex flex-wrap gap-1 text-xs">
-                  <Badge variant="blue">{candidate.candidateType}</Badge>
-                  <Badge variant="warn">{getIntakeLifecycleLabel(normalizeWorkCandidateStatus(candidate.approvalStatus))}</Badge>
-                  <Badge variant={candidate.confidence >= 0.9 ? 'success' : candidate.confidence >= 0.7 ? 'warn' : 'danger'}>{candidate.confidence}</Badge>
-                  {candidate.duplicateMatches.length > 0 ? <Badge variant="danger">duplicate risk</Badge> : null}
-                </div>
-                <div className="mt-1 text-xs text-slate-600">{candidate.summary.slice(0, 160)}</div>
-                <div className="mt-1 text-[11px] text-slate-500">Project: {candidate.project || 'Unknown'} • Owner: {candidate.owner || 'Unknown'} • Due: {candidate.dueDate || 'n/a'}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {candidateFieldSummary.priorityReviewFields.slice(0, 4).map((field) => (
-                    <span key={field.key} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600">
-                      {field.label}
-                      <FieldConfidenceChip status={field.status} />
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-1 space-y-1 text-[11px] text-slate-600">
-                  {candidate.explanation.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_task'); }}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_followup'); }}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reference'); }}><Save className="h-4 w-4" /> Save as reference</button>
-                  <button className="action-btn action-btn-danger" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reject'); }}><XCircle className="h-4 w-4" /> Reject</button>
-                </div>
-                {candidate.existingRecordMatches.length > 0 ? (
-                  <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
-                    <div className="font-semibold text-slate-700">Existing matches</div>
-                    {candidate.existingRecordMatches.slice(0, 2).map((match) => (
-                      <div key={match.id} className="mt-1 flex items-center justify-between gap-2">
-                        <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''})</div>
-                        <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'link', match.id)}><Link2 className="h-3 w-3" /> Link to existing</button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="mt-2 grid grid-cols-2 gap-1">
-                  <input
-                    className={`field-input ${isPriorityField('title') ? 'intake-field-input-priority' : ''}`}
-                    value={candidate.title}
-                    onChange={(event) => updateIntakeWorkCandidate(candidate.id, { title: event.target.value })}
-                  />
-                  <input
-                    className={`field-input ${isPriorityField('project') ? 'intake-field-input-priority' : ''}`}
-                    value={candidate.project || ''}
-                    placeholder="Project"
-                    onChange={(event) => updateIntakeWorkCandidate(candidate.id, { project: event.target.value })}
-                  />
-                </div>
-                    </>
-                  );
-                })()}
-              </article>
+            {(Object.keys(bucketLabels) as IntakeReviewBucket[]).map((bucket) => (
+              <button key={bucket} className={`rounded-full border px-2 py-1 ${activeBucket === bucket ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-600'}`} onClick={() => setActiveBucket(bucket)}>
+                {bucketLabels[bucket]} ({bucketCounts[bucket]})
+              </button>
             ))}
-            {pending.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500">No pending candidates. Intake history is preserved in batch/asset records.</div> : null}
+            <button className={`rounded-full border px-2 py-1 ${activeBucket === 'all' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-600'}`} onClick={() => setActiveBucket('all')}>All</button>
+          </div>
+          <div className="mb-2 grid gap-2 sm:grid-cols-2 text-xs">
+            <select className="field-input" value={queueFilters.confidenceTier ?? 'any'} onChange={(e) => setQueueFilters((f) => ({ ...f, confidenceTier: e.target.value as IntakeQueueFilters['confidenceTier'] }))}>
+              <option value="any">Any confidence</option><option value="high">High confidence</option><option value="medium">Medium confidence</option><option value="low">Low confidence</option>
+            </select>
+            <select className="field-input" value={sortKey} onChange={(e) => setSortKey(e.target.value as IntakeReviewSort)}>
+              <option value="newest">Newest first</option><option value="highest_confidence">Highest confidence first</option><option value="lowest_confidence">Weakest confidence first</option><option value="most_missing_fields">Most missing fields</option><option value="duplicate_risk_first">Duplicate risk first</option>
+            </select>
+            <label className="inline-flex items-center gap-1"><input type="checkbox" checked={queueFilters.batchSafeOnly ?? false} onChange={(e) => setQueueFilters((f) => ({ ...f, batchSafeOnly: e.target.checked }))} />Batch-safe only</label>
+            <label className="inline-flex items-center gap-1"><input type="checkbox" checked={queueFilters.duplicateRisk === 'only'} onChange={(e) => setQueueFilters((f) => ({ ...f, duplicateRisk: e.target.checked ? 'only' : 'all' }))} />Duplicate risk only</label>
           </div>
 
-          {finalized.length > 0 ? (
+          <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
+            {filteredQueue.filter((entry) => entry.status === 'pending').map((queueEntry) => {
+              const candidate = intakeWorkCandidates.find((entry) => entry.id === queueEntry.id);
+              if (!candidate) return null;
+              const candidateFieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
+              const isPriorityField = (key: 'title' | 'project') => candidateFieldSummary.weak.some((field) => field.key === key)
+                || candidateFieldSummary.missing.some((field) => field.key === key)
+                || candidateFieldSummary.conflicting.some((field) => field.key === key);
+              return (
+                <article key={candidate.id} className={`rounded-xl border p-2 ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => setActiveCandidateId(candidate.id)}>
+                  <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                    <Badge variant="blue">{bucketLabels[queueEntry.bucket]}</Badge>
+                    <Badge variant={queueEntry.batchSafe ? 'success' : 'warn'}>{queueEntry.batchSafe ? 'batch-safe' : 'manual review'}</Badge>
+                    <Badge variant={candidate.confidence >= 0.9 ? 'success' : candidate.confidence >= 0.7 ? 'warn' : 'danger'}>{candidate.confidence}</Badge>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
+                    {queueEntry.alerts.slice(0, 4).map((alert) => <Badge key={alert.code} variant={alert.tone}>{alert.label}</Badge>)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">{candidate.summary.slice(0, 140)}</div>
+                  <div className="mt-2 grid grid-cols-2 gap-1">
+                    <input className={`field-input ${isPriorityField('title') ? 'intake-field-input-priority' : ''}`} value={candidate.title} onChange={(event) => updateIntakeWorkCandidate(candidate.id, { title: event.target.value })} />
+                    <input className={`field-input ${isPriorityField('project') ? 'intake-field-input-priority' : ''}`} value={candidate.project || ''} placeholder="Project" onChange={(event) => updateIntakeWorkCandidate(candidate.id, { project: event.target.value })} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <button className="action-btn" onClick={() => applyAndNext(candidate, 'approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                    <button className="action-btn" onClick={() => applyAndNext(candidate, 'approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
+                    <button className="action-btn" onClick={() => applyAndNext(candidate, 'reference')}><Save className="h-4 w-4" /> Save as reference</button>
+                    <button className="action-btn action-btn-danger" onClick={() => applyAndNext(candidate, 'reject')}><XCircle className="h-4 w-4" /> Reject</button>
+                  </div>
+                  {candidate.existingRecordMatches.length > 0 ? (
+                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                      <div className="font-semibold text-slate-700">Existing matches</div>
+                      {candidate.existingRecordMatches.slice(0, 2).map((match) => (
+                        <div key={match.id} className="mt-1 flex items-center justify-between gap-2">
+                          <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''})</div>
+                          <button className="action-btn" onClick={() => applyAndNext(candidate, 'link', match.id)}><Link2 className="h-3 w-3" /> Link existing</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+            {pendingQueueIds.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500">No pending candidates in this queue view.</div> : null}
+          </div>
+
+          {filteredQueue.filter((entry) => entry.status === 'finalized').length > 0 ? (
             <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Finalized outcomes ({finalized.length})</div>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Finalized outcomes</div>
               <div className="space-y-1">
-                {finalized.slice(0, 5).map((candidate) => {
+                {filteredQueue.filter((entry) => entry.status === 'finalized').slice(0, 5).map((queueEntry) => {
+                  const candidate = intakeWorkCandidates.find((entry) => entry.id === queueEntry.id);
+                  if (!candidate) return null;
                   const status = normalizeWorkCandidateStatus(candidate.approvalStatus);
                   return (
                     <div key={candidate.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs">
@@ -306,7 +316,9 @@ export function UniversalIntakeWorkspace() {
 
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
             Linked records available: {items.length} follow-ups • {tasks.length} tasks.
-            <div className="mt-1 flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Pending review candidates allow: {getAllowedIntakeActions('review_needed').length} decisions (approve, link, reference, reject).</div>
+            <div className="mt-1 flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Batch-safe excludes weak/conflicting fields and duplicate-risk candidates.</div>
+            <div className="mt-1">Keyboard flow: [A] approve follow-up, [T] approve task, [S] save reference, [R] reject, [L] link top match, [N] next.</div>
+            <div className="mt-1">Pending review candidates allow: {getAllowedIntakeActions('review_needed').length} decisions.</div>
           </div>
           {selectedCandidate && selectedCandidateFieldSummary ? (
             <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
@@ -314,24 +326,14 @@ export function UniversalIntakeWorkspace() {
               <WeakFieldWarningGroup fields={[...selectedCandidateFieldSummary.weak, ...selectedCandidateFieldSummary.missing, ...selectedCandidateFieldSummary.conflicting]} />
               <div className="space-y-2">
                 {selectedCandidateFieldSummary.priorityReviewFields.map((field) => (
-                  <FieldReviewRow
-                    key={field.key}
-                    field={field}
-                    onEdit={field.key === 'title'
-                      ? () => setActiveCandidateId(selectedCandidate.id)
-                      : field.key === 'project'
-                        ? () => setActiveCandidateId(selectedCandidate.id)
-                        : undefined}
-                  />
+                  <FieldReviewRow key={field.key} field={field} onEdit={() => setActiveCandidateId(selectedCandidate.id)} />
                 ))}
               </div>
               {selectedCandidate.existingRecordMatches.length > 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
                   <div className="font-semibold text-slate-700">Match explainability</div>
                   {selectedCandidate.existingRecordMatches.slice(0, 2).map((match) => (
-                    <div key={match.id} className="mt-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
-                      {describeMatch(match)}
-                    </div>
+                    <div key={match.id} className="mt-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">{describeMatch(match)}</div>
                   ))}
                 </div>
               ) : null}

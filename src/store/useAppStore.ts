@@ -59,6 +59,7 @@ import type {
 } from '../types';
 import { defaultFollowUpFilters } from '../lib/followUpSelectors';
 import { validateFollowUpTransition, validateTaskTransition, type WorkflowValidationResult } from '../lib/workflowPolicy';
+import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 
 interface ItemModalState {
   open: boolean;
@@ -228,7 +229,7 @@ interface AppState {
   disconnectOutlook: () => void;
   clearOutlookError: () => void;
   ingestForwardedEmailPayload: (payload: ForwardedEmailProviderPayload) => void;
-  approveForwardedCandidate: (candidateId: string, asType?: 'task' | 'followup') => void;
+  approveForwardedCandidate: (candidateId: string, asType?: 'task' | 'followup', options?: { overrideUnsafeCreate?: boolean }) => void;
   rejectForwardedCandidate: (candidateId: string) => void;
   saveForwardedCandidateAsReference: (candidateId: string) => void;
   linkForwardedCandidateToExisting: (candidateId: string, itemId: string) => void;
@@ -249,7 +250,7 @@ interface AppState {
   saveIntakeCandidateAsReference: (candidateId: string) => void;
   ingestIntakeFiles: (files: File[], source?: 'drop' | 'file_picker') => Promise<void>;
   updateIntakeWorkCandidate: (candidateId: string, patch: Partial<IntakeWorkCandidate>) => void;
-  decideIntakeWorkCandidate: (candidateId: string, decision: 'approve_task' | 'approve_followup' | 'reference' | 'reject' | 'link', linkedRecordId?: string) => void;
+  decideIntakeWorkCandidate: (candidateId: string, decision: 'approve_task' | 'approve_followup' | 'reference' | 'reject' | 'link', linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => void;
   batchApproveHighConfidence: () => void;
   confirmFollowUpSent: (id: string, notes?: string) => void;
 }
@@ -1546,7 +1547,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }));
     queuePersist(get, set);
   },
-  decideIntakeWorkCandidate: (candidateId, decision, linkedRecordId) => {
+  decideIntakeWorkCandidate: (candidateId, decision, linkedRecordId, options) => {
     const state = get();
     const candidate = state.intakeWorkCandidates.find((entry) => entry.id === candidateId);
     if (!candidate) return;
@@ -1583,6 +1584,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       queuePersist(get, set);
       return;
     }
+
+    const safety = evaluateIntakeImportSafety(candidate);
+    if ((decision === 'approve_task' || decision === 'approve_followup') && !safety.safeToCreateNew && !options?.overrideUnsafeCreate) return;
 
     if (decision === 'approve_task') {
       const id = createId('TSK');
@@ -1645,7 +1649,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   batchApproveHighConfidence: () => {
     const state = get();
     state.intakeWorkCandidates
-      .filter((candidate) => candidate.approvalStatus === 'pending' && candidate.confidence >= 0.9)
+      .filter((candidate) => candidate.approvalStatus === 'pending' && evaluateIntakeImportSafety(candidate).safeToBatchApprove)
       .forEach((candidate) => {
         const action = candidate.candidateType === 'task' || candidate.candidateType === 'update_existing_task' ? 'approve_task' : 'approve_followup';
         state.decideIntakeWorkCandidate(candidate.id, action);
@@ -1952,7 +1956,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     queuePersist(get, set);
   },
 
-  approveForwardedCandidate: (candidateId, asType) => {
+  approveForwardedCandidate: (candidateId, asType, options) => {
     set((state) => {
       const candidate = state.forwardedCandidates.find((entry) => entry.id === candidateId);
       if (!candidate || candidate.status !== 'pending') return state;
@@ -1961,6 +1965,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (!record) return state;
 
       const type = asType ?? (candidate.suggestedType === 'followup' ? 'followup' : 'task');
+      const safety = evaluateForwardedImportSafety(candidate);
+      if (!safety.safeToCreateNew && !options?.overrideUnsafeCreate) return state;
 
       if (type === 'task') {
         const task = buildTaskFromForwarded(

@@ -38,6 +38,7 @@ export interface AppAuxiliaryState {
   intakeAssets: AppSnapshot['intakeAssets'];
   intakeBatches: AppSnapshot['intakeBatches'];
   intakeWorkCandidates: AppSnapshot['intakeWorkCandidates'];
+  intakeReviewerFeedback: AppSnapshot['intakeReviewerFeedback'];
   savedExecutionViews: AppSnapshot['savedExecutionViews'];
   followUpFilters?: AppSnapshot['followUpFilters'];
   followUpColumns?: AppSnapshot['followUpColumns'];
@@ -89,6 +90,7 @@ function buildFallbackSnapshot(): AppSnapshot {
     intakeAssets: [],
     intakeBatches: [],
     intakeWorkCandidates: [],
+    intakeReviewerFeedback: [],
     savedExecutionViews: [],
     followUpFilters: undefined,
     followUpColumns: undefined,
@@ -119,6 +121,7 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       intakeAssets: snapshot.intakeAssets ?? [],
       intakeBatches: snapshot.intakeBatches ?? [],
       intakeWorkCandidates: snapshot.intakeWorkCandidates ?? [],
+      intakeReviewerFeedback: snapshot.intakeReviewerFeedback ?? [],
       savedExecutionViews: snapshot.savedExecutionViews ?? [],
       followUpFilters: snapshot.followUpFilters,
       followUpColumns: snapshot.followUpColumns,

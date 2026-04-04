@@ -1,4 +1,5 @@
 import type { ForwardedEmailRule, ForwardedIntakeCandidate, ForwardedRoutingAuditEntry, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
+import { buildIntakeTuningModel, type IntakeAutomationHealth, type IntakeTrustPosture } from './intakeTuningModel';
 
 type InsightChipTone = 'neutral' | 'warn' | 'danger' | 'success' | 'blue';
 
@@ -16,6 +17,7 @@ export interface IntakeRuleInsight {
   rejectedOrReference: number;
   overrides: number;
   quality: 'strong' | 'watch' | 'noisy';
+  reason: string;
 }
 
 export interface IntakeTuningInsights {
@@ -25,6 +27,16 @@ export interface IntakeTuningInsights {
   qualitySummary: IntakeInsightChip[];
   ruleInsights: IntakeRuleInsight[];
   tuningSuggestions: string[];
+  trustPosture: IntakeTrustPosture;
+  automationHealth: IntakeAutomationHealth;
+  directImportReadiness: Array<{ source: string; readiness: 'ready' | 'watch' | 'review_first'; reason: string }>;
+  thresholds: {
+    minimumReadyConfidence: number;
+    minimumBatchSafeConfidence: number;
+    requireStrongDueDateEvidence: boolean;
+    requireStrongProjectEvidence: boolean;
+    duplicateCautionBoost: number;
+  };
 }
 
 function toLabel(field: string): string {
@@ -40,10 +52,10 @@ function toLabel(field: string): string {
   return labels[field] ?? field;
 }
 
-function countBy<T extends string>(values: T[]): Array<{ key: T; count: number }> {
-  const map = new Map<T, number>();
-  values.forEach((value) => map.set(value, (map.get(value) ?? 0) + 1));
-  return Array.from(map.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+function toneFromReadiness(readiness: 'ready' | 'watch' | 'review_first'): InsightChipTone {
+  if (readiness === 'ready') return 'success';
+  if (readiness === 'watch') return 'warn';
+  return 'danger';
 }
 
 export function buildIntakeTuningInsights(input: {
@@ -53,82 +65,80 @@ export function buildIntakeTuningInsights(input: {
   forwardedRoutingAudit: ForwardedRoutingAuditEntry[];
   feedback: IntakeReviewerFeedback[];
 }): IntakeTuningInsights {
-  const { intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, feedback } = input;
-  const recentFeedback = feedback.slice(0, 250);
+  const model = buildIntakeTuningModel(input);
 
-  const correctionHotspots = countBy(recentFeedback.flatMap((entry) => entry.correctedFields))
+  const correctionHotspots = model.correctionByFieldAndSource
     .slice(0, 5)
     .map((entry) => ({
-      label: toLabel(entry.key),
-      value: `${entry.count}`,
-      tone: entry.count >= 5 ? 'warn' : 'neutral',
+      label: `${toLabel(entry.field)} (${entry.source.replace(/_/g, ' ')})`,
+      value: `${Math.round(entry.rate * 100)}% (${entry.count}/${entry.total || 1})`,
+      tone: (entry.rate >= 0.3 ? 'danger' : entry.rate >= 0.18 ? 'warn' : 'neutral') as InsightChipTone,
     }));
 
-  const overridePatterns = countBy(
-    recentFeedback
-      .filter((entry) => entry.overrideApplied)
-      .map((entry) => entry.finalDecision),
-  )
+  const overridePatterns = model.overridesByDecision
     .slice(0, 4)
-    .map((entry) => ({ label: entry.key.replace(/_/g, ' '), value: `${entry.count}`, tone: entry.count >= 4 ? 'warn' : 'neutral' }));
+    .map((entry) => ({
+      label: entry.finalDecision.replace(/_/g, ' '),
+      value: `${Math.round(entry.rate * 100)}% (${entry.count}/${entry.total || 1})`,
+      tone: (entry.rate >= 0.28 ? 'danger' : entry.rate >= 0.15 ? 'warn' : 'neutral') as InsightChipTone,
+    }));
 
   const weakParseHotspots: IntakeInsightChip[] = [
     {
-      label: 'Universal intake weak confidence',
-      value: `${intakeWorkCandidates.filter((candidate) => candidate.confidence < 0.7 && candidate.approvalStatus === 'pending').length}`,
-      tone: 'warn',
+      label: 'Due-date correction pressure',
+      value: `${Math.round((model.correctionByFieldAndSource.find((entry) => entry.field === 'dueDate')?.rate ?? 0) * 100)}%`,
+      tone: model.thresholds.requireStrongDueDateEvidence ? 'warn' : 'neutral',
     },
     {
-      label: 'Forwarded weak parses',
-      value: `${forwardedCandidates.filter((candidate) => candidate.parseQuality !== 'strong').length}`,
-      tone: 'warn',
+      label: 'Project-map correction pressure',
+      value: `${Math.round((model.correctionByFieldAndSource.find((entry) => entry.field === 'project')?.rate ?? 0) * 100)}%`,
+      tone: model.thresholds.requireStrongProjectEvidence ? 'warn' : 'neutral',
     },
     {
-      label: 'Create-new overridden by linking',
-      value: `${recentFeedback.filter((entry) => entry.correctedFields.includes('linking_decision')).length}`,
-      tone: 'danger',
+      label: 'Link over create frequency',
+      value: `${Math.round(model.linkInsteadOfCreateRate.rate * 100)}%`,
+      tone: model.thresholds.duplicateCautionBoost ? 'danger' : 'blue',
     },
   ];
 
   const qualitySummary: IntakeInsightChip[] = [
-    { label: 'Pending review', value: `${intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending').length + forwardedCandidates.filter((entry) => entry.status === 'pending').length}`, tone: 'warn' },
-    { label: 'Recent overrides', value: `${recentFeedback.filter((entry) => entry.overrideApplied).length}`, tone: 'blue' },
-    { label: 'Rejected / reference (recent)', value: `${recentFeedback.filter((entry) => entry.finalDecision === 'rejected' || entry.finalDecision === 'saved_reference').length}`, tone: 'neutral' },
+    { label: 'Trust posture', value: model.trustPosture, tone: model.trustPosture === 'stable' ? 'success' : model.trustPosture === 'caution' ? 'warn' : 'danger' },
+    { label: 'Automation health', value: model.automationHealth, tone: model.automationHealth === 'strong' ? 'success' : model.automationHealth === 'watch' ? 'warn' : 'danger' },
+    { label: 'Ready-now minimum confidence', value: model.thresholds.minimumReadyConfidence.toFixed(2), tone: 'blue' },
+    { label: 'Batch-safe minimum confidence', value: model.thresholds.minimumBatchSafeConfidence.toFixed(2), tone: 'blue' },
   ];
 
-  const auditRuleHits = forwardedRoutingAudit.flatMap((audit) => audit.ruleIds);
-  const ruleInsights: IntakeRuleInsight[] = forwardedRules.map((rule) => {
-    const hits = auditRuleHits.filter((ruleId) => ruleId === rule.id).length;
-    const ruleFeedback = recentFeedback.filter((entry) => entry.ruleIds?.includes(rule.id));
-    const approved = ruleFeedback.filter((entry) => entry.finalDecision === 'approved_task' || entry.finalDecision === 'approved_followup').length;
-    const rejectedOrReference = ruleFeedback.filter((entry) => entry.finalDecision === 'rejected' || entry.finalDecision === 'saved_reference').length;
-    const overrides = ruleFeedback.filter((entry) => entry.overrideApplied).length;
-    const noisyRatio = hits ? (rejectedOrReference + overrides) / hits : 0;
-    const quality: IntakeRuleInsight['quality'] = hits < 2 ? 'watch' : noisyRatio >= 0.6 ? 'noisy' : noisyRatio <= 0.2 ? 'strong' : 'watch';
-    return {
-      ruleId: rule.id,
-      ruleName: rule.name,
-      hits,
-      approved,
-      rejectedOrReference,
-      overrides,
-      quality,
-    };
-  }).sort((a, b) => b.hits - a.hits);
+  const ruleInsights: IntakeRuleInsight[] = model.ruleQuality.map((rule) => ({
+    ruleId: rule.ruleId,
+    ruleName: rule.ruleName,
+    hits: rule.hits,
+    approved: rule.approvals,
+    rejectedOrReference: rule.rejectedOrReference,
+    overrides: rule.overrides,
+    quality: rule.quality,
+    reason: rule.reasons[0] ?? 'No friction signals.',
+  }));
 
-  const tuningSuggestions: string[] = [];
-  if (correctionHotspots.some((entry) => entry.label === 'Project corrected' && Number(entry.value) >= 3)) {
-    tuningSuggestions.push('Project mapping is frequently corrected. Add sender/domain project hints or lower auto-create confidence.');
-  }
-  if (correctionHotspots.some((entry) => entry.label === 'Due date corrected' && Number(entry.value) >= 3)) {
-    tuningSuggestions.push('Due dates are often corrected. Prefer review-first for sources missing explicit date language.');
-  }
-  const noisyRules = ruleInsights.filter((rule) => rule.quality === 'noisy').slice(0, 2);
-  noisyRules.forEach((rule) => tuningSuggestions.push(`Rule “${rule.ruleName}” may be too aggressive (${rule.rejectedOrReference + rule.overrides}/${Math.max(rule.hits, 1)} noisy signals).`));
+  const directImportReadiness = model.directImportReadiness.map((entry) => ({ ...entry, source: entry.source.replace(/_/g, ' ') }));
 
-  if (!tuningSuggestions.length) {
-    tuningSuggestions.push('No major friction spike detected. Keep monitoring correction hotspots and override trends.');
-  }
-
-  return { correctionHotspots, overridePatterns, weakParseHotspots, qualitySummary, ruleInsights, tuningSuggestions };
+  return {
+    correctionHotspots,
+    overridePatterns,
+    weakParseHotspots,
+    qualitySummary,
+    ruleInsights,
+    tuningSuggestions: model.tuningSuggestions,
+    trustPosture: model.trustPosture,
+    automationHealth: model.automationHealth,
+    directImportReadiness,
+    thresholds: {
+      minimumReadyConfidence: model.thresholds.minimumReadyConfidence,
+      minimumBatchSafeConfidence: model.thresholds.minimumBatchSafeConfidence,
+      requireStrongDueDateEvidence: model.thresholds.requireStrongDueDateEvidence,
+      requireStrongProjectEvidence: model.thresholds.requireStrongProjectEvidence,
+      duplicateCautionBoost: model.thresholds.duplicateCautionBoost,
+    },
+  };
 }
+
+export { toneFromReadiness };

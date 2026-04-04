@@ -1,13 +1,14 @@
 import { buildForwardedFieldReviews, buildWorkCandidateFieldReviews, summarizeFieldReviews } from './intakeEvidence';
 import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from './intakeImportSafety';
-import type { ForwardedIntakeCandidate, IntakeAssetRecord, IntakeWorkCandidate } from '../types';
+import type { ForwardedIntakeCandidate, IntakeAssetRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
+import { buildIntakeTuningModel, type IntakeTuningModel } from './intakeTuningModel';
 
 export type IntakeReviewBucket = 'ready_to_approve' | 'needs_correction' | 'link_duplicate_review' | 'reference_likely' | 'finalized_history';
 export type IntakeReviewSort = 'highest_confidence' | 'lowest_confidence' | 'most_missing_fields' | 'newest' | 'duplicate_risk_first';
 export type IntakeConfidenceTier = 'high' | 'medium' | 'low';
 
 export interface IntakeReviewerAlert {
-  code: 'missing_due_date' | 'missing_project' | 'weak_owner_detection' | 'conflicting_type_inference' | 'duplicate_risk' | 'likely_reference_only' | 'weak_parse_quality' | 'needs_link_decision';
+  code: 'missing_due_date' | 'missing_project' | 'weak_owner_detection' | 'conflicting_type_inference' | 'duplicate_risk' | 'likely_reference_only' | 'weak_parse_quality' | 'needs_link_decision' | 'tuning_review_pressure' | 'tuning_due_date_guard' | 'tuning_project_guard';
   label: string;
   tone: 'warn' | 'danger' | 'neutral' | 'blue';
 }
@@ -72,7 +73,9 @@ function getNextStepHint(input: {
   conflictingEvidence: boolean;
   duplicateRisk: boolean;
   likelyReference: boolean;
+  tuningEscalation?: boolean;
 }): string {
+  if (input.tuningEscalation) return 'Recent reviewer corrections are elevated here; review before approving.';
   if (input.readiness === 'needs_link_decision' || input.duplicateRisk) return 'Compare top match and link if same work.';
   if (input.likelyReference || input.readiness === 'reference_likely') return 'Save as reference unless actionable work is explicit.';
   if (input.conflictingEvidence) return 'Resolve conflicting field signals before approval.';
@@ -87,11 +90,26 @@ function confidenceTier(score: number): IntakeConfidenceTier {
   return 'low';
 }
 
-export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets: IntakeAssetRecord[]): IntakeQueueItem[] {
+function sourceKey(sourceType: string): 'quick_capture' | 'universal_intake' | 'forwarding' | 'forwarded_email' {
+  if (sourceType === 'quick_capture') return 'quick_capture';
+  if (sourceType === 'forwarded_email') return 'forwarded_email';
+  return 'universal_intake';
+}
+
+function tuningReviewPressure(model: IntakeTuningModel, source: string): boolean {
+  return !!model.thresholds.forceReviewBySource[sourceKey(source)];
+}
+
+export function buildIntakeReviewQueue(
+  candidates: IntakeWorkCandidate[],
+  assets: IntakeAssetRecord[],
+  tuningModel?: IntakeTuningModel,
+): IntakeQueueItem[] {
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
 
   return candidates.map((candidate) => {
     const asset = assetsById.get(candidate.assetId);
+    const model = tuningModel;
     const fieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
     const missingCriticalFields = fieldSummary.priorityReviewFields.filter((field) => ['missing', 'weak'].includes(field.status)).length;
     const conflictingEvidence = fieldSummary.conflicting.length > 0 || candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning));
@@ -100,6 +118,11 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
     const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only' || safety.recommendedDecision === 'save_reference';
     const status = candidate.approvalStatus === 'pending' ? 'pending' : 'finalized';
     const hasCriticalBlockers = safety.blockers.length > 0 || conflictingEvidence;
+    const dueDateField = fieldSummary.priorityReviewFields.find((field) => field.key === 'dueDate');
+    const projectField = fieldSummary.priorityReviewFields.find((field) => field.key === 'project');
+    const tuneReviewPressure = model ? tuningReviewPressure(model, asset?.kind ?? 'universal_intake') : false;
+    const dueDateGuard = !!model?.thresholds.requireStrongDueDateEvidence && (!dueDateField || dueDateField.status !== 'strong');
+    const projectGuard = !!model?.thresholds.requireStrongProjectEvidence && (!projectField || !['strong', 'medium'].includes(projectField.status));
 
     const alerts: IntakeReviewerAlert[] = [];
     if (!candidate.dueDate) alerts.push({ code: 'missing_due_date', label: 'Missing due date', tone: 'warn' });
@@ -110,6 +133,12 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
     if (likelyReference) alerts.push({ code: 'likely_reference_only', label: 'Likely reference only', tone: 'neutral' });
     if (asset?.parseQuality === 'weak' || asset?.parseQuality === 'failed') alerts.push({ code: 'weak_parse_quality', label: 'Weak parse quality', tone: 'warn' });
     if (candidate.existingRecordMatches.length > 0) alerts.push({ code: 'needs_link_decision', label: 'Needs link decision', tone: 'blue' });
+    if (tuneReviewPressure) alerts.push({ code: 'tuning_review_pressure', label: 'Source has elevated review pressure', tone: 'warn' });
+    if (dueDateGuard) alerts.push({ code: 'tuning_due_date_guard', label: 'Due date evidence guard is active', tone: 'warn' });
+    if (projectGuard) alerts.push({ code: 'tuning_project_guard', label: 'Project mapping guard is active', tone: 'warn' });
+
+    const minReadyConfidence = model?.thresholds.minimumReadyConfidence ?? 0.75;
+    const minBatchSafeConfidence = model?.thresholds.minimumBatchSafeConfidence ?? 0.82;
 
     const batchSafe = status === 'pending'
       && safety.safeToBatchApprove
@@ -117,7 +146,11 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       && !conflictingEvidence
       && missingCriticalFields === 0
       && asset?.parseQuality !== 'weak'
-      && asset?.parseQuality !== 'failed';
+      && asset?.parseQuality !== 'failed'
+      && candidate.confidence >= minBatchSafeConfidence
+      && !tuneReviewPressure
+      && !dueDateGuard
+      && !projectGuard;
 
     const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
       ? 'ready_to_approve'
@@ -125,9 +158,15 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
         ? 'reference_likely'
         : hasCriticalBlockers
           ? 'unsafe_to_create'
-          : duplicateRisk
+          : duplicateRisk || (model?.thresholds.duplicateCautionBoost && candidate.existingRecordMatches.length > 0)
             ? 'needs_link_decision'
-            : missingCriticalFields > 0 || candidate.confidence < 0.75 || asset?.parseQuality === 'weak' || asset?.parseQuality === 'failed'
+            : missingCriticalFields > 0
+              || candidate.confidence < minReadyConfidence
+              || asset?.parseQuality === 'weak'
+              || asset?.parseQuality === 'failed'
+              || dueDateGuard
+              || projectGuard
+              || tuneReviewPressure
               ? 'ready_after_correction'
               : 'ready_to_approve';
 
@@ -148,6 +187,9 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       + (duplicateRisk ? 10 : 0)
       + (readiness === 'ready_to_approve' && missingCriticalFields === 0 && !duplicateRisk ? 8 : 0)
       + (asset?.parseQuality === 'failed' ? 10 : asset?.parseQuality === 'weak' ? 6 : 0)
+      + (tuneReviewPressure ? 10 : 0)
+      + (dueDateGuard ? 6 : 0)
+      + (projectGuard ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
 
     return {
@@ -171,12 +213,12 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       sortDate: candidate.updatedAt || candidate.createdAt,
       readiness,
       priorityScore,
-      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference }),
+      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference, tuningEscalation: tuneReviewPressure || dueDateGuard || projectGuard }),
     };
   });
 }
 
-export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]): IntakeQueueItem[] {
+export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[], tuningModel?: IntakeTuningModel): IntakeQueueItem[] {
   return candidates.map((candidate) => {
     const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
     const safety = evaluateForwardedImportSafety(candidate);
@@ -186,6 +228,12 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
     const likelyReference = candidate.suggestedType === 'reference';
     const status = candidate.status === 'pending' ? 'pending' : 'finalized';
     const hasCriticalBlockers = safety.blockers.length > 0 || conflictingEvidence;
+    const dueDateField = fieldSummary.priorityReviewFields.find((field) => field.key === 'dueDate');
+    const projectField = fieldSummary.priorityReviewFields.find((field) => field.key === 'project');
+
+    const tuneReviewPressure = tuningModel ? tuningReviewPressure(tuningModel, 'forwarded_email') : false;
+    const dueDateGuard = !!tuningModel?.thresholds.requireStrongDueDateEvidence && (!dueDateField || dueDateField.status !== 'strong');
+    const projectGuard = !!tuningModel?.thresholds.requireStrongProjectEvidence && (!projectField || !['strong', 'medium'].includes(projectField.status));
 
     const alerts: IntakeReviewerAlert[] = [];
     if (!candidate.parsedProject) alerts.push({ code: 'missing_project', label: 'Missing project', tone: 'warn' });
@@ -195,13 +243,23 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
     if (conflictingEvidence) alerts.push({ code: 'conflicting_type_inference', label: 'Conflicting evidence', tone: 'danger' });
     if (likelyReference) alerts.push({ code: 'likely_reference_only', label: 'Likely reference only', tone: 'neutral' });
     if (candidate.parseQuality === 'weak') alerts.push({ code: 'weak_parse_quality', label: 'Weak parse quality', tone: 'warn' });
+    if (tuneReviewPressure) alerts.push({ code: 'tuning_review_pressure', label: 'Forwarding source under review pressure', tone: 'warn' });
+    if (dueDateGuard) alerts.push({ code: 'tuning_due_date_guard', label: 'Due date evidence guard is active', tone: 'warn' });
+    if (projectGuard) alerts.push({ code: 'tuning_project_guard', label: 'Project mapping guard is active', tone: 'warn' });
+
+    const minReadyConfidence = tuningModel?.thresholds.minimumReadyConfidence ?? 0.75;
+    const minBatchSafeConfidence = tuningModel?.thresholds.minimumBatchSafeConfidence ?? 0.82;
 
     const batchSafe = status === 'pending'
       && safety.safeToBatchApprove
       && candidate.parseQuality === 'strong'
       && !conflictingEvidence
       && !likelyReference
-      && missingCriticalFields === 0;
+      && missingCriticalFields === 0
+      && candidate.confidence >= minBatchSafeConfidence
+      && !tuneReviewPressure
+      && !dueDateGuard
+      && !projectGuard;
 
     const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
       ? 'ready_to_approve'
@@ -211,7 +269,12 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
           ? 'unsafe_to_create'
           : duplicateRisk
             ? 'needs_link_decision'
-            : missingCriticalFields > 0 || candidate.parseQuality !== 'strong'
+            : missingCriticalFields > 0
+              || candidate.parseQuality !== 'strong'
+              || candidate.confidence < minReadyConfidence
+              || tuneReviewPressure
+              || dueDateGuard
+              || projectGuard
               ? 'ready_after_correction'
               : 'ready_to_approve';
 
@@ -232,6 +295,9 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       + (duplicateRisk ? 10 : 0)
       + (readiness === 'ready_to_approve' && missingCriticalFields === 0 && !duplicateRisk ? 8 : 0)
       + (candidate.parseQuality === 'weak' ? 6 : 0)
+      + (tuneReviewPressure ? 10 : 0)
+      + (dueDateGuard ? 6 : 0)
+      + (projectGuard ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
 
     return {
@@ -254,9 +320,25 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       sortDate: candidate.updatedAt || candidate.createdAt,
       readiness,
       priorityScore,
-      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference }),
+      nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference, tuningEscalation: tuneReviewPressure || dueDateGuard || projectGuard }),
     };
   });
+}
+
+export function buildTuningAwareReviewQueue(input: {
+  intakeWorkCandidates: IntakeWorkCandidate[];
+  intakeAssets: IntakeAssetRecord[];
+  forwardedCandidates: ForwardedIntakeCandidate[];
+  feedback: IntakeReviewerFeedback[];
+}): { queue: IntakeQueueItem[]; tuningModel: IntakeTuningModel } {
+  const tuningModel = buildIntakeTuningModel({
+    intakeWorkCandidates: input.intakeWorkCandidates,
+    forwardedCandidates: input.forwardedCandidates,
+    forwardedRules: [],
+    forwardedRoutingAudit: [],
+    feedback: input.feedback,
+  });
+  return { queue: buildIntakeReviewQueue(input.intakeWorkCandidates, input.intakeAssets, tuningModel), tuningModel };
 }
 
 export function filterReviewQueue(queue: IntakeQueueItem[], filters: IntakeQueueFilters): IntakeQueueItem[] {

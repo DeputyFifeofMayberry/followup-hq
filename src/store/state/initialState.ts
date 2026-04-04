@@ -1,0 +1,70 @@
+import { defaultExecutionViews } from '../../lib/unifiedQueue';
+import { getDefaultForwardedRules } from '../../lib/intakeRules';
+import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
+import { getDefaultOutlookSettings } from '../../lib/outlookGraph';
+import type { AppBusinessState, AppMetaState, AppUiState } from './types';
+
+export const initialBusinessState: AppBusinessState = {
+  items: [],
+  contacts: [],
+  companies: [],
+  projects: [],
+  tasks: [],
+  intakeSignals: [],
+  intakeDocuments: [],
+  dismissedDuplicatePairs: [],
+  duplicateReviews: [],
+  outlookConnection: {
+    settings: getDefaultOutlookSettings(),
+    mailboxLinked: false,
+    syncStatus: 'idle',
+    syncCursorByFolder: { inbox: {}, sentitems: {} },
+  },
+  outlookMessages: [],
+  droppedEmailImports: [],
+  forwardedEmails: [],
+  forwardedRules: getDefaultForwardedRules(),
+  forwardedCandidates: [],
+  forwardedLedger: [],
+  forwardedRoutingAudit: [],
+  intakeCandidates: [],
+  intakeAssets: [],
+  intakeBatches: [],
+  intakeWorkCandidates: [],
+  intakeReviewerFeedback: [],
+};
+
+export const initialUiState: AppUiState = {
+  selectedId: null,
+  search: '',
+  projectFilter: 'All',
+  statusFilter: 'All',
+  activeView: 'All',
+  followUpFilters: defaultFollowUpFilters,
+  selectedFollowUpIds: [],
+  followUpColumns: ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'assignee', 'nextAction'],
+  savedFollowUpViews: [],
+  itemModal: { open: false, mode: 'create', itemId: null },
+  touchModalOpen: false,
+  importModalOpen: false,
+  mergeModal: { open: false, baseId: null, candidateId: null },
+  draftModal: { open: false, itemId: null },
+  taskModal: { open: false, mode: 'create', taskId: null },
+  createWorkDraft: null,
+  selectedTaskId: null,
+  taskOwnerFilter: 'All',
+  taskStatusFilter: 'All',
+  queuePreset: 'Today',
+  executionFilter: {},
+  executionSort: 'queue_score',
+  queueDensity: 'compact',
+  savedExecutionViews: defaultExecutionViews,
+};
+
+export const initialMetaState: AppMetaState = {
+  hydrated: false,
+  persistenceMode: 'loading',
+  saveError: '',
+  syncState: 'checking',
+  lastSyncedAt: undefined,
+};

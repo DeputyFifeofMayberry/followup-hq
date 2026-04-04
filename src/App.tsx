@@ -2,44 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { Building2, CheckCircle2, Command, HardHat, LockKeyhole, Mail, Search, ShieldCheck, Sparkles } from 'lucide-react';
 
-import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
-import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { CreateWorkModal } from './components/CreateWorkModal';
-import { OverviewPage } from './components/OverviewPage';
 import { MergeModal } from './components/MergeModal';
-import { ProjectCommandCenter } from './components/ProjectCommandCenter';
-import { RelationshipBoard } from './components/RelationshipBoard';
 import { TouchLogModal } from './components/TouchLogModal';
-import { TrackerTable } from './components/TrackerTable';
-import { ControlBar } from './components/ControlBar';
-import { TaskWorkspace } from './components/TaskWorkspace';
-import { ExportWorkspace } from './components/ExportWorkspace';
-import { OutlookPanel } from './components/OutlookPanel';
 import { UniversalCapture } from './components/UniversalCapture';
+import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
 import { getModeConfig, getWorkspaceOrder, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
-import { AppModal, AppModalBody, AppModalHeader, AppShellCard, SectionHeader, SegmentedControl, StatTile, WorkspaceHeaderMetaPill, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceTopStack } from './components/ui/AppPrimitives';
-import { buildFollowUpCounts, selectFollowUpRows } from './lib/followUpSelectors';
+import { buildCommandPaletteConfig, filterCommands } from './lib/commandPaletteConfig';
+import { workspaceIcons } from './lib/workspaceRegistry';
+import { AppModal, AppModalBody, AppModalHeader, SegmentedControl, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 
 type WorkspaceKey = ModeWorkspaceKey;
-
-const workspaceIcons: Record<WorkspaceKey, typeof ListChecks> = {
-  worklist: ListChecks,
-  followups: Activity,
-  tasks: ListTodo,
-  outlook: Inbox,
-  projects: BriefcaseBusiness,
-  relationships: Users,
-  exports: FileSpreadsheet,
-};
 
 function FollowUpHQMark() {
   return (
@@ -246,67 +228,6 @@ function LoginScreen() {
   );
 }
 
-function OverviewWorkspace({
-  onOpenTrackerView,
-  onOpenWorkspace,
-  personalMode,
-  appMode,
-}: {
-  onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
-  onOpenWorkspace: (workspace: string) => void;
-  personalMode: boolean;
-  appMode: AppMode;
-}) {
-  return <OverviewPage onOpenTrackerView={onOpenTrackerView} onOpenWorkspace={onOpenWorkspace as never} personalMode={personalMode} appMode={appMode} />;
-}
-
-function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { items, contacts, companies, search, activeView, followUpFilters, tasks, openCreateModal } = useAppStore(
-    useShallow((s) => ({
-      items: s.items,
-      contacts: s.contacts,
-      companies: s.companies,
-      search: s.search,
-      activeView: s.activeView,
-      followUpFilters: s.followUpFilters,
-      tasks: s.tasks,
-      openCreateModal: s.openCreateModal,
-    })),
-  );
-  const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
-  const followUpStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
-  const openTaskCount = useMemo(() => tasks.filter((task) => task.status !== 'Done').length, [tasks]);
-
-  return (
-    <WorkspacePage>
-      <WorkspaceTopStack>
-        <WorkspaceSummaryStrip className="overview-hero-card">
-          <SectionHeader title="Follow-up execution lane" subtitle={personalMode ? 'Run follow-up commitments and close loops quickly.' : 'Run team follow-up commitments, nudges, and closeout decisions.'} actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>} compact />
-          <div className="overview-stat-grid overview-stat-grid-compact">
-            <StatTile label="Visible follow-ups" value={followUpStats.total} helper="Current filtered queue" />
-            <StatTile label="Overdue" value={followUpStats.overdue} helper="Past due date" tone={followUpStats.overdue ? 'warn' : 'default'} />
-            <StatTile label="Needs nudge" value={followUpStats.needsNudge} helper="Touch timing drift" tone={followUpStats.needsNudge ? 'warn' : 'default'} />
-            <StatTile label="Open tasks" value={openTaskCount} helper="Cross-workspace pressure" />
-          </div>
-          <div className="workspace-toolbar-row overview-support-row">
-            <span className="overview-inline-guidance"><strong>Follow-up loop:</strong> Scan queue → run quick actions → finish decisions in inspector.</span>
-            <span className="overview-inline-guidance">Bulk actions appear below filters whenever rows are selected.</span>
-          </div>
-        </WorkspaceSummaryStrip>
-      </WorkspaceTopStack>
-      <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
-        <AppShellCard className="workspace-list-panel tracker-workspace-main" surface="data">
-          <SectionHeader title="Follow-up queue" subtitle="Focused lane list with contextual bulk actions and inspector-first decisions." compact />
-          <ControlBar compact />
-          <TrackerTable personalMode={personalMode} appMode={appMode} embedded />
-          <DuplicateReviewPanel />
-        </AppShellCard>
-        <ItemDetailPanel personalMode={personalMode} />
-      </WorkspacePrimaryLayout>
-    </WorkspacePage>
-  );
-}
-
 function MainApp() {
   const initializeApp = useAppStore((s) => s.initializeApp);
   const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
@@ -398,36 +319,15 @@ function MainApp() {
     outlook: combinedCleanup,
   };
 
-  const workspaceBody = useMemo(() => {
-    switch (workspace) {
-      case 'followups':
-        return <TrackerWorkspace personalMode={appMode === 'personal'} appMode={appMode} />;
-      case 'tasks':
-        return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
-      case 'exports':
-        return <ExportWorkspace />;
-      case 'outlook':
-        return <OutlookPanel showAdvanced={false} />;
-      case 'projects':
-        return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} />;
-      case 'relationships':
-        return <RelationshipBoard appMode={appMode} />;
-      default:
-        return (
-          <OverviewWorkspace
-            personalMode={appMode === 'personal'}
-            appMode={appMode}
-            onOpenTrackerView={openTrackerView}
-            onOpenWorkspace={(value) => {
-              if (value === 'tracker' || value === 'followups') return setWorkspace('followups');
-              if (value === 'queue' || value === 'overview') return setWorkspace('worklist');
-              if (value === 'outlook') return setWorkspace('outlook');
-              return setWorkspace(value as WorkspaceKey);
-            }}
-          />
-        );
-    }
-  }, [workspace, appMode, openTrackerItem, openTrackerView]);
+  const workspaceBody = useMemo(() => (
+    <WorkspaceRenderer
+      workspace={workspace}
+      appMode={appMode}
+      openTrackerView={openTrackerView}
+      openTrackerItem={openTrackerItem}
+      setWorkspace={setWorkspace}
+    />
+  ), [workspace, appMode, openTrackerItem, openTrackerView]);
 
   const orderedWorkspaces = getWorkspaceOrder();
   const navSections = useMemo(() => {
@@ -448,18 +348,14 @@ function MainApp() {
     }
   }, [openCreateModal, openCreateTaskModal]);
 
-  const commands = useMemo(() => {
-    const base = [
-      { label: 'New follow-up', run: () => openCreateModal() },
-      { label: 'New task', run: () => openCreateTaskModal() },
-    ];
-    const workspaceCommands = orderedWorkspaces.map((key) => ({
-      label: `Open ${modeConfig.workspaceMeta[key].userLabel.toLowerCase()}`,
-      run: () => setWorkspace(key),
-    }));
-    return [...base, ...workspaceCommands];
-  }, [modeConfig.workspaceMeta, openCreateModal, openCreateTaskModal, orderedWorkspaces]);
-  const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
+  const commands = useMemo(() => buildCommandPaletteConfig({
+    orderedWorkspaces,
+    getWorkspaceLabel: (key) => modeConfig.workspaceMeta[key].userLabel,
+    openCreateModal,
+    openCreateTaskModal,
+    setWorkspace,
+  }), [modeConfig.workspaceMeta, openCreateModal, openCreateTaskModal, orderedWorkspaces]);
+  const visibleCommands = useMemo(() => filterCommands(commands, commandQuery), [commands, commandQuery]);
 
   const currentMeta = modeConfig.workspaceMeta[workspace];
   const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });

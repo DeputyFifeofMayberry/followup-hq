@@ -483,6 +483,7 @@ function MainApp() {
                 <div className="grid gap-2">
                   {section.items.map(({ key, label, icon: Icon }) => {
                     const deemphasized = section.tone === 'support' || (appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false);
+                    const active = workspace === key;
                     return (
                       <button
                         key={key}
@@ -490,10 +491,11 @@ function MainApp() {
                         onClick={() => setWorkspace(key)}
                         className={[
                           'nav-card',
-                          workspace === key ? 'nav-card-active' : '',
+                          active ? 'nav-card-active' : '',
+                          section.tone === 'support' ? 'nav-card-support' : 'nav-card-core',
                           deemphasized ? 'nav-card-muted' : '',
                         ].filter(Boolean).join(' ')}
-                        aria-current={workspace === key ? 'page' : undefined}
+                        aria-current={active ? 'page' : undefined}
                       >
                         <div className="nav-card-row">
                           <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>

@@ -12,6 +12,7 @@ import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
+const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction', 'promisedDate']);
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
   const { items, contacts, companies, selectedId, tasks, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
@@ -72,7 +73,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
         header: 'Quick actions',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex gap-1">
+          <div className="flex gap-1 tracker-cell-inline-edit">
             <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
             <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => {
               event.stopPropagation();
@@ -112,7 +113,12 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} scope="col" className="tracker-head-cell" aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
+                  <th key={header.id} scope="col" className={[
+                    'tracker-head-cell',
+                    header.id === 'title' ? 'tracker-head-cell-identity' : '',
+                    SUPPORT_COLUMNS.has(header.id) ? 'tracker-head-cell-support' : '',
+                    header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
+                  ].filter(Boolean).join(' ')} aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
                     {header.isPlaceholder ? null : (
                       <button type="button" className="tracker-head-btn" onClick={header.column.getToggleSortingHandler()}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -142,7 +148,12 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
                   className={active ? 'tracker-row tracker-row-active list-row-family-active' : 'tracker-row'}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="tracker-cell">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    <td key={cell.id} className={[
+                      'tracker-cell',
+                      cell.column.id === 'title' ? 'tracker-cell-identity' : '',
+                      SUPPORT_COLUMNS.has(cell.column.id) ? 'tracker-cell-support' : '',
+                      cell.column.id === 'quickActions' ? 'row-action-cell' : '',
+                    ].filter(Boolean).join(' ')}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
                 </tr>
               );

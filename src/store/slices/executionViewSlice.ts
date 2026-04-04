@@ -53,10 +53,13 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
       const intent: ExecutionIntent = {
         kind: options?.recordId ? 'open_record' : options?.section ? 'open_section' : 'open_lane',
         target,
+        source: options?.source ?? 'overview',
+        sourceRecordId: options?.sourceRecordId,
         recordId: options?.recordId,
         recordType: options?.recordType,
         project: options?.project,
         section: options?.section,
+        intentLabel: options?.intentLabel,
         createdAt: new Date().toISOString(),
       };
       set({ executionIntent: intent });

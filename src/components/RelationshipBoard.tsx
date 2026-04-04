@@ -14,8 +14,10 @@ import {
 import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode } from '../types';
+import { useExecutionQueueViewModel } from '../domains/shared';
+import type { WorkspaceKey } from '../lib/appModeConfig';
 
-export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
+export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     items,
     tasks,
@@ -31,8 +33,6 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
     reassignCompanyLinks,
     mergeContacts,
     mergeCompanies,
-    addItem,
-    addTask,
     projects,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -49,10 +49,9 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
     reassignCompanyLinks: s.reassignCompanyLinks,
     mergeContacts: s.mergeContacts,
     mergeCompanies: s.mergeCompanies,
-    addItem: s.addItem,
-    addTask: s.addTask,
     projects: s.projects,
   })));
+  const { openExecutionLane } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const [contactName, setContactName] = useState('');
@@ -107,7 +106,7 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
       <div className="border-b border-slate-200 px-5 py-4">
-        <SectionHeader title={appMode === 'personal' ? 'Relationship support lens' : 'Relationship command center'} subtitle={modeConfig.relationshipsSubtitle} />
+        <SectionHeader title="Relationship coordination lens" subtitle={modeConfig.relationshipsSubtitle} />
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
@@ -233,17 +232,17 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="inspector-title">{selected.name}</div>
-                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}</div>
+                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}. Route actions into execution lanes.</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
-                  <button onClick={() => addItem({ id: `REL-${Date.now()}`, title: `Follow-up: ${selected.name}`, source: 'Notes', project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'Needs action', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', dueDate: new Date().toISOString(), lastTouchDate: new Date().toISOString(), nextTouchDate: new Date(Date.now() + 86400000).toISOString(), nextAction: `Reach out to ${selected.name}`, summary: 'Created from relationships tab.', tags: ['Relationship action'], sourceRef: 'Relationship board', sourceRefs: [], mergedItemIds: [], waitingOn: selected.name, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Internal', escalationLevel: selected.riskTier === 'Critical' ? 'Critical' : 'None', cadenceDays: 3, contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined })} className="action-btn !px-2.5 !py-1.5 text-xs"><PlusCircle className="h-4 w-4" />Add relationship follow-up</button>
-                  <button onClick={() => addTask({ id: `RELTSK-${Date.now()}`, title: `Task: ${selected.name}`, project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'To do', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', summary: 'Created from relationship board.', nextStep: 'Coordinate next move', notes: '', tags: ['Relationship action'], contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })} className="action-btn !px-2.5 !py-1.5 text-xs"><PlusCircle className="h-4 w-4" />Add relationship task</button>
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
+                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minOverduePressure: 1 }))} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue</button>
                   <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { relationshipStatus: 'Watch' }) : updateCompany(selected.id, { relationshipStatus: 'Watch' }))} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
                   <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() }) : updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() }))} className="action-btn">Log interaction</button>
-                  <button onClick={() => addItem({ id: `RELREM-${Date.now()}`, title: `Next touch reminder: ${selected.name}`, source: 'Notes', project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'Needs action', priority: 'Medium', dueDate: new Date(Date.now() + 2 * 86400000).toISOString(), lastTouchDate: new Date().toISOString(), nextTouchDate: new Date(Date.now() + 2 * 86400000).toISOString(), nextAction: `Touch base with ${selected.name}`, summary: 'Relationship next touch reminder.', tags: ['Reminder'], sourceRef: 'Relationship board', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Internal', escalationLevel: 'None', cadenceDays: 2, contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined })} className="action-btn">Set next touch</button>
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, section: 'triage', intentLabel: `next touch ${selected.name}` }); setWorkspace('followups'); }} className="action-btn">Route next touch</button>
                 </div>
               </div>
 

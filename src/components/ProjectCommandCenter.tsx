@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardCopy, FileText, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
+import { AlertTriangle, ClipboardCopy, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   applyProjectFilters,
@@ -10,18 +10,19 @@ import {
   type ProjectFilterState,
   type ProjectSavedViewKey,
 } from '../lib/projectSelectors';
-import { addDaysIso, createId, formatDate, todayIso } from '../lib/utils';
+import { addDaysIso, formatDate, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { AppMode, ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
-import { getModeConfig } from '../lib/appModeConfig';
+import { getModeConfig, type WorkspaceKey } from '../lib/appModeConfig';
+import { useExecutionQueueViewModel } from '../domains/shared';
 
-export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team' }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode }) {
+export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team', setWorkspace }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     items, contacts, companies, projects, tasks, intakeDocuments,
     addProject, updateProject, deleteProject, reassignProjectRecords,
-    addTask, addItem, addIntakeDocument, updateTask, batchUpdateFollowUps,
+    addIntakeDocument, updateTask, batchUpdateFollowUps,
     setProjectFilter, setActiveView,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -34,14 +35,13 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     updateProject: s.updateProject,
     deleteProject: s.deleteProject,
     reassignProjectRecords: s.reassignProjectRecords,
-    addTask: s.addTask,
-    addItem: s.addItem,
     addIntakeDocument: s.addIntakeDocument,
     updateTask: s.updateTask,
     batchUpdateFollowUps: s.batchUpdateFollowUps,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
   })));
+  const { openExecutionLane } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '');
@@ -102,27 +102,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     if (kind === 'overdue') setActiveView('Overdue');
     if (kind === 'blocked') setActiveView('Blocked by child tasks');
     if (kind === 'closeout') setActiveView('Ready to close');
+    openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, section: kind === 'closeout' ? 'ready_to_close' : kind === 'blocked' ? 'blocked' : kind === 'waiting' ? 'triage' : 'quick_route', intentLabel: `${kind} project queue` });
     onFocusTracker('By project', selectedProject.name);
-  };
-
-  const createProjectFollowUp = () => {
-    if (!selectedProject) return;
-    addItem({
-      id: createId(), title: 'New project follow-up', source: 'Notes', project: selectedProject.name, projectId: selectedProject.id,
-      owner: selectedProject.owner, status: 'Needs action', priority: 'Medium', dueDate: addDaysIso(todayIso(), 2),
-      lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), 2), nextAction: 'Define next action and assignee.', summary: '',
-      tags: ['Project scoped'], sourceRef: 'Projects workspace', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [],
-      category: 'General', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3,
-    });
-  };
-
-  const createProjectTask = () => {
-    if (!selectedProject) return;
-    addTask({
-      id: createId('TSK'), title: 'New project task', project: selectedProject.name, projectId: selectedProject.id, owner: selectedProject.owner,
-      status: 'To do', priority: 'Medium', summary: '', nextStep: 'Define first execution step.', notes: '', tags: ['Project scoped'],
-      createdAt: todayIso(), updatedAt: todayIso(),
-    });
   };
 
   const createProjectDoc = () => {
@@ -132,7 +113,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
   return (
     <AppShellCard className="project-command-surface" surface="shell">
-      <SectionHeader title={appMode === 'personal' ? 'Project support lens' : 'Project command center'} subtitle={modeConfig.projectsSubtitle} />
+      <SectionHeader title="Project context lens" subtitle={modeConfig.projectsSubtitle} />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">
           <div className="project-create-row">
@@ -190,10 +171,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               <div className="project-detail-top">
                 <div>
                   <h3 className="inspector-title">{selectedProject.name}</h3>
-                  <p className="inspector-meta">Project-centered command view with health, open work, and execution actions.</p>
+                  <p className="inspector-meta">Pressure and health context for this project. Route execution-heavy work into Follow Ups or Tasks.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => onFocusTracker('By project', selectedProject.name)} className="action-btn"><RefreshCcw className="h-4 w-4" />Focus tracker</button>
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
+                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn">Open task lane</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
@@ -230,8 +212,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
               <div className="project-action-groups">
                 <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project context actions</div>
-                <button onClick={createProjectFollowUp} className="action-btn !px-2.5 !py-1.5 text-xs"><FileText className="h-4 w-4" />Add project-scoped follow-up</button>
-                <button onClick={createProjectTask} className="action-btn !px-2.5 !py-1.5 text-xs"><Plus className="h-4 w-4" />Add project-scoped task</button>
+                <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'act on project follow-ups' }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Route follow-up work</button>
+                <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'act on project tasks' }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Route task work</button>
                 <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
                 <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Blocked work</button>
                 <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Overdue work</button>

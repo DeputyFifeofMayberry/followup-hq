@@ -26,6 +26,8 @@ import {
 import { describeFinalizedOutcome, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeTuningInsights, toneFromReadiness } from '../lib/intakeTuningInsights';
 import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
+import type { WorkspaceKey } from '../lib/appModeConfig';
+import { useExecutionQueueViewModel } from '../domains/shared';
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
   ready_to_approve: 'Ready now',
@@ -51,7 +53,7 @@ const statusTone: Record<IntakeFieldReview['status'], 'success' | 'warn' | 'dang
   conflicting: 'danger',
 };
 
-export function UniversalIntakeWorkspace() {
+export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     intakeBatches,
     intakeAssets,
@@ -89,7 +91,9 @@ export function UniversalIntakeWorkspace() {
   const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
   const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; decision: 'approve_task' | 'approve_followup' } | null>(null);
+  const [lastHandoff, setLastHandoff] = useState<{ target: 'followups' | 'tasks'; recordId?: string; label: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { openExecutionLane } = useExecutionQueueViewModel();
 
   const tuningModel = useMemo(() => buildIntakeTuningModel({
     intakeWorkCandidates,
@@ -133,6 +137,15 @@ export function UniversalIntakeWorkspace() {
     const idx = currentIds.indexOf(candidate.id);
     const nextId = idx >= 0 ? currentIds[idx + 1] ?? currentIds[idx - 1] ?? null : currentIds[0] ?? null;
     decideIntakeWorkCandidate(candidate.id, decision, linkedRecordId, options);
+    const updatedCandidate = useAppStore.getState().intakeWorkCandidates.find((entry) => entry.id === candidate.id);
+    if (decision === 'approve_followup') {
+      setLastHandoff({ target: 'followups', recordId: updatedCandidate?.createdRecordId, label: candidate.title || 'Intake follow-up' });
+    } else if (decision === 'approve_task') {
+      setLastHandoff({ target: 'tasks', recordId: updatedCandidate?.createdRecordId, label: candidate.title || 'Intake task' });
+    } else if (decision === 'link' && linkedRecordId) {
+      const target = candidate.existingRecordMatches.find((entry) => entry.id === linkedRecordId)?.recordType === 'task' ? 'tasks' : 'followups';
+      setLastHandoff({ target, recordId: linkedRecordId, label: candidate.title || 'Linked record' });
+    }
     setActiveCandidateId(nextId);
   }, [decideIntakeWorkCandidate, pendingQueueIds]);
 
@@ -203,16 +216,35 @@ export function UniversalIntakeWorkspace() {
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-base font-semibold text-slate-900">Universal Intake Review Workbench</div>
-            <div className="text-sm text-slate-600">Queue by risk, correct weak fields inline, verify matches, then decide and move to next.</div>
+            <div className="text-base font-semibold text-slate-900">Universal intake review funnel</div>
+            <div className="text-sm text-slate-600">Queue by risk, correct weak fields, verify matches, then hand approved records into Follow Ups or Tasks.</div>
           </div>
           <div className="flex gap-2">
+            <button className="action-btn" onClick={() => setWorkspace('worklist')}>Open Overview</button>
             <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Choose files</button>
             <button className="action-btn" onClick={batchApproveHighConfidence} disabled={metrics.batchSafeCount === 0}>Batch approve safe ({metrics.batchSafeCount})</button>
           </div>
         </div>
         <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
       </div>
+
+      {lastHandoff ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <div className="font-semibold">Sent to execution: {lastHandoff.label}</div>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <button
+              className="action-btn"
+              onClick={() => {
+                openExecutionLane(lastHandoff.target, { recordId: lastHandoff.recordId, recordType: lastHandoff.target === 'tasks' ? 'task' : 'followup', source: 'outlook', intentLabel: 'review approved intake', section: 'quick_route' });
+                setWorkspace(lastHandoff.target === 'tasks' ? 'tasks' : 'followups');
+              }}
+            >
+              Open in {lastHandoff.target === 'tasks' ? 'task lane' : 'follow-up lane'}
+            </button>
+            <button className="action-btn" onClick={() => setWorkspace('worklist')}>Return to Overview</button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Pending</div><div className="text-xl font-semibold text-amber-700">{metrics.pendingCount}</div></div>

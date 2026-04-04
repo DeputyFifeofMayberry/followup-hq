@@ -8,10 +8,11 @@ import { ForwardingIntakeWorkspace } from './ForwardingIntakeWorkspace';
 import { UniversalIntakeWorkspace } from './UniversalIntakeWorkspace';
 import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { useShallow } from 'zustand/react/shallow';
+import type { WorkspaceKey } from '../lib/appModeConfig';
 
 const scopePresets = ['openid', 'profile', 'offline_access', 'User.Read', 'Mail.Read'];
 
-export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean }) {
+export function OutlookPanel({ showAdvanced = false, setWorkspace }: { showAdvanced?: boolean; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     outlookConnection,
     updateOutlookSettings,
@@ -71,14 +72,15 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
   return (
     <AppShellCard className="space-y-4 outlook-command-surface" surface="command">
       <SectionHeader
-        title="Email Intake"
-        subtitle="Forwarded email follows the same Intake lifecycle and tuning loop: received, parsed, reviewed, and finalized as imported, linked, referenced, or rejected."
+        title="Intake funnel"
+        subtitle="Use Intake to receive inbound material, correct parser output, and hand approved records into the execution lanes."
         actions={
           <div className="flex flex-wrap gap-2 tonal-chip-panel">
             <Badge variant="success">Forwarding-first workflow</Badge>
             <Badge variant={outlookConnection.mailboxLinked ? 'neutral' : 'warn'}>
               {outlookConnection.mailboxLinked ? 'Direct Outlook sync enabled' : 'Direct sync optional'}
             </Badge>
+            <button onClick={() => setWorkspace('worklist')} className="action-btn !px-2.5 !py-1 text-xs">Return to Overview</button>
           </div>
         }
       />
@@ -89,7 +91,7 @@ export function OutlookPanel({ showAdvanced = false }: { showAdvanced?: boolean 
           <button className={`outlook-tab-btn ${activeTab === 'settings' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
         </div>
 
-        {activeTab === 'review' ? <UniversalIntakeWorkspace /> : null}
+        {activeTab === 'review' ? <UniversalIntakeWorkspace setWorkspace={setWorkspace} /> : null}
         {activeTab === 'history' ? (
           <div className="surface-block text-sm text-slate-700">
             Intake history is outcome-first. Select any item to verify source evidence, rule influence, final decision, and whether reviewers overrode the suggested path.

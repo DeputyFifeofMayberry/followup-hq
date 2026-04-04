@@ -17,6 +17,7 @@ import type { AppMode } from '../types';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import type { WorkspaceKey } from '../lib/appModeConfig';
 import { StructuredActionFlow } from './actions/StructuredActionFlow';
+import { getCompanyLinkedRecords, getContactLinkedRecords } from '../lib/recordContext';
 
 export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
@@ -81,22 +82,18 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     .sort((a, b) => b.pressureScore - a.pressureScore)
     .slice(0, 6), [relationshipRows]);
 
-  const selectedFollowUps = useMemo(() => {
-    if (!selected) return [];
-    return items.filter((item) => selected.entityType === 'contact' ? item.contactId === selected.id : item.companyId === selected.id).slice(0, 8);
-  }, [selected, items]);
+  const selectedLinkedRecords = useMemo(() => {
+    if (!selected) return { followups: [], tasks: [], contacts: [], projects: [] as typeof projects };
+    if (selected.entityType === 'contact') {
+      const linked = getContactLinkedRecords(selected.id, { items, tasks, contacts, companies, projects });
+      return { followups: linked.followups, tasks: linked.tasks, contacts: linked.contact ? [linked.contact] : [], projects: linked.projects };
+    }
+    return getCompanyLinkedRecords(selected.id, { items, tasks, contacts, companies, projects });
+  }, [selected, items, tasks, contacts, companies, projects]);
 
-  const selectedTasks = useMemo(() => {
-    if (!selected) return [];
-    return tasks.filter((task) => selected.entityType === 'contact' ? task.contactId === selected.id : task.companyId === selected.id).slice(0, 8);
-  }, [selected, tasks]);
-
-  const selectedProjects = useMemo(() => {
-    const keys = new Set<string>();
-    selectedFollowUps.forEach((item) => keys.add(item.projectId || item.project));
-    selectedTasks.forEach((task) => keys.add(task.projectId || task.project));
-    return projects.filter((project) => keys.has(project.id) || keys.has(project.name));
-  }, [projects, selectedFollowUps, selectedTasks]);
+  const selectedFollowUps = useMemo(() => selectedLinkedRecords.followups.slice(0, 8), [selectedLinkedRecords.followups]);
+  const selectedTasks = useMemo(() => selectedLinkedRecords.tasks.slice(0, 8), [selectedLinkedRecords.tasks]);
+  const selectedProjects = useMemo(() => selectedLinkedRecords.projects, [selectedLinkedRecords.projects]);
 
   const contactOptions = contacts.map((contact) => ({ id: contact.id, label: contact.name }));
   const companyOptions = companies.map((company) => ({ id: company.id, label: company.name }));
@@ -105,9 +102,9 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
   const selectedCompany = selected && selected.entityType === 'company' ? companies.find((entry) => entry.id === selected.id) : null;
 
   const linkedCounts = selected ? {
-    followUps: items.filter((item) => selected.entityType === 'contact' ? item.contactId === selected.id : item.companyId === selected.id).length,
-    tasks: tasks.filter((task) => selected.entityType === 'contact' ? task.contactId === selected.id : task.companyId === selected.id).length,
-    contacts: selected.entityType === 'company' ? contacts.filter((contact) => contact.companyId === selected.id).length : 0,
+    followUps: selectedLinkedRecords.followups.length,
+    tasks: selectedLinkedRecords.tasks.length,
+    contacts: selected.entityType === 'company' ? selectedLinkedRecords.contacts.length : 0,
   } : { followUps: 0, tasks: 0, contacts: 0 };
 
   const openCreateWorkFromRelationship = (kind: 'followup' | 'task') => {

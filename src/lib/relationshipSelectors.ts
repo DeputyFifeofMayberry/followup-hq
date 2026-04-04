@@ -1,5 +1,6 @@
 import type { CompanyRecord, CompanyType, ContactRecord, FollowUpItem, TaskItem } from '../types';
 import { daysSince, isOverdue, isTaskOverdue } from './utils';
+import { getCompanyLinkedRecords, getContactLinkedRecords } from './recordContext';
 
 export type RelationshipEntityType = 'contact' | 'company';
 export type RelationshipSortKey = 'pressure' | 'name' | 'activeProjects' | 'waiting' | 'overdue' | 'touchAge' | 'risk';
@@ -125,8 +126,9 @@ export function buildRelationshipSummaries(items: FollowUpItem[], tasks: TaskIte
   const companyById = new Map(companies.map((company) => [company.id, company]));
 
   const contactSummaries: RelationshipSummary[] = contacts.map((contact) => {
-    const linkedFollowUps = items.filter((item) => item.contactId === contact.id);
-    const linkedTasks = tasks.filter((task) => task.contactId === contact.id);
+    const linked = getContactLinkedRecords(contact.id, { items, tasks, contacts, companies, projects: [] });
+    const linkedFollowUps = linked.followups;
+    const linkedTasks = linked.tasks;
     const projectKeys = new Set<string>();
     linkedFollowUps.forEach((item) => projectKeys.add(item.projectId || item.project));
     linkedTasks.forEach((task) => projectKeys.add(task.projectId || task.project));
@@ -169,9 +171,9 @@ export function buildRelationshipSummaries(items: FollowUpItem[], tasks: TaskIte
   });
 
   const companySummaries: RelationshipSummary[] = companies.map((company) => {
-    const linkedContactIds = contacts.filter((contact) => contact.companyId === company.id).map((contact) => contact.id);
-    const linkedFollowUps = items.filter((item) => item.companyId === company.id || (item.contactId && linkedContactIds.includes(item.contactId)));
-    const linkedTasks = tasks.filter((task) => task.companyId === company.id || (task.contactId && linkedContactIds.includes(task.contactId)));
+    const linked = getCompanyLinkedRecords(company.id, { items, tasks, contacts, companies, projects: [] });
+    const linkedFollowUps = linked.followups;
+    const linkedTasks = linked.tasks;
     const projectKeys = new Set<string>();
     linkedFollowUps.forEach((item) => projectKeys.add(item.projectId || item.project));
     linkedTasks.forEach((task) => projectKeys.add(task.projectId || task.project));

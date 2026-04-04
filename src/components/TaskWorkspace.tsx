@@ -8,6 +8,7 @@ import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { describeExecutionIntent } from '../lib/executionHandoff';
+import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/recordContext';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -64,7 +65,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     const now = Date.now();
     const weekEnd = now + 7 * 86400000;
     const modeMatched = tasks.filter((task) => {
-      const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
+      const parent = getLinkedFollowUpForTask(task, items) ?? undefined;
       switch (mode) {
         case 'dueNow':
           return task.status !== 'Done' && !!task.dueDate && new Date(task.dueDate).getTime() <= now + 86400000;
@@ -88,7 +89,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     });
 
     const withFilters = modeMatched.filter((task) => {
-      const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
+      const parent = getLinkedFollowUpForTask(task, items) ?? undefined;
       const ownerMatch = taskOwnerFilter === 'All' || task.owner === taskOwnerFilter;
       const statusMatch = taskStatusFilter === 'All' || task.status === taskStatusFilter;
       const projectMatch = projectFilter === 'All' || task.project === projectFilter;
@@ -116,8 +117,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [tasks, items, taskOwnerFilter, taskStatusFilter, search, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, blockedOnly, deferredOnly, cleanupOnly, tagFilter]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
-  const linkedFollowUp = selectedTask?.linkedFollowUpId ? items.find((item) => item.id === selectedTask.linkedFollowUpId) : null;
-  const linkedTaskOpenCount = linkedFollowUp ? tasks.filter((task) => task.linkedFollowUpId === linkedFollowUp.id && task.status !== 'Done').length : 0;
+  const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
+  const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
 
   const summary = useMemo(() => ({
     open: tasks.filter((task) => task.status !== 'Done').length,
@@ -235,7 +236,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
           <div className="workspace-list-content task-list-content">
             {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try a different filter or add a task." /> : filteredTasks.map((task) => {
-              const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
+              const parent = getLinkedFollowUpForTask(task, items) ?? undefined;
               const isUrgent = Boolean(task.dueDate && task.dueDate < todayIso() && task.status !== 'Done');
               return (
                 <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>

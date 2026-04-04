@@ -1105,6 +1105,27 @@ select, select * {
 
 .overview-stat-grid { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .overview-stat-grid-compact { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.overview-flow-strip { padding: 0.8rem 0.9rem; display: grid; gap: 0.7rem; }
+.overview-flow-header { display: grid; gap: 0.2rem; }
+.overview-flow-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.overview-flow-header p { margin: 0; font-size: 0.8rem; color: #475569; }
+.overview-flow-steps { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.overview-flow-step {
+  border: 1px solid #cdd9e9;
+  background: linear-gradient(180deg, #f8fbff, #eef4fc);
+  border-radius: 999px;
+  padding: 0.26rem 0.62rem;
+  font-size: 0.75rem;
+  font-weight: 620;
+  color: #1e293b;
+}
+.overview-flow-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .overview-priority-list { display: grid; gap: 0.6rem; }
 .overview-priority-row {
   width: 100%;
@@ -1163,6 +1184,17 @@ select, select * {
 .app-brand-title { color: #f8fbff; font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
 .app-brand-subline,
 .nav-text-brand-subline { color: #a5b4ca; font-size: 0.76rem; font-weight: 500; letter-spacing: 0.01em; margin-top: 0.26rem; }
+.nav-section-stack { display: grid; gap: 0.8rem; }
+.nav-section { display: grid; gap: 0.45rem; }
+.nav-section-heading {
+  padding: 0 0.35rem;
+  color: #9cb0cb;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.nav-section-support .nav-section-heading { color: #8da2bf; }
 .nav-text-primary { color: #dce8f8; font-size: 0.88rem; font-weight: 600; letter-spacing: -0.005em; }
 .nav-text-secondary { color: #afbed4; font-size: 0.74rem; font-weight: 500; }
 .nav-text-muted { color: #8ea2be; font-size: 0.86rem; font-weight: 560; }

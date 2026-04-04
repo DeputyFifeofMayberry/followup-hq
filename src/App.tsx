@@ -310,6 +310,7 @@ function MainApp() {
     const saved = window.localStorage.getItem('followup-hq:app-mode');
     return saved === 'team' ? 'team' : 'personal';
   });
+  const modeConfig = getModeConfig(appMode);
   const [showCommand, setShowCommand] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const commandSearchRef = useRef<HTMLInputElement | null>(null);

@@ -1,4 +1,5 @@
 import { buildForwardedFieldReviews, buildWorkCandidateFieldReviews, summarizeFieldReviews } from './intakeEvidence';
+import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from './intakeImportSafety';
 import type { ForwardedIntakeCandidate, IntakeAssetRecord, IntakeWorkCandidate } from '../types';
 
 export type IntakeReviewBucket = 'ready_to_approve' | 'needs_correction' | 'link_duplicate_review' | 'reference_likely' | 'finalized_history';
@@ -27,6 +28,7 @@ export interface IntakeQueueItem {
   conflictingEvidence: boolean;
   recommendedAction: string;
   batchSafe: boolean;
+  batchExclusionReasons: string[];
   alerts: IntakeReviewerAlert[];
   sortDate: string;
 }
@@ -67,8 +69,9 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
     const fieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
     const missingCriticalFields = fieldSummary.priorityReviewFields.filter((field) => ['missing', 'weak'].includes(field.status)).length;
     const conflictingEvidence = fieldSummary.conflicting.length > 0 || candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning));
-    const duplicateRisk = candidate.duplicateMatches.length > 0 || candidate.existingRecordMatches.some((match) => match.score >= 0.75 && (match.strategy === 'duplicate' || match.strategy === 'link'));
-    const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only';
+    const safety = evaluateIntakeImportSafety(candidate);
+    const duplicateRisk = safety.duplicateRiskLevel !== 'low';
+    const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only' || safety.recommendedDecision === 'save_reference';
     const status = candidate.approvalStatus === 'pending' ? 'pending' : 'finalized';
 
     const alerts: IntakeReviewerAlert[] = [];
@@ -82,8 +85,7 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
     if (candidate.existingRecordMatches.length > 0) alerts.push({ code: 'needs_link_decision', label: 'Needs link decision', tone: 'blue' });
 
     const batchSafe = status === 'pending'
-      && candidate.confidence >= 0.9
-      && !duplicateRisk
+      && safety.safeToBatchApprove
       && !likelyReference
       && !conflictingEvidence
       && missingCriticalFields === 0
@@ -114,8 +116,9 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
       duplicateRisk,
       missingCriticalFields,
       conflictingEvidence,
-      recommendedAction: candidate.suggestedAction,
+      recommendedAction: safety.recommendedDecision,
       batchSafe,
+      batchExclusionReasons: safety.batchExclusionReasons,
       alerts,
       sortDate: candidate.updatedAt || candidate.createdAt,
     };
@@ -125,7 +128,8 @@ export function buildIntakeReviewQueue(candidates: IntakeWorkCandidate[], assets
 export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]): IntakeQueueItem[] {
   return candidates.map((candidate) => {
     const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
-    const duplicateRisk = candidate.duplicateWarnings.length > 0;
+    const safety = evaluateForwardedImportSafety(candidate);
+    const duplicateRisk = safety.duplicateRiskLevel !== 'low';
     const missingCriticalFields = fieldSummary.priorityReviewFields.filter((field) => ['missing', 'weak'].includes(field.status)).length;
     const conflictingEvidence = candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning));
     const likelyReference = candidate.suggestedType === 'reference';
@@ -141,9 +145,8 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
     if (candidate.parseQuality === 'weak') alerts.push({ code: 'weak_parse_quality', label: 'Weak parse quality', tone: 'warn' });
 
     const batchSafe = status === 'pending'
-      && candidate.confidence >= 0.9
+      && safety.safeToBatchApprove
       && candidate.parseQuality === 'strong'
-      && !duplicateRisk
       && !conflictingEvidence
       && !likelyReference
       && missingCriticalFields === 0;
@@ -171,8 +174,9 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       duplicateRisk,
       missingCriticalFields,
       conflictingEvidence,
-      recommendedAction: likelyReference ? 'reference_only' : 'create_new',
+      recommendedAction: safety.recommendedDecision,
       batchSafe,
+      batchExclusionReasons: safety.batchExclusionReasons,
       alerts,
       sortDate: candidate.updatedAt || candidate.createdAt,
     };

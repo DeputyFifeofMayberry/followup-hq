@@ -8,6 +8,7 @@ import type { ForwardedEmailProviderPayload, ForwardedRuleAction, ForwardedRuleC
 import { buildForwardedFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
 import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
+import { describeFinalizedOutcome, evaluateForwardedImportSafety } from '../lib/intakeImportSafety';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -97,6 +98,7 @@ export function ForwardingIntakeWorkspace() {
   const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
   const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
 
   const queue = useMemo(() => buildForwardedReviewQueue(forwardedCandidates), [forwardedCandidates]);
   const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
@@ -138,6 +140,16 @@ export function ForwardingIntakeWorkspace() {
     const nextId = idx >= 0 ? pendingIds[idx + 1] ?? pendingIds[idx - 1] ?? null : pendingIds[0] ?? null;
     fn();
     setActiveCandidateId(nextId);
+  };
+  const requestApproval = (candidateId: string, asType: 'task' | 'followup') => {
+    const candidate = forwardedCandidates.find((entry) => entry.id === candidateId);
+    if (!candidate) return;
+    const safety = evaluateForwardedImportSafety(candidate);
+    if (safety.safeToCreateNew) {
+      runAndNext(candidateId, () => approveForwardedCandidate(candidateId, asType));
+      return;
+    }
+    setGuardedApproval({ candidateId, asType });
   };
 
   return (
@@ -218,8 +230,8 @@ export function ForwardingIntakeWorkspace() {
                   <div className="rounded-lg border border-slate-200 p-2">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => approveForwardedCandidate(candidate.id, 'task'))}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                      <button className="action-btn" onClick={() => runAndNext(candidate.id, () => approveForwardedCandidate(candidate.id, 'followup'))}><ChevronRight className="h-4 w-4" /> Approve as follow-up</button>
+                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve as follow-up</button>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-2">
@@ -248,6 +260,35 @@ export function ForwardingIntakeWorkspace() {
                     linkForwardedCandidateToExisting(candidate.id, selected);
                   })}><Link2 className="h-4 w-4" /> Link existing</button>
                 </div>
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                  {(() => {
+                    const safety = evaluateForwardedImportSafety(candidate);
+                    return (
+                      <>
+                        <div className="font-semibold text-slate-700">Safe import checks</div>
+                        <div className="mt-1 grid gap-1">
+                          {safety.checklist.slice(0, 4).map((item) => <div key={item.key} className={item.pass ? 'text-emerald-700' : 'text-rose-700'}>{item.pass ? '✓' : '•'} {item.label}</div>)}
+                        </div>
+                        {safety.safeToCreateNew ? <div className="mt-1 text-emerald-700">Safe to create new.</div> : <div className="mt-1 text-rose-700">Strong duplicate/update risk: review existing links before create-new.</div>}
+                      </>
+                    );
+                  })()}
+                </div>
+                {guardedApproval?.candidateId === candidate.id ? (
+                  <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs">
+                    <div className="font-semibold text-rose-700">Risky create-new path</div>
+                    <div className="mt-1 text-rose-700">Choose Link existing, Save reference, Reject, or deliberate override.</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button className="action-btn" onClick={() => { setGuardedApproval(null); saveForwardedCandidateAsReference(candidate.id); }}>Save as reference</button>
+                      <button className="action-btn" onClick={() => { setGuardedApproval(null); rejectForwardedCandidate(candidate.id); }}>Reject</button>
+                      <button className="action-btn action-btn-danger" onClick={() => {
+                        const asType = guardedApproval.asType;
+                        setGuardedApproval(null);
+                        runAndNext(candidate.id, () => approveForwardedCandidate(candidate.id, asType, { overrideUnsafeCreate: true }));
+                      }}>Override and create anyway</button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -291,7 +332,7 @@ export function ForwardingIntakeWorkspace() {
             {recentHistory.map(({ ledger, audit }) => (
               <div key={ledger.id} className="rounded-lg border border-slate-200 p-3 text-sm">
                 <div className="font-medium text-slate-900">{ledger.normalizedSubject || '(no subject)'}</div>
-                <div className="text-xs text-slate-500">{ledger.sender} • decision {ledger.lastRoutingDecision} • {formatDateTime(ledger.evaluatedAt)}</div>
+                <div className="text-xs text-slate-500">{ledger.sender} • decision {ledger.lastRoutingDecision} • {describeFinalizedOutcome({ status: ledger.lastRoutingDecision === 'reference' ? 'reference' : undefined })} • {formatDateTime(ledger.evaluatedAt)}</div>
                 {audit ? <div className="mt-1 text-xs text-slate-600">Confidence {audit.confidence} • {audit.reasons.slice(0, 2).join(' • ') || 'No extra reasons'}</div> : null}
               </div>
             ))}

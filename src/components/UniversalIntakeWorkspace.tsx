@@ -18,6 +18,7 @@ import {
   type IntakeReviewBucket,
   type IntakeReviewSort,
 } from '../lib/intakeReviewQueue';
+import { describeFinalizedOutcome, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 
 const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
   received: 'neutral',
@@ -70,6 +71,7 @@ export function UniversalIntakeWorkspace() {
   const [activeBucket, setActiveBucket] = useState<IntakeReviewBucket | 'all'>('all');
   const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
   const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
+  const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; decision: 'approve_task' | 'approve_followup' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets), [intakeWorkCandidates, intakeAssets]);
@@ -97,13 +99,22 @@ export function UniversalIntakeWorkspace() {
     failed: intakeAssets.filter((asset) => asset.parseStatus === 'failed').length,
   }), [intakeAssets]);
 
-  const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string) => {
+  const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => {
     const currentIds = pendingQueueIds;
     const idx = currentIds.indexOf(candidate.id);
     const nextId = idx >= 0 ? currentIds[idx + 1] ?? currentIds[idx - 1] ?? null : currentIds[0] ?? null;
-    decideIntakeWorkCandidate(candidate.id, decision, linkedRecordId);
+    decideIntakeWorkCandidate(candidate.id, decision, linkedRecordId, options);
     setActiveCandidateId(nextId);
   }, [decideIntakeWorkCandidate, pendingQueueIds]);
+
+  const requestCreateApproval = useCallback((candidate: IntakeWorkCandidate, decision: 'approve_task' | 'approve_followup') => {
+    const safety = evaluateIntakeImportSafety(candidate);
+    if (safety.safeToCreateNew) {
+      applyAndNext(candidate, decision);
+      return;
+    }
+    setGuardedApproval({ candidateId: candidate.id, decision });
+  }, [applyAndNext]);
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
     if (!list?.length) return;
@@ -121,8 +132,8 @@ export function UniversalIntakeWorkspace() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!selectedCandidate) return;
-      if (event.key === 'a') applyAndNext(selectedCandidate, 'approve_followup');
-      if (event.key === 't') applyAndNext(selectedCandidate, 'approve_task');
+      if (event.key === 'a') requestCreateApproval(selectedCandidate, 'approve_followup');
+      if (event.key === 't') requestCreateApproval(selectedCandidate, 'approve_task');
       if (event.key === 's') applyAndNext(selectedCandidate, 'reference');
       if (event.key === 'r') applyAndNext(selectedCandidate, 'reject');
       if (event.key === 'l' && selectedCandidate.existingRecordMatches[0]) applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id);
@@ -133,7 +144,7 @@ export function UniversalIntakeWorkspace() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pendingQueueIds, selectedCandidate, applyAndNext]);
+  }, [pendingQueueIds, selectedCandidate, applyAndNext, requestCreateApproval]);
 
   return (
     <div className="space-y-4">
@@ -253,6 +264,8 @@ export function UniversalIntakeWorkspace() {
               const candidate = intakeWorkCandidates.find((entry) => entry.id === queueEntry.id);
               if (!candidate) return null;
               const candidateFieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
+              const safety = evaluateIntakeImportSafety(candidate);
+              const isGuarded = guardedApproval?.candidateId === candidate.id;
               const isPriorityField = (key: 'title' | 'project') => candidateFieldSummary.weak.some((field) => field.key === key)
                 || candidateFieldSummary.missing.some((field) => field.key === key)
                 || candidateFieldSummary.conflicting.some((field) => field.key === key);
@@ -261,8 +274,11 @@ export function UniversalIntakeWorkspace() {
                   <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
                   <div className="mt-1 flex flex-wrap gap-1 text-xs">
                     <Badge variant="blue">{bucketLabels[queueEntry.bucket]}</Badge>
-                    <Badge variant={queueEntry.batchSafe ? 'success' : 'warn'}>{queueEntry.batchSafe ? 'batch-safe' : 'manual review'}</Badge>
+                    <Badge variant={queueEntry.batchSafe ? 'success' : 'warn'}>{queueEntry.batchSafe ? 'Safe to batch import' : 'Manual safety review'}</Badge>
                     <Badge variant={candidate.confidence >= 0.9 ? 'success' : candidate.confidence >= 0.7 ? 'warn' : 'danger'}>{candidate.confidence}</Badge>
+                    <Badge variant={safety.duplicateRiskLevel === 'high' ? 'danger' : safety.duplicateRiskLevel === 'medium' ? 'warn' : 'success'}>
+                      {safety.duplicateRiskLevel === 'high' ? 'Likely duplicate' : safety.duplicateRiskLevel === 'medium' ? 'Likely update' : 'Safe new record'}
+                    </Badge>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
                     {queueEntry.alerts.slice(0, 4).map((alert) => <Badge key={alert.code} variant={alert.tone}>{alert.label}</Badge>)}
@@ -273,17 +289,36 @@ export function UniversalIntakeWorkspace() {
                     <input className={`field-input ${isPriorityField('project') ? 'intake-field-input-priority' : ''}`} value={candidate.project || ''} placeholder="Project" onChange={(event) => updateIntakeWorkCandidate(candidate.id, { project: event.target.value })} />
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    <button className="action-btn" onClick={() => applyAndNext(candidate, 'approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                    <button className="action-btn" onClick={() => applyAndNext(candidate, 'approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
+                    <button className="action-btn" onClick={() => requestCreateApproval(candidate, 'approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                    <button className="action-btn" onClick={() => requestCreateApproval(candidate, 'approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
                     <button className="action-btn" onClick={() => applyAndNext(candidate, 'reference')}><Save className="h-4 w-4" /> Save as reference</button>
                     <button className="action-btn action-btn-danger" onClick={() => applyAndNext(candidate, 'reject')}><XCircle className="h-4 w-4" /> Reject</button>
                   </div>
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                    <div className="font-semibold text-slate-700">Safe import checks</div>
+                    <div className="mt-1 grid gap-1">
+                      {safety.checklist.slice(0, 4).map((item) => <div key={item.key} className={item.pass ? 'text-emerald-700' : 'text-rose-700'}>{item.pass ? '✓' : '•'} {item.label}</div>)}
+                    </div>
+                    {safety.blockers[0] ? <div className="mt-1 text-rose-700">{safety.blockers[0]}</div> : <div className="mt-1 text-emerald-700">Safe to create new.</div>}
+                  </div>
+                  {isGuarded ? (
+                    <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs">
+                      <div className="font-semibold text-rose-700">Override required before creating new work</div>
+                      <div className="mt-1 text-rose-700">{[...safety.blockers, ...safety.warnings].slice(0, 2).join(' ') || 'Review link/reference/reject alternatives first.'}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {candidate.existingRecordMatches[0] ? <button className="action-btn" onClick={() => { setGuardedApproval(null); applyAndNext(candidate, 'link', candidate.existingRecordMatches[0].id); }}><Link2 className="h-3 w-3" /> Link best match</button> : null}
+                        <button className="action-btn" onClick={() => { setGuardedApproval(null); applyAndNext(candidate, 'reference'); }}>Save reference</button>
+                        <button className="action-btn" onClick={() => { setGuardedApproval(null); applyAndNext(candidate, 'reject'); }}>Reject</button>
+                        <button className="action-btn action-btn-danger" onClick={() => { setGuardedApproval(null); applyAndNext(candidate, guardedApproval.decision, undefined, { overrideUnsafeCreate: true }); }}>Override and create anyway</button>
+                      </div>
+                    </div>
+                  ) : null}
                   {candidate.existingRecordMatches.length > 0 ? (
-                    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
-                      <div className="font-semibold text-slate-700">Existing matches</div>
+                    <div className={`mt-2 rounded-lg border p-2 text-xs ${safety.strongMatches.length ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-slate-50'}`}>
+                      <div className="font-semibold text-slate-700">{safety.strongMatches.length ? 'Likely duplicate / update matches' : 'Existing matches'}</div>
                       {candidate.existingRecordMatches.slice(0, 2).map((match) => (
                         <div key={match.id} className="mt-1 flex items-center justify-between gap-2">
-                          <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''})</div>
+                          <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''}) • {describeMatch(match)}</div>
                           <button className="action-btn" onClick={() => applyAndNext(candidate, 'link', match.id)}><Link2 className="h-3 w-3" /> Link existing</button>
                         </div>
                       ))}
@@ -306,7 +341,7 @@ export function UniversalIntakeWorkspace() {
                   return (
                     <div key={candidate.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs">
                       <span className="truncate text-slate-700">{candidate.title}</span>
-                      <Badge variant={parseStatusTone[status]}>{getIntakeLifecycleLabel(status)}</Badge>
+                      <Badge variant={parseStatusTone[status]}>{describeFinalizedOutcome(candidate)}</Badge>
                     </div>
                   );
                 })}

@@ -14,6 +14,11 @@ export function useFollowUpsViewModel() {
       followUpFilters: s.followUpFilters,
       tasks: s.tasks,
       openCreateModal: s.openCreateModal,
+      setSelectedId: s.setSelectedId,
+      setActiveView: s.setActiveView,
+      setFollowUpFilters: s.setFollowUpFilters,
+      executionIntent: s.executionIntent,
+      clearExecutionIntent: s.clearExecutionIntent,
     })),
   );
 

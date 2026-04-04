@@ -34,7 +34,6 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTra
     default:
       return (
         <OverviewPage
-          onOpenTrackerView={openTrackerView}
           onOpenWorkspace={(value) => setWorkspace(normalizeWorkspaceSelection(value)) as never}
           personalMode={appMode === 'personal'}
           appMode={appMode}

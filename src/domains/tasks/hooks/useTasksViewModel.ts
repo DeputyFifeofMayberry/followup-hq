@@ -17,5 +17,7 @@ export function useTasksViewModel() {
     deleteTask: s.deleteTask,
     updateTask: s.updateTask,
     attemptTaskTransition: s.attemptTaskTransition,
+    executionIntent: s.executionIntent,
+    clearExecutionIntent: s.clearExecutionIntent,
   })));
 }

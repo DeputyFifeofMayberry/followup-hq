@@ -32,6 +32,7 @@ import type {
   UnifiedQueueFilter,
   UnifiedQueuePreset,
   UnifiedQueueSort,
+  ExecutionIntent,
 } from '../../types';
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 
@@ -108,6 +109,8 @@ export interface AppUiState {
   executionSort: UnifiedQueueSort;
   queueDensity: UnifiedQueueDensity;
   savedExecutionViews: SavedExecutionView[];
+  executionIntent: ExecutionIntent | null;
+  executionSelectedId: string | null;
 }
 
 export interface AppMetaState {

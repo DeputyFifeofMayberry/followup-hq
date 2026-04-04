@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
@@ -52,6 +52,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [cleanupOnly, setCleanupOnly] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [tasks]);
@@ -161,32 +162,33 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   };
 
   return (
-    <div className="space-y-5">
-      <AppShellCard surface="hero">
-        <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
+    <WorkspacePage>
+      <WorkspaceSummaryStrip>
+        <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
           <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
           <StatTile label="Blocked" value={summary.blocked} helper="Waiting on dependency" tone={summary.blocked ? 'warn' : 'default'} />
           <StatTile label="Deferred" value={summary.deferred} helper="Snoozed out of active queue" />
         </div>
-      </AppShellCard>
+      </WorkspaceSummaryStrip>
 
-      <div className="workspace-master-detail">
+      <WorkspacePrimaryLayout inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel" surface="data">
           <FilterBar>
             <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
           </FilterBar>
 
-          <div className="task-primary-controls toolbar-row">
+          <WorkspaceToolbarRow className="task-primary-controls">
             <label className="field-block">
               <span className="field-label">Search</span>
               <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, block reason, context, tags" className="field-input search-field-input" /></div>
             </label>
-            <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
+            <select value={density} onChange={(event) => setDensity(event.target.value as typeof density)} className="field-input"><option value="compact">Compact rows</option><option value="comfortable">Comfortable rows</option></select>
+            <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
             <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-          </div>
+          </WorkspaceToolbarRow>
 
           {advancedOpen ? (
             <div className="task-advanced-controls advanced-filter-surface">
@@ -212,7 +214,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
               const workflowState = taskWorkflowState(task);
               return (
-                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row workspace-data-row-compact task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
+                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row ${density === 'compact' ? 'workspace-data-row-compact' : ''} task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
                   <div className="workspace-data-row-main">
                     <div>
                       <div className="text-sm font-semibold">{task.title}</div>
@@ -288,7 +290,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             </div>
           ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>
-      </div>
-    </div>
+      </WorkspacePrimaryLayout>
+    </WorkspacePage>
   );
 }

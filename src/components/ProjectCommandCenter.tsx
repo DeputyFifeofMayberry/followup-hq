@@ -131,7 +131,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   };
 
   return (
-    <AppShellCard className="project-command-surface" surface="command">
+    <AppShellCard className="project-command-surface" surface="shell">
       <SectionHeader title={appMode === 'personal' ? 'Project support lens' : 'Project command center'} subtitle={modeConfig.projectsSubtitle} />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">

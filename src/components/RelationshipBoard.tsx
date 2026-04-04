@@ -105,7 +105,7 @@ export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
   } : { followUps: 0, tasks: 0, contacts: 0 };
 
   return (
-    <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="command">
+    <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
       <div className="border-b border-slate-200 px-5 py-4">
         <SectionHeader title={appMode === 'personal' ? 'Relationship support lens' : 'Relationship command center'} subtitle={modeConfig.relationshipsSubtitle} />
       </div>

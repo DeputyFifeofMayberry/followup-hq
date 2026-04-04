@@ -2,6 +2,13 @@
 
 ## 2026-04-04
 
+### Phase 2 single daily cockpit overhaul (Overview simplification + triage-first flow)
+- Reworked `src/components/OverviewPage.tsx` into a clearer four-part cockpit flow: compact daily focus strip, explicit triage action row, calmer primary queue surface with progressive disclosure, and a tighter action-led inspector.
+- Reduced default Overview control density by keeping preset/search/sort visible while moving density, advanced filters, date constraints, owner/assignee filters, and saved views into a single `View options` disclosure panel.
+- Refined queue scan hierarchy by emphasizing title-first rows with constrained secondary metadata, lighter chip clusters, concise urgency reasons, and detailed-only supplemental context.
+- Cleaned up selection state and bulk action presentation so temporary bulk controls only appear when rows are selected and prioritize core actions first (`close`, `done`, `nudge`, `snooze`) with secondary actions de-emphasized.
+- Tightened visual rhythm and hierarchy in workspace styling for Overview strips, controls, row scan patterns, and inspector context blocks to reduce nested-box heaviness and improve first-paint calm (`src/styles/workspaces.css`).
+
 ### Phase 1 single daily cockpit foundation (IA + shell hierarchy)
 - Centralized workspace IA metadata in `src/lib/appModeConfig.ts` with a single workspace contract (label, purpose, category, daily-start flag, universal-capture visibility, primary action, and health label builder), while preserving existing internal workspace keys and mode behavior.
 - Refactored `src/App.tsx` to consume centralized workspace metadata for navigation sections, header copy, command palette workspace commands, and per-workspace primary actions, removing the duplicate inline shell workspace definitions.

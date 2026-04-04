@@ -10,6 +10,7 @@ import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../
 import type { FollowUpItem, UnifiedQueueItem } from '../types';
 import { getModeConfig } from '../lib/appModeConfig';
 import { ExecutionQueueList, ExecutionSection } from './execution/ExecutionSection';
+import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
@@ -74,6 +75,12 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   const [bulkPreview, setBulkPreview] = useState<{ spec: BulkActionSpec; summary: ReturnType<typeof previewBulkAction> } | null>(null);
   const [lastBulkUndo, setLastBulkUndo] = useState<Array<{ id: string; before: Partial<FollowUpItem> }>>([]);
+  const [flowState, setFlowState] = useState<{ kind: 'close_followup' | 'complete_task' | 'snooze_followup' | 'nudge_followup' | 'bulk_apply'; targetIds?: string[] } | null>(null);
+  const [flowCompletionNote, setFlowCompletionNote] = useState('');
+  const [flowDate, setFlowDate] = useState('');
+  const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
+  const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
+  const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
   useEffect(() => {
     if (!queue.length) return setExecutionSelectedId(null);
@@ -116,6 +123,15 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   const selectedFollowUps = selectedItems.filter((row) => row.recordType === 'followup');
   const selectedTasks = selectedItems.filter((row) => row.recordType === 'task');
 
+  const openFlow = (kind: NonNullable<typeof flowState>['kind'], defaults?: { note?: string; date?: string }) => {
+    setFlowState({ kind });
+    setFlowCompletionNote(defaults?.note || '');
+    setFlowDate(defaults?.date || '');
+    setFlowWarnings([]);
+    setFlowBlockers([]);
+    setFlowResult(null);
+  };
+
   const runBulk = (action: string) => {
     if (!selectedItems.length) return;
     const spec: BulkActionSpec =
@@ -127,11 +143,76 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
       { type: 'close', ids: [] };
     setBulkPreview({ spec, summary: previewBulkAction(spec, useAppStore.getState().items, useAppStore.getState().tasks) });
     if (action === 'done-tasks') {
-      selectedTasks.forEach((row) => {
-        const note = window.prompt(`Completion note for task ${row.title}:`, '');
-        const result = attemptTaskTransition(row.id, 'Done', { completionNote: note || undefined, completedAt: new Date().toISOString() });
-        if (!result.applied) window.alert(result.validation.blockers.join(' '));
-      });
+      openFlow('bulk_apply', { note: '' });
+    }
+  };
+
+  const runFlow = () => {
+    if (!flowState) return;
+    if (flowState.kind === 'close_followup' && selected?.recordType === 'followup') {
+      const result = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined });
+      if (!result.applied && result.validation.overrideAllowed) {
+        const overrideResult = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined }, { override: true });
+        setFlowWarnings(overrideResult.validation.warnings);
+        setFlowBlockers(overrideResult.validation.blockers);
+        setFlowResult({ tone: overrideResult.applied ? (overrideResult.validation.warnings.length ? 'warn' : 'success') : 'danger', message: overrideResult.applied ? 'Follow-up closed with override acknowledgement.' : 'Override close failed.' });
+        return;
+      }
+      setFlowWarnings(result.validation.warnings);
+      setFlowBlockers(result.validation.blockers);
+      setFlowResult({ tone: result.applied ? (result.validation.warnings.length ? 'warn' : 'success') : 'danger', message: result.applied ? 'Follow-up closed.' : 'Follow-up close blocked.' });
+      return;
+    }
+    if (flowState.kind === 'complete_task' && selected?.recordType === 'task') {
+      const result = attemptTaskTransition(selected.id, 'Done', { completionNote: flowCompletionNote.trim() || undefined, completedAt: new Date().toISOString() });
+      setFlowWarnings(result.validation.warnings);
+      setFlowBlockers(result.validation.blockers);
+      setFlowResult({ tone: result.applied ? (result.validation.warnings.length ? 'warn' : 'success') : 'danger', message: result.applied ? 'Task marked done.' : 'Task completion blocked.' });
+      return;
+    }
+    if (flowState.kind === 'snooze_followup' && selected?.recordType === 'followup') {
+      const days = Math.max(1, Math.ceil((new Date(`${flowDate}T00:00:00`).getTime() - Date.now()) / 86400000));
+      if (!flowDate) {
+        setFlowBlockers(['Deferring requires a next review date.']);
+        setFlowResult({ tone: 'danger', message: 'Snooze not applied.' });
+        return;
+      }
+      snoozeItem(selected.id, days);
+      setFlowWarnings([]);
+      setFlowBlockers([]);
+      setFlowResult({ tone: 'success', message: 'Follow-up snoozed.' });
+      return;
+    }
+    if (flowState.kind === 'nudge_followup' && selected?.recordType === 'followup') {
+      markNudged(selected.id);
+      setFlowWarnings([]);
+      setFlowBlockers([]);
+      setFlowResult({ tone: 'success', message: 'Follow-up marked nudged.' });
+      return;
+    }
+    if (flowState.kind === 'bulk_apply') {
+      if (bulkPreview?.spec.type === 'close') {
+        const result = runValidatedBatchFollowUpTransition(selectedFollowUps.map((entry) => entry.id), 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined });
+        setFlowWarnings(result.warnings);
+        setFlowBlockers([]);
+        setFlowResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Bulk close applied to ${result.affected}; skipped ${result.skipped}.` });
+        return;
+      }
+      if (selectedTasks.length) {
+        let blocked = 0;
+        let affected = 0;
+        selectedTasks.forEach((row) => {
+          const result = attemptTaskTransition(row.id, 'Done', { completionNote: flowCompletionNote.trim() || undefined, completedAt: new Date().toISOString() });
+          if (result.applied) affected += 1;
+          else blocked += 1;
+        });
+        setFlowWarnings([]);
+        setFlowBlockers(blocked ? [`${blocked} task(s) were blocked by validation.`] : []);
+        setFlowResult({ tone: blocked ? 'warn' : 'success', message: `Bulk task completion applied to ${affected}.` });
+        return;
+      }
+      applyBulkPreview();
+      setFlowResult({ tone: 'success', message: 'Bulk action applied.' });
     }
   };
 
@@ -146,11 +227,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         updateItem(row.id, { escalationLevel: 'Watch' });
       });
     } else if (bulkPreview.spec.type === 'close') {
-      const note = window.prompt('Batch close note for follow-ups:', '');
-      const result = runValidatedBatchFollowUpTransition(selectedFollowUps.map((entry) => entry.id), 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: note || undefined });
-      if (result.warnings.length || result.skipped) {
-        window.alert(`Bulk close: ${result.affected} affected, ${result.skipped} skipped.\n${result.warnings.slice(0, 5).join('\n')}`);
-      }
+      runValidatedBatchFollowUpTransition(selectedFollowUps.map((entry) => entry.id), 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined });
     } else {
       selectedFollowUps.forEach((row) => {
         const current = useAppStore.getState().items.find((entry) => entry.id === row.id);
@@ -295,7 +372,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
               <div>Changes: {bulkPreview.summary.changes.join(' • ') || '—'}</div>
               {bulkPreview.summary.warnings.length ? <div>Warnings: {bulkPreview.summary.warnings.join(' • ')}</div> : null}
               <div className="mt-2 flex gap-2">
-                <button onClick={applyBulkPreview} className="action-btn !px-2.5 !py-1 text-xs">Apply bulk</button>
+                <button onClick={() => openFlow('bulk_apply')} className="action-btn !px-2.5 !py-1 text-xs">Apply bulk</button>
                 <button onClick={() => setBulkPreview(null)} className="action-btn !px-2.5 !py-1 text-xs">Cancel</button>
               </div>
             </div>
@@ -395,29 +472,14 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                 <div className="overview-action-stack">
                   <button onClick={() => {
                     if (selected.recordType === 'followup') {
-                      const note = window.prompt('Completion note for closeout (leave blank only if overriding):', '');
-                      const result = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
-                      if (!result.applied && result.validation.overrideAllowed) {
-                        const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose anyway with acknowledgement?`);
-                        if (!proceed) return;
-                        const overrideResult = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
-                        if (overrideResult.validation.warnings.length) window.alert(overrideResult.validation.warnings.join('\n'));
-                        return;
-                      }
-                      if (!result.applied) {
-                        window.alert(result.validation.blockers.join(' '));
-                        return;
-                      }
-                      if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
+                      openFlow('close_followup', { note: '' });
                     } else {
-                      const note = window.prompt('Completion note for task done:', '');
-                      const result = attemptTaskTransition(selected.id, 'Done', { completionNote: note || undefined, completedAt: new Date().toISOString() });
-                      if (!result.applied) window.alert(result.validation.blockers.join(' '));
+                      openFlow('complete_task', { note: '' });
                     }
                   }} className="primary-btn justify-start"><CheckCircle2 className="h-4 w-4" />Complete / close</button>
                   {selected.recordType === 'followup' ? <button onClick={() => { setSelectedId(selected.id); openTouchModal(); }} className="action-btn justify-start"><Clock3 className="h-4 w-4" />Log touch</button> : null}
-                  {selected.recordType === 'followup' ? <button onClick={() => markNudged(selected.id)} className="action-btn justify-start"><BellRing className="h-4 w-4" />Mark nudged</button> : null}
-                  {selected.recordType === 'followup' ? <button onClick={() => { const days = Number(window.prompt('Snooze how many days?','2') || '0'); if (!days || days < 1) { window.alert('Deferring requires a next review date.'); return; } snoozeItem(selected.id, days); }} className="action-btn justify-start"><PauseCircle className="h-4 w-4" />Snooze</button> : null}
+                  {selected.recordType === 'followup' ? <button onClick={() => openFlow('nudge_followup')} className="action-btn justify-start"><BellRing className="h-4 w-4" />Mark nudged</button> : null}
+                  {selected.recordType === 'followup' ? <button onClick={() => openFlow('snooze_followup', { date: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10) })} className="action-btn justify-start"><PauseCircle className="h-4 w-4" />Snooze</button> : null}
                   {selected.recordType === 'followup' ? <button onClick={() => { setSelectedId(selected.id); openDraftModal(selected.id); }} className="action-btn justify-start"><Send className="h-4 w-4" />Open send flow</button> : null}
                   {selected.recordType === 'followup' ? <button onClick={() => {
                     openCreateFromCapture({
@@ -453,6 +515,23 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
           ) : <EmptyState title="Nothing selected" message="Select a row to process work inline." />}
         </AppShellCard>
       </WorkspacePrimaryLayout>
+      <StructuredActionFlow
+        open={!!flowState}
+        title={flowState?.kind === 'bulk_apply' ? 'Apply bulk action' : flowState?.kind === 'close_followup' ? 'Close follow-up' : flowState?.kind === 'complete_task' ? 'Mark task done' : flowState?.kind === 'snooze_followup' ? 'Snooze follow-up' : 'Mark nudged'}
+        subtitle="Structured execution flow with validation, warnings, and result feedback."
+        onCancel={() => setFlowState(null)}
+        onConfirm={runFlow}
+        confirmLabel="Apply action"
+        warnings={flowWarnings}
+        blockers={flowBlockers}
+        result={flowResult}
+      >
+        {(flowState?.kind === 'close_followup' || flowState?.kind === 'complete_task' || (flowState?.kind === 'bulk_apply' && (bulkPreview?.spec.type === 'close' || selectedTasks.length))) ? (
+          <CompletionNoteSection value={flowCompletionNote} onChange={setFlowCompletionNote} />
+        ) : null}
+        {flowState?.kind === 'snooze_followup' ? <DateSection label="Snooze until" value={flowDate} onChange={setFlowDate} /> : null}
+        {flowState?.kind === 'bulk_apply' && bulkPreview ? <BatchSummarySection selected={selectedItems.length} affected={bulkPreview.summary.affected} skipped={bulkPreview.summary.skipped} /> : null}
+      </StructuredActionFlow>
     </WorkspacePage>
   );
 }

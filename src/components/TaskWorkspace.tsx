@@ -223,24 +223,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try a different filter or add a task." /> : filteredTasks.map((task) => {
               const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
               const workflowState = taskWorkflowState(task);
+              const isUrgent = Boolean(task.dueDate && task.dueDate < todayIso() && task.status !== 'Done');
               const primaryChips = [
                 <Badge key="status" variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>,
                 <Badge key="priority" variant={priorityTone(task.priority)}>{task.priority}</Badge>,
-                <Badge key="workflow" variant="neutral">{workflowState}</Badge>,
-                <Badge key="due" variant="neutral">Due {formatDate(task.dueDate)}</Badge>,
+                <Badge key="urgent" variant={isUrgent ? 'danger' : 'neutral'}>{isUrgent ? 'Overdue' : `Due ${formatDate(task.dueDate)}`}</Badge>,
               ];
               return (
                 <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row ${density === 'compact' ? 'workspace-data-row-compact' : ''} task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
                   <div className="scan-row-layout">
                     <div className="scan-row-content">
                       <div className="scan-row-primary">{task.title}</div>
-                      <div className="scan-row-secondary">{task.project} • {task.nextStep || 'No next step set'}</div>
+                      <div className="scan-row-secondary">{task.project} • {task.nextStep || 'No next step set'} • {task.assigneeDisplayName || task.owner}</div>
                       {task.blockReason && task.status === 'Blocked' ? <div className={`scan-row-meta ${selectedTask?.id === task.id ? 'text-amber-200' : 'text-amber-700'}`}>Blocked: {task.blockReason}</div> : null}
-                      <div className="scan-row-support-chips">
-                        {task.linkedFollowUpId ? <Badge variant="neutral">Linked follow-up</Badge> : <Badge variant="neutral">Unlinked</Badge>}
-                        {parent ? <Badge variant={parent.status === 'At risk' ? 'danger' : 'neutral'}>Parent {parent.status}</Badge> : null}
-                        {isTaskDeferred(task) ? <Badge variant="neutral">Deferred until {formatDate(task.deferredUntil)}</Badge> : null}
-                      </div>
+                      {density === 'comfortable' ? <div className="scan-row-meta">Workflow: {workflowState} • {task.linkedFollowUpId ? 'Linked follow-up' : 'No linked follow-up'} • {isTaskDeferred(task) ? `Deferred until ${formatDate(task.deferredUntil)}` : 'Active queue'}</div> : null}
+                      {density === 'comfortable' && parent ? <div className="scan-row-meta">Parent status: {parent.status}</div> : null}
                     </div>
                     <div className="scan-row-sidecar" onClick={(event) => event.stopPropagation()}>
                       <div className="scan-row-badge-cluster">
@@ -249,7 +246,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       <div className="scan-row-action-cluster">
                         <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Mark done</button>
                         <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                        <button onClick={() => { const deferTo = addDaysIso(todayIso(), 3); const result = attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: task.status === 'Done' ? 'To do' : task.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
+                        <button onClick={() => { const deferTo = addDaysIso(todayIso(), 3); const result = attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: task.status === 'Done' ? 'To do' : task.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn scan-row-action-secondary !px-2.5 !py-1 text-xs">Defer 3d</button>
                       </div>
                     </div>
                   </div>

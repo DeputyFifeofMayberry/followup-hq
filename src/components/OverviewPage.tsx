@@ -298,9 +298,11 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
               pagedQueue.map((row) => {
                 const active = row.id === selectedId;
                 const checked = selectedRows.includes(row.id);
+                const urgencyLabel = row.queueFlags.overdue ? 'Overdue' : row.queueFlags.blocked ? 'Blocked' : 'Needs attention';
                 const rowChips = [
                   <Badge key="priority" variant={priorityTone(row.priority)}>{row.priority}</Badge>,
-                  <Badge key="urgency" variant={row.queueFlags.overdue ? 'danger' : row.queueFlags.blocked ? 'warn' : 'neutral'}>{row.whyInQueue}</Badge>,
+                  <Badge key="urgency" variant={row.queueFlags.overdue ? 'danger' : row.queueFlags.blocked ? 'warn' : 'neutral'}>{urgencyLabel}</Badge>,
+                  <Badge key="type" variant="neutral">{row.recordType === 'task' ? 'Task' : 'Follow-up'}</Badge>,
                 ];
                 return (
                   <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active list-row-family list-row-family-active' : 'overview-priority-row list-row-family'}>
@@ -308,11 +310,10 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                     <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
                       <div className="scan-row-layout">
                         <div className="scan-row-content">
-                          <div className="scan-row-primary">[{row.recordType === 'task' ? 'Task' : 'Follow-up'}] {row.title}</div>
-                          <div className="scan-row-secondary">{row.project} • {personalMode ? `Next action: ${row.primaryNextAction}` : `Owner ${row.owner} • Assignee ${row.assignee}`}</div>
-                          <div className="scan-row-meta">Due {formatDate(row.dueDate || row.nextTouchDate)} • Next touch {formatDate(row.nextTouchDate)} • {row.linkedRecordStatus || 'No link'}</div>
+                          <div className="scan-row-primary">{row.title}</div>
+                          <div className="scan-row-secondary">{row.project} • Due {formatDate(row.dueDate || row.nextTouchDate)} • {personalMode ? row.primaryNextAction : `${row.assignee || row.owner}`}</div>
+                          {queueDensity === 'detailed' ? <div className="scan-row-meta">Type: {row.recordType} • Next touch {formatDate(row.nextTouchDate)} • Why urgent: {row.queueReasons.join(' • ') || row.whyInQueue}</div> : null}
                           {queueDensity === 'detailed' ? <div className="scan-row-meta">Summary: {row.summary || '—'} • Waiting on: {row.waitingOn || '—'} • Notes: {row.notesPreview || '—'} • Recent: {row.recentActivity || '—'}</div> : null}
-                          <div className="scan-row-meta">Why urgent: {row.queueReasons.join(' • ') || row.whyInQueue}</div>
                         </div>
                         <div className="scan-row-sidecar">
                           <div className="scan-row-badge-cluster">

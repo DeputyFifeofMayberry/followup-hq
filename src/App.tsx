@@ -482,7 +482,7 @@ function MainApp() {
                 <div className="nav-section-heading">{section.title}</div>
                 <div className="grid gap-2">
                   {section.items.map(({ key, label, icon: Icon }) => {
-                    const deemphasized = section.tone === 'support' || (appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false);
+                    const isSupportItem = section.tone === 'support' || (appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false);
                     const active = workspace === key;
                     return (
                       <button
@@ -493,7 +493,8 @@ function MainApp() {
                           'nav-card',
                           active ? 'nav-card-active' : '',
                           section.tone === 'support' ? 'nav-card-support' : 'nav-card-core',
-                          deemphasized ? 'nav-card-muted' : '',
+                          isSupportItem ? 'nav-card-muted' : '',
+                          !active && !isSupportItem ? 'nav-card-primary-inactive' : '',
                         ].filter(Boolean).join(' ')}
                         aria-current={active ? 'page' : undefined}
                       >
@@ -508,7 +509,7 @@ function MainApp() {
               </section>
             ))}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command palette</button></div>
         </aside>
 
           <main className="app-main-pane">

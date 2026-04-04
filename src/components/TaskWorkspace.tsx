@@ -5,7 +5,8 @@ import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile } from './ui/AppPrimitives';
-import type { FollowUpStatus, TaskItem } from '../types';
+import { getModeConfig } from '../lib/appModeConfig';
+import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -20,7 +21,7 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
   { value: 'recent', label: 'Recently updated' },
 ];
 
-export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
+export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     items: s.items,
@@ -35,8 +36,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     openEditTaskModal: s.openEditTaskModal,
     deleteTask: s.deleteTask,
     updateTask: s.updateTask,
+    attemptTaskTransition: s.attemptTaskTransition,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'due' | 'priority' | 'updated'>('due');
   const [mode, setMode] = useState<TaskMode>('dueNow');
@@ -141,18 +144,26 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   const updateTaskWithStatus = (task: TaskItem, status: TaskItem['status']) => {
     const now = todayIso();
-    updateTask(task.id, {
-      status,
-      ...(status === 'Done' ? { completionNote: task.completionNote || 'Completed from workspace.', completedAt: now } : {}),
-      ...(status === 'Blocked' ? { blockReason: task.blockReason || 'Blocked pending dependency.' } : {}),
-      ...(status === 'In progress' ? { startedAt: task.startedAt || now } : {}),
-    });
+    const patch: Partial<TaskItem> =
+      status === 'Done'
+        ? { completionNote: task.completionNote || window.prompt('Completion note:', '') || undefined, completedAt: now }
+        : status === 'Blocked'
+          ? { blockReason: task.blockReason || window.prompt('Block reason:', '') || undefined, nextReviewAt: task.nextReviewAt || addDaysIso(now, 1) }
+          : status === 'In progress'
+            ? { startedAt: task.startedAt || now }
+            : {};
+    const result = attemptTaskTransition(task.id, status, patch);
+    if (!result.applied) {
+      window.alert(result.validation.blockers.join(' '));
+      return;
+    }
+    if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
   };
 
   return (
     <div className="space-y-5">
       <AppShellCard surface="hero">
-        <SectionHeader title="Task execution workspace" subtitle="Daily board/list for next steps, blockers, and linked workflow context." actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Quick Add task</button>} />
+        <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} />
         <div className="overview-stat-grid overview-stat-grid-compact">
           <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
           <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
@@ -183,7 +194,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
                 {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
                 <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
-                <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select>
+                {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
                 <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
                 <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
               </div>
@@ -218,7 +229,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                       <div className="task-row-edit-controls">
                         <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Mark done</button>
                         <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                        <button onClick={() => updateTask(task.id, { deferredUntil: addDaysIso(todayIso(), 3), status: task.status === 'Done' ? 'To do' : task.status })} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
+                        <button onClick={() => { const deferTo = addDaysIso(todayIso(), 3); const result = attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: task.status === 'Done' ? 'To do' : task.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
                       </div>
                     </div>
                   </div>
@@ -238,7 +249,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="inspector-kicker">Task control panel</div>
+                  <div className="inspector-kicker">{personalMode ? 'Task execution panel' : 'Task coordination panel'}</div>
                   <h3 className="inspector-title">{selectedTask.title}</h3>
                   <p className="inspector-meta">{selectedTask.project} · {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
                 </div>
@@ -246,10 +257,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               </div>
 
               <div className="task-inspector-actions">
-                <button onClick={() => updateTask(selectedTask.id, { status: 'Done', completionNote: selectedTask.completionNote || 'Completed from inspector.' })} className="primary-btn">Mark done</button>
-                <button onClick={() => updateTask(selectedTask.id, { status: 'Blocked', blockReason: selectedTask.blockReason || 'Blocked pending dependency.' })} className="action-btn">Block</button>
+                <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
+                <button onClick={() => updateTaskWithStatus(selectedTask, 'Blocked')} className="action-btn">Block</button>
                 <button onClick={() => updateTask(selectedTask.id, { status: selectedTask.status === 'Blocked' ? 'In progress' : selectedTask.status, blockReason: undefined })} className="action-btn">Unblock</button>
-                <button onClick={() => updateTask(selectedTask.id, { deferredUntil: addDaysIso(todayIso(), 2), nextReviewAt: addDaysIso(todayIso(), 2) })} className="action-btn">Defer / snooze</button>
+                <button onClick={() => { const deferTo = addDaysIso(todayIso(), 2); const result = attemptTaskTransition(selectedTask.id, selectedTask.status, { deferredUntil: deferTo, nextReviewAt: deferTo }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Defer / snooze</button>
                 <button onClick={() => updateTask(selectedTask.id, { startDate: todayIso(), startedAt: selectedTask.startedAt || todayIso() })} className="action-btn">Start today</button>
                 <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
               </div>

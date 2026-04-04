@@ -12,8 +12,10 @@ import {
   type RelationshipSortKey,
 } from '../lib/relationshipSelectors';
 import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
+import { getModeConfig } from '../lib/appModeConfig';
+import type { AppMode } from '../types';
 
-export function RelationshipBoard() {
+export function RelationshipBoard({ appMode = 'team' }: { appMode?: AppMode }) {
   const {
     items,
     tasks,
@@ -52,6 +54,7 @@ export function RelationshipBoard() {
     projects: s.projects,
   })));
 
+  const modeConfig = getModeConfig(appMode);
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -104,7 +107,7 @@ export function RelationshipBoard() {
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="command">
       <div className="border-b border-slate-200 px-5 py-4">
-        <SectionHeader title="Relationship command center" subtitle="Scan pressure across contacts and companies, then jump directly into the work creating risk." />
+        <SectionHeader title={appMode === 'personal' ? 'Relationship support lens' : 'Relationship command center'} subtitle={modeConfig.relationshipsSubtitle} />
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
@@ -187,7 +190,7 @@ export function RelationshipBoard() {
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
               <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="field-input" />
               <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="field-input" />
-              <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className="primary-btn"><PlusCircle className="h-4 w-4" />Add</button>
+              <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
             </div>
           </div>
 
@@ -198,7 +201,7 @@ export function RelationshipBoard() {
               <select value={companyType} onChange={(e) => setCompanyType(e.target.value as typeof companyType)} className="field-input">
                 <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
               </select>
-              <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className="primary-btn"><PlusCircle className="h-4 w-4" />Add</button>
+              <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
             </div>
           </div>
         </div>
@@ -233,9 +236,10 @@ export function RelationshipBoard() {
                   <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => addItem({ id: `REL-${Date.now()}`, title: `Follow-up: ${selected.name}`, source: 'Notes', project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'Needs action', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', dueDate: new Date().toISOString(), lastTouchDate: new Date().toISOString(), nextTouchDate: new Date(Date.now() + 86400000).toISOString(), nextAction: `Reach out to ${selected.name}`, summary: 'Created from relationships tab.', tags: ['Relationship action'], sourceRef: 'Relationship board', sourceRefs: [], mergedItemIds: [], waitingOn: selected.name, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Internal', escalationLevel: selected.riskTier === 'Critical' ? 'Critical' : 'None', cadenceDays: 3, contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined })} className="action-btn"><PlusCircle className="h-4 w-4" />Quick Add follow-up</button>
-                  <button onClick={() => addTask({ id: `RELTSK-${Date.now()}`, title: `Task: ${selected.name}`, project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'To do', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', summary: 'Created from relationship board.', nextStep: 'Coordinate next move', notes: '', tags: ['Relationship action'], contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })} className="action-btn"><PlusCircle className="h-4 w-4" />Quick Add task</button>
-                  <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />View waiting</button>
+                  <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
+                  <button onClick={() => addItem({ id: `REL-${Date.now()}`, title: `Follow-up: ${selected.name}`, source: 'Notes', project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'Needs action', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', dueDate: new Date().toISOString(), lastTouchDate: new Date().toISOString(), nextTouchDate: new Date(Date.now() + 86400000).toISOString(), nextAction: `Reach out to ${selected.name}`, summary: 'Created from relationships tab.', tags: ['Relationship action'], sourceRef: 'Relationship board', sourceRefs: [], mergedItemIds: [], waitingOn: selected.name, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Internal', escalationLevel: selected.riskTier === 'Critical' ? 'Critical' : 'None', cadenceDays: 3, contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined })} className="action-btn !px-2.5 !py-1.5 text-xs"><PlusCircle className="h-4 w-4" />Add relationship follow-up</button>
+                  <button onClick={() => addTask({ id: `RELTSK-${Date.now()}`, title: `Task: ${selected.name}`, project: selectedProjects[0]?.name || 'General', projectId: selectedProjects[0]?.id, owner: selected.internalOwner || 'Unassigned', status: 'To do', priority: selected.riskTier === 'Critical' ? 'Critical' : 'Medium', summary: 'Created from relationship board.', nextStep: 'Coordinate next move', notes: '', tags: ['Relationship action'], contactId: selected.entityType === 'contact' ? selected.id : undefined, companyId: selected.entityType === 'company' ? selected.id : undefined, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })} className="action-btn !px-2.5 !py-1.5 text-xs"><PlusCircle className="h-4 w-4" />Add relationship task</button>
+                  <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minOverduePressure: 1 }))} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue</button>
                   <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { relationshipStatus: 'Watch' }) : updateCompany(selected.id, { relationshipStatus: 'Watch' }))} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
                   <button onClick={() => (selected.entityType === 'contact' ? updateContact(selected.id, { lastContactedAt: new Date().toISOString(), lastResponseAt: new Date().toISOString() }) : updateCompany(selected.id, { lastReviewedAt: new Date().toISOString() }))} className="action-btn">Log interaction</button>

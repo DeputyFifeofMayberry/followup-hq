@@ -5,6 +5,7 @@ import { Badge } from './Badge';
 import { addDaysIso, applyLifecycleBundle, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, SegmentedControl } from './ui/AppPrimitives';
+import { getWorkflowWarningsForRecord } from '../lib/workflowPolicy';
 
 type DetailTab = 'overview' | 'actions' | 'notes' | 'activity';
 
@@ -23,6 +24,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTouchLog,
     openDraftModal,
     openEditTaskModal,
+    attemptFollowUpTransition,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
     items: s.items,
@@ -37,6 +39,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTouchLog: s.addTouchLog,
     openDraftModal: s.openDraftModal,
     openEditTaskModal: s.openEditTaskModal,
+    attemptFollowUpTransition: s.attemptFollowUpTransition,
   })));
 
   const item = items.find((entry) => entry.id === selectedId) ?? null;
@@ -65,6 +68,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const doneLinkedTasks = item.doneLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Done').length;
   const blockedLinkedTasks = item.blockedLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Blocked').length;
   const overdueLinkedTasks = item.overdueLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() < Date.now()).length;
+
+  const workflowWarnings = getWorkflowWarningsForRecord(item, { tasks });
   const openLinkedTasks = item.openLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done').length;
 
   return (
@@ -85,18 +90,20 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
       <div className="detail-primary-actions mt-4">
         <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
         <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
-        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create linked task</button>
-        <button onClick={() => { const openLinked = linkedTasks.filter((task) => task.status !== 'Done').length; if (openLinked > 0 && !window.confirm(`There are ${openLinked} open linked tasks. Close follow-up anyway?`)) return; updateItem(item.id, applyLifecycleBundle(item, 'resolve_and_close')); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
+        <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
+        <button onClick={() => { const note = window.prompt('Closeout note (required unless override):', item.completionNote || ''); const result = attemptFollowUpTransition(item.id, 'Closed', { ...applyLifecycleBundle(item, 'resolve_and_close'), completionNote: note || undefined, actionState: 'Complete' }); if (!result.applied && result.validation.overrideAllowed) { const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose parent anyway?`); if (!proceed) return; const overrideResult = attemptFollowUpTransition(item.id, 'Closed', { ...applyLifecycleBundle(item, 'resolve_and_close'), completionNote: note || undefined, actionState: 'Complete' }, { override: true }); if (overrideResult.validation.warnings.length) window.alert(overrideResult.validation.warnings.join('\n')); return; } if (!result.applied) { window.alert(result.validation.blockers.join(' ')); return; } if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n')); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
         <details className="detail-overflow-actions">
           <summary className="action-btn"><MoreHorizontal className="h-4 w-4" />More <ChevronDown className="h-4 w-4" /></summary>
           <div className="detail-overflow-menu">
-            <button onClick={() => updateItem(item.id, { ...applyLifecycleBundle(item, 'waiting_on_response'), waitingOn: item.waitingOn || item.owner })} className="action-btn">Waiting on response</button>
-            <button onClick={() => updateItem(item.id, { nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3), lastCompletedAction: 'Snoozed', lastActionAt: todayIso() })} className="action-btn">Snooze</button>
+            <button onClick={() => { const waitingOn = item.waitingOn || window.prompt('Who are you waiting on?', item.owner) || ''; const nextTouch = item.nextTouchDate || addDaysIso(todayIso(), item.cadenceDays || 3); const result = attemptFollowUpTransition(item.id, 'Waiting on external', { ...applyLifecycleBundle(item, 'waiting_on_response'), waitingOn: waitingOn || undefined, nextTouchDate: nextTouch }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); else if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n')); }} className="action-btn">Waiting on response</button>
+            <button onClick={() => { const date = window.prompt('Snooze until (YYYY-MM-DD):', addDaysIso(todayIso(), item.cadenceDays || 3).slice(0, 10)); if (!date) return; const iso = new Date(`${date}T00:00:00`).toISOString(); const result = attemptFollowUpTransition(item.id, 'Waiting internal', { nextTouchDate: iso, snoozedUntilDate: iso, lastCompletedAction: 'Snoozed', lastActionAt: todayIso() }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Snooze</button>
             <button onClick={() => updateItem(item.id, applyLifecycleBundle(item, 'escalate'))} className="action-btn">Escalate</button>
             <button onClick={() => { if (window.confirm('Delete this follow-up? This cannot be undone.')) deleteItem(item.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
           </div>
         </details>
       </div>
+
+      {workflowWarnings.length ? <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{workflowWarnings.map((warning) => <div key={warning}>{warning}</div>)}</div> : null}
 
       <div className="mt-4">
         <SegmentedControl

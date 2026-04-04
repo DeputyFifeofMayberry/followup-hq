@@ -11,6 +11,7 @@ import { MergeModal } from './components/MergeModal';
 import { TouchLogModal } from './components/TouchLogModal';
 import { UniversalCapture } from './components/UniversalCapture';
 import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
+import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
@@ -484,6 +485,7 @@ function MainApp() {
       <ImportWizardModal />
       <MergeModal />
       <FollowUpDraftModal />
+      <UniversalRecordDrawer />
     </div>
   );
 }

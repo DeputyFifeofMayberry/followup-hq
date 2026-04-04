@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 1 Phase 2: universal record drawer / detail shell
+- Added a global universal record drawer surface with a consistent detail shell (Summary, Linked records, Timeline/history, Context/metadata) that can open from anywhere and navigate between related records using the shared cross-record descriptor/bundle foundation from Phase 1 (`src/components/UniversalRecordDrawer.tsx`, `src/lib/recordContext.ts`, `src/App.tsx`).
+- Added shared UI state/actions for a single source of truth for drawer context/open-close behavior, so all workspaces can launch the same cross-record detail surface without prop drilling (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/types.ts`, `src/store/slices/uiSlice.ts`).
+- Wired lightweight “Open record” entry hooks into key surfaces (follow-up rows, task rows, project detail linked entities, and relationship portfolio/detail linked entities) while preserving existing lane-specific inspectors and workspace behavior for low-regression rollout (`src/components/TrackerTable.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`).
+- Added drawer-specific styling that reuses existing SetPoint surface semantics while introducing a right-side object-centric detail layer (`src/styles/workspaces.css`).
+
 ### Deficiency 1 Phase 1: shared cross-record execution foundation
 - Added a typed cross-record relationship module that normalizes follow-ups, tasks, projects, contacts, and companies into one record descriptor shape, plus reusable selectors for linked follow-up/task relationships, project/company/contact-linked records, related-record bundles, and shared derived counts (relationships, open/blocked/overdue child work, timeline/audit events) (`src/lib/recordContext.ts`).
 - Refactored task workspace and follow-up detail inspector to consume the shared cross-record selectors for linked parent/child retrieval and related-record rollups, reducing ad hoc record lookups in component logic (`src/components/TaskWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`).

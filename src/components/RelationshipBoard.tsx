@@ -37,6 +37,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     mergeCompanies,
     projects,
     openCreateFromCapture,
+    openRecordDrawer,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -54,6 +55,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     mergeCompanies: s.mergeCompanies,
     projects: s.projects,
     openCreateFromCapture: s.openCreateFromCapture,
+    openRecordDrawer: s.openRecordDrawer,
   })));
   const { openExecutionLane } = useExecutionQueueViewModel();
 
@@ -225,6 +227,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl tonal-micro text-left text-sm  list-row-family">
                   <div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{entry.name}</span><span className="text-xs text-rose-700">Score {entry.pressureScore}</span></div>
                   <div className="mt-1 text-xs text-slate-600">Waiting {entry.waitingFollowUps} • Overdue {entry.overdueFollowUps + entry.overdueTasks} • Blocked tasks {entry.blockedTasks}</div>
+                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: entry.entityType, id: entry.id }); }} className="action-btn !px-2 !py-1 text-xs">Open record</button></div>
                 </button>
               ))}
             </div>
@@ -280,6 +283,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                     <div className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">{row.pressureScore}</div>
                   </div>
                   <div className="mt-1 text-xs text-slate-600">FU {row.openFollowUps} (W {row.waitingFollowUps}/O {row.overdueFollowUps}) • Tasks {row.openTasks} (B {row.blockedTasks}/O {row.overdueTasks}) • Projects {row.activeProjectCount}</div>
+                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: row.entityType, id: row.id }); }} className="action-btn !px-2 !py-1 text-xs">Open record</button></div>
                 </button>
               ))}
             </div>
@@ -295,6 +299,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div className="flex flex-wrap gap-2">
                   <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
                   <button onClick={() => openCreateWorkFromRelationship('followup')} className="action-btn !px-2.5 !py-1.5 text-xs">Add follow-up</button>
+                  <button onClick={() => openRecordDrawer({ type: selected.entityType, id: selected.id })} className="action-btn !px-2.5 !py-1.5 text-xs">Open record</button>
                   <button onClick={() => openCreateWorkFromRelationship('task')} className="action-btn !px-2.5 !py-1.5 text-xs">Add task</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
@@ -323,14 +328,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
                   <div className="space-y-2">
-                    {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro text-xs">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></div>)}
+                    {selectedFollowUps.map((item) => <button key={item.id} onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="rounded-xl tonal-micro text-xs text-left w-full">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></button>)}
                     {selectedFollowUps.length === 0 ? <StatePanel compact tone="empty" title="No linked follow-ups yet" message="Create or link follow-ups from relationship context actions." /> : null}
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked tasks</div>
                   <div className="space-y-2">
-                    {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro text-xs">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></div>)}
+                    {selectedTasks.map((task) => <button key={task.id} onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="rounded-xl tonal-micro text-xs text-left w-full">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></button>)}
                     {selectedTasks.length === 0 ? <StatePanel compact tone="empty" title="No linked tasks" message="Add a task to make execution ownership explicit." /> : null}
                   </div>
                 </div>
@@ -339,7 +344,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               <div className="mt-4">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Linked projects</div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedProjects.map((project) => <span key={project.id} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700">{project.name}</span>)}
+                  {selectedProjects.map((project) => <button key={project.id} onClick={() => openRecordDrawer({ type: 'project', id: project.id })} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700">{project.name}</button>)}
                   {selectedProjects.length === 0 ? <StatePanel compact tone="empty" title="No linked projects" message="Link a follow-up or task to map this relationship to projects." /> : null}
                 </div>
               </div>

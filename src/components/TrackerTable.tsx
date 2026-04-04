@@ -15,12 +15,13 @@ const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'wai
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
-  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, openRecordDrawer, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
     selectedId: s.selectedId,
     setSelectedId: s.setSelectedId,
+    openRecordDrawer: s.openRecordDrawer,
     search: s.search,
     activeView: s.activeView,
     followUpFilters: s.followUpFilters,
@@ -74,6 +75,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
           <div className="tracker-action-tools tracker-cell-inline-edit">
             <div className="tracker-action-buttons">
               <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: 'followup', id: row.original.id }); }}>Open</button>
             </div>
             <label className="tracker-action-date">
               <span>Next touch</span>
@@ -83,7 +85,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode, baseColumns]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, openRecordDrawer, updateItem, personalMode, baseColumns]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 

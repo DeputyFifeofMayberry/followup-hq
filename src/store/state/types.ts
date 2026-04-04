@@ -35,6 +35,7 @@ import type {
   ExecutionIntent,
 } from '../../types';
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
+import type { RecordRef } from '../../lib/recordContext';
 
 export interface ItemModalState {
   open: boolean;
@@ -111,6 +112,7 @@ export interface AppUiState {
   savedExecutionViews: SavedExecutionView[];
   executionIntent: ExecutionIntent | null;
   executionSelectedId: string | null;
+  recordDrawerRef: RecordRef | null;
 }
 
 export interface AppMetaState {

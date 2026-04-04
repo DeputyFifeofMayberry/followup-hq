@@ -61,6 +61,7 @@ export const initialUiState: AppUiState = {
   savedExecutionViews: defaultExecutionViews,
   executionIntent: null,
   executionSelectedId: null,
+  recordDrawerRef: null,
 };
 
 export const initialMetaState: AppMetaState = {

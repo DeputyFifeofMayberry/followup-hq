@@ -8,7 +8,8 @@ export function createUiSlice(set: SliceSet): Pick<AppStoreActions,
   'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
   'setFollowUpColumns' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
-  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal'
+  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
+  'openRecordDrawer' | 'closeRecordDrawer'
 > {
   return {
     setSelectedId: (id) => set({ selectedId: id }),
@@ -55,5 +56,7 @@ export function createUiSlice(set: SliceSet): Pick<AppStoreActions,
     }),
     openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
     closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+    openRecordDrawer: (ref) => set({ recordDrawerRef: ref }),
+    closeRecordDrawer: () => set({ recordDrawerRef: null }),
   };
 }

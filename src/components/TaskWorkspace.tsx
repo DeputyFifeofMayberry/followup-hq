@@ -6,6 +6,7 @@ import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, S
 import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
+import { useAppStore } from '../store/useAppStore';
 import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { describeExecutionIntent } from '../lib/executionHandoff';
 import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/recordContext';
@@ -47,6 +48,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+  const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
 
   useEffect(() => {
     if (executionIntent?.target !== 'tasks') return;
@@ -256,6 +258,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       <div className="scan-row-action-cluster">
                         <button onClick={() => openTaskFlow(task, 'done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
                         <button onClick={() => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
+                        <button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2.5 !py-1 text-xs">Open</button>
                       </div>
                     </div>
                   </div>

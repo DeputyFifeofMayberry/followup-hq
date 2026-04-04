@@ -31,6 +31,7 @@ import type {
   ExecutionRouteTarget,
 } from '../types';
 import type { WorkflowValidationResult } from '../lib/workflowPolicy';
+import type { RecordRef } from '../lib/recordContext';
 
 export interface WorkflowTransitionAttempt {
   applied: boolean;
@@ -76,6 +77,8 @@ export interface AppStoreActions {
   openCreateFromCapture: (draft: UniversalCaptureDraft) => void;
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;
+  openRecordDrawer: (ref: RecordRef) => void;
+  closeRecordDrawer: () => void;
   updateItem: (id: string, patch: Partial<FollowUpItem>) => void;
   addItem: (item: FollowUpItem) => void;
   deleteItem: (id: string) => void;

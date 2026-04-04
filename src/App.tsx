@@ -25,32 +25,21 @@ import { supabase, supabaseConfigError } from './lib/supabase';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
-import { getModeConfig, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
+import { getModeConfig, getWorkspaceOrder, type WorkspaceKey as ModeWorkspaceKey } from './lib/appModeConfig';
 import { AppModal, AppModalBody, AppModalHeader, AppShellCard, SectionHeader, SegmentedControl, StatTile, WorkspaceHeaderMetaPill, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceTopStack } from './components/ui/AppPrimitives';
 import { buildFollowUpCounts, selectFollowUpRows } from './lib/followUpSelectors';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
-const navSections: Array<{ title: string; tone?: 'support'; items: Array<{ key: WorkspaceKey; label: string; icon: typeof ListChecks }> }> = [
-  {
-    title: 'Core workflow',
-    items: [
-      { key: 'worklist', label: 'Overview', icon: ListChecks },
-      { key: 'followups', label: 'Follow Ups', icon: Activity },
-      { key: 'tasks', label: 'Tasks', icon: ListTodo },
-      { key: 'outlook', label: 'Intake', icon: Inbox },
-    ],
-  },
-  {
-    title: 'Supporting views',
-    tone: 'support',
-    items: [
-      { key: 'projects', label: 'Projects', icon: BriefcaseBusiness },
-      { key: 'relationships', label: 'Relationships', icon: Users },
-      { key: 'exports', label: 'Exports', icon: FileSpreadsheet },
-    ],
-  },
-];
+const workspaceIcons: Record<WorkspaceKey, typeof ListChecks> = {
+  worklist: ListChecks,
+  followups: Activity,
+  tasks: ListTodo,
+  outlook: Inbox,
+  projects: BriefcaseBusiness,
+  relationships: Users,
+  exports: FileSpreadsheet,
+};
 
 function FollowUpHQMark() {
   return (
@@ -440,33 +429,46 @@ function MainApp() {
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
-  const commands = [
-    { label: 'New follow-up', run: () => openCreateModal() },
-    { label: 'New task', run: () => openCreateTaskModal() },
-    { label: 'Open overview', run: () => setWorkspace('worklist') },
-    { label: 'Open follow-ups', run: () => setWorkspace('followups') },
-    { label: 'Open tasks', run: () => setWorkspace('tasks') },
-    { label: 'Open intake', run: () => setWorkspace('outlook') },
-  ];
+  const orderedWorkspaces = getWorkspaceOrder();
+  const navSections = useMemo(() => {
+    const workspaceEntries = orderedWorkspaces.map((key) => ({ key, meta: modeConfig.workspaceMeta[key] }));
+    return [
+      { title: 'Primary workflow', tone: 'core' as const, items: workspaceEntries.filter(({ meta }) => meta.category === 'core') },
+      { title: 'Support & reference', tone: 'support' as const, items: workspaceEntries.filter(({ meta }) => meta.category === 'support') },
+    ];
+  }, [modeConfig.workspaceMeta, orderedWorkspaces]);
+
+  const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'none') => {
+    if (actionKey === 'new-followup') {
+      openCreateModal();
+      return;
+    }
+    if (actionKey === 'new-task') {
+      openCreateTaskModal();
+    }
+  }, [openCreateModal, openCreateTaskModal]);
+
+  const commands = useMemo(() => {
+    const base = [
+      { label: 'New follow-up', run: () => openCreateModal() },
+      { label: 'New task', run: () => openCreateTaskModal() },
+    ];
+    const workspaceCommands = orderedWorkspaces.map((key) => ({
+      label: `Open ${modeConfig.workspaceMeta[key].userLabel.toLowerCase()}`,
+      run: () => setWorkspace(key),
+    }));
+    return [...base, ...workspaceCommands];
+  }, [modeConfig.workspaceMeta, openCreateModal, openCreateTaskModal, orderedWorkspaces]);
   const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
-  const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Overview', purpose: 'Start here each day to triage work, review intake, and move into execution.', health: `${navCounts.worklist || 0} due now across your execution loop`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
-    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Execution workspace for moving commitments forward and closing loops.' : 'Execution workspace for team follow-up ownership, nudges, and closure.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
-    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Execution workspace for shipping assigned work with low friction.' : 'Execution workspace for task throughput, assignees, and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
-    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Core workflow intake lane: capture and clean work before execution.' : 'Core workflow intake lane for routing inbound work into team execution.', health: `${combinedCleanup} need cleanup`, actions: [] },
-    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Supporting view for project context behind your core daily execution.' : 'Supporting view for project-level pressure, risk, and escalation context.', health: `${items.length} linked follow-ups`, actions: [] },
-    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Supporting view for relationship context while you run core workflows.' : 'Supporting view for relationship heat, history, and communication context.', health: `${items.length} connected threads`, actions: [] },
-    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Supporting view for snapshots and reporting outside daily execution.' : 'Supporting view for team reporting packs and external status exports.', health: 'Export-ready data', actions: [] },
-  };
-
-  const currentMeta = workspaceMeta[workspace];
-  const showUniversalCapture = ['worklist', 'followups', 'tasks', 'outlook'].includes(workspace);
+  const currentMeta = modeConfig.workspaceMeta[workspace];
+  const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });
+  const showUniversalCapture = currentMeta.showUniversalCapture;
 
   return (
     <div className="app-shell text-slate-900">
       <div className="app-shell-layout">
-        <aside className="app-nav-rail" aria-label="Primary workspace navigation">
+        <aside className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
             <div className="app-brand-title">FollowUp HQ</div>
@@ -481,8 +483,8 @@ function MainApp() {
               >
                 <div className="nav-section-heading">{section.title}</div>
                 <div className="grid gap-2">
-                  {section.items.map(({ key, label, icon: Icon }) => {
-                    const isSupportItem = section.tone === 'support' || (appMode === 'personal' ? (key === 'projects' || key === 'relationships' || key === 'exports') : false);
+                  {section.items.map(({ key, meta }) => {
+                    const Icon = workspaceIcons[key];
                     const active = workspace === key;
                     return (
                       <button
@@ -493,14 +495,17 @@ function MainApp() {
                           'nav-card',
                           active ? 'nav-card-active' : '',
                           section.tone === 'support' ? 'nav-card-support' : 'nav-card-core',
-                          isSupportItem ? 'nav-card-muted' : '',
-                          !active && !isSupportItem ? 'nav-card-primary-inactive' : '',
+                          section.tone === 'support' ? 'nav-card-muted' : '',
+                          !active && section.tone === 'core' ? 'nav-card-primary-inactive' : '',
                         ].filter(Boolean).join(' ')}
                         aria-current={active ? 'page' : undefined}
                       >
                         <div className="nav-card-row">
-                          <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{label}</span></span>
-                          {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
+                          <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{meta.userLabel}</span></span>
+                          <span className="nav-card-meta-row">
+                            {meta.startSurface ? <span className="nav-start-pill">Start here</span> : null}
+                            {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
+                          </span>
                         </div>
                       </button>
                     );
@@ -516,20 +521,20 @@ function MainApp() {
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
             <div>
               <div className="workspace-label">{modeConfig.displayName}</div>
-              <h1>{currentMeta.title}</h1>
-              <p>{currentMeta.purpose}</p>
+              <h1>{currentMeta.shellTitle}</h1>
+              <p>{currentMeta.shellPurpose}</p>
               <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
             </div>
             <div className="workspace-header-meta">
               <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <WorkspaceHeaderMetaPill tone="info">{currentMeta.health}</WorkspaceHeaderMetaPill>
+              <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
               <div className="workspace-header-actions">
-                {currentMeta.actions.map((action) => (
-                  <button key={action.label} type="button" onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
-                    {action.primary ? <Sparkles className="h-4 w-4" /> : null}
-                    {action.label}
+                {currentMeta.primaryAction ? (
+                  <button type="button" onClick={() => runPrimaryAction(currentMeta.primaryAction?.actionKey ?? 'none')} className={currentMeta.primaryAction.primary ? 'primary-btn' : 'action-btn'}>
+                    {currentMeta.primaryAction.primary ? <Sparkles className="h-4 w-4" /> : null}
+                    {currentMeta.primaryAction.label}
                   </button>
-                ))}
+                ) : null}
               </div>
             </div>
             </header>

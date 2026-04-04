@@ -157,7 +157,7 @@ export function PersonalAgendaBoard() {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3">
-        <h2 className="text-lg font-semibold text-slate-950">My worklist</h2>
+        <h2 className="text-lg font-semibold text-slate-950">My overview</h2>
         <p className="text-sm text-slate-500">One place for follow-ups and tasks. Type stays in the background.</p>
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">

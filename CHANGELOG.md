@@ -2,6 +2,13 @@
 
 ## 2026-04-04
 
+### Phase 3 single daily cockpit overhaul (execution-lane cohesion)
+- Reworked Follow Ups and Tasks into clearer sibling execution lanes with the same rhythm: compact summary strip, focused control row, queue-first list area, contextual state strip, and right-side inspector action depth (`src/App.tsx`, `src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`).
+- Reduced default control-surface density in both lanes by keeping search + top filters visible and moving lower-frequency filters/saved-view management behind `View options` progressive disclosure (`src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`).
+- Standardized row action hierarchy across lanes by trimming inline actions to high-frequency quick actions (Follow Ups: nudge + next touch; Tasks: done + block/unblock) while emphasizing inspector-driven context-heavy decisions (`src/components/TrackerTable.tsx`, `src/components/TaskWorkspace.tsx`).
+- Tightened lane-purpose copy so Overview remains triage while Follow Ups and Tasks read as explicit execution lanes with clearer inspector-first guidance (`src/App.tsx`, `src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`).
+- Unified visual grammar for execution controls, list rows, and contextual batch/foot strips to reduce cross-workspace drift and strengthen one-product cohesion (`src/styles/workspaces.css`).
+
 ### Phase 2 single daily cockpit overhaul (Overview simplification + triage-first flow)
 - Reworked `src/components/OverviewPage.tsx` into a clearer four-part cockpit flow: compact daily focus strip, explicit triage action row, calmer primary queue surface with progressive disclosure, and a tighter action-led inspector.
 - Reduced default Overview control density by keeping preset/search/sort visible while moving density, advanced filters, date constraints, owner/assignee filters, and saved views into a single `View options` disclosure panel.

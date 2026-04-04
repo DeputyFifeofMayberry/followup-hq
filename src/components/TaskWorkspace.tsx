@@ -2,7 +2,7 @@ import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizont
 import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
-import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, isTaskOverdue, priorityTone, taskWorkflowState, toDateInputValue, todayIso } from '../lib/utils';
+import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
@@ -20,7 +20,6 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
   { value: 'unlinked', label: 'Unlinked' },
   { value: 'recent', label: 'Recently updated' },
 ];
-const DEFAULT_VISIBLE_ROW_CHIPS = 2;
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useAppStore(useShallow((s) => ({
@@ -53,7 +52,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [cleanupOnly, setCleanupOnly] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [tasks]);
@@ -117,16 +115,13 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
   const linkedFollowUp = selectedTask?.linkedFollowUpId ? items.find((item) => item.id === selectedTask.linkedFollowUpId) : null;
-  const parentWorkflow = selectedTask?.linkedFollowUpId ? tasks.filter((task) => task.linkedFollowUpId === selectedTask.linkedFollowUpId) : [];
-  const parentOpen = parentWorkflow.filter((task) => task.status !== 'Done').length;
-  const parentBlocked = parentWorkflow.filter((task) => task.status === 'Blocked').length;
-  const parentOverdue = parentWorkflow.filter((task) => isTaskOverdue(task)).length;
+  const linkedTaskOpenCount = linkedFollowUp ? tasks.filter((task) => task.linkedFollowUpId === linkedFollowUp.id && task.status !== 'Done').length : 0;
 
   const summary = useMemo(() => ({
     open: tasks.filter((task) => task.status !== 'Done').length,
     dueSoon: tasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 2 * 86400000).length,
     blocked: tasks.filter((task) => task.status === 'Blocked').length,
-    deferred: tasks.filter((task) => isTaskDeferred(task)).length,
+    unlinked: tasks.filter((task) => !task.linkedFollowUpId && task.status !== 'Done').length,
   }), [tasks]);
 
   const resetFilters = () => {
@@ -166,38 +161,36 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     <WorkspacePage>
       <WorkspaceTopStack>
         <WorkspaceSummaryStrip className="overview-hero-card">
-          <SectionHeader title="Task execution workspace" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
+          <SectionHeader title="Task execution lane" subtitle={modeConfig.taskSubtitle} actions={<button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>} compact />
           <div className="overview-stat-grid overview-stat-grid-compact">
-            <StatTile label="Open tasks" value={summary.open} helper="Still in motion" />
-            <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" />
-            <StatTile label="Blocked" value={summary.blocked} helper="Waiting on dependency" tone={summary.blocked ? 'warn' : 'default'} />
-            <StatTile label="Deferred" value={summary.deferred} helper="Snoozed out of active queue" />
+            <StatTile label="Open tasks" value={summary.open} helper="In active execution" />
+            <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" tone={summary.dueSoon ? 'warn' : 'default'} />
+            <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
+            <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
           </div>
           <WorkspaceToolbarRow className="overview-support-row">
-            <span className="overview-inline-guidance"><strong>Execution loop:</strong> Select → Update state → Resolve blockers → Close.</span>
-            <span className="overview-inline-guidance">Use advanced filters for owner, parent status, linked state, and tags.</span>
+            <span className="overview-inline-guidance"><strong>Task loop:</strong> Scan queue → update status → resolve blocker/due date in inspector.</span>
+            <span className="overview-inline-guidance">Follow-up relationship details stay in the right pane.</span>
           </WorkspaceToolbarRow>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel" surface="data">
-          <SectionHeader title="Task queue" subtitle="Primary execution lane. Inspector supports context and actions." compact />
+          <SectionHeader title="Task queue" subtitle="Matching execution lane structure with focused quick actions." compact />
           <div className="workspace-control-stack">
             <FilterBar>
               <SegmentedControl value={mode} onChange={(value) => setMode(value as TaskMode)} options={modeOptions} />
             </FilterBar>
 
-            <WorkspaceToolbarRow className="task-primary-controls">
+            <WorkspaceToolbarRow className="execution-toolbar-row">
               <label className="field-block">
                 <span className="field-label">Search queue</span>
                 <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, block reason, context, tags" className="field-input search-field-input" /></div>
               </label>
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
-              <select value={density} onChange={(event) => setDensity(event.target.value as typeof density)} className="field-input"><option value="compact">Compact rows</option><option value="comfortable">Comfortable rows</option></select>
               <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
-              <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Advanced <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-              <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset filters</button>
+              <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />View options <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
             </WorkspaceToolbarRow>
 
             {advancedOpen ? (
@@ -214,6 +207,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   <button onClick={() => setBlockedOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${blockedOnly ? 'bg-slate-900 text-white' : ''}`}>Blocked only</button>
                   <button onClick={() => setDeferredOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${deferredOnly ? 'bg-slate-900 text-white' : ''}`}>Deferred only</button>
                   <button onClick={() => setCleanupOnly((v) => !v)} className={`action-btn !px-2.5 !py-1 text-xs ${cleanupOnly ? 'bg-slate-900 text-white' : ''}`}>Cleanup only</button>
+                  <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset filters</button>
                 </div>
               </div>
             ) : null}
@@ -222,31 +216,25 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           <div className="workspace-list-content task-list-content">
             {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try a different filter or add a task." /> : filteredTasks.map((task) => {
               const parent = task.linkedFollowUpId ? items.find((item) => item.id === task.linkedFollowUpId) : undefined;
-              const workflowState = taskWorkflowState(task);
               const isUrgent = Boolean(task.dueDate && task.dueDate < todayIso() && task.status !== 'Done');
-              const primaryChips = [
-                <Badge key="status" variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>,
-                <Badge key="priority" variant={priorityTone(task.priority)}>{task.priority}</Badge>,
-                <Badge key="urgent" variant={isUrgent ? 'danger' : 'neutral'}>{isUrgent ? 'Overdue' : `Due ${formatDate(task.dueDate)}`}</Badge>,
-              ];
               return (
-                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row ${density === 'compact' ? 'workspace-data-row-compact' : ''} task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
-                  <div className="scan-row-layout">
+                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
+                  <div className="scan-row-layout scan-row-layout-quiet">
                     <div className="scan-row-content">
                       <div className="scan-row-primary">{task.title}</div>
-                      <div className="scan-row-secondary">{task.project} • {task.nextStep || 'No next step set'} • {task.assigneeDisplayName || task.owner}</div>
-                      {task.blockReason && task.status === 'Blocked' ? <div className={`scan-row-meta ${selectedTask?.id === task.id ? 'text-amber-200' : 'text-amber-700'}`}>Blocked: {task.blockReason}</div> : null}
-                      {density === 'comfortable' ? <div className="scan-row-meta">Workflow: {workflowState} • {task.linkedFollowUpId ? 'Linked follow-up' : 'No linked follow-up'} • {isTaskDeferred(task) ? `Deferred until ${formatDate(task.deferredUntil)}` : 'Active queue'}</div> : null}
-                      {density === 'comfortable' && parent ? <div className="scan-row-meta">Parent status: {parent.status}</div> : null}
+                      <div className="scan-row-secondary">{task.project} • Due {formatDate(task.dueDate)} • {task.assigneeDisplayName || task.owner}</div>
+                      <div className="scan-row-meta">{task.nextStep || 'No next step set'}{parent ? ` • Linked: ${parent.status}` : ' • Unlinked task'}</div>
+                      {task.status === 'Blocked' && task.blockReason ? <div className={`scan-row-meta ${selectedTask?.id === task.id ? 'text-amber-200' : 'text-amber-700'}`}>Blocked: {task.blockReason}</div> : null}
                     </div>
-                    <div className="scan-row-sidecar" onClick={(event) => event.stopPropagation()}>
+                    <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                       <div className="scan-row-badge-cluster">
-                        {primaryChips.slice(0, DEFAULT_VISIBLE_ROW_CHIPS)}
+                        <Badge variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>
+                        <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
+                        {isUrgent ? <Badge variant="danger">Overdue</Badge> : null}
                       </div>
                       <div className="scan-row-action-cluster">
-                        <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Mark done</button>
+                        <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
                         <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                        <button onClick={() => { const deferTo = addDaysIso(todayIso(), 3); const result = attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: task.status === 'Done' ? 'To do' : task.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn scan-row-action-secondary !px-2.5 !py-1 text-xs">Defer 3d</button>
                       </div>
                     </div>
                   </div>
@@ -261,49 +249,52 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <div className="space-y-3">
               <WorkspaceInspectorSection title="Selected task" subtitle={`${selectedTask.project} · ${selectedTask.assigneeDisplayName || selectedTask.owner}`}>
                 <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="inspector-title">{selectedTask.title}</h3>
-                  <p className="inspector-meta">{personalMode ? 'Task execution panel' : 'Task coordination panel'}</p>
+                  <div>
+                    <h3 className="inspector-title">{selectedTask.title}</h3>
+                    <p className="inspector-meta">Task execution detail</p>
+                  </div>
+                  <div className="flex gap-2"><button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button><button onClick={() => deleteTask(selectedTask.id)} className="action-btn text-rose-600"><Trash2 className="h-4 w-4" />Delete</button></div>
                 </div>
-                <div className="flex gap-2"><button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button><button onClick={() => deleteTask(selectedTask.id)} className="action-btn text-rose-600"><Trash2 className="h-4 w-4" />Delete</button></div>
-              </div>
               </WorkspaceInspectorSection>
 
-              <WorkspaceInspectorSection title="Primary actions">
+              <WorkspaceInspectorSection title="Execution actions" subtitle="Primary decisions for status, timing, and blockers.">
                 <div className="task-inspector-actions">
-                <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
-                <button onClick={() => updateTaskWithStatus(selectedTask, 'Blocked')} className="action-btn">Block</button>
-                <button onClick={() => updateTask(selectedTask.id, { status: selectedTask.status === 'Blocked' ? 'In progress' : selectedTask.status, blockReason: undefined })} className="action-btn">Unblock</button>
-                <button onClick={() => { const deferTo = addDaysIso(todayIso(), 2); const result = attemptTaskTransition(selectedTask.id, selectedTask.status, { deferredUntil: deferTo, nextReviewAt: deferTo }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Defer / snooze</button>
-                <button onClick={() => updateTask(selectedTask.id, { startDate: todayIso(), startedAt: selectedTask.startedAt || todayIso() })} className="action-btn">Start today</button>
-                <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
-              </div>
+                  <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
+                  <button onClick={() => updateTaskWithStatus(selectedTask, selectedTask.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
+                  <button onClick={() => { const deferTo = addDaysIso(todayIso(), 2); const result = attemptTaskTransition(selectedTask.id, selectedTask.status === 'Done' ? 'To do' : selectedTask.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: selectedTask.status === 'Done' ? 'To do' : selectedTask.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Defer 2d</button>
+                  <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
+                </div>
               </WorkspaceInspectorSection>
 
-              <WorkspaceInspectorSection title="Task metrics">
+              <WorkspaceInspectorSection title="Status and next step">
                 <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.status}</div></div>
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Impact</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.completionImpact || 'advance_parent'}</div></div>
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Start</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.startDate)}</div></div>
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Due</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.dueDate)}</div></div>
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Deferred until</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.deferredUntil)}</div></div>
-                <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Block reason</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.blockReason || '—'}</div></div>
-              </div>
+                  <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Status</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.status}</div></div>
+                  <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Due date</div><div className="mt-2 text-sm font-medium text-slate-900">{formatDate(selectedTask.dueDate)}</div></div>
+                  <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Blocker</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.blockReason || 'None recorded'}</div></div>
+                  <div className="rounded-2xl tonal-micro"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Next step</div><div className="mt-2 text-sm font-medium text-slate-900">{selectedTask.nextStep || 'Define next step'}</div></div>
+                </div>
               </WorkspaceInspectorSection>
 
               <WorkspaceInspectorSection title="Task details">
                 <div className="grid gap-3">
-                <label className="field-block"><span className="field-label">Block reason</span><input value={selectedTask.blockReason || ''} onChange={(event) => updateTask(selectedTask.id, { blockReason: event.target.value, status: 'Blocked' })} className="field-input" /></label>
-                <label className="field-block"><span className="field-label">Completion note</span><input value={selectedTask.completionNote || ''} onChange={(event) => updateTask(selectedTask.id, { completionNote: event.target.value })} className="field-input" /></label>
-                <label className="field-block"><span className="field-label">Defer until</span><input type="date" value={toDateInputValue(selectedTask.deferredUntil)} onChange={(event) => updateTask(selectedTask.id, { deferredUntil: event.target.value ? fromDateInputValue(event.target.value) : undefined, nextReviewAt: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
-                <label className="field-block"><span className="field-label">Assignee</span><input value={selectedTask.assigneeDisplayName || selectedTask.owner} onChange={(event) => updateTask(selectedTask.id, { assigneeDisplayName: event.target.value })} className="field-input" /></label>
-                <label className="field-block"><span className="field-label">Next step</span><textarea value={selectedTask.nextStep} onChange={(event) => updateTask(selectedTask.id, { nextStep: event.target.value })} className="field-textarea" /></label>
-              </div>
+                  <label className="field-block"><span className="field-label">Block reason</span><input value={selectedTask.blockReason || ''} onChange={(event) => updateTask(selectedTask.id, { blockReason: event.target.value, status: event.target.value ? 'Blocked' : selectedTask.status })} className="field-input" /></label>
+                  <label className="field-block"><span className="field-label">Completion note</span><input value={selectedTask.completionNote || ''} onChange={(event) => updateTask(selectedTask.id, { completionNote: event.target.value })} className="field-input" /></label>
+                  <label className="field-block"><span className="field-label">Due date</span><input type="date" value={toDateInputValue(selectedTask.dueDate)} onChange={(event) => updateTask(selectedTask.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
+                  <label className="field-block"><span className="field-label">Deferred until</span><input type="date" value={toDateInputValue(selectedTask.deferredUntil)} onChange={(event) => updateTask(selectedTask.id, { deferredUntil: event.target.value ? fromDateInputValue(event.target.value) : undefined, nextReviewAt: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
+                  <label className="field-block"><span className="field-label">Next step</span><textarea value={selectedTask.nextStep} onChange={(event) => updateTask(selectedTask.id, { nextStep: event.target.value })} className="field-textarea" /></label>
+                </div>
               </WorkspaceInspectorSection>
 
-              {linkedFollowUp ? <WorkspaceInspectorSection title="Parent workflow summary"><div className="rounded-2xl tonal-panel"><div className="mt-2 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div><div className="mt-1 text-sm text-slate-700">Workflow summary: {parentWorkflow.length} total • {parentOpen} open • {parentBlocked} blocked • {parentOverdue} overdue</div><div className="mt-1 text-sm text-slate-700">Readiness: {parentOpen === 0 ? 'Ready to close/advance' : parentBlocked > 0 ? 'Blocked child pressure' : 'In progress'}</div><button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open detail</button></div></WorkspaceInspectorSection> : null}
-              <WorkspaceInspectorSection title="Task purpose"><p className="text-sm leading-6 text-slate-700">{selectedTask.summary || 'No summary added yet.'}</p></WorkspaceInspectorSection>
-              <WorkspaceInspectorSection title="Why task exists"><p className="text-sm leading-6 text-slate-700">{selectedTask.contextNote || selectedTask.linkedProjectContext || 'Execution support task.'}</p></WorkspaceInspectorSection>
+              {linkedFollowUp ? (
+                <WorkspaceInspectorSection title="Linked follow-up impact" subtitle="How this task affects follow-up readiness.">
+                  <div className="rounded-2xl tonal-panel">
+                    <div className="mt-1 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div>
+                    <div className="mt-1 text-sm text-slate-700">Open linked tasks: {linkedTaskOpenCount}</div>
+                    <div className="mt-1 text-sm text-slate-700">Impact rule: {selectedTask.completionImpact || 'advance_parent'}</div>
+                    <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open follow-up lane</button>
+                  </div>
+                </WorkspaceInspectorSection>
+              ) : null}
             </div>
           ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>

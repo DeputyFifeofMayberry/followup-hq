@@ -67,9 +67,9 @@
 .workspace-toolbar-row { align-items: center; }
 .workspace-control-stack {
   display: grid;
-  gap: 0.5rem;
-  border: 1px solid #d5dfeb;
-  background: #f6faff;
+  gap: 0.45rem;
+  border: 1px solid #d7e2ee;
+  background: #f7fbff;
   border-radius: 0.9rem;
   padding: 0.55rem;
 }
@@ -164,8 +164,6 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.3rem;
-  border-left: 1px solid #dde6f1;
-  padding-left: 0.45rem;
 }
 .scan-row-support-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; padding-top: 0.2rem; }
 .scan-chip-secondary { opacity: 0.88; }
@@ -271,3 +269,11 @@
   .workspace-header { flex-direction: column; }
   .workspace-header-meta { justify-items: start; }
 }
+
+
+.execution-toolbar-row { gap: 0.45rem; align-items: flex-end; }
+.execution-toolbar-foot { border-top: 1px solid #d9e4ef; padding-top: 0.38rem; }
+.execution-batch-strip { border-top: 1px solid #d9e4ef; padding-top: 0.42rem; }
+.task-work-row .scan-row-sidecar { min-width: 170px; }
+.task-work-row .scan-row-action-cluster .action-btn { border-color: #cbd8e6; }
+.followup-control-stack .followup-toolbar-foot { border-top: 1px solid #d9e4ef; padding-top: 0.38rem; }

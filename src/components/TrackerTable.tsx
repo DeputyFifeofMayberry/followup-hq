@@ -3,7 +3,6 @@ import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type Col
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputValue } from '../lib/utils';
-import { validateFollowUpTransition } from '../lib/workflowPolicy';
 import { useAppStore } from '../store/useAppStore';
 import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -16,12 +15,11 @@ const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'wai
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
-  const { items, contacts, companies, selectedId, tasks, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
     selectedId: s.selectedId,
-    tasks: s.tasks,
     setSelectedId: s.setSelectedId,
     search: s.search,
     activeView: s.activeView,
@@ -32,7 +30,6 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
     selectAllVisibleFollowUps: s.selectAllVisibleFollowUps,
     updateItem: s.updateItem,
     markNudged: s.markNudged,
-    attemptFollowUpTransition: s.attemptFollowUpTransition,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const modeConfig = getModeConfig(appMode);
@@ -71,33 +68,12 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
       ...dynamic,
       {
         id: 'quickActions',
-        header: 'Actions & edits',
+        header: 'Quick actions',
         enableSorting: false,
         cell: ({ row }) => (
           <div className="tracker-action-tools tracker-cell-inline-edit">
             <div className="tracker-action-buttons">
               <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => {
-                event.stopPropagation();
-                if (row.original.status === 'Closed') {
-                  updateItem(row.original.id, { status: 'Needs action' });
-                  return;
-                }
-                const note = window.prompt('Close follow-up note (required unless override):', row.original.completionNote || '');
-                const baseValidation = validateFollowUpTransition({ record: row.original, from: row.original.status, to: 'Closed', patch: { status: 'Closed', completionNote: note || undefined }, context: { tasks } });
-                if (!baseValidation.allowed && baseValidation.overrideAllowed) {
-                  const proceed = window.confirm(`${baseValidation.blockers.join(' ')}\nClose parent anyway with override?`);
-                  if (!proceed) return;
-                  attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
-                  return;
-                }
-                if (!baseValidation.allowed) {
-                  window.alert(baseValidation.blockers.join(' '));
-                  return;
-                }
-                const result = attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
-                if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
-              }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
             </div>
             <label className="tracker-action-date">
               <span>Next touch</span>
@@ -107,7 +83,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode, baseColumns, tasks, attemptFollowUpTransition]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, updateItem, personalMode, baseColumns]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronDown, FileEdit, MoreHorizontal, Save, Send, SquareCheckBig, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
-import { addDaysIso, applyLifecycleBundle, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
+import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, SegmentedControl } from './ui/AppPrimitives';
 import { getWorkflowWarningsForRecord } from '../lib/workflowPolicy';
+import { FollowUpActionModal } from './actions/FollowUpActionModal';
+import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 
 type DetailTab = 'overview' | 'actions' | 'notes' | 'activity';
 
@@ -48,6 +50,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const [assigneeDraft, setAssigneeDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [activeAction, setActiveAction] = useState<FollowUpActionType | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
 
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, showActivity ? 50 : 6) : []), [item, showActivity]);
@@ -56,6 +60,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     setNextActionDraft(item?.nextAction ?? '');
     setAssigneeDraft(item?.assigneeDisplayName ?? item?.owner ?? '');
     setActiveTab('overview');
+    setActiveAction(null);
+    setActionFeedback(null);
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.owner]);
 
   if (!item) {
@@ -91,18 +97,19 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
         <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
         <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Linked task</button>
-        <button onClick={() => { const note = window.prompt('Closeout note (required unless override):', item.completionNote || ''); const result = attemptFollowUpTransition(item.id, 'Closed', { ...applyLifecycleBundle(item, 'resolve_and_close'), completionNote: note || undefined, actionState: 'Complete' }); if (!result.applied && result.validation.overrideAllowed) { const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose parent anyway?`); if (!proceed) return; const overrideResult = attemptFollowUpTransition(item.id, 'Closed', { ...applyLifecycleBundle(item, 'resolve_and_close'), completionNote: note || undefined, actionState: 'Complete' }, { override: true }); if (overrideResult.validation.warnings.length) window.alert(overrideResult.validation.warnings.join('\n')); return; } if (!result.applied) { window.alert(result.validation.blockers.join(' ')); return; } if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n')); }} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
+        <button onClick={() => setActiveAction('close')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
         <details className="detail-overflow-actions">
           <summary className="action-btn"><MoreHorizontal className="h-4 w-4" />More <ChevronDown className="h-4 w-4" /></summary>
           <div className="detail-overflow-menu">
-            <button onClick={() => { const waitingOn = item.waitingOn || window.prompt('Who are you waiting on?', item.owner) || ''; const nextTouch = item.nextTouchDate || addDaysIso(todayIso(), item.cadenceDays || 3); const result = attemptFollowUpTransition(item.id, 'Waiting on external', { ...applyLifecycleBundle(item, 'waiting_on_response'), waitingOn: waitingOn || undefined, nextTouchDate: nextTouch }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); else if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n')); }} className="action-btn">Waiting on response</button>
-            <button onClick={() => { const date = window.prompt('Snooze until (YYYY-MM-DD):', addDaysIso(todayIso(), item.cadenceDays || 3).slice(0, 10)); if (!date) return; const iso = new Date(`${date}T00:00:00`).toISOString(); const result = attemptFollowUpTransition(item.id, 'Waiting internal', { nextTouchDate: iso, snoozedUntilDate: iso, lastCompletedAction: 'Snoozed', lastActionAt: todayIso() }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Snooze</button>
-            <button onClick={() => updateItem(item.id, applyLifecycleBundle(item, 'escalate'))} className="action-btn">Escalate</button>
-            <button onClick={() => { if (window.confirm('Delete this follow-up? This cannot be undone.')) deleteItem(item.id); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
+            <button onClick={() => setActiveAction('waiting_on_response')} className="action-btn">Waiting on response</button>
+            <button onClick={() => setActiveAction('snooze')} className="action-btn">Snooze</button>
+            <button onClick={() => setActiveAction('escalate')} className="action-btn">Escalate</button>
+            <button onClick={() => setActiveAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
           </div>
         </details>
       </div>
 
+      {actionFeedback ? <div className={`mb-3 rounded-xl border p-2 text-xs ${actionFeedback.tone === 'danger' ? 'border-rose-200 bg-rose-50 text-rose-900' : actionFeedback.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{actionFeedback.message}</div> : null}
       {workflowWarnings.length ? <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{workflowWarnings.map((warning) => <div key={warning}>{warning}</div>)}</div> : null}
 
       <div className="mt-4">
@@ -191,6 +198,13 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           </div>
         ) : null}
       </div>
+      <FollowUpActionModal
+        item={item}
+        action={activeAction}
+        onClose={() => setActiveAction(null)}
+        followUpActions={{ attemptFollowUpTransition, deleteItem, updateItem }}
+        onCommitted={setActionFeedback}
+      />
     </AppShellCard>
   );
 }

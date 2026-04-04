@@ -11,8 +11,8 @@
 .tracker-row,
 .saved-view-card,
 .tracker-project-row {
-  border: 1px solid #cfdaea;
-  background: linear-gradient(180deg, #f7fbff 0%, #eef4fc 100%);
+  border: 1px solid #d5dfeb;
+  background: #f8fbff;
   border-radius: 0.85rem;
 }
 .list-row-family:hover,
@@ -24,30 +24,30 @@
 .project-entity-row:hover,
 .tracker-row:hover,
 .saved-view-card:hover,
-.tracker-project-row:hover { border-color: #bccde1; background: #f8fbff; }
+.tracker-project-row:hover { border-color: #becddd; background: #fbfdff; }
 .list-row-family-active,
 .workspace-data-row-active,
 .overview-priority-row-active,
 .relationship-row-active,
 .tracker-row-active,
-.project-card-active { border-color: #94a8c1; background: linear-gradient(145deg, #eef4fb 0%, #dde8f5 100%); color: #0f172a; }
+.project-card-active { border-color: #9fb0c5; background: #edf3fa; color: #0f172a; }
 
 .workspace-header {
-  border: 1px solid #b9c8db;
-  background: linear-gradient(140deg, #f4f8fd 0%, #e8f0f9 100%);
-  border-radius: 1.1rem;
-  padding: 1rem;
+  border: 1px solid #cfd9e6;
+  background: #f7fbff;
+  border-radius: 1.25rem;
+  padding: 1rem 1.05rem;
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.1rem;
   align-items: flex-start;
 }
-.workspace-label { color: #64748b; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; }
-.workspace-header h1 { color: #0f172a; margin: 0.2rem 0 0; font-size: 1.45rem; letter-spacing: -0.03em; }
-.workspace-header p { color: #475569; margin: 0.25rem 0 0; font-size: 0.875rem; max-width: 56ch; }
+.workspace-label { color: #5b6d84; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700; }
+.workspace-header h1 { color: #0f172a; margin: 0.15rem 0 0; font-size: 1.42rem; letter-spacing: -0.028em; }
+.workspace-header p { color: #425469; margin: 0.2rem 0 0; font-size: 0.84rem; max-width: 58ch; }
 .workspace-header-meta { display: grid; gap: 0.6rem; justify-items: end; }
 .workspace-header-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: flex-end; }
-.workspace-shell-subcopy { margin-top: 0.25rem; font-size: 0.75rem; color: #64748b; }
+.workspace-shell-subcopy { margin-top: 0.35rem; font-size: 0.74rem; color: #6a7b90; }
 
 .workspace-master-detail { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.55fr) 420px; }
 .workspace-master-detail-today { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.45fr); }

@@ -1,7 +1,8 @@
-import { X } from 'lucide-react';
+import { ArrowRight, Link2, X } from 'lucide-react';
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { formatDateTime } from '../lib/utils';
+import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { getRelatedRecordBundle, type RecordDescriptor, type RecordType } from '../lib/recordContext';
 import { useAppStore } from '../store/useAppStore';
 import { EmptyState } from './ui/AppPrimitives';
@@ -41,6 +42,21 @@ export function UniversalRecordDrawer() {
     if (!recordDrawerRef) return null;
     return getRelatedRecordBundle(recordDrawerRef, { items, tasks, projects, contacts, companies });
   }, [recordDrawerRef, items, tasks, projects, contacts, companies]);
+
+
+  const childRollup = useMemo(() => {
+    if (!recordDrawerRef || recordDrawerRef.type !== 'followup') return null;
+    const item = items.find((entry) => entry.id === recordDrawerRef.id);
+    if (!item) return null;
+    return buildFollowUpChildRollup(item.id, item.status, tasks);
+  }, [recordDrawerRef, items, tasks]);
+
+  const parentFollowUp = useMemo(() => {
+    if (!recordDrawerRef || recordDrawerRef.type !== 'task') return null;
+    const task = tasks.find((entry) => entry.id === recordDrawerRef.id);
+    if (!task?.linkedFollowUpId) return null;
+    return items.find((entry) => entry.id === task.linkedFollowUpId) ?? null;
+  }, [recordDrawerRef, tasks, items]);
 
   const timeline = useMemo(() => {
     if (!recordDrawerRef) return [] as Array<{ id: string; at: string; label: string }>;
@@ -96,6 +112,30 @@ export function UniversalRecordDrawer() {
                   </button>
                 ))}
                 {bundle.related.length === 0 ? <div className="text-xs text-slate-500">No linked records found.</div> : null}
+              </div>
+            </section>
+
+            <section className="inspector-block">
+              <div className="workspace-inspector-section-title">Relationship actions</div>
+              <div className="space-y-2 mt-2">
+                {recordDrawerRef.type === 'followup' ? (
+                  <>
+                    <div className="text-xs text-slate-600">{childRollup?.summaryLabel || 'No linked child tasks.'}</div>
+                    {(childRollup?.explanations || []).map((reason) => <div key={reason} className="text-xs text-slate-600">• {reason}</div>)}
+                    {bundle.related.filter((entry) => entry.type === 'task').slice(0, 3).map((entry) => (
+                      <button key={entry.id} onClick={() => openRecordDrawer({ type: 'task', id: entry.id })} className="record-drawer-link-row">
+                        <div className="text-sm font-medium text-slate-900"><ArrowRight className="inline h-3.5 w-3.5" />Open child task</div>
+                        <div className="text-xs text-slate-500">{entry.title}</div>
+                      </button>
+                    ))}
+                  </>
+                ) : null}
+                {recordDrawerRef.type === 'task' && parentFollowUp ? (
+                  <button onClick={() => openRecordDrawer({ type: 'followup', id: parentFollowUp.id })} className="record-drawer-link-row">
+                    <div className="text-sm font-medium text-slate-900"><Link2 className="inline h-3.5 w-3.5" />Open parent follow-up</div>
+                    <div className="text-xs text-slate-500">{parentFollowUp.title}</div>
+                  </button>
+                ) : null}
               </div>
             </section>
 

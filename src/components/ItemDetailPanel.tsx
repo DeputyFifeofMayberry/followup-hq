@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, FileEdit, MoreHorizontal, Save, Send, SquareCheckBig, Trash2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, FileEdit, Link2, MoreHorizontal, Save, Send, SquareCheckBig, Trash2, Unlink2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
@@ -9,6 +9,7 @@ import { getWorkflowWarningsForRecord } from '../lib/workflowPolicy';
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 import { getLinkedTasksForFollowUp, getRelatedRecordBundle } from '../lib/recordContext';
+import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 
 type DetailTab = 'overview' | 'actions' | 'notes' | 'activity';
 
@@ -27,7 +28,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTask,
     addTouchLog,
     openDraftModal,
-    openEditTaskModal,
+    updateTask,
+    setSelectedTaskId,
+    openRecordDrawer,
     attemptFollowUpTransition,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
@@ -43,7 +46,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     addTask: s.addTask,
     addTouchLog: s.addTouchLog,
     openDraftModal: s.openDraftModal,
-    openEditTaskModal: s.openEditTaskModal,
+    updateTask: s.updateTask,
+    setSelectedTaskId: s.setSelectedTaskId,
+    openRecordDrawer: s.openRecordDrawer,
     attemptFollowUpTransition: s.attemptFollowUpTransition,
   })));
 
@@ -56,6 +61,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const [activeAction, setActiveAction] = useState<FollowUpActionType | null>(null);
   const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
 
+  const [linkTaskIdDraft, setLinkTaskIdDraft] = useState('');
+
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, showActivity ? 50 : 6) : []), [item, showActivity]);
 
@@ -65,6 +72,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     setActiveTab('overview');
     setActiveAction(null);
     setActionFeedback(null);
+    setLinkTaskIdDraft('');
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.owner]);
 
   if (!item) {
@@ -75,12 +83,21 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const company = companies.find((entry) => entry.id === item.companyId);
   const linkedTasks = getLinkedTasksForFollowUp(item.id, tasks);
   const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
-  const doneLinkedTasks = item.doneLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Done').length;
-  const blockedLinkedTasks = item.blockedLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Blocked').length;
-  const overdueLinkedTasks = item.overdueLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() < Date.now()).length;
+  const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks);
+  const doneLinkedTasks = childRollup.done;
+  const blockedLinkedTasks = childRollup.blocked;
+  const overdueLinkedTasks = childRollup.overdue;
 
   const workflowWarnings = getWorkflowWarningsForRecord(item, { tasks });
-  const openLinkedTasks = item.openLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done').length;
+  const openLinkedTasks = childRollup.open;
+  const unlinkedSiblingTasks = tasks.filter((task) => !task.linkedFollowUpId && task.project === item.project);
+
+  const linkTaskToFollowUp = () => {
+    if (!linkTaskIdDraft) return;
+    updateTask(linkTaskIdDraft, { linkedFollowUpId: item.id, contextNote: `Linked from follow-up ${item.title}` });
+    setActionFeedback({ tone: 'success', message: 'Task linked to follow-up.' });
+    setLinkTaskIdDraft('');
+  };
 
   return (
     <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector">
@@ -137,7 +154,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ownership</div><div className="mt-1 text-sm font-semibold text-slate-900">Owner: {item.owner}</div><div className="text-sm text-slate-700">Assignee: {item.assigneeDisplayName || item.owner}</div><div className="text-sm text-slate-700">External: {contact?.name ?? '—'}</div></div>
-              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 text-xs text-slate-500">{item.allLinkedTasksDone ? 'Ready to close or advance.' : blockedLinkedTasks > 0 ? 'Blocked child pressure on parent.' : 'Execution in progress.'}</div><div className="mt-1 text-xs text-slate-500">Related records {relatedBundle.counts.relationships} · Activity events {relatedBundle.counts.timelineEvents}</div></div>
+              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 space-y-1 text-xs text-slate-600">{childRollup.explanations.map((reason) => <div key={reason}>• {reason}</div>)}</div><div className="mt-1 text-xs text-slate-500">Related records {relatedBundle.counts.relationships} · Activity events {relatedBundle.counts.timelineEvents}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
             </div>
@@ -148,12 +165,23 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</div><div className="mt-1 text-sm text-slate-900">{company?.name ?? '—'}</div></div>
             </div>
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Create linked tasks</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Parent / child execution links</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />Open parent in drawer</button>
+                <select value={linkTaskIdDraft} onChange={(event) => setLinkTaskIdDraft(event.target.value)} className="field-input !w-auto">
+                  <option value="">Link existing task…</option>
+                  {unlinkedSiblingTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
+                </select>
+                <button className="action-btn" onClick={linkTaskToFollowUp} disabled={!linkTaskIdDraft}>Link task</button>
+              </div>
               <div className="mt-2 space-y-2">
                 {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet. Create one from the action row above.</div> : linkedTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2 list-row-family">
                     <div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div>
-                    <button className="action-btn" onClick={() => openEditTaskModal(task.id)}>Open detail</button>
+                    <div className="flex gap-2">
+                      <button className="action-btn" onClick={() => { setSelectedTaskId(task.id); openRecordDrawer({ type: 'task', id: task.id }); }}>Open child</button>
+                      <button className="action-btn" onClick={() => updateTask(task.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from follow-up parent' })}><Unlink2 className="h-4 w-4" />Unlink</button>
+                    </div>
                   </div>
                 ))}
               </div>

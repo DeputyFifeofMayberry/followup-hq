@@ -50,7 +50,22 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
     waitingOn: { accessorKey: 'waitingOn', header: 'Waiting on', cell: ({ row }) => row.original.waitingOn || '—' },
     escalation: { accessorKey: 'escalationLevel', header: 'Escalation' },
     actionState: { accessorKey: 'actionState', header: 'Action state', cell: ({ row }) => row.original.actionState || 'Draft created' },
-    linkedTaskSummary: { id: 'linkedTaskSummary', accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`, header: 'Linked tasks', cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open` },
+    linkedTaskSummary: {
+      id: 'linkedTaskSummary',
+      accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`,
+      header: 'Linked tasks',
+      cell: ({ row }) => {
+        const blocked = row.original.blockedLinkedTaskCount ?? 0;
+        const overdue = row.original.overdueLinkedTaskCount ?? 0;
+        const ready = !!row.original.allLinkedTasksDone;
+        return (
+          <div className="text-xs">
+            <div>{row.original.openLinkedTaskCount ?? 0}/{row.original.linkedTaskCount ?? 0} open</div>
+            <div className="text-slate-500">{blocked > 0 ? `Blocked by open child tasks (${blocked})` : overdue > 0 ? `Child task overdue (${overdue})` : ready ? 'All child tasks done' : 'Child work in progress'}</div>
+          </div>
+        );
+      },
+    },
     nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
   }), [personalMode]);
 

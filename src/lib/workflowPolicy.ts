@@ -1,4 +1,5 @@
 import type { FollowUpItem, FollowUpStatus, TaskItem, TaskStatus } from '../types';
+import { buildFollowUpChildRollup } from './childWorkRollups';
 
 export interface WorkflowValidationResult {
   allowed: boolean;
@@ -60,10 +61,8 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
     blockers.push(`Transition ${from} → ${to} is not allowed.`);
   }
 
-  const tasks = (context?.tasks ?? []).filter((task) => task.linkedFollowUpId === record.id);
-  const openTasks = tasks.filter((task) => task.status !== 'Done');
-  const blockedTasks = tasks.filter((task) => task.status === 'Blocked');
-  const allDone = tasks.length > 0 && openTasks.length === 0;
+  const tasks = context?.tasks ?? [];
+  const childRollup = buildFollowUpChildRollup(record.id, record.status, tasks);
 
   if (to === 'Closed') {
     const closureNote = (patch?.completionNote ?? record.completionNote ?? '').trim();
@@ -75,15 +74,19 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
       requiredFields.push('completionNote or action receipt');
     }
 
-    if (openTasks.length > 0) {
-      warnings.push(`Cannot close cleanly: ${openTasks.length} linked task${openTasks.length === 1 ? '' : 's'} still open.`);
+    if (childRollup.open > 0) {
+      warnings.push(`Cannot close cleanly: ${childRollup.open} linked task${childRollup.open === 1 ? '' : 's'} still open.`);
     }
 
-    if (blockedTasks.length > 0) {
-      warnings.push(`Strong warning: ${blockedTasks.length} linked task${blockedTasks.length === 1 ? ' is' : 's are'} blocked.`);
+    if (childRollup.blocked > 0) {
+      warnings.push(`Strong warning: ${childRollup.blocked} linked task${childRollup.blocked === 1 ? ' is' : 's are'} blocked.`);
     }
 
-    if (openTasks.length > 0 && !override) {
+    if (childRollup.overdue > 0) {
+      warnings.push(`Child task overdue: ${childRollup.overdue} linked task${childRollup.overdue === 1 ? '' : 's'} late.`);
+    }
+
+    if (childRollup.open > 0 && !override) {
       blockers.push('Review linked tasks first or close with explicit override.');
     }
   }
@@ -112,8 +115,8 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
     recommendedNextActions.push('Add concrete next action and owner intervention plan.');
   }
 
-  if (allDone && to !== 'Closed') {
-    warnings.push('Ready to close: all linked tasks are complete.');
+  if (childRollup.allDone && to !== 'Closed') {
+    warnings.push('Ready to close pending note/confirmation: all linked tasks are complete.');
   }
 
   return withDefaults({
@@ -121,9 +124,9 @@ export function validateFollowUpTransition({ record, from, to, patch, context, o
     blockers,
     warnings,
     requiredFields,
-    overrideAllowed: to === 'Closed' && openTasks.length > 0,
+    overrideAllowed: to === 'Closed' && childRollup.open > 0,
     recommendedNextActions,
-    readyToClose: allDone,
+    readyToClose: childRollup.allDone,
   });
 }
 

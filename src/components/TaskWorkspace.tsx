@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Trash2, Undo2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Trash2, Undo2, Unlink2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
@@ -10,6 +10,7 @@ import { useAppStore } from '../store/useAppStore';
 import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { describeExecutionIntent } from '../lib/executionHandoff';
 import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/recordContext';
+import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -48,6 +49,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+  const [linkParentDraft, setLinkParentDraft] = useState('');
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
 
   useEffect(() => {
@@ -121,6 +123,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
   const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
+  const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
+  const parentCandidates = selectedTask ? items.filter((item) => item.project === selectedTask.project && item.status !== 'Closed') : [];
 
   const summary = useMemo(() => ({
     open: tasks.filter((task) => task.status !== 'Done').length,
@@ -309,16 +313,31 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 </div>
               </WorkspaceInspectorSection>
 
-              {linkedFollowUp ? (
-                <WorkspaceInspectorSection title="Linked follow-up impact" subtitle="How this task affects follow-up readiness.">
-                  <div className="rounded-2xl tonal-panel">
-                    <div className="mt-1 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div>
-                    <div className="mt-1 text-sm text-slate-700">Open linked tasks: {linkedTaskOpenCount}</div>
-                    <div className="mt-1 text-sm text-slate-700">Impact rule: {selectedTask.completionImpact || 'advance_parent'}</div>
-                    <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="mt-3 action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open follow-up lane</button>
+              <WorkspaceInspectorSection title="Linked follow-up impact" subtitle="How this task affects follow-up readiness.">
+                <div className="rounded-2xl tonal-panel">
+                  {linkedFollowUp ? (
+                    <>
+                      <div className="mt-1 text-sm text-slate-700">Parent: <span className="font-medium text-slate-900">{linkedFollowUp.title}</span> ({linkedFollowUp.status})</div>
+                      <div className="mt-1 text-sm text-slate-700">Open linked tasks: {linkedTaskOpenCount}</div>
+                      <div className="mt-1 text-sm text-slate-700">Impact rule: {selectedTask.completionImpact || 'advance_parent'}</div>
+                      <div className="mt-2 space-y-1 text-xs text-slate-600">{(linkedParentRollup?.explanations || []).map((reason) => <div key={reason}>• {reason}</div>)}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button>
+                        <button onClick={() => updateTask(selectedTask.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from parent follow-up' })} className="action-btn !px-2.5 !py-1.5 text-xs"><Unlink2 className="h-4 w-4" />Unlink parent</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-slate-600">This task is not linked to a parent follow-up.</div>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <select value={linkParentDraft} onChange={(event) => setLinkParentDraft(event.target.value)} className="field-input !w-auto">
+                      <option value="">Link to follow-up…</option>
+                      {parentCandidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                    </select>
+                    <button onClick={() => { if (!linkParentDraft) return; updateTask(selectedTask.id, { linkedFollowUpId: linkParentDraft, contextNote: 'Linked from task workspace' }); setLinkParentDraft(''); }} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!linkParentDraft}>Link parent</button>
                   </div>
-                </WorkspaceInspectorSection>
-              ) : null}
+                </div>
+              </WorkspaceInspectorSection>
             </div>
           ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>

@@ -1,6 +1,7 @@
-import { todayIso, isTaskOverdue } from '../../lib/utils';
+import { todayIso } from '../../lib/utils';
 import type { FollowUpItem, TaskItem } from '../../types';
 import { normalizeItem } from '../../lib/utils';
+import { buildFollowUpChildRollup } from '../../lib/childWorkRollups';
 
 export function normalizeTask(task: TaskItem): TaskItem {
   const status = task.status || 'To do';
@@ -60,19 +61,21 @@ export function normalizeTasks(tasks: TaskItem[]): TaskItem[] {
 }
 
 export function summarizeLinkedTasks(tasks: TaskItem[], followUpId: string) {
-  const linked = tasks.filter((task) => task.linkedFollowUpId === followUpId);
-  const blocked = linked.filter((task) => task.status === 'Blocked').length;
-  const overdue = linked.filter((task) => isTaskOverdue(task)).length;
-  const open = linked.filter((task) => task.status !== 'Done').length;
-  const done = linked.filter((task) => task.status === 'Done').length;
-  const allDone = linked.length > 0 && open === 0;
-  return { total: linked.length, blocked, overdue, open, done, allDone };
+  const rollup = buildFollowUpChildRollup(followUpId, 'In progress', tasks);
+  return {
+    total: rollup.total,
+    blocked: rollup.blocked,
+    overdue: rollup.overdue,
+    open: rollup.open,
+    done: rollup.done,
+    allDone: rollup.allDone,
+  };
 }
 
 export function applyTaskRollupsToItems(items: FollowUpItem[], tasks: TaskItem[]): FollowUpItem[] {
   return items.map((item) => {
-    const summary = summarizeLinkedTasks(tasks, item.id);
-    if (summary.total === 0) {
+    const rollup = buildFollowUpChildRollup(item.id, item.status, tasks);
+    if (rollup.total === 0) {
       return normalizeItem({
         ...item,
         linkedTaskCount: 0,
@@ -84,26 +87,27 @@ export function applyTaskRollupsToItems(items: FollowUpItem[], tasks: TaskItem[]
         childWorkflowSignal: 'on_track',
       });
     }
-    const signal = summary.blocked > 0 ? 'blocked' : summary.overdue > 0 ? 'overdue' : summary.allDone ? 'ready_to_close' : 'on_track';
-    const recommendedAction = summary.allDone
+    const recommendedAction = rollup.allDone
       ? 'Close out'
-      : summary.blocked > 0
+      : rollup.blocked > 0
         ? 'Create task'
         : item.recommendedAction;
-    const nextAction = summary.allDone
+    const nextAction = rollup.allDone
       ? 'All linked tasks are done. Review and close out parent follow-up.'
-      : summary.blocked > 0
-        ? `Resolve ${summary.blocked} blocked linked task${summary.blocked > 1 ? 's' : ''} before next move.`
-        : item.nextAction;
+      : rollup.blocked > 0
+        ? `Resolve ${rollup.blocked} blocked linked task${rollup.blocked > 1 ? 's' : ''} before next move.`
+        : rollup.overdue > 0
+          ? `Child task overdue: ${rollup.overdue} linked task${rollup.overdue > 1 ? 's are' : ' is'} late.`
+          : item.nextAction;
     return normalizeItem({
       ...item,
-      linkedTaskCount: summary.total,
-      openLinkedTaskCount: summary.open,
-      blockedLinkedTaskCount: summary.blocked,
-      overdueLinkedTaskCount: summary.overdue,
-      doneLinkedTaskCount: summary.done,
-      allLinkedTasksDone: summary.allDone,
-      childWorkflowSignal: signal,
+      linkedTaskCount: rollup.total,
+      openLinkedTaskCount: rollup.open,
+      blockedLinkedTaskCount: rollup.blocked,
+      overdueLinkedTaskCount: rollup.overdue,
+      doneLinkedTaskCount: rollup.done,
+      allLinkedTasksDone: rollup.allDone,
+      childWorkflowSignal: rollup.signal,
       recommendedAction,
       nextAction,
     });

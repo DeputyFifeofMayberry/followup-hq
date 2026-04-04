@@ -7,37 +7,50 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
+  /* Core semantic surfaces: app chrome -> elevated content -> supportive layers. */
   --color-bg-app: #0c1422;
   --color-bg-nav: #0b1220;
-  --color-surface-1: #fbfdff;
-  --color-surface-2: #f1f5fa;
-  --color-surface-3: #e8eef6;
+  --surface-primary: #fbfdff;
+  --surface-secondary: #f3f7fc;
+  --surface-muted: #edf3f9;
+  --surface-inspector: #eef4fb;
+  --surface-hero: linear-gradient(180deg, #fbfdff 0%, #f2f7fc 100%);
+  --surface-command: #f7fbff;
+  --surface-row: #f8fbff;
+  --surface-row-hover: #fbfdff;
+  --surface-row-active: #e7f0fa;
+  --surface-warning: #fff7ec;
+  --surface-modal: #f9fcff;
 
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
+  --border-default: #d2dce8;
+  --border-strong: #bdccdd;
+  --border-subtle: #e4ebf3;
+  --border-accent: #f4c48a;
 
-  --color-border-default: #ccd6e3;
-  --color-border-strong: #b8c8da;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #f8fbff;
 
-  --color-accent: #b45309;
-  --color-accent-hover: #92400e;
-  --color-info: #1d4ed8;
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-danger: #be123c;
+  --accent: #b45309;
+  --accent-hover: #92400e;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #be123c;
+  --info: #1d4ed8;
 
-  --focus-ring-color: rgba(37, 99, 235, 0.28);
+  --focus-ring-color: rgba(37, 99, 235, 0.3);
   --focus-ring: 0 0 0 3px var(--focus-ring-color);
+
+  --shadow-xs: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 6px 20px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 22px 56px rgba(2, 6, 23, 0.28);
 
   --radius-sm: 0.65rem;
   --radius-md: 0.85rem;
   --radius-lg: 1.1rem;
   --radius-xl: 1.45rem;
-
-  --shadow-sm: 0 6px 20px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 22px 56px rgba(2, 6, 23, 0.28);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -45,4 +58,20 @@
   --space-4: 1rem;
   --space-5: 1.25rem;
   --space-6: 1.5rem;
+
+  /* Backwards-compatible aliases while migrating legacy class usage. */
+  --color-surface-1: var(--surface-primary);
+  --color-surface-2: var(--surface-secondary);
+  --color-surface-3: var(--surface-muted);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
 }

@@ -9,8 +9,8 @@ body,
 
 body {
   min-width: 320px;
-  color: var(--color-text-primary);
-  background: #f1f5f9;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
   cursor: default;
 }
 
@@ -75,7 +75,11 @@ svg { pointer-events: none; }
   }
 }
 
-/* Utility classes used by TSX markup */
+/*
+  Utility compatibility layer:
+  - Keep for legacy TSX usage and layout helpers.
+  - New shared UI should prefer semantic classes in primitives/shell/workspaces.
+*/
 .text-slate-50 { color: #f8fafc; }
 .text-slate-500 { color: #64748b; }
 .text-slate-600 { color: #475569; }

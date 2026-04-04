@@ -3,14 +3,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import type { AppMode, UnifiedQueueDensity, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
-import { formatDate, priorityTone } from '../lib/utils';
+import { addDaysIso, formatDate, priorityTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
 import type { FollowUpItem, UnifiedQueueItem } from '../types';
 import { getModeConfig } from '../lib/appModeConfig';
 import { ExecutionQueueList, ExecutionSection } from './execution/ExecutionSection';
-import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { BatchSummarySection, CompletionNoteSection, DateSection, OverrideConfirmationSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
@@ -75,9 +75,10 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   const [bulkPreview, setBulkPreview] = useState<{ spec: BulkActionSpec; summary: ReturnType<typeof previewBulkAction> } | null>(null);
   const [lastBulkUndo, setLastBulkUndo] = useState<Array<{ id: string; before: Partial<FollowUpItem> }>>([]);
-  const [flowState, setFlowState] = useState<{ kind: 'close_followup' | 'complete_task' | 'snooze_followup' | 'nudge_followup' | 'bulk_apply'; targetIds?: string[] } | null>(null);
+  const [flowState, setFlowState] = useState<{ kind: 'close_followup' | 'complete_task' | 'snooze_followup' | 'nudge_followup' | 'bulk_apply' } | null>(null);
   const [flowCompletionNote, setFlowCompletionNote] = useState('');
   const [flowDate, setFlowDate] = useState('');
+  const [flowOverrideClose, setFlowOverrideClose] = useState(false);
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
@@ -127,6 +128,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     setFlowState({ kind });
     setFlowCompletionNote(defaults?.note || '');
     setFlowDate(defaults?.date || '');
+    setFlowOverrideClose(false);
     setFlowWarnings([]);
     setFlowBlockers([]);
     setFlowResult(null);
@@ -136,31 +138,37 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     if (!selectedItems.length) return;
     const spec: BulkActionSpec =
       action === 'close-followups' ? { type: 'close', ids: selectedFollowUps.map((entry) => entry.id) } :
+      action === 'done-tasks' ? { type: 'close', ids: selectedTasks.map((entry) => entry.id) } :
       action === 'nudge' ? { type: 'nudge', ids: selectedFollowUps.map((entry) => entry.id) } :
       action === 'snooze' ? { type: 'snooze', ids: selectedFollowUps.map((entry) => entry.id), days: 2 } :
       action === 'escalate' ? { type: 'escalate', ids: selectedFollowUps.map((entry) => entry.id) } :
       action === 'de-escalate' ? { type: 'assign', ids: selectedFollowUps.map((entry) => entry.id), value: 'Watch' } :
       { type: 'close', ids: [] };
     setBulkPreview({ spec, summary: previewBulkAction(spec, useAppStore.getState().items, useAppStore.getState().tasks) });
-    if (action === 'done-tasks') {
-      openFlow('bulk_apply', { note: '' });
-    }
+    openFlow('bulk_apply', action === 'snooze' ? { date: addDaysIso(todayIso(), 2).slice(0, 10) } : { note: '' });
   };
 
   const runFlow = () => {
     if (!flowState) return;
     if (flowState.kind === 'close_followup' && selected?.recordType === 'followup') {
-      const result = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined });
-      if (!result.applied && result.validation.overrideAllowed) {
-        const overrideResult = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined }, { override: true });
-        setFlowWarnings(overrideResult.validation.warnings);
-        setFlowBlockers(overrideResult.validation.blockers);
-        setFlowResult({ tone: overrideResult.applied ? (overrideResult.validation.warnings.length ? 'warn' : 'success') : 'danger', message: overrideResult.applied ? 'Follow-up closed with override acknowledgement.' : 'Override close failed.' });
+      const result = attemptFollowUpTransition(
+        selected.id,
+        'Closed',
+        { actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined },
+        flowOverrideClose ? { override: true } : undefined,
+      );
+      if (!result.applied && result.validation.overrideAllowed && !flowOverrideClose) {
+        setFlowWarnings(result.validation.warnings);
+        setFlowBlockers(['Close requires override acknowledgement while linked tasks remain open.']);
+        setFlowResult({ tone: 'danger', message: 'Close blocked until override is acknowledged.' });
         return;
       }
       setFlowWarnings(result.validation.warnings);
       setFlowBlockers(result.validation.blockers);
-      setFlowResult({ tone: result.applied ? (result.validation.warnings.length ? 'warn' : 'success') : 'danger', message: result.applied ? 'Follow-up closed.' : 'Follow-up close blocked.' });
+      setFlowResult({
+        tone: result.applied ? (result.validation.warnings.length ? 'warn' : 'success') : 'danger',
+        message: result.applied ? (flowOverrideClose ? 'Follow-up closed with override acknowledgement.' : 'Follow-up closed.') : 'Follow-up close blocked.',
+      });
       return;
     }
     if (flowState.kind === 'complete_task' && selected?.recordType === 'task') {
@@ -191,11 +199,29 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
       return;
     }
     if (flowState.kind === 'bulk_apply') {
-      if (bulkPreview?.spec.type === 'close') {
+      if (!bulkPreview) return;
+      if (bulkPreview?.spec.type === 'close' && selectedFollowUps.length) {
         const result = runValidatedBatchFollowUpTransition(selectedFollowUps.map((entry) => entry.id), 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: flowCompletionNote.trim() || undefined });
         setFlowWarnings(result.warnings);
         setFlowBlockers([]);
         setFlowResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Bulk close applied to ${result.affected}; skipped ${result.skipped}.` });
+        setSelectedRows([]);
+        setBulkPreview(null);
+        return;
+      }
+      if (bulkPreview.spec.type === 'snooze') {
+        if (!flowDate) {
+          setFlowBlockers(['Bulk snooze requires a date.']);
+          setFlowResult({ tone: 'danger', message: 'Bulk snooze not applied.' });
+          return;
+        }
+        const days = Math.max(1, Math.ceil((new Date(`${flowDate}T00:00:00`).getTime() - Date.now()) / 86400000));
+        selectedFollowUps.forEach((row) => snoozeItem(row.id, days));
+        setFlowWarnings([]);
+        setFlowBlockers([]);
+        setFlowResult({ tone: 'success', message: `Bulk snoozed ${selectedFollowUps.length} follow-up(s).` });
+        setSelectedRows([]);
+        setBulkPreview(null);
         return;
       }
       if (selectedTasks.length) {
@@ -209,10 +235,12 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         setFlowWarnings([]);
         setFlowBlockers(blocked ? [`${blocked} task(s) were blocked by validation.`] : []);
         setFlowResult({ tone: blocked ? 'warn' : 'success', message: `Bulk task completion applied to ${affected}.` });
+        setSelectedRows([]);
+        setBulkPreview(null);
         return;
       }
       applyBulkPreview();
-      setFlowResult({ tone: 'success', message: 'Bulk action applied.' });
+      setFlowResult({ tone: bulkPreview.summary.warnings.length ? 'warn' : 'success', message: 'Bulk action applied.' });
     }
   };
 
@@ -365,19 +393,6 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             ) : null}
           </div>
 
-          {bulkPreview ? (
-            <div className="overview-bulk-preview">
-              <div className="font-semibold">Bulk preview</div>
-              <div>Affected: {bulkPreview.summary.affected} • Skipped: {bulkPreview.summary.skipped}</div>
-              <div>Changes: {bulkPreview.summary.changes.join(' • ') || '—'}</div>
-              {bulkPreview.summary.warnings.length ? <div>Warnings: {bulkPreview.summary.warnings.join(' • ')}</div> : null}
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => openFlow('bulk_apply')} className="action-btn !px-2.5 !py-1 text-xs">Apply bulk</button>
-                <button onClick={() => setBulkPreview(null)} className="action-btn !px-2.5 !py-1 text-xs">Cancel</button>
-              </div>
-            </div>
-          ) : null}
-
           <div className="space-y-3 mb-4">
             {dailySections.map((section) => (
               <ExecutionSection
@@ -529,8 +544,24 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         {(flowState?.kind === 'close_followup' || flowState?.kind === 'complete_task' || (flowState?.kind === 'bulk_apply' && (bulkPreview?.spec.type === 'close' || selectedTasks.length))) ? (
           <CompletionNoteSection value={flowCompletionNote} onChange={setFlowCompletionNote} />
         ) : null}
-        {flowState?.kind === 'snooze_followup' ? <DateSection label="Snooze until" value={flowDate} onChange={setFlowDate} /> : null}
-        {flowState?.kind === 'bulk_apply' && bulkPreview ? <BatchSummarySection selected={selectedItems.length} affected={bulkPreview.summary.affected} skipped={bulkPreview.summary.skipped} /> : null}
+        {flowState?.kind === 'close_followup' ? (
+          <OverrideConfirmationSection
+            checked={flowOverrideClose}
+            onChange={setFlowOverrideClose}
+            message="Use only when linked work is still open and you intentionally want to close now."
+          />
+        ) : null}
+        {(flowState?.kind === 'snooze_followup' || (flowState?.kind === 'bulk_apply' && bulkPreview?.spec.type === 'snooze')) ? (
+          <DateSection label="Snooze until" value={flowDate} onChange={setFlowDate} />
+        ) : null}
+        {flowState?.kind === 'bulk_apply' && bulkPreview ? (
+          <BatchSummarySection
+            selected={selectedItems.length}
+            affected={bulkPreview.summary.affected}
+            skipped={bulkPreview.summary.skipped}
+            warnings={bulkPreview.summary.warnings}
+          />
+        ) : null}
       </StructuredActionFlow>
     </WorkspacePage>
   );

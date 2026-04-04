@@ -93,11 +93,21 @@ export function DateSection({ label, value, onChange }: { label: string; value: 
   );
 }
 
-export function BatchSummarySection({ selected, affected, skipped }: { selected: number; affected: number; skipped: number }) {
+export function BatchSummarySection({ selected, affected, skipped, warnings = [] }: { selected: number; affected: number; skipped: number; warnings?: string[] }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
       <div><strong>{selected}</strong> selected</div>
       <div>Affected: {affected} • Skipped: {skipped}</div>
+      {warnings.length ? <div className="mt-1 text-amber-800">Warnings: {warnings.join(' • ')}</div> : null}
     </div>
+  );
+}
+
+export function OverrideConfirmationSection({ checked, onChange, message }: { checked: boolean; onChange: (value: boolean) => void; message: string }) {
+  return (
+    <label className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-0.5" />
+      <span><strong>Allow override</strong><br />{message}</span>
+    </label>
   );
 }

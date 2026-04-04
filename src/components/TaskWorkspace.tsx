@@ -42,6 +42,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [completionNoteDraft, setCompletionNoteDraft] = useState('');
   const [blockReasonDraft, setBlockReasonDraft] = useState('');
   const [deferDateDraft, setDeferDateDraft] = useState('');
+  const [nextReviewDraft, setNextReviewDraft] = useState('');
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
@@ -145,6 +146,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     setCompletionNoteDraft(task.completionNote || '');
     setBlockReasonDraft(task.blockReason || '');
     setDeferDateDraft((task.deferredUntil || addDaysIso(todayIso(), 2)).slice(0, 10));
+    setNextReviewDraft((task.nextReviewAt || addDaysIso(todayIso(), 1)).slice(0, 10));
     setFlowWarnings([]);
     setFlowBlockers([]);
     setFlowResult(null);
@@ -158,7 +160,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     const result = flowState.kind === 'done'
       ? attemptTaskTransition(task.id, 'Done', { completionNote: completionNoteDraft.trim() || undefined, completedAt: now })
       : flowState.kind === 'block'
-        ? attemptTaskTransition(task.id, 'Blocked', { blockReason: blockReasonDraft.trim() || undefined, nextReviewAt: task.nextReviewAt || addDaysIso(now, 1) })
+        ? attemptTaskTransition(task.id, 'Blocked', {
+          blockReason: blockReasonDraft.trim() || undefined,
+          nextReviewAt: nextReviewDraft ? new Date(`${nextReviewDraft}T00:00:00`).toISOString() : (task.nextReviewAt || addDaysIso(now, 1)),
+        })
         : flowState.kind === 'unblock'
           ? attemptTaskTransition(task.id, 'In progress', { startedAt: task.startedAt || now })
           : attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { status: task.status === 'Done' ? 'To do' : task.status, deferredUntil: deferDateDraft ? new Date(`${deferDateDraft}T00:00:00`).toISOString() : undefined, nextReviewAt: deferDateDraft ? new Date(`${deferDateDraft}T00:00:00`).toISOString() : undefined });
@@ -327,6 +332,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       >
         {flowState?.kind === 'done' ? <CompletionNoteSection value={completionNoteDraft} onChange={setCompletionNoteDraft} /> : null}
         {flowState?.kind === 'block' ? <BlockReasonSection value={blockReasonDraft} onChange={setBlockReasonDraft} /> : null}
+        {flowState?.kind === 'block' ? <DateSection label="Next review date" value={nextReviewDraft} onChange={setNextReviewDraft} /> : null}
         {flowState?.kind === 'defer' ? <DateSection label="Deferred until" value={deferDateDraft} onChange={setDeferDateDraft} /> : null}
       </StructuredActionFlow>
     </WorkspacePage>

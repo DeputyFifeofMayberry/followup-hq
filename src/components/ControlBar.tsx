@@ -5,7 +5,7 @@ import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelector
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
 import { FilterBar, WorkspaceToolbarRow } from './ui/AppPrimitives';
-import { BatchSummarySection, CompletionNoteSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Ready to close'];
 
@@ -51,9 +51,13 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
   })));
   const [customViewName, setCustomViewName] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [closeFlowOpen, setCloseFlowOpen] = useState(false);
+  const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
+  const [batchDate, setBatchDate] = useState('');
   const [batchWarnings, setBatchWarnings] = useState<string[]>([]);
+  const [batchBlockers, setBatchBlockers] = useState<string[]>([]);
+  const [batchAffected, setBatchAffected] = useState(0);
+  const [batchSkipped, setBatchSkipped] = useState(0);
   const [batchResult, setBatchResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
   const projects = useMemo(() => ['All', ...new Set(items.map((item) => item.project))], [items]);
@@ -66,7 +70,47 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
   const applyBatchClose = () => {
     const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
     setBatchWarnings(result.warnings);
+    setBatchAffected(result.affected);
+    setBatchSkipped(result.skipped);
     setBatchResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Batch close affected ${result.affected} and skipped ${result.skipped}.` });
+  };
+
+  const openBatchFlow = (kind: NonNullable<typeof batchFlow>) => {
+    setBatchFlow(kind);
+    setBatchWarnings([]);
+    setBatchBlockers([]);
+    setBatchResult(null);
+    setBatchAffected(selectedFollowUpIds.length);
+    setBatchSkipped(0);
+    if (kind === 'snooze') setBatchDate(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10));
+  };
+
+  const applyBatchFlow = () => {
+    if (batchFlow === 'close') {
+      applyBatchClose();
+      return;
+    }
+    if (batchFlow === 'nudge') {
+      batchUpdateFollowUps(selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).');
+      setBatchAffected(selectedFollowUpIds.length);
+      setBatchSkipped(0);
+      setBatchWarnings([]);
+      setBatchBlockers([]);
+      setBatchResult({ tone: 'success', message: `Marked ${selectedFollowUpIds.length} follow-up(s) nudged.` });
+      return;
+    }
+    if (!batchDate) {
+      setBatchBlockers(['Snooze requires a target date.']);
+      setBatchResult({ tone: 'danger', message: 'Batch snooze not applied.' });
+      return;
+    }
+    const iso = new Date(`${batchDate}T00:00:00`).toISOString();
+    batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: iso, snoozedUntilDate: iso }, `Snoozed until ${batchDate} (batch).`);
+    setBatchAffected(selectedFollowUpIds.length);
+    setBatchSkipped(0);
+    setBatchWarnings([]);
+    setBatchBlockers([]);
+    setBatchResult({ tone: 'success', message: `Snoozed ${selectedFollowUpIds.length} follow-up(s).` });
   };
 
   const chips = [
@@ -148,9 +192,10 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         <div className="followup-toolbar-foot bulk-action-strip execution-batch-strip">
           <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{selectedFollowUpIds.length}</span> selected</div>
           <div className="followup-action-row">
-            <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).')} className="action-btn">Mark nudged</button>
+            <button onClick={() => openBatchFlow('nudge')} className="action-btn">Mark nudged</button>
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'In progress' }, 'Status changed to In progress (batch).')} className="action-btn">Set in progress</button>
-            <button onClick={() => { setCloseFlowOpen(true); setBatchWarnings([]); setBatchResult(null); }} className="action-btn">Close selected</button>
+            <button onClick={() => openBatchFlow('snooze')} className="action-btn">Snooze selected</button>
+            <button onClick={() => openBatchFlow('close')} className="action-btn">Close selected</button>
             <button onClick={clearFollowUpSelection} className="action-btn">Clear</button>
           </div>
         </div>
@@ -161,17 +206,19 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         </div>
       )}
       <StructuredActionFlow
-        open={closeFlowOpen}
-        title="Bulk close follow-ups"
+        open={!!batchFlow}
+        title={batchFlow === 'nudge' ? 'Bulk mark nudged' : batchFlow === 'snooze' ? 'Bulk snooze follow-ups' : 'Bulk close follow-ups'}
         subtitle="Structured batch close flow with count, warnings, and result feedback."
-        onCancel={() => setCloseFlowOpen(false)}
-        onConfirm={applyBatchClose}
-        confirmLabel="Apply batch close"
+        onCancel={() => setBatchFlow(null)}
+        onConfirm={applyBatchFlow}
+        confirmLabel={batchFlow === 'nudge' ? 'Apply nudge' : batchFlow === 'snooze' ? 'Apply snooze' : 'Apply batch close'}
         warnings={batchWarnings}
+        blockers={batchBlockers}
         result={batchResult}
       >
-        <BatchSummarySection selected={selectedFollowUpIds.length} affected={selectedFollowUpIds.length} skipped={0} />
-        <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" />
+        <BatchSummarySection selected={selectedFollowUpIds.length} affected={batchAffected} skipped={batchSkipped} />
+        {batchFlow === 'close' ? <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" /> : null}
+        {batchFlow === 'snooze' ? <DateSection label="Snooze until" value={batchDate} onChange={setBatchDate} /> : null}
       </StructuredActionFlow>
     </div>
   );

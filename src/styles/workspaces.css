@@ -65,6 +65,36 @@
   align-items: start;
 }
 .workspace-toolbar-row { align-items: center; }
+.overview-hero-card { display: grid; gap: 0.55rem; }
+.overview-support-row {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.1rem;
+  border-top: 1px solid #dbe5f1;
+}
+.overview-inline-guidance {
+  font-size: 0.74rem;
+  color: #51657d;
+  background: #f2f6fb;
+  border: 1px solid #d3deeb;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+.overview-main-panel { display: grid; gap: 0.6rem; }
+.overview-control-stack {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid #d5dfeb;
+  background: #f6faff;
+  border-radius: 0.9rem;
+  padding: 0.55rem;
+}
+.overview-priority-list { margin-top: 0.05rem; }
+.overview-inspector-shell {
+  display: grid;
+  gap: 0.65rem;
+  opacity: 0.97;
+}
 .workspace-inspector-section-title { font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #5f728b; }
 .workspace-inspector-section-subtitle { margin: 0.22rem 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.35; }
 .workspace-list-panel,

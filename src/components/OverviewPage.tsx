@@ -9,7 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
 import type { FollowUpItem } from '../types';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'tasks' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
@@ -190,6 +190,23 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           <StatTile label="Due now" value={stats.due} helper="Overdue + due + touch due" tone={stats.due ? 'warn' : 'default'} />
           <StatTile label="Blocked / at risk" value={stats.blocked} helper="Task and parent workflow pressure" tone={stats.blocked ? 'danger' : 'default'} />
           <StatTile label="Cleanup" value={stats.cleanup} helper="Low-trust items needing review" tone={stats.cleanup ? 'warn' : 'default'} />
+        </div>
+      </AppShellCard>
+      <AppShellCard className="overview-flow-strip" surface="shell">
+        <div className="overview-flow-header">
+          <span className="overview-flow-label">Daily loop</span>
+          <p>Start here, then move through the loop: capture, triage, execute, close.</p>
+        </div>
+        <div className="overview-flow-steps" role="list" aria-label="Recommended daily workflow">
+          <span className="overview-flow-step" role="listitem">Capture</span>
+          <span className="overview-flow-step" role="listitem">Triage</span>
+          <span className="overview-flow-step" role="listitem">Execute</span>
+          <span className="overview-flow-step" role="listitem">Close</span>
+        </div>
+        <div className="overview-flow-actions">
+          <button onClick={() => onOpenWorkspace('outlook')} className="action-btn">Review intake</button>
+          <button onClick={() => onOpenWorkspace('followups')} className="action-btn">Process follow-ups</button>
+          <button onClick={() => onOpenWorkspace('tasks')} className="action-btn">Work tasks</button>
         </div>
       </AppShellCard>
 

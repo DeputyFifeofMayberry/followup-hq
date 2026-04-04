@@ -5,6 +5,7 @@ import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelector
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
 import { FilterBar, WorkspaceToolbarRow } from './ui/AppPrimitives';
+import { BatchSummarySection, CompletionNoteSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Ready to close'];
 
@@ -50,6 +51,10 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
   })));
   const [customViewName, setCustomViewName] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [closeFlowOpen, setCloseFlowOpen] = useState(false);
+  const [batchNote, setBatchNote] = useState('');
+  const [batchWarnings, setBatchWarnings] = useState<string[]>([]);
+  const [batchResult, setBatchResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
   const projects = useMemo(() => ['All', ...new Set(items.map((item) => item.project))], [items]);
   const owners = useMemo(() => ['All', ...new Set(items.map((item) => item.owner))], [items]);
@@ -57,6 +62,12 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
 
   const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
   const stats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
+
+  const applyBatchClose = () => {
+    const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
+    setBatchWarnings(result.warnings);
+    setBatchResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Batch close affected ${result.affected} and skipped ${result.skipped}.` });
+  };
 
   const chips = [
     { key: 'All' as const, label: 'All', count: stats.total },
@@ -139,7 +150,7 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
           <div className="followup-action-row">
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).')} className="action-btn">Mark nudged</button>
             <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'In progress' }, 'Status changed to In progress (batch).')} className="action-btn">Set in progress</button>
-            <button onClick={() => { const note = window.prompt('Batch close note (applied to all):',''); const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: note || undefined }); window.alert(`Batch close: ${result.affected} affected, ${result.skipped} skipped.${result.warnings.length ? `\n${result.warnings.slice(0,4).join('\n')}` : ''}`); }} className="action-btn">Close selected</button>
+            <button onClick={() => { setCloseFlowOpen(true); setBatchWarnings([]); setBatchResult(null); }} className="action-btn">Close selected</button>
             <button onClick={clearFollowUpSelection} className="action-btn">Clear</button>
           </div>
         </div>
@@ -149,6 +160,19 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
           <div className="followup-action-row"><span className="workspace-support-copy">Select a row to run context-heavy actions from the inspector.</span></div>
         </div>
       )}
+      <StructuredActionFlow
+        open={closeFlowOpen}
+        title="Bulk close follow-ups"
+        subtitle="Structured batch close flow with count, warnings, and result feedback."
+        onCancel={() => setCloseFlowOpen(false)}
+        onConfirm={applyBatchClose}
+        confirmLabel="Apply batch close"
+        warnings={batchWarnings}
+        result={batchResult}
+      >
+        <BatchSummarySection selected={selectedFollowUpIds.length} affected={selectedFollowUpIds.length} skipped={0} />
+        <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" />
+      </StructuredActionFlow>
     </div>
   );
 }

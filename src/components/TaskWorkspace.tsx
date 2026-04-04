@@ -6,6 +6,7 @@ import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, S
 import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
+import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 
@@ -36,6 +37,13 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [cleanupOnly, setCleanupOnly] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [flowState, setFlowState] = useState<{ kind: 'done' | 'block' | 'unblock' | 'defer'; taskId: string } | null>(null);
+  const [completionNoteDraft, setCompletionNoteDraft] = useState('');
+  const [blockReasonDraft, setBlockReasonDraft] = useState('');
+  const [deferDateDraft, setDeferDateDraft] = useState('');
+  const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
+  const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
+  const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
   useEffect(() => {
     if (executionIntent?.target !== 'tasks') return;
@@ -131,22 +139,35 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     setMode('dueNow');
   };
 
-  const updateTaskWithStatus = (task: TaskItem, status: TaskItem['status']) => {
+  const openTaskFlow = (task: TaskItem, kind: 'done' | 'block' | 'unblock' | 'defer') => {
+    setFlowState({ kind, taskId: task.id });
+    setCompletionNoteDraft(task.completionNote || '');
+    setBlockReasonDraft(task.blockReason || '');
+    setDeferDateDraft((task.deferredUntil || addDaysIso(todayIso(), 2)).slice(0, 10));
+    setFlowWarnings([]);
+    setFlowBlockers([]);
+    setFlowResult(null);
+  };
+
+  const runTaskFlow = () => {
+    if (!flowState) return;
+    const task = tasks.find((entry) => entry.id === flowState.taskId);
+    if (!task) return;
     const now = todayIso();
-    const patch: Partial<TaskItem> =
-      status === 'Done'
-        ? { completionNote: task.completionNote || window.prompt('Completion note:', '') || undefined, completedAt: now }
-        : status === 'Blocked'
-          ? { blockReason: task.blockReason || window.prompt('Block reason:', '') || undefined, nextReviewAt: task.nextReviewAt || addDaysIso(now, 1) }
-          : status === 'In progress'
-            ? { startedAt: task.startedAt || now }
-            : {};
-    const result = attemptTaskTransition(task.id, status, patch);
+    const result = flowState.kind === 'done'
+      ? attemptTaskTransition(task.id, 'Done', { completionNote: completionNoteDraft.trim() || undefined, completedAt: now })
+      : flowState.kind === 'block'
+        ? attemptTaskTransition(task.id, 'Blocked', { blockReason: blockReasonDraft.trim() || undefined, nextReviewAt: task.nextReviewAt || addDaysIso(now, 1) })
+        : flowState.kind === 'unblock'
+          ? attemptTaskTransition(task.id, 'In progress', { startedAt: task.startedAt || now })
+          : attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { status: task.status === 'Done' ? 'To do' : task.status, deferredUntil: deferDateDraft ? new Date(`${deferDateDraft}T00:00:00`).toISOString() : undefined, nextReviewAt: deferDateDraft ? new Date(`${deferDateDraft}T00:00:00`).toISOString() : undefined });
+    setFlowWarnings(result.validation.warnings);
+    setFlowBlockers(result.validation.blockers);
     if (!result.applied) {
-      window.alert(result.validation.blockers.join(' '));
+      setFlowResult({ tone: 'danger', message: 'Action not applied. Resolve blockers and retry.' });
       return;
     }
-    if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
+    setFlowResult({ tone: result.validation.warnings.length ? 'warn' : 'success', message: result.validation.warnings.length ? 'Applied with warnings.' : 'Task action applied.' });
   };
 
   return (
@@ -226,8 +247,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                         {isUrgent ? <Badge variant="danger">Overdue</Badge> : null}
                       </div>
                       <div className="scan-row-action-cluster">
-                        <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
-                        <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
+                        <button onClick={() => openTaskFlow(task, 'done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
+                        <button onClick={() => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
                       </div>
                     </div>
                   </div>
@@ -252,9 +273,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
               <WorkspaceInspectorSection title="Execution actions" subtitle="Primary decisions for status, timing, and blockers.">
                 <div className="task-inspector-actions">
-                  <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
-                  <button onClick={() => updateTaskWithStatus(selectedTask, selectedTask.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                  <button onClick={() => { const deferTo = addDaysIso(todayIso(), 2); const result = attemptTaskTransition(selectedTask.id, selectedTask.status === 'Done' ? 'To do' : selectedTask.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: selectedTask.status === 'Done' ? 'To do' : selectedTask.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Defer 2d</button>
+                  <button onClick={() => openTaskFlow(selectedTask, 'done')} className="primary-btn">Mark done</button>
+                  <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
+                  <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
                   <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
                 </div>
               </WorkspaceInspectorSection>
@@ -292,6 +313,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
         </AppShellCard>
       </WorkspacePrimaryLayout>
+      <StructuredActionFlow
+        open={!!flowState}
+        title={flowState?.kind === 'done' ? 'Mark task done' : flowState?.kind === 'block' ? 'Block task' : flowState?.kind === 'unblock' ? 'Resume task' : 'Defer task'}
+        subtitle="Structured task transition with validation and in-app feedback."
+        onCancel={() => setFlowState(null)}
+        onConfirm={runTaskFlow}
+        confirmLabel="Apply action"
+        warnings={flowWarnings}
+        blockers={flowBlockers}
+        result={flowResult}
+      >
+        {flowState?.kind === 'done' ? <CompletionNoteSection value={completionNoteDraft} onChange={setCompletionNoteDraft} /> : null}
+        {flowState?.kind === 'block' ? <BlockReasonSection value={blockReasonDraft} onChange={setBlockReasonDraft} /> : null}
+        {flowState?.kind === 'defer' ? <DateSection label="Deferred until" value={deferDateDraft} onChange={setDeferDateDraft} /> : null}
+      </StructuredActionFlow>
     </WorkspacePage>
   );
 }

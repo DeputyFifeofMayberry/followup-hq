@@ -74,7 +74,21 @@
   padding: 0.55rem;
 }
 .workspace-support-copy { font-size: 0.74rem; color: #5f728b; }
-.overview-hero-card { display: grid; gap: 0.55rem; }
+.overview-hero-card { display: grid; gap: 0.68rem; }
+.overview-triage-actions {
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding-top: 0.15rem;
+  border-top: 1px solid #dbe5f1;
+}
+.overview-triage-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #607389;
+  font-weight: 700;
+  padding-right: 0.2rem;
+}
 .overview-support-row {
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -89,7 +103,7 @@
   border-radius: 999px;
   padding: 0.2rem 0.55rem;
 }
-.overview-main-panel { display: grid; gap: 0.6rem; }
+.overview-main-panel { display: grid; gap: 0.72rem; }
 .overview-control-stack {
   display: grid;
   gap: 0.5rem;
@@ -97,6 +111,20 @@
   background: #f6faff;
   border-radius: 0.9rem;
   padding: 0.55rem;
+}
+.overview-control-stack-calm {
+  border-color: #d9e3ee;
+  background: #f7faff;
+  gap: 0.45rem;
+}
+.overview-toolbar-row-calm { gap: 0.45rem; }
+.overview-view-options-head { display: flex; justify-content: space-between; align-items: center; }
+.overview-view-options-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #61758d;
 }
 .overview-priority-list { margin-top: 0.05rem; }
 .overview-inspector-shell {
@@ -123,11 +151,13 @@
 .workspace-data-row-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .workspace-data-row-controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .scan-row-layout { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.7rem; width: 100%; }
-.scan-row-content { min-width: 0; display: grid; gap: 0.22rem; }
+.scan-row-layout-quiet { gap: 0.62rem; }
+.scan-row-content { min-width: 0; display: grid; gap: 0.2rem; }
 .scan-row-primary { font-size: 0.91rem; font-weight: 660; color: #0f172a; line-height: 1.28; }
-.scan-row-secondary { font-size: 0.75rem; color: #60758d; line-height: 1.32; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.scan-row-meta { font-size: 0.72rem; color: #71849a; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-row-secondary { font-size: 0.75rem; color: #61758d; line-height: 1.32; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-row-meta { font-size: 0.71rem; color: #6d8299; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scan-row-sidecar { display: grid; gap: 0.32rem; justify-items: end; min-width: 220px; }
+.scan-row-sidecar-quiet { min-width: 185px; }
 .scan-row-badge-cluster { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.3rem; }
 .scan-row-action-cluster {
   display: flex;
@@ -167,6 +197,31 @@
 .followup-saved-views-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .followup-secondary-utility { border-top: 1px dashed #cbd8e6; padding-top: 0.48rem; margin-top: 0.1rem; opacity: 0.9; }
 .followup-secondary-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6a7c91; align-self: center; }
+.overview-secondary-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6a7c91; align-self: center; }
+.overview-bulk-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.36rem;
+  border-top: 1px solid #d8e2ee;
+  padding-top: 0.45rem;
+}
+.overview-bulk-count {
+  font-size: 0.74rem;
+  color: #334a63;
+  font-weight: 700;
+  margin-right: 0.12rem;
+}
+.overview-bulk-preview {
+  margin-bottom: 0.2rem;
+  border-radius: 0.9rem;
+  border: 1px solid #f3d6a4;
+  background: #fff8ec;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.74rem;
+  color: #8a4d00;
+}
+.overview-inspector-kpis-tight { grid-template-columns: 1fr; gap: 0.35rem; }
 .tracker-table-embedded { border: 1px solid #cfdaea; border-radius: 0.8rem; background: #eef4fb; overflow: hidden; }
 .duplicate-review-panel { margin-top: 0.1rem; }
 .tracker-detail-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }

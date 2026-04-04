@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
-import { buildExecutionQueueStats } from '../selectors/executionQueueSelectors';
+import { buildExecutionDailySections, buildExecutionQueueStats } from '../selectors/executionQueueSelectors';
 
 export function useExecutionQueueViewModel() {
   const store = useAppStore(useShallow((s) => ({
@@ -28,10 +28,16 @@ export function useExecutionQueueViewModel() {
     queueDensity: s.queueDensity,
     setQueueDensity: s.setQueueDensity,
     runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
+    executionSelectedId: s.executionSelectedId,
+    setExecutionSelectedId: s.setExecutionSelectedId,
+    openExecutionLane: s.openExecutionLane,
+    executionIntent: s.executionIntent,
+    clearExecutionIntent: s.clearExecutionIntent,
   })));
 
   const queue = store.getUnifiedQueue();
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
+  const dailySections = useMemo(() => buildExecutionDailySections(queue), [queue]);
 
-  return { ...store, queue, stats };
+  return { ...store, queue, stats, dailySections };
 }

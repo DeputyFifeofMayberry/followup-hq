@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { useEffect } from 'react';
 import type { AppMode } from '../../types';
 import { useFollowUpsViewModel } from '../../domains/followups';
 import { WorkspacePage, WorkspaceTopStack, WorkspaceSummaryStrip, SectionHeader, StatTile, WorkspacePrimaryLayout, AppShellCard } from '../ui/AppPrimitives';
@@ -8,7 +9,15 @@ import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { followUpStats, openTaskCount, openCreateModal } = useFollowUpsViewModel();
+  const { followUpStats, openTaskCount, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
+
+  useEffect(() => {
+    if (executionIntent?.target !== 'followups') return;
+    if (executionIntent.recordType === 'followup' && executionIntent.recordId) {
+      setSelectedId(executionIntent.recordId);
+    }
+    clearExecutionIntent();
+  }, [executionIntent, clearExecutionIntent, setSelectedId]);
 
   return (
     <WorkspacePage>
@@ -21,6 +30,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             <StatTile label="Needs nudge" value={followUpStats.needsNudge} helper="Touch timing drift" tone={followUpStats.needsNudge ? 'warn' : 'default'} />
             <StatTile label="Open tasks" value={openTaskCount} helper="Cross-workspace pressure" />
           </div>
+          {executionIntent?.target === 'followups' ? <div className="text-xs text-slate-600">Opened from Overview with execution context{executionIntent.section ? `: ${executionIntent.section.replace('_', ' ')}` : ''}.</div> : null}
           <div className="workspace-toolbar-row overview-support-row">
             <span className="overview-inline-guidance"><strong>Follow-up loop:</strong> Scan queue → run quick actions → finish decisions in inspector.</span>
             <span className="overview-inline-guidance">Bulk actions appear below filters whenever rows are selected.</span>

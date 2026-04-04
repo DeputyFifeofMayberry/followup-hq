@@ -2,19 +2,19 @@ import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, ChevronDown, Clock3,
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
-import type { AppMode, SavedViewKey, UnifiedQueueDensity, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
+import type { AppMode, UnifiedQueueDensity, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
 import type { FollowUpItem, UnifiedQueueItem } from '../types';
 import { getModeConfig } from '../lib/appModeConfig';
+import { ExecutionQueueList, ExecutionSection } from './execution/ExecutionSection';
 
 type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
-  onOpenTrackerView: (view: SavedViewKey, project?: string) => void;
   personalMode?: boolean;
   appMode?: AppMode;
 }
@@ -36,12 +36,11 @@ function getQueueReason(row: UnifiedQueueItem) {
   return row.queueReasons[0] || row.whyInQueue;
 }
 
-export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
+export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   const {
     queue,
     stats,
     setSelectedId,
-    setSelectedTaskId,
     openCreateFromCapture,
     openTouchModal,
     openDraftModal,
@@ -62,10 +61,14 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
     queueDensity,
     setQueueDensity,
     runValidatedBatchFollowUpTransition,
+    executionSelectedId,
+    setExecutionSelectedId,
+    dailySections,
+    openExecutionLane,
   } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
-  const [selectedId, setSelectedIdLocal] = useState<string | null>(null);
+  const selectedId = executionSelectedId;
   const [page, setPage] = useState(0);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
@@ -73,9 +76,9 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   const [lastBulkUndo, setLastBulkUndo] = useState<Array<{ id: string; before: Partial<FollowUpItem> }>>([]);
 
   useEffect(() => {
-    if (!queue.length) return setSelectedIdLocal(null);
-    if (!selectedId || !queue.some((row) => row.id === selectedId)) setSelectedIdLocal(queue[0].id);
-  }, [queue, selectedId]);
+    if (!queue.length) return setExecutionSelectedId(null);
+    if (!selectedId || !queue.some((row) => row.id === selectedId)) setExecutionSelectedId(queue[0].id);
+  }, [queue, selectedId, setExecutionSelectedId]);
 
   useEffect(() => {
     const maxPage = Math.max(0, Math.ceil(queue.length / PAGE_SIZE) - 1);
@@ -94,16 +97,16 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
       const index = queue.findIndex((row) => row.id === selectedId);
       if (event.key === 'j') {
         event.preventDefault();
-        setSelectedIdLocal(queue[Math.min(queue.length - 1, Math.max(0, index + 1))].id);
+        setExecutionSelectedId(queue[Math.min(queue.length - 1, Math.max(0, index + 1))].id);
       }
       if (event.key === 'k') {
         event.preventDefault();
-        setSelectedIdLocal(queue[Math.max(0, index - 1)].id);
+        setExecutionSelectedId(queue[Math.max(0, index - 1)].id);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [queue, selectedId]);
+  }, [queue, selectedId, setExecutionSelectedId]);
 
   const selected = queue.find((row) => row.id === selectedId) || null;
   const pagedQueue = useMemo(() => queue.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [queue, page]);
@@ -164,13 +167,12 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
 
   const openDetail = () => {
     if (!selected) return;
-    if (selected.recordType === 'task') {
-      setSelectedTaskId(selected.id);
-      onOpenWorkspace('tasks');
-      return;
-    }
-    setSelectedId(selected.id);
-    onOpenTrackerView('All', selected.project);
+    openExecutionLane(selected.recordType === 'task' ? 'tasks' : 'followups', {
+      recordId: selected.id,
+      recordType: selected.recordType,
+      project: selected.project,
+    });
+    onOpenWorkspace(selected.recordType === 'task' ? 'tasks' : 'followups');
   };
 
   const resetFilters = () => {
@@ -205,8 +207,8 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
           <WorkspaceToolbarRow className="overview-triage-actions">
             <span className="overview-triage-label">Start here:</span>
             <button onClick={() => onOpenWorkspace('outlook')} className="action-btn !px-2.5 !py-1 text-xs">Open Intake</button>
-            <button onClick={() => onOpenWorkspace('followups')} className="action-btn !px-2.5 !py-1 text-xs">Open Follow Ups</button>
-            <button onClick={() => onOpenWorkspace('tasks')} className="action-btn !px-2.5 !py-1 text-xs">Open Tasks</button>
+            <button onClick={() => { openExecutionLane('followups', { section: 'triage' }); onOpenWorkspace('followups'); }} className="action-btn !px-2.5 !py-1 text-xs">Route follow-ups</button>
+            <button onClick={() => { openExecutionLane('tasks', { section: 'now' }); onOpenWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1 text-xs">Route tasks</button>
             <button onClick={() => openCreateFromCapture({
               kind: 'followup',
               rawText: '',
@@ -299,6 +301,29 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
             </div>
           ) : null}
 
+          <div className="space-y-3 mb-4">
+            {dailySections.map((section) => (
+              <ExecutionSection
+                key={section.key}
+                title={section.title}
+                subtitle={section.subtitle}
+                count={section.rows.length}
+                actions={<button onClick={() => {
+                  openExecutionLane(section.key === 'ready_to_close' ? 'followups' : 'tasks', { section: section.key });
+                  onOpenWorkspace(section.key === 'ready_to_close' ? 'followups' : 'tasks');
+                }} className="action-btn !px-2.5 !py-1 text-xs">Open lane</button>}
+              >
+                <ExecutionQueueList
+                  rows={section.rows.slice(0, 6)}
+                  selectedId={selectedId}
+                  selectedRows={selectedRows}
+                  onSelect={setExecutionSelectedId}
+                  onToggleRow={(id, checked) => setSelectedRows((prev) => checked ? [...new Set([...prev, id])] : prev.filter((entry) => entry !== id))}
+                />
+              </ExecutionSection>
+            ))}
+          </div>
+
           <div className="overview-priority-list overview-priority-list-premium">
             {!queue.length ? <EmptyState title="No work in this queue" message="Switch presets or use Quick Add / Capture to create new work." /> : (
               pagedQueue.map((row) => {
@@ -314,7 +339,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
                 return (
                   <div key={`${row.recordType}-${row.id}`} className={active ? 'overview-priority-row overview-priority-row-active list-row-family list-row-family-active' : 'overview-priority-row list-row-family'}>
                     <input aria-label={`Select ${row.title}`} type="checkbox" checked={checked} onChange={(event) => setSelectedRows((prev) => event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id))} />
-                    <button type="button" onClick={() => setSelectedIdLocal(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
+                    <button type="button" onClick={() => setExecutionSelectedId(row.id)} className="overview-priority-main text-left" aria-current={active ? 'true' : undefined}>
                       <div className="scan-row-layout scan-row-layout-quiet">
                         <div className="scan-row-content">
                           <div className="scan-row-primary">{row.title}</div>

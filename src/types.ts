@@ -474,6 +474,22 @@ export interface SavedExecutionView {
   createdAt: string;
 }
 
+export type ExecutionSectionKey = 'now' | 'triage' | 'blocked' | 'ready_to_close' | 'quick_route';
+export type ExecutionRouteTarget = 'overview' | 'followups' | 'tasks';
+export type ExecutionIntentKind = 'open_record' | 'open_lane' | 'open_section';
+
+export interface ExecutionIntent {
+  kind: ExecutionIntentKind;
+  target: ExecutionRouteTarget;
+  recordType?: 'task' | 'followup';
+  recordId?: string;
+  section?: ExecutionSectionKey;
+  preset?: UnifiedQueuePreset;
+  filter?: UnifiedQueueFilter;
+  project?: string;
+  createdAt: string;
+}
+
 export interface UnifiedQueueItem {
   id: string;
   recordType: 'task' | 'followup';

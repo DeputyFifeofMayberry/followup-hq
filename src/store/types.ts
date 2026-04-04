@@ -25,6 +25,9 @@ import type {
   UnifiedQueuePreset,
   UnifiedQueueSort,
   UnifiedQueueDensity,
+  ExecutionIntent,
+  ExecutionSectionKey,
+  ExecutionRouteTarget,
 } from '../types';
 import type { WorkflowValidationResult } from '../lib/workflowPolicy';
 
@@ -122,6 +125,10 @@ export interface AppStoreActions {
   setQueueDensity: (density: UnifiedQueueDensity) => void;
   saveExecutionView: (name: string, scope?: 'personal' | 'team') => void;
   applyExecutionView: (viewId: string) => void;
+  setExecutionSelectedId: (id: string | null) => void;
+  launchExecutionIntent: (intent: Omit<ExecutionIntent, 'createdAt'>) => void;
+  clearExecutionIntent: () => void;
+  openExecutionLane: (target: Exclude<ExecutionRouteTarget, 'overview'>, options?: { recordId?: string; recordType?: 'task' | 'followup'; section?: ExecutionSectionKey; project?: string }) => void;
   stageIntakeCandidate: (candidate: any) => void;
   approveIntakeCandidate: (candidateId: string, mode?: 'task' | 'followup') => void;
   discardIntakeCandidate: (candidateId: string) => void;

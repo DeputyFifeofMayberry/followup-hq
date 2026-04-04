@@ -59,6 +59,8 @@ export const initialUiState: AppUiState = {
   executionSort: 'queue_score',
   queueDensity: 'compact',
   savedExecutionViews: defaultExecutionViews,
+  executionIntent: null,
+  executionSelectedId: null,
 };
 
 export const initialMetaState: AppMetaState = {

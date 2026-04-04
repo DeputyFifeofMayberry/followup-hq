@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Trash2, Undo2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
@@ -21,7 +21,7 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
 ];
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useTasksViewModel();
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent } = useTasksViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const [search, setSearch] = useState('');
@@ -36,6 +36,14 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [cleanupOnly, setCleanupOnly] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  useEffect(() => {
+    if (executionIntent?.target !== 'tasks') return;
+    if (executionIntent.recordType === 'task' && executionIntent.recordId) {
+      setSelectedTaskId(executionIntent.recordId);
+    }
+    clearExecutionIntent();
+  }, [executionIntent, clearExecutionIntent, setSelectedTaskId]);
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [tasks]);
@@ -152,6 +160,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
             <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
           </div>
+          {executionIntent?.target === 'tasks' ? <div className="text-xs text-slate-600">Opened from Overview with execution context{executionIntent.section ? `: ${executionIntent.section.replace('_', ' ')}` : ''}.</div> : null}
           <WorkspaceToolbarRow className="overview-support-row">
             <span className="overview-inline-guidance"><strong>Task loop:</strong> Scan queue → update status → resolve blocker/due date in inspector.</span>
             <span className="overview-inline-guidance">Follow-up relationship details stay in the right pane.</span>

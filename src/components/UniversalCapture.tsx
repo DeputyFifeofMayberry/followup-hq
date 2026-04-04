@@ -1,11 +1,13 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, Inbox, Sparkles, WandSparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getRecentEntryContext } from '../lib/dataEntryDefaults';
+import { getIntakeDecisionLabel, getIntakeLifecycleLabel } from '../lib/intakeLifecycle';
 import { parseUniversalCapture } from '../lib/universalCapture';
 import { addDaysIso, createId, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { FollowUpItem, IntakeCandidate, TaskItem } from '../types';
+import { Badge } from './Badge';
 
 export function UniversalCapture({ contextProject, contextOwner, contextFollowUpId }: { contextProject?: string; contextOwner?: string; contextFollowUpId?: string | null; }) {
   const { projects, contacts, addItem, addTask, openEditModal, openEditTaskModal, openCreateFromCapture, addProject, addContact, stageIntakeCandidate, intakeCandidates, approveIntakeCandidate, discardIntakeCandidate, saveIntakeCandidateAsReference } = useAppStore(useShallow((s) => ({
@@ -117,7 +119,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         },
       };
       stageIntakeCandidate(candidate);
-      setConfirmation('Capture routed to intake review tray.');
+      setConfirmation('Intake candidate received and sent to Review.');
       setText('');
       setParsedOverride(null);
       return;
@@ -135,12 +137,12 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       const task: TaskItem = { id: createId('TSK'), title: parsed.title, project: project.name || 'General', projectId: projectId || undefined, owner: owner.name || 'Unassigned', contactId: ownerId, status: 'To do', priority: parsed.priority, dueDate: parsed.dueDate, summary: parsed.rawText, nextStep: parsed.nextStep || parsed.title, notes: '', tags: ['Capture bar'], linkedFollowUpId: contextFollowUpId || undefined, createdAt: todayIso(), updatedAt: todayIso(), needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch' };
       addTask(task);
       if (openDetail) openEditTaskModal(task.id);
-      setConfirmation('Task saved (high confidence).');
+      setConfirmation('Imported now: task approved from Quick Add.');
     } else {
       const followUp: FollowUpItem = { id: createId(), title: parsed.title, source: 'Notes', project: project.name || 'General', projectId: projectId || undefined, owner: owner.name || 'Unassigned', contactId: ownerId, status: parsed.status === 'Waiting on external' ? 'Waiting on external' : 'Needs action', priority: parsed.priority, dueDate: parsed.dueDate || addDaysIso(todayIso(), 1), lastTouchDate: todayIso(), nextTouchDate: parsed.dueDate || addDaysIso(todayIso(), 1), nextAction: parsed.nextAction || parsed.title, summary: parsed.rawText, tags: ['Capture bar'], sourceRef: `Capture bar ${todayIso()}`, sourceRefs: [], mergedItemIds: [], waitingOn: parsed.waitingOn, notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Unknown', escalationLevel: 'None', cadenceDays: 3, needsCleanup, cleanupReasons: parsed.cleanupReasons, recommendedAction: needsCleanup ? 'Review cleanup' : 'Log touch', actionState: 'Draft created' };
       addItem(followUp);
       if (openDetail) openEditModal(followUp.id);
-      setConfirmation('Follow-up saved (high confidence).');
+      setConfirmation('Imported now: follow-up approved from Quick Add.');
     }
 
     setText('');
@@ -154,20 +156,20 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       <div className="smart-composer-head">
         <div className="flex flex-wrap items-center gap-2">
           <WandSparkles className="h-4 w-4 text-slate-600" />
-          <div className="text-sm font-semibold text-slate-900">Quick Add / Capture</div>
+          <div className="text-sm font-semibold text-slate-900">Quick Add</div>
           <span className="smart-composer-kbd">⌘/Ctrl+J expand</span>
         </div>
         <button onClick={() => setExpanded((v) => !v)} className="action-btn !px-2.5 !py-1.5 text-xs">Capture details <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} /></button>
       </div>
 
-      <p className="mt-1 text-xs text-slate-600">Capture work fast. Quick Add creates a follow-up or task when confidence is high, and routes uncertain items to review.</p>
+      <p className="mt-1 text-xs text-slate-600">Quick Add is part of Intake: high-confidence captures are imported now, while uncertain captures go to Review for a decision.</p>
 
       <div className="mt-2 flex gap-2">
         <input ref={inputRef} value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
           if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
           if (event.key === 'Enter') { event.preventDefault(); saveDraft(false); }
         }} placeholder={`Capture a follow-up or task${contextProject ? ` for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
-        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Add now' : 'Send to review'}</button>
+        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Approve & import now' : 'Send to Review'}</button>
       </div>
 
       {expanded && text.trim() ? (
@@ -180,24 +182,27 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
             {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
           </div>
           {needsCleanup ? <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">{parsed.cleanupReasons.map((reason) => <span key={reason} className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5">{cleanupLabel[reason]}</span>)}</div> : null}
-          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Add now + open' : 'Send to review + open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open structured form</button></div>
+          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Approve & import now + open' : 'Send to Review + open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open structured form</button></div>
         </div>
       ) : null}
 
       {intakeCandidates.length > 0 ? (
         <div className="mt-3 form-section">
-          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900"><Inbox className="h-4 w-4" />Quick Add review tray ({intakeCandidates.length})</div>
-          <p className="mb-2 text-xs text-slate-600">Lower-confidence captures wait here until you approve, convert, or save as reference.</p>
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900"><Inbox className="h-4 w-4" />Intake Review queue ({intakeCandidates.length})</div>
+          <p className="mb-2 text-xs text-slate-600">These candidates are in {getIntakeLifecycleLabel('review_needed')}. Choose one decision path to finalize each item.</p>
           <div className="space-y-2">
             {intakeCandidates.slice(0, 4).map((candidate) => (
               <div key={candidate.id} className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
                 <div className="font-semibold text-slate-900">{candidate.draft.title}</div>
-                <div className="text-slate-500">{candidate.suggestedType} • {candidate.confidenceTier} confidence • {candidate.detectedProject || 'No project'}</div>
+                <div className="mt-1 flex flex-wrap gap-1 text-slate-500">
+                  <Badge variant="warn">{getIntakeLifecycleLabel('review_needed')}</Badge>
+                  <span>{candidate.suggestedType} • {candidate.confidenceTier} confidence • {candidate.detectedProject || 'No project'}</span>
+                </div>
                 <div className="mt-2 flex gap-2">
-                  <button onClick={() => approveIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1">Approve</button>
-                  <button onClick={() => approveIntakeCandidate(candidate.id, candidate.suggestedType === 'task' ? 'followup' : 'task')} className="action-btn !px-2 !py-1">Convert</button>
-                  <button onClick={() => saveIntakeCandidateAsReference(candidate.id)} className="action-btn !px-2 !py-1">Reference</button>
-                  <button onClick={() => discardIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1 text-rose-600">Discard</button>
+                  <button onClick={() => approveIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1">{candidate.suggestedType === 'task' ? getIntakeDecisionLabel('approve_task') : getIntakeDecisionLabel('approve_followup')}</button>
+                  <button onClick={() => approveIntakeCandidate(candidate.id, candidate.suggestedType === 'task' ? 'followup' : 'task')} className="action-btn !px-2 !py-1">{candidate.suggestedType === 'task' ? getIntakeDecisionLabel('approve_followup') : getIntakeDecisionLabel('approve_task')}</button>
+                  <button onClick={() => saveIntakeCandidateAsReference(candidate.id)} className="action-btn !px-2 !py-1">{getIntakeDecisionLabel('save_reference')}</button>
+                  <button onClick={() => discardIntakeCandidate(candidate.id)} className="action-btn !px-2 !py-1 text-rose-600">{getIntakeDecisionLabel('reject')}</button>
                 </div>
               </div>
             ))}

@@ -3,16 +3,18 @@ import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, FileUp, Link2, Loader2, Paperclip, Save, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Badge } from './Badge';
-import type { IntakeParseStatus } from '../types';
+import { getAllowedIntakeActions, getIntakeLifecycleGroup, getIntakeLifecycleLabel, normalizeAssetStatus, normalizeWorkCandidateStatus } from '../lib/intakeLifecycle';
+import type { IntakeLifecycleStatus } from '../lib/intakeLifecycle';
 
-const parseStatusTone: Record<IntakeParseStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
-  queued: 'neutral',
-  reading: 'blue',
+const parseStatusTone: Record<IntakeLifecycleStatus, 'neutral' | 'warn' | 'success' | 'danger' | 'blue'> = {
+  received: 'neutral',
+  parsing: 'blue',
   parsed: 'success',
   review_needed: 'warn',
   ready_high_confidence: 'success',
   imported: 'success',
   linked: 'blue',
+  reference: 'neutral',
   rejected: 'danger',
   failed: 'danger',
 };
@@ -47,6 +49,10 @@ export function UniversalIntakeWorkspace() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const pending = intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending');
+  const finalized = intakeWorkCandidates.filter((entry) => {
+    const status = normalizeWorkCandidateStatus(entry.approvalStatus);
+    return getIntakeLifecycleGroup(status) === 'finalized';
+  });
   const highConfidence = pending.filter((entry) => entry.confidence >= 0.9);
   const selectedAsset = intakeAssets.find((entry) => entry.id === activeAssetId) ?? intakeAssets[0];
   const selectedAssetCandidates = intakeWorkCandidates.filter((entry) => entry.assetId === selectedAsset?.id);
@@ -107,7 +113,7 @@ export function UniversalIntakeWorkspace() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-base font-semibold text-slate-900">Universal Intake Workspace</div>
-            <div className="text-sm text-slate-600">Drop mixed files (emails, Word, Excel, CSV, PDFs, text, HTML). Intake proposes tasks, follow-ups, references, and update/link suggestions with evidence.</div>
+            <div className="text-sm text-slate-600">Drop mixed files (emails, Word, Excel, CSV, PDFs, text, HTML). Intake moves each item from received → parsed → review → decision.</div>
           </div>
           <div className="flex gap-2">
             <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Choose files</button>
@@ -135,7 +141,7 @@ export function UniversalIntakeWorkspace() {
                 <div className="truncate text-sm font-medium text-slate-900">{asset.fileName}</div>
                 <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                   <span>{asset.kind}</span>
-                  <Badge variant={parseStatusTone[asset.parseStatus]}>{asset.parseStatus}</Badge>
+                  <Badge variant={parseStatusTone[normalizeAssetStatus(asset.parseStatus)]}>{getIntakeLifecycleLabel(normalizeAssetStatus(asset.parseStatus))}</Badge>
                 </div>
               </button>
             ))}
@@ -201,7 +207,7 @@ export function UniversalIntakeWorkspace() {
 
         <section className="lg:col-span-4 rounded-2xl border border-slate-200 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">Review queue</div>
+            <div className="text-sm font-semibold text-slate-900">Intake review queue</div>
             <Badge variant="warn">Pending {pending.length}</Badge>
           </div>
           <div className="mb-2 flex flex-wrap gap-2 text-[11px]">
@@ -214,6 +220,7 @@ export function UniversalIntakeWorkspace() {
                 <div className="text-sm font-medium text-slate-900">{candidate.title}</div>
                 <div className="mt-1 flex flex-wrap gap-1 text-xs">
                   <Badge variant="blue">{candidate.candidateType}</Badge>
+                  <Badge variant="warn">{getIntakeLifecycleLabel(normalizeWorkCandidateStatus(candidate.approvalStatus))}</Badge>
                   <Badge variant={candidate.confidence >= 0.9 ? 'success' : candidate.confidence >= 0.7 ? 'warn' : 'danger'}>{candidate.confidence}</Badge>
                   {candidate.duplicateMatches.length > 0 ? <Badge variant="danger">duplicate risk</Badge> : null}
                 </div>
@@ -223,9 +230,9 @@ export function UniversalIntakeWorkspace() {
                   {candidate.explanation.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_task'); }}><CheckCircle2 className="h-4 w-4" /> Task</button>
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_followup'); }}><Paperclip className="h-4 w-4" /> Follow-up</button>
-                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reference'); }}><Save className="h-4 w-4" /> Reference</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_task'); }}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('approve_followup'); }}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
+                  <button className="action-btn" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reference'); }}><Save className="h-4 w-4" /> Save as reference</button>
                   <button className="action-btn action-btn-danger" onClick={() => { setActiveCandidateId(candidate.id); applyAndNext('reject'); }}><XCircle className="h-4 w-4" /> Reject</button>
                 </div>
                 {candidate.existingRecordMatches.length > 0 ? (
@@ -234,7 +241,7 @@ export function UniversalIntakeWorkspace() {
                     {candidate.existingRecordMatches.slice(0, 2).map((match) => (
                       <div key={match.id} className="mt-1 flex items-center justify-between gap-2">
                         <div className="truncate text-slate-600">{match.recordType}: {match.title} ({match.score}{match.strategy ? `, ${match.strategy}` : ''})</div>
-                        <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'link', match.id)}><Link2 className="h-3 w-3" /> Link</button>
+                        <button className="action-btn" onClick={() => decideIntakeWorkCandidate(candidate.id, 'link', match.id)}><Link2 className="h-3 w-3" /> Link to existing</button>
                       </div>
                     ))}
                   </div>
@@ -257,9 +264,26 @@ export function UniversalIntakeWorkspace() {
             {pending.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500">No pending candidates. Intake history is preserved in batch/asset records.</div> : null}
           </div>
 
+          {finalized.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Finalized outcomes ({finalized.length})</div>
+              <div className="space-y-1">
+                {finalized.slice(0, 5).map((candidate) => {
+                  const status = normalizeWorkCandidateStatus(candidate.approvalStatus);
+                  return (
+                    <div key={candidate.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs">
+                      <span className="truncate text-slate-700">{candidate.title}</span>
+                      <Badge variant={parseStatusTone[status]}>{getIntakeLifecycleLabel(status)}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
             Linked records available: {items.length} follow-ups • {tasks.length} tasks.
-            <div className="mt-1 flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Uncertain parses remain in review by design.</div>
+            <div className="mt-1 flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3 w-3" /> Pending review candidates allow: {getAllowedIntakeActions('review_needed').length} decisions (approve, link, reference, reject).</div>
           </div>
         </section>
       </div>

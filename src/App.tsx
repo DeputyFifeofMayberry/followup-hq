@@ -362,7 +362,7 @@ function MainApp() {
   const showUniversalCapture = currentMeta.showUniversalCapture;
 
   return (
-    <div className="app-shell text-slate-900">
+    <div className={`app-shell text-slate-900 ${currentMeta.category === 'support' ? 'app-shell-support-workspace' : 'app-shell-primary-workspace'}`}>
       <div className="app-shell-layout">
         <aside className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
@@ -397,7 +397,10 @@ function MainApp() {
                         aria-current={active ? 'page' : undefined}
                       >
                         <div className="nav-card-row">
-                          <span className="nav-label-cluster"><Icon className="h-4 w-4 nav-label-icon" /> <span className="nav-label-primary">{meta.userLabel}</span></span>
+                          <span className="nav-label-cluster">
+                            <span className="nav-icon-shell"><Icon className="h-4 w-4 nav-label-icon" /></span>
+                            <span className="nav-label-primary">{meta.userLabel}</span>
+                          </span>
                           <span className="nav-card-meta-row">
                             {meta.startSurface ? <span className="nav-start-pill">Start here</span> : null}
                             {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
@@ -415,27 +418,35 @@ function MainApp() {
 
           <main className="app-main-pane">
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
-            <div>
-              <div className="workspace-label">{modeConfig.displayName}</div>
-              <h1>{currentMeta.shellTitle}</h1>
-              <p>{currentMeta.shellPurpose}</p>
-              <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
-            </div>
-            <div className="workspace-header-meta">
-              <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-              <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
-              <div className="workspace-header-actions">
-                {currentMeta.primaryAction ? (
-                  <button type="button" onClick={() => runPrimaryAction(currentMeta.primaryAction?.actionKey ?? 'none')} className={currentMeta.primaryAction.primary ? 'primary-btn' : 'action-btn'}>
-                    {currentMeta.primaryAction.primary ? <Sparkles className="h-4 w-4" /> : null}
-                    {currentMeta.primaryAction.label}
-                  </button>
-                ) : null}
+              <div className="workspace-header-main">
+                <div className="workspace-label">{modeConfig.displayName}</div>
+                <h1>{currentMeta.shellTitle}</h1>
+                <p>{currentMeta.shellPurpose}</p>
+                <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
               </div>
-            </div>
+              <div className="workspace-header-meta">
+                <div className="workspace-header-meta-top">
+                  <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
+                  <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                </div>
+                <div className="workspace-header-actions">
+                  {currentMeta.primaryAction ? (
+                    <button type="button" onClick={() => runPrimaryAction(currentMeta.primaryAction?.actionKey ?? 'none')} className={currentMeta.primaryAction.primary ? 'primary-btn' : 'action-btn'}>
+                      {currentMeta.primaryAction.primary ? <Sparkles className="h-4 w-4" /> : null}
+                      {currentMeta.primaryAction.label}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </header>
-            {showUniversalCapture ? <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} /> : null}
-            {workspaceBody}
+            {showUniversalCapture ? (
+              <section className="app-capture-slot app-shell-card app-shell-card-command">
+                <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+              </section>
+            ) : null}
+            <section className="workspace-body-slot">
+              {workspaceBody}
+            </section>
           </main>
         </div>
 

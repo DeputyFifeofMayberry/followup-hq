@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: radial-gradient(circle at 12% -10%, rgba(180, 83, 9, 0.18), transparent 34%),
     linear-gradient(165deg, #0a1220 0%, #101a2b 48%, #121e31 100%);
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
 .app-shell-layout {
@@ -10,14 +10,14 @@
   width: min(1880px, 100%);
   margin: 0 auto;
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .app-main-pane {
   min-width: 0;
   display: grid;
-  gap: 1rem;
-  border-radius: 1.35rem;
+  gap: var(--space-4);
+  border-radius: calc(var(--radius-xl) - 0.1rem);
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.94), rgba(241, 246, 252, 0.97));
   box-shadow: 0 30px 64px rgba(2, 6, 23, 0.32);
@@ -27,7 +27,7 @@
 .app-nav-rail {
   border: 1px solid rgba(100, 116, 139, 0.32);
   background: linear-gradient(180deg, rgba(8, 14, 27, 0.96), rgba(12, 20, 35, 0.97));
-  border-radius: 1.35rem;
+  border-radius: calc(var(--radius-xl) - 0.1rem);
   padding: 1rem 0.9rem;
   box-shadow: 0 18px 44px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.12);
 }
@@ -35,21 +35,23 @@
 .app-brand-block { padding: 0.5rem 0.4rem 1rem; margin-bottom: 0.2rem; }
 .app-brand-eyebrow,
 .nav-text-brand-eyebrow { color: #c1cfdf; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.app-brand-title { color: #f8fbff; font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
+.app-brand-title { color: var(--text-inverse); font-size: 1.32rem; font-weight: 700; letter-spacing: -0.022em; margin-top: 0.3rem; line-height: 1.15; }
 .app-brand-subline,
 .nav-text-brand-subline { color: #91a2ba; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.01em; margin-top: 0.26rem; }
 .nav-section-stack { display: grid; gap: 0.8rem; }
-.nav-section { display: grid; gap: 0.45rem; }
+.nav-section { display: grid; gap: 0.52rem; }
 .nav-section-heading { padding: 0 0.4rem; color: #9fb3cd; font-size: 0.6rem; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9; }
 .nav-section-support .nav-section-heading { color: #8093ad; opacity: 0.72; }
 .nav-text-primary { color: #dce8f8; font-size: 0.88rem; font-weight: 600; letter-spacing: -0.005em; }
 .nav-text-secondary { color: #afbed4; font-size: 0.74rem; font-weight: 500; }
 .nav-text-muted { color: #8ea2be; font-size: 0.86rem; font-weight: 560; }
 .nav-text-pill { color: #fdecc4; font-size: 0.71rem; font-weight: 700; }
-.nav-card { border: 1px solid rgba(71, 85, 105, 0.38); border-radius: 0.8rem; padding: 0.55rem 0.62rem; background: rgba(15, 23, 42, 0.16); transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease; }
+
+/* Nav card states mirror the row grammar: default -> hover -> active -> muted-support. */
+.nav-card { border: 1px solid rgba(71, 85, 105, 0.38); border-radius: 0.86rem; padding: 0.58rem 0.64rem; background: rgba(15, 23, 42, 0.16); transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease; }
 .nav-card:hover { border-color: rgba(148, 163, 184, 0.52); background: rgba(30, 41, 59, 0.32); }
 .nav-card-active { border-color: rgba(251, 191, 36, 0.82); background: linear-gradient(140deg, rgba(71, 49, 17, 0.6), rgba(30, 41, 59, 0.74)); box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
-.nav-card-core:not(.nav-card-active) { border-color: rgba(100, 116, 139, 0.44); background: rgba(30, 41, 59, 0.24); }
+.nav-card-core:not(.nav-card-active) { border-color: rgba(100, 116, 139, 0.52); background: rgba(30, 41, 59, 0.3); }
 .nav-card-core:not(.nav-card-active) .nav-label-primary { color: #cfdcf0; }
 .nav-card-primary-inactive .nav-label-primary { font-weight: 590; }
 .nav-card-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
@@ -57,7 +59,7 @@
 .nav-label-icon { color: #a7bad3; }
 .nav-label-primary { color: #cfddf0; font-size: 0.84rem; font-weight: 560; letter-spacing: -0.003em; }
 .nav-card-active .nav-label-icon,
-.nav-card-active .nav-label-primary { color: #f8fbff; }
+.nav-card-active .nav-label-primary { color: var(--text-inverse); }
 .nav-card-muted { border-color: rgba(71, 85, 105, 0.28); background: rgba(15, 23, 42, 0.08); }
 .nav-card-muted .nav-label-primary { color: #9db0c9; font-weight: 530; }
 .nav-card-muted .nav-label-icon { color: #8497b2; }
@@ -65,9 +67,8 @@
 .nav-pill { min-width: 1.2rem; padding: 0.02rem 0.28rem; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.28); background: rgba(30, 41, 59, 0.24); text-align: center; }
 .nav-card-active .nav-pill { border-color: rgba(251, 191, 36, 0.42); background: rgba(120, 53, 15, 0.36); }
 .nav-pill-text { color: #dbe7f7; font-size: 0.64rem; font-weight: 600; }
-.nav-command-btn { width: 100%; justify-content: flex-start; display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 0.75rem; padding: 0.48rem 0.6rem; border: 1px dashed rgba(100, 116, 139, 0.38); background: rgba(15, 23, 42, 0.1); color: #9db2cd; font-size: 0.75rem; font-weight: 540; }
+.nav-command-btn { width: 100%; justify-content: flex-start; display: inline-flex; align-items: center; gap: var(--space-2); border-radius: 0.75rem; padding: 0.48rem 0.6rem; border: 1px dashed rgba(100, 116, 139, 0.38); background: rgba(15, 23, 42, 0.1); color: #9db2cd; font-size: 0.75rem; font-weight: 540; }
 .nav-command-btn:hover { border-color: rgba(148, 163, 184, 0.56); color: #d5e1f1; background: rgba(30, 41, 59, 0.26); }
-
 
 .app-nav-rail-support-muted .nav-section-support .nav-card:not(.nav-card-active) {
   border-color: rgba(71, 85, 105, 0.22);
@@ -79,21 +80,10 @@
   color: #7f93af;
 }
 
-.nav-section { display: grid; gap: 0.52rem; }
 .nav-section-support {
   margin-top: 0.28rem;
   padding-top: 0.55rem;
   border-top: 1px solid rgba(100, 116, 139, 0.22);
-}
-
-.nav-card {
-  border-radius: 0.86rem;
-  padding: 0.58rem 0.64rem;
-}
-
-.nav-card-core:not(.nav-card-active) {
-  border-color: rgba(100, 116, 139, 0.52);
-  background: rgba(30, 41, 59, 0.3);
 }
 
 .nav-card-support:not(.nav-card-active) {
@@ -126,5 +116,5 @@
 
 @media (min-width: 1200px) {
   .app-shell-layout { grid-template-columns: 248px minmax(0, 1fr); align-items: start; }
-  .app-nav-rail { position: sticky; top: 1rem; }
+  .app-nav-rail { position: sticky; top: var(--space-4); }
 }

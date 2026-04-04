@@ -2,6 +2,15 @@ import type { KeyboardEvent, PropsWithChildren, ReactNode } from 'react';
 
 type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
 
+/**
+ * Semantic surface roles:
+ * - shell/data: default readable containers
+ * - hero/command: emphasized summary + action surfaces
+ * - inspector/muted: supportive side context
+ * - warning: attention-required context
+ * - modal: highest-elevation dialog surface
+ * - row: repeatable list row baseline (hover/active handled in CSS)
+ */
 export function AppShellCard({ children, className = '', surface = 'shell' }: PropsWithChildren<{ className?: string; surface?: SurfaceType }>) {
   return <section className={`app-shell-card app-shell-card-${surface} ${className}`.trim()}>{children}</section>;
 }

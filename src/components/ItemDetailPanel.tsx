@@ -8,6 +8,7 @@ import { AppShellCard, SegmentedControl } from './ui/AppPrimitives';
 import { getWorkflowWarningsForRecord } from '../lib/workflowPolicy';
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
+import { getLinkedTasksForFollowUp, getRelatedRecordBundle } from '../lib/recordContext';
 
 type DetailTab = 'overview' | 'actions' | 'notes' | 'activity';
 
@@ -16,6 +17,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     selectedId,
     items,
     tasks,
+    projects,
     contacts,
     companies,
     updateItem,
@@ -31,6 +33,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     selectedId: s.selectedId,
     items: s.items,
     tasks: s.tasks,
+    projects: s.projects,
     contacts: s.contacts,
     companies: s.companies,
     updateItem: s.updateItem,
@@ -70,7 +73,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
 
   const contact = contacts.find((entry) => entry.id === item.contactId);
   const company = companies.find((entry) => entry.id === item.companyId);
-  const linkedTasks = tasks.filter((task) => task.linkedFollowUpId === item.id);
+  const linkedTasks = getLinkedTasksForFollowUp(item.id, tasks);
+  const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
   const doneLinkedTasks = item.doneLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Done').length;
   const blockedLinkedTasks = item.blockedLinkedTaskCount ?? linkedTasks.filter((task) => task.status === 'Blocked').length;
   const overdueLinkedTasks = item.overdueLinkedTaskCount ?? linkedTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() < Date.now()).length;
@@ -133,7 +137,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ownership</div><div className="mt-1 text-sm font-semibold text-slate-900">Owner: {item.owner}</div><div className="text-sm text-slate-700">Assignee: {item.assigneeDisplayName || item.owner}</div><div className="text-sm text-slate-700">External: {contact?.name ?? '—'}</div></div>
-              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 text-xs text-slate-500">{item.allLinkedTasksDone ? 'Ready to close or advance.' : blockedLinkedTasks > 0 ? 'Blocked child pressure on parent.' : 'Execution in progress.'}</div></div>
+              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow state</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.linkedTaskCount ?? linkedTasks.length} linked · {openLinkedTasks} open · {blockedLinkedTasks} blocked · {overdueLinkedTasks} overdue · {doneLinkedTasks} done</div><div className="mt-1 text-xs text-slate-500">{item.allLinkedTasksDone ? 'Ready to close or advance.' : blockedLinkedTasks > 0 ? 'Blocked child pressure on parent.' : 'Execution in progress.'}</div><div className="mt-1 text-xs text-slate-500">Related records {relatedBundle.counts.relationships} · Activity events {relatedBundle.counts.timelineEvents}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action lifecycle</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.actionState || 'Draft created'}</div></div>
             </div>

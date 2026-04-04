@@ -11,6 +11,7 @@ import type {
   TaskItem,
 } from '../types';
 import { daysSince, isOverdue, isTaskDeferred, isTaskOverdue, needsNudge, todayIso } from './utils';
+import { getProjectLinkedRecords } from './recordContext';
 
 export type ProjectSavedViewKey = 'All projects' | 'Hot projects' | 'Closeout' | 'Waiting on external' | 'Blocked by tasks' | 'Docs need review' | 'Low activity / stale';
 
@@ -143,16 +144,17 @@ export function buildProjectDerivedRecords(
 ): ProjectDerivedRecord[] {
   const now = todayIso();
   return projects.map((project) => {
-    const openFollowUps = items.filter((item) => item.projectId === project.id && item.status !== 'Closed');
-    const openTasks = tasks.filter((task) => task.projectId === project.id && task.status !== 'Done');
+    const projectLinkedRecords = getProjectLinkedRecords(project.id, { items, tasks, projects, contacts, companies });
+    const openFollowUps = projectLinkedRecords.followups.filter((item) => item.status !== 'Closed');
+    const openTasks = projectLinkedRecords.tasks.filter((task) => task.status !== 'Done');
     const docs = intakeDocuments.filter((doc) => doc.projectId === project.id);
 
     const projectDates = [project.updatedAt, project.lastReviewedAt, ...openFollowUps.map((item) => item.lastActionAt || item.lastTouchDate), ...openTasks.map((task) => task.updatedAt), ...docs.map((doc) => doc.uploadedAt)]
       .filter(Boolean) as string[];
     const updatedAt = projectDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || now;
 
-    const projectContacts = contacts.filter((contact) => openFollowUps.some((item) => item.contactId === contact.id) || openTasks.some((task) => task.contactId === contact.id));
-    const projectCompanies = companies.filter((company) => openFollowUps.some((item) => item.companyId === company.id) || openTasks.some((task) => task.companyId === company.id));
+    const projectContacts = projectLinkedRecords.contacts;
+    const projectCompanies = projectLinkedRecords.companies;
     const health = buildHealth(project, openFollowUps, openTasks, docs, updatedAt);
 
     return {

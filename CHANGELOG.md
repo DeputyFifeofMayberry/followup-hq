@@ -2,6 +2,11 @@
 
 ## 2026-04-04
 
+### Deficiency 1 Phase 1: shared cross-record execution foundation
+- Added a typed cross-record relationship module that normalizes follow-ups, tasks, projects, contacts, and companies into one record descriptor shape, plus reusable selectors for linked follow-up/task relationships, project/company/contact-linked records, related-record bundles, and shared derived counts (relationships, open/blocked/overdue child work, timeline/audit events) (`src/lib/recordContext.ts`).
+- Refactored task workspace and follow-up detail inspector to consume the shared cross-record selectors for linked parent/child retrieval and related-record rollups, reducing ad hoc record lookups in component logic (`src/components/TaskWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`).
+- Updated project and relationship derivation selectors to route linking logic through the shared cross-record foundation so project/relationship surfaces now consume common relationship lookup behavior instead of duplicating per-surface linkage filtering (`src/lib/projectSelectors.ts`, `src/lib/relationshipSelectors.ts`, `src/components/RelationshipBoard.tsx`).
+
 ### Deficiency 3 Phase 3: architecture boundary hardening, selector/view-model APIs, and workflow regression checks
 - Added explicit component-facing domain view-model hooks for execution queue, follow-ups, tasks, intake review, and projects so major workflow screens can consume shaped APIs instead of broad raw store selection (`src/domains/shared/hooks/useExecutionQueueViewModel.ts`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/domains/intake/hooks/useIntakeReviewViewModel.ts`, `src/domains/projects/hooks/useProjectsViewModel.ts`).
 - Introduced domain boundary barrels and shared queue selectors to make public import paths clearer and to keep selector logic close to domain ownership (`src/domains/shared/selectors/executionQueueSelectors.ts`, `src/domains/shared/index.ts`, `src/domains/followups/index.ts`, `src/domains/tasks/index.ts`, `src/domains/intake/index.ts`, `src/domains/projects/index.ts`).

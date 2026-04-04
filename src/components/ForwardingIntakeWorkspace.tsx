@@ -1,16 +1,13 @@
 import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Inbox, Link2, Plus, ShieldCheck, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { formatDateTime } from '../lib/utils';
-import { useAppStore } from '../store/useAppStore';
 import type { ForwardedEmailProviderPayload, ForwardedRuleAction, ForwardedRuleCondition } from '../types';
 import { buildForwardedFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { FieldReviewRow, WeakFieldWarningGroup } from './intake/FieldReview';
-import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
+import { type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../lib/intakeReviewQueue';
 import { describeFinalizedOutcome, evaluateForwardedImportSafety } from '../lib/intakeImportSafety';
-import { buildIntakeTuningInsights } from '../lib/intakeTuningInsights';
-import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
+import { useIntakeReviewViewModel } from '../domains/intake';
 
 const SAMPLE_PAYLOAD: ForwardedEmailProviderPayload = {
   provider: 'mock',
@@ -59,13 +56,21 @@ function describeConditions(conditions: ForwardedRuleCondition): string {
 }
 
 export function ForwardingIntakeWorkspace() {
+  const [payloadText, setPayloadText] = useState(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
+  const [manualRuleSubject, setManualRuleSubject] = useState('');
+  const [candidateLinks, setCandidateLinks] = useState<Record<string, string>>({});
+  const [activeBucket, setActiveBucket] = useState<IntakeReviewBucket | 'all'>('all');
+  const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
+  const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
+
   const {
     forwardedEmails,
     forwardedCandidates,
     forwardedRules,
     forwardedLedger,
     forwardedRoutingAudit,
-    intakeReviewerFeedback,
     items,
     ingestForwardedEmailPayload,
     approveForwardedCandidate,
@@ -76,50 +81,12 @@ export function ForwardingIntakeWorkspace() {
     updateForwardRule,
     deleteForwardRule,
     addManualForwardRule,
-  } = useAppStore(useShallow((s) => ({
-    forwardedEmails: s.forwardedEmails,
-    forwardedCandidates: s.forwardedCandidates,
-    forwardedRules: s.forwardedRules,
-    forwardedLedger: s.forwardedLedger,
-    forwardedRoutingAudit: s.forwardedRoutingAudit,
-    intakeReviewerFeedback: s.intakeReviewerFeedback,
-    items: s.items,
-    ingestForwardedEmailPayload: s.ingestForwardedEmailPayload,
-    approveForwardedCandidate: s.approveForwardedCandidate,
-    rejectForwardedCandidate: s.rejectForwardedCandidate,
-    saveForwardedCandidateAsReference: s.saveForwardedCandidateAsReference,
-    linkForwardedCandidateToExisting: s.linkForwardedCandidateToExisting,
-    addForwardRuleFromCandidate: s.addForwardRuleFromCandidate,
-    updateForwardRule: s.updateForwardRule,
-    deleteForwardRule: s.deleteForwardRule,
-    addManualForwardRule: s.addManualForwardRule,
-  })));
-
-  const [payloadText, setPayloadText] = useState(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
-  const [manualRuleSubject, setManualRuleSubject] = useState('');
-  const [candidateLinks, setCandidateLinks] = useState<Record<string, string>>({});
-  const [activeBucket, setActiveBucket] = useState<IntakeReviewBucket | 'all'>('all');
-  const [sortKey, setSortKey] = useState<IntakeReviewSort>('newest');
-  const [queueFilters, setQueueFilters] = useState<IntakeQueueFilters>({ pendingState: 'pending', confidenceTier: 'any' });
-  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
-  const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
-
-  const tuningModel = useMemo(() => buildIntakeTuningModel({
-    intakeWorkCandidates: [],
-    forwardedCandidates,
-    forwardedRules,
-    forwardedRoutingAudit,
-    feedback: intakeReviewerFeedback,
-  }), [forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
-
-  const queue = useMemo(() => buildForwardedReviewQueue(forwardedCandidates, tuningModel), [forwardedCandidates, tuningModel]);
-  const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
-  const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
-  const filteredQueue = useMemo(() => {
-    const base = filterReviewQueue(queue, queueFilters);
-    const bucketed = activeBucket === 'all' ? base : base.filter((item) => item.bucket === activeBucket);
-    return sortReviewQueue(bucketed, sortKey);
-  }, [queue, queueFilters, activeBucket, sortKey]);
+    metrics,
+    bucketCounts,
+    filteredQueue,
+    queue,
+    tuningInsights,
+  } = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters });
   const pendingIds = useMemo(() => filteredQueue.filter((entry) => entry.status === 'pending').map((entry) => entry.id), [filteredQueue]);
 
   useEffect(() => {
@@ -146,13 +113,6 @@ export function ForwardingIntakeWorkspace() {
   );
 
   const forwardingAddress = forwardedEmails[0]?.forwardingAddress ?? 'jared+in@yourdomain.com';
-  const tuningInsights = useMemo(() => buildIntakeTuningInsights({
-    intakeWorkCandidates: [],
-    forwardedCandidates,
-    forwardedRules,
-    forwardedRoutingAudit,
-    feedback: intakeReviewerFeedback,
-  }), [forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
   const ruleInsightById = useMemo(() => Object.fromEntries(tuningInsights.ruleInsights.map((entry) => [entry.ruleId, entry])), [tuningInsights.ruleInsights]);
 
   const runAndNext = (candidateId: string, fn: () => void) => {

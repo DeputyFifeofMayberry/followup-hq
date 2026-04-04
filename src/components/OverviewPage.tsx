@@ -5,7 +5,7 @@ import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, S
 import type { AppMode, SavedViewKey, UnifiedQueueDensity, UnifiedQueuePreset, UnifiedQueueSort } from '../types';
 import { formatDate, priorityTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useExecutionQueueViewModel } from '../domains/shared';
 import { applyBulkToFollowUp, previewBulkAction, type BulkActionSpec } from '../lib/bulkActions';
 import type { FollowUpItem, UnifiedQueueItem } from '../types';
 import { getModeConfig } from '../lib/appModeConfig';
@@ -38,7 +38,8 @@ function getQueueReason(row: UnifiedQueueItem) {
 
 export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   const {
-    getUnifiedQueue,
+    queue,
+    stats,
     setSelectedId,
     setSelectedTaskId,
     openCreateFromCapture,
@@ -61,36 +62,9 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
     queueDensity,
     setQueueDensity,
     runValidatedBatchFollowUpTransition,
-  } = useAppStore(
-    useShallow((s) => ({
-      getUnifiedQueue: s.getUnifiedQueue,
-      setSelectedId: s.setSelectedId,
-      setSelectedTaskId: s.setSelectedTaskId,
-      openCreateFromCapture: s.openCreateFromCapture,
-      openTouchModal: s.openTouchModal,
-      openDraftModal: s.openDraftModal,
-      markNudged: s.markNudged,
-      snoozeItem: s.snoozeItem,
-      updateItem: s.updateItem,
-      attemptFollowUpTransition: s.attemptFollowUpTransition,
-      attemptTaskTransition: s.attemptTaskTransition,
-      queuePreset: s.queuePreset,
-      setQueuePreset: s.setQueuePreset,
-      savedExecutionViews: s.savedExecutionViews,
-      applyExecutionView: s.applyExecutionView,
-      saveExecutionView: s.saveExecutionView,
-      executionFilter: s.executionFilter,
-      setExecutionFilter: s.setExecutionFilter,
-      executionSort: s.executionSort,
-      setExecutionSort: s.setExecutionSort,
-      queueDensity: s.queueDensity,
-      setQueueDensity: s.setQueueDensity,
-      runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
-    })),
-  );
+  } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
-  const queue = getUnifiedQueue();
   const [selectedId, setSelectedIdLocal] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -134,12 +108,6 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
   const selected = queue.find((row) => row.id === selectedId) || null;
   const pagedQueue = useMemo(() => queue.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [queue, page]);
 
-  const stats = useMemo(() => ({
-    due: queue.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday).length,
-    blocked: queue.filter((row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk).length,
-    cleanup: queue.filter((row) => row.queueFlags.cleanupRequired).length,
-    closeable: queue.filter((row) => row.queueFlags.readyToCloseParent || row.status === 'Done').length,
-  }), [queue]);
 
   const selectedItems = queue.filter((row) => selectedRows.includes(row.id));
   const selectedFollowUps = selectedItems.filter((row) => row.recordType === 'followup');

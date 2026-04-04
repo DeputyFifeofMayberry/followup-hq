@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 3 Phase 3: architecture boundary hardening, selector/view-model APIs, and workflow regression checks
+- Added explicit component-facing domain view-model hooks for execution queue, follow-ups, tasks, intake review, and projects so major workflow screens can consume shaped APIs instead of broad raw store selection (`src/domains/shared/hooks/useExecutionQueueViewModel.ts`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/domains/intake/hooks/useIntakeReviewViewModel.ts`, `src/domains/projects/hooks/useProjectsViewModel.ts`).
+- Introduced domain boundary barrels and shared queue selectors to make public import paths clearer and to keep selector logic close to domain ownership (`src/domains/shared/selectors/executionQueueSelectors.ts`, `src/domains/shared/index.ts`, `src/domains/followups/index.ts`, `src/domains/tasks/index.ts`, `src/domains/intake/index.ts`, `src/domains/projects/index.ts`).
+- Moved major workspace components toward view-model consumption (Overview queue cockpit, follow-up tracker workspace, tasks workspace, forwarding intake reviewer) to reduce direct coupling to low-level store structure while preserving `useAppStore` as the stable source of truth (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ForwardingIntakeWorkspace.tsx`).
+- Added a dedicated automated test command and architecture-hardening checks for selector behavior, mutation-effect cross-domain sync, persistence payload shaping, intake review matching, and intake decision lifecycle action contracts (`package.json`, `src/testRunner.ts`, `src/domains/shared/selectors/__tests__/executionQueueSelectors.test.ts`, `src/domains/followups/__tests__/followUpSelectors.test.ts`, `src/store/useCases/__tests__/mutationEffects.test.ts`, `src/store/state/__tests__/persistence.test.ts`, `src/lib/intake/__tests__/reviewPipeline.test.ts`, `src/lib/__tests__/intakeLifecycle.test.ts`).
+
 
 ### Deficiency 3 Phase 2: store composition and domain slice ownership
 - Converted `useAppStore` from a giant implementation file into composition/bootstrap wiring that assembles dedicated slices for follow-ups, tasks, projects/intake docs, relationships, intake workflows, forwarding workflows, Outlook workflows, execution view controls, UI state, and initialization/meta concerns (`src/store/useAppStore.ts`, `src/store/slices/*.ts`).

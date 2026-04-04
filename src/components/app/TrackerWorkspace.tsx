@@ -1,9 +1,6 @@
-import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
-import { useShallow } from 'zustand/react/shallow';
 import type { AppMode } from '../../types';
-import { useAppStore } from '../../store/useAppStore';
-import { buildFollowUpCounts, selectFollowUpRows } from '../../lib/followUpSelectors';
+import { useFollowUpsViewModel } from '../../domains/followups';
 import { WorkspacePage, WorkspaceTopStack, WorkspaceSummaryStrip, SectionHeader, StatTile, WorkspacePrimaryLayout, AppShellCard } from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
@@ -11,21 +8,7 @@ import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { items, contacts, companies, search, activeView, followUpFilters, tasks, openCreateModal } = useAppStore(
-    useShallow((s) => ({
-      items: s.items,
-      contacts: s.contacts,
-      companies: s.companies,
-      search: s.search,
-      activeView: s.activeView,
-      followUpFilters: s.followUpFilters,
-      tasks: s.tasks,
-      openCreateModal: s.openCreateModal,
-    })),
-  );
-  const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
-  const followUpStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
-  const openTaskCount = useMemo(() => tasks.filter((task) => task.status !== 'Done').length, [tasks]);
+  const { followUpStats, openTaskCount, openCreateModal } = useFollowUpsViewModel();
 
   return (
     <WorkspacePage>

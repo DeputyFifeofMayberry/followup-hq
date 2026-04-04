@@ -1,11 +1,10 @@
 import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Trash2, Undo2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
-import { useAppStore } from '../store/useAppStore';
 import { AppShellCard, EmptyState, FilterBar, SectionHeader, SegmentedControl, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
+import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
@@ -22,22 +21,7 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
 ];
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useAppStore(useShallow((s) => ({
-    tasks: s.tasks,
-    items: s.items,
-    projects: s.projects,
-    selectedTaskId: s.selectedTaskId,
-    taskOwnerFilter: s.taskOwnerFilter,
-    taskStatusFilter: s.taskStatusFilter,
-    setSelectedTaskId: s.setSelectedTaskId,
-    setTaskOwnerFilter: s.setTaskOwnerFilter,
-    setTaskStatusFilter: s.setTaskStatusFilter,
-    openCreateTaskModal: s.openCreateTaskModal,
-    openEditTaskModal: s.openEditTaskModal,
-    deleteTask: s.deleteTask,
-    updateTask: s.updateTask,
-    attemptTaskTransition: s.attemptTaskTransition,
-  })));
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useTasksViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const [search, setSearch] = useState('');

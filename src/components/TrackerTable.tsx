@@ -3,6 +3,7 @@ import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type Col
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputValue } from '../lib/utils';
+import { validateFollowUpTransition } from '../lib/workflowPolicy';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,11 +13,12 @@ import { selectFollowUpRows } from '../lib/followUpSelectors';
 const columnOrder: FollowUpColumnKey[] = ['title', 'project', 'owner', 'assignee', 'status', 'priority', 'dueDate', 'nextTouchDate', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction'];
 
 export function TrackerTable({ personalMode = false }: { personalMode?: boolean }) {
-  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, tasks, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged, attemptFollowUpTransition } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
     selectedId: s.selectedId,
+    tasks: s.tasks,
     setSelectedId: s.setSelectedId,
     search: s.search,
     activeView: s.activeView,
@@ -27,6 +29,7 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
     selectAllVisibleFollowUps: s.selectAllVisibleFollowUps,
     updateItem: s.updateItem,
     markNudged: s.markNudged,
+    attemptFollowUpTransition: s.attemptFollowUpTransition,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
 
@@ -66,7 +69,27 @@ export function TrackerTable({ personalMode = false }: { personalMode?: boolean 
         cell: ({ row }) => (
           <div className="flex gap-1">
             <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: row.original.status === 'Closed' ? 'Needs action' : 'Closed' }); }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => {
+              event.stopPropagation();
+              if (row.original.status === 'Closed') {
+                updateItem(row.original.id, { status: 'Needs action' });
+                return;
+              }
+              const note = window.prompt('Close follow-up note (required unless override):', row.original.completionNote || '');
+              const baseValidation = validateFollowUpTransition({ record: row.original, from: row.original.status, to: 'Closed', patch: { status: 'Closed', completionNote: note || undefined }, context: { tasks } });
+              if (!baseValidation.allowed && baseValidation.overrideAllowed) {
+                const proceed = window.confirm(`${baseValidation.blockers.join(' ')}\nClose parent anyway with override?`);
+                if (!proceed) return;
+                attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
+                return;
+              }
+              if (!baseValidation.allowed) {
+                window.alert(baseValidation.blockers.join(' '));
+                return;
+              }
+              const result = attemptFollowUpTransition(row.original.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
+              if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
+            }}>{row.original.status === 'Closed' ? 'Reopen' : 'Close'}</button>
             <input aria-label={`Next touch date for ${row.original.title}`} className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
           </div>
         ),

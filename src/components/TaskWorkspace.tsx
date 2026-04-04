@@ -21,7 +21,7 @@ const modeOptions: Array<{ value: TaskMode; label: string }> = [
 ];
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask } = useAppStore(useShallow((s) => ({
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     items: s.items,
     projects: s.projects,
@@ -35,6 +35,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     openEditTaskModal: s.openEditTaskModal,
     deleteTask: s.deleteTask,
     updateTask: s.updateTask,
+    attemptTaskTransition: s.attemptTaskTransition,
   })));
 
   const [search, setSearch] = useState('');
@@ -141,12 +142,20 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   const updateTaskWithStatus = (task: TaskItem, status: TaskItem['status']) => {
     const now = todayIso();
-    updateTask(task.id, {
-      status,
-      ...(status === 'Done' ? { completionNote: task.completionNote || 'Completed from workspace.', completedAt: now } : {}),
-      ...(status === 'Blocked' ? { blockReason: task.blockReason || 'Blocked pending dependency.' } : {}),
-      ...(status === 'In progress' ? { startedAt: task.startedAt || now } : {}),
-    });
+    const patch: Partial<TaskItem> =
+      status === 'Done'
+        ? { completionNote: task.completionNote || window.prompt('Completion note:', '') || undefined, completedAt: now }
+        : status === 'Blocked'
+          ? { blockReason: task.blockReason || window.prompt('Block reason:', '') || undefined, nextReviewAt: task.nextReviewAt || addDaysIso(now, 1) }
+          : status === 'In progress'
+            ? { startedAt: task.startedAt || now }
+            : {};
+    const result = attemptTaskTransition(task.id, status, patch);
+    if (!result.applied) {
+      window.alert(result.validation.blockers.join(' '));
+      return;
+    }
+    if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
   };
 
   return (
@@ -218,7 +227,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                       <div className="task-row-edit-controls">
                         <button onClick={() => updateTaskWithStatus(task, 'Done')} className="action-btn !px-2.5 !py-1 text-xs"><CheckCircle2 className="h-4 w-4" />Done</button>
                         <button onClick={() => updateTaskWithStatus(task, task.status === 'Blocked' ? 'In progress' : 'Blocked')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                        <button onClick={() => updateTask(task.id, { deferredUntil: addDaysIso(todayIso(), 3), status: task.status === 'Done' ? 'To do' : task.status })} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
+                        <button onClick={() => { const deferTo = addDaysIso(todayIso(), 3); const result = attemptTaskTransition(task.id, task.status === 'Done' ? 'To do' : task.status, { deferredUntil: deferTo, nextReviewAt: deferTo, status: task.status === 'Done' ? 'To do' : task.status }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn !px-2.5 !py-1 text-xs">Defer 3d</button>
                       </div>
                     </div>
                   </div>
@@ -246,10 +255,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               </div>
 
               <div className="task-inspector-actions">
-                <button onClick={() => updateTask(selectedTask.id, { status: 'Done', completionNote: selectedTask.completionNote || 'Completed from inspector.' })} className="primary-btn">Mark done</button>
-                <button onClick={() => updateTask(selectedTask.id, { status: 'Blocked', blockReason: selectedTask.blockReason || 'Blocked pending dependency.' })} className="action-btn">Block</button>
+                <button onClick={() => updateTaskWithStatus(selectedTask, 'Done')} className="primary-btn">Mark done</button>
+                <button onClick={() => updateTaskWithStatus(selectedTask, 'Blocked')} className="action-btn">Block</button>
                 <button onClick={() => updateTask(selectedTask.id, { status: selectedTask.status === 'Blocked' ? 'In progress' : selectedTask.status, blockReason: undefined })} className="action-btn">Unblock</button>
-                <button onClick={() => updateTask(selectedTask.id, { deferredUntil: addDaysIso(todayIso(), 2), nextReviewAt: addDaysIso(todayIso(), 2) })} className="action-btn">Defer / snooze</button>
+                <button onClick={() => { const deferTo = addDaysIso(todayIso(), 2); const result = attemptTaskTransition(selectedTask.id, selectedTask.status, { deferredUntil: deferTo, nextReviewAt: deferTo }); if (!result.applied) window.alert(result.validation.blockers.join(' ')); }} className="action-btn">Defer / snooze</button>
                 <button onClick={() => updateTask(selectedTask.id, { startDate: todayIso(), startedAt: selectedTask.startedAt || todayIso() })} className="action-btn">Start today</button>
                 <button onClick={() => updateTask(selectedTask.id, { dueDate: addDaysIso(todayIso(), 1) })} className="action-btn">Due tomorrow</button>
               </div>

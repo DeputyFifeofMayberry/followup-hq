@@ -39,8 +39,9 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
     openDraftModal,
     markNudged,
     snoozeItem,
-    updateTask,
     updateItem,
+    attemptFollowUpTransition,
+    attemptTaskTransition,
     queuePreset,
     setQueuePreset,
     savedExecutionViews,
@@ -52,6 +53,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
     setExecutionSort,
     queueDensity,
     setQueueDensity,
+    runValidatedBatchFollowUpTransition,
   } = useAppStore(
     useShallow((s) => ({
       getUnifiedQueue: s.getUnifiedQueue,
@@ -62,8 +64,9 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
       openDraftModal: s.openDraftModal,
       markNudged: s.markNudged,
       snoozeItem: s.snoozeItem,
-      updateTask: s.updateTask,
       updateItem: s.updateItem,
+      attemptFollowUpTransition: s.attemptFollowUpTransition,
+      attemptTaskTransition: s.attemptTaskTransition,
       queuePreset: s.queuePreset,
       setQueuePreset: s.setQueuePreset,
       savedExecutionViews: s.savedExecutionViews,
@@ -75,6 +78,7 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
       setExecutionSort: s.setExecutionSort,
       queueDensity: s.queueDensity,
       setQueueDensity: s.setQueueDensity,
+      runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
     })),
   );
 
@@ -143,7 +147,11 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
       { type: 'close', ids: [] };
     setBulkPreview({ spec, summary: previewBulkAction(spec, useAppStore.getState().items, useAppStore.getState().tasks) });
     if (action === 'done-tasks') {
-      selectedTasks.forEach((row) => updateTask(row.id, { status: 'Done' }));
+      selectedTasks.forEach((row) => {
+        const note = window.prompt(`Completion note for task ${row.title}:`, '');
+        const result = attemptTaskTransition(row.id, 'Done', { completionNote: note || undefined, completedAt: new Date().toISOString() });
+        if (!result.applied) window.alert(result.validation.blockers.join(' '));
+      });
     }
   };
 
@@ -157,6 +165,12 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
         undo.push({ id: row.id, before: { escalationLevel: current.escalationLevel } });
         updateItem(row.id, { escalationLevel: 'Watch' });
       });
+    } else if (bulkPreview.spec.type === 'close') {
+      const note = window.prompt('Batch close note for follow-ups:', '');
+      const result = runValidatedBatchFollowUpTransition(selectedFollowUps.map((entry) => entry.id), 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: note || undefined });
+      if (result.warnings.length || result.skipped) {
+        window.alert(`Bulk close: ${result.affected} affected, ${result.skipped} skipped.\n${result.warnings.slice(0, 5).join('\n')}`);
+      }
     } else {
       selectedFollowUps.forEach((row) => {
         const current = useAppStore.getState().items.find((entry) => entry.id === row.id);
@@ -316,14 +330,27 @@ export function OverviewPage({ onOpenWorkspace, onOpenTrackerView, personalMode 
               <div className="overview-action-stack">
                 <button onClick={() => {
                   if (selected.recordType === 'followup') {
-                    const note = window.prompt('Optional completion note for follow-up:', '');
-                    updateItem(selected.id, { status: 'Closed', actionState: 'Complete', completionNote: note || undefined });
+                    const note = window.prompt('Completion note for closeout (leave blank only if overriding):', '');
+                    const result = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined });
+                    if (!result.applied && result.validation.overrideAllowed) {
+                      const proceed = window.confirm(`${result.validation.blockers.join(' ')}\nClose anyway with acknowledgement?`);
+                      if (!proceed) return;
+                      const overrideResult = attemptFollowUpTransition(selected.id, 'Closed', { actionState: 'Complete', completionNote: note || undefined }, { override: true });
+                      if (overrideResult.validation.warnings.length) window.alert(overrideResult.validation.warnings.join('\n'));
+                      return;
+                    }
+                    if (!result.applied) {
+                      window.alert(result.validation.blockers.join(' '));
+                      return;
+                    }
+                    if (result.validation.warnings.length) window.alert(result.validation.warnings.join('\n'));
                   } else {
-                    const note = window.prompt('Optional completion note for task:', '');
-                    updateTask(selected.id, { status: 'Done', completionNote: note || undefined, completedAt: new Date().toISOString() });
+                    const note = window.prompt('Completion note for task done:', '');
+                    const result = attemptTaskTransition(selected.id, 'Done', { completionNote: note || undefined, completedAt: new Date().toISOString() });
+                    if (!result.applied) window.alert(result.validation.blockers.join(' '));
                   }
                 }} className="primary-btn justify-start"><CheckCircle2 className="h-4 w-4" />Complete / close</button>
-                {selected.recordType === 'followup' ? <button onClick={() => snoozeItem(selected.id, 2)} className="action-btn justify-start"><PauseCircle className="h-4 w-4" />Snooze</button> : null}
+                {selected.recordType === 'followup' ? <button onClick={() => { const days = Number(window.prompt('Snooze how many days?','2') || '0'); if (!days || days < 1) { window.alert('Deferring requires a next review date.'); return; } snoozeItem(selected.id, days); }} className="action-btn justify-start"><PauseCircle className="h-4 w-4" />Snooze</button> : null}
                 {selected.recordType === 'followup' ? <button onClick={() => { setSelectedId(selected.id); openTouchModal(); }} className="action-btn justify-start"><Clock3 className="h-4 w-4" />Log touch</button> : null}
                 {selected.recordType === 'followup' ? <button onClick={() => markNudged(selected.id)} className="action-btn justify-start"><BellRing className="h-4 w-4" />Mark nudged</button> : null}
                 {selected.recordType === 'followup' ? <button onClick={() => {

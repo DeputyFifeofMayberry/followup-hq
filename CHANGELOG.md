@@ -2,6 +2,12 @@
 
 ## 2026-04-04
 
+### Deficiency 1 Phase 3: relationship-aware actions + parent/child rollups
+- Added shared child-work rollup helpers that centralize linked-task counts, blocked/overdue/ready signals, and explicit readiness explanations so follow-up readiness messaging is derived consistently in one place (`src/lib/childWorkRollups.ts`, `src/domains/tasks/helpers.ts`, `src/lib/workflowPolicy.ts`).
+- Extended follow-up and task detail experiences with relationship-aware operations (create child task from parent, link/unlink existing task-child relationships, open parent from child, open child from parent) while preserving existing creation/edit flows (`src/components/ItemDetailPanel.tsx`, `src/components/TaskWorkspace.tsx`).
+- Upgraded the universal record drawer to surface parent/child relationship actions and rollup explanations directly in the shared detail shell for clearer cross-record execution context (`src/components/UniversalRecordDrawer.tsx`).
+- Improved lane-level linked-task visibility by adding explicit blocked/overdue/all-done reason messaging in follow-up table linked-task summaries instead of implicit counts alone (`src/components/TrackerTable.tsx`).
+
 ### Deficiency 1 Phase 2: universal record drawer / detail shell
 - Added a global universal record drawer surface with a consistent detail shell (Summary, Linked records, Timeline/history, Context/metadata) that can open from anywhere and navigate between related records using the shared cross-record descriptor/bundle foundation from Phase 1 (`src/components/UniversalRecordDrawer.tsx`, `src/lib/recordContext.ts`, `src/App.tsx`).
 - Added shared UI state/actions for a single source of truth for drawer context/open-close behavior, so all workspaces can launch the same cross-record detail surface without prop drilling (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/types.ts`, `src/store/slices/uiSlice.ts`).

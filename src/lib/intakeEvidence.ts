@@ -173,48 +173,59 @@ export function buildCaptureFieldReviews(input: {
   nextStep?: string;
   confidence: number;
   cleanupReasons: string[];
+  fieldEvidence?: Record<string, { status: IntakeFieldReviewStatus | 'explicit' | 'matched' | 'inferred' | 'contextual' | 'missing' | 'conflicting'; confidence: number; reasons?: string[]; }>;
 }): IntakeFieldReview[] {
   const baseStatus = confidenceToStatus(input.confidence);
   const hasCleanup = (reason: string) => input.cleanupReasons.includes(reason);
   const commonReason = `Parse confidence ${input.confidence.toFixed(2)} (${baseStatus}).`;
+  const toStatus = (key: string, fallback: IntakeFieldReviewStatus): IntakeFieldReviewStatus => {
+    const raw = input.fieldEvidence?.[key]?.status;
+    if (!raw) return fallback;
+    if (raw === 'explicit' || raw === 'matched') return 'strong';
+    if (raw === 'contextual' || raw === 'inferred') return 'medium';
+    if (raw === 'conflicting') return 'conflicting';
+    if (raw === 'missing') return 'missing';
+    return fallback;
+  };
+  const toScore = (key: string, fallback: number): number => input.fieldEvidence?.[key]?.confidence ?? fallback;
 
   return [
     {
       key: 'type',
       label: FIELD_LABELS.type,
       value: input.kind,
-      confidenceScore: input.confidence,
-      status: hasCleanup('unclear_type') ? 'weak' : baseStatus,
+      confidenceScore: toScore('kind', input.confidence),
+      status: hasCleanup('unclear_type') ? 'weak' : toStatus('kind', baseStatus),
       evidenceSnippets: [input.rawText || input.title].filter(Boolean),
       sourceRefs: [{ sourceRef: 'quick-add', sourceType: 'quick_add' }],
-      reasons: hasCleanup('unclear_type') ? ['Type tokens were ambiguous; please verify task vs follow-up.'] : [commonReason],
+      reasons: hasCleanup('unclear_type') ? ['Type tokens were ambiguous; please verify task vs follow-up.'] : (input.fieldEvidence?.kind?.reasons || [commonReason]),
     },
     {
       key: 'title',
       label: FIELD_LABELS.title,
       value: input.title,
-      confidenceScore: input.confidence,
-      status: hasCleanup('low_confidence_title') ? 'weak' : baseStatus,
+      confidenceScore: toScore('title', input.confidence),
+      status: hasCleanup('low_confidence_title') ? 'weak' : toStatus('title', baseStatus),
       evidenceSnippets: [input.title],
       sourceRefs: [{ sourceRef: 'quick-add', sourceType: 'quick_add' }],
-      reasons: hasCleanup('low_confidence_title') ? ['Title looked too short or noisy.'] : [commonReason],
+      reasons: hasCleanup('low_confidence_title') ? ['Title looked too short or noisy.'] : (input.fieldEvidence?.title?.reasons || [commonReason]),
     },
-    buildSimpleCaptureField('project', input.project, hasCleanup('missing_project') ? 'missing' : baseStatus),
-    buildSimpleCaptureField('owner', input.owner, hasCleanup('missing_owner') ? 'missing' : baseStatus),
-    buildSimpleCaptureField('dueDate', input.dueDate, hasCleanup('missing_due_date') ? 'missing' : confidenceToStatus(input.dueDate ? input.confidence * 0.8 : 0.2)),
+    buildSimpleCaptureField('project', input.project, hasCleanup('missing_project') ? 'missing' : toStatus('project', baseStatus), toScore('project', 0.7)),
+    buildSimpleCaptureField('owner', input.owner, hasCleanup('missing_owner') ? 'missing' : toStatus('owner', baseStatus), toScore('owner', 0.7)),
+    buildSimpleCaptureField('dueDate', input.dueDate, hasCleanup('missing_due_date') ? 'missing' : toStatus('dueDate', confidenceToStatus(input.dueDate ? input.confidence * 0.8 : 0.2)), toScore('dueDate', 0.64)),
     buildSimpleCaptureField('priority', input.priority, baseStatus),
-    buildSimpleCaptureField('waitingOn', input.waitingOn, input.waitingOn ? 'medium' : 'missing'),
-    buildSimpleCaptureField('nextStep', input.nextStep || input.nextAction, input.nextStep || input.nextAction ? 'medium' : 'missing'),
+    buildSimpleCaptureField('waitingOn', input.waitingOn, toStatus('waitingOn', input.waitingOn ? 'medium' : 'missing'), toScore('waitingOn', 0.58)),
+    buildSimpleCaptureField('nextStep', input.nextStep || input.nextAction, toStatus('nextStep', input.nextStep || input.nextAction ? 'medium' : 'missing'), toScore('nextStep', 0.56)),
   ];
 }
 
-function buildSimpleCaptureField(key: Exclude<IntakeFieldReviewKey, 'type' | 'title' | 'existingLink' | 'summary'>, value: string | undefined, status: IntakeFieldReviewStatus): IntakeFieldReview {
+function buildSimpleCaptureField(key: Exclude<IntakeFieldReviewKey, 'type' | 'title' | 'existingLink' | 'summary'>, value: string | undefined, status: IntakeFieldReviewStatus, confidenceScore?: number): IntakeFieldReview {
   return {
     key,
     label: FIELD_LABELS[key],
     value,
     status,
-    confidenceScore: status === 'strong' ? 0.9 : status === 'medium' ? 0.7 : status === 'weak' ? 0.45 : 0.2,
+    confidenceScore: confidenceScore ?? (status === 'strong' ? 0.9 : status === 'medium' ? 0.7 : status === 'weak' ? 0.45 : 0.2),
     evidenceSnippets: value ? [value] : [],
     sourceRefs: [{ sourceRef: 'quick-add', sourceType: 'quick_add' }],
     reasons: value ? [] : ['No reliable signal detected in capture text.'],

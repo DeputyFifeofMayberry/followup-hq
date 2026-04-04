@@ -62,18 +62,36 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
   }, []);
 
   const parsed = useMemo(() => {
-    const base = parsedOverride ?? parseUniversalCapture(text);
+    const recentContext = getRecentEntryContext();
+    const base = parsedOverride ?? parseUniversalCapture(text, {
+      knownProjects: projects,
+      knownOwners: contacts,
+      contextProject,
+      contextOwner,
+      recentProject: recentContext.project,
+      recentOwner: recentContext.owner,
+    });
     return { ...base, project: base.project || contextProject, owner: base.owner || contextOwner };
-  }, [parsedOverride, text, contextProject, contextOwner]);
+  }, [parsedOverride, text, projects, contacts, contextProject, contextOwner]);
 
-  const confidence = parsed.confidence >= 0.82 && parsed.cleanupReasons.length === 0 ? 'high' : parsed.confidence >= 0.6 ? 'medium' : 'low';
+  const kindEvidence = parsed.fieldEvidence.kind;
+  const titleEvidence = parsed.fieldEvidence.title;
+  const hasCriticalConflict = Object.values(parsed.fieldEvidence).some((field) => field.status === 'conflicting');
+  const criticalMissing = !parsed.title || !parsed.kind || !parsed.project || !parsed.owner;
+  const canDirectImport = parsed.confidence >= 0.8
+    && titleEvidence.confidence >= 0.72
+    && kindEvidence.confidence >= 0.7
+    && !hasCriticalConflict
+    && !criticalMissing;
+  const confidence = canDirectImport ? 'high' : parsed.confidence >= 0.58 ? 'medium' : 'low';
   const canDirectSave = !!text.trim() && !!parsed.title.trim();
   const needsCleanup = parsed.cleanupReasons.length > 0;
   const parseReasons = [
-    parsed.project ? `Detected project: ${parsed.project}` : 'Project not confidently detected',
-    parsed.owner ? `Detected owner: ${parsed.owner}` : 'Owner missing',
-    parsed.dueDate ? `Detected due date: ${new Date(parsed.dueDate).toLocaleDateString()}` : 'Due date missing',
-    `Detected type: ${parsed.kind}`,
+    `Type: ${parsed.kind} (${parsed.fieldEvidence.kind.status})`,
+    parsed.project ? `Project: ${parsed.project} (${parsed.fieldEvidence.project.status})` : 'Project: missing',
+    parsed.owner ? `Owner: ${parsed.owner} (${parsed.fieldEvidence.owner.status})` : 'Owner: missing',
+    parsed.dueDate ? `Due date: ${new Date(parsed.dueDate).toLocaleDateString()} (${parsed.fieldEvidence.dueDate.status})` : 'Due date: missing',
+    ...parsed.parserNotes.slice(0, 3),
   ];
   const fieldReviewSummary = useMemo(() => summarizeFieldReviews(buildCaptureFieldReviews({
     kind: parsed.kind,
@@ -88,6 +106,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
     nextStep: parsed.nextStep,
     confidence: parsed.confidence,
     cleanupReasons: parsed.cleanupReasons,
+    fieldEvidence: parsed.fieldEvidence,
   })), [parsed]);
 
   const findProject = (name?: string): { id: string; name: string } => {
@@ -111,7 +130,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
   const saveDraft = (openDetail = false) => {
     if (!text.trim() || !canDirectSave) return;
 
-    if (confidence !== 'high') {
+    if (!canDirectImport) {
       const candidate: IntakeCandidate = {
         id: createId('INT'),
         rawText: parsed.rawText,
@@ -135,7 +154,9 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         },
       };
       stageIntakeCandidate(candidate);
-      setConfirmation('Intake candidate received and sent to Review.');
+      setConfirmation(confidence === 'low'
+        ? 'Capture sent to Review with warnings so nothing is imported on weak confidence.'
+        : 'Capture sent to Review so you can confirm inferred fields.');
       setText('');
       setParsedOverride(null);
       return;
@@ -194,6 +215,9 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
             <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Parse preview</span>
             <span className={`confidence-chip ${confidence === 'high' ? 'confidence-chip-high' : confidence === 'medium' ? 'confidence-chip-medium' : 'confidence-chip-low'}`}>{confidence} confidence</span>
           </div>
+          <div className={`mb-2 rounded-xl border px-3 py-2 text-xs ${canDirectImport ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+            {canDirectImport ? 'Direct import ready: title + type + ownership/project evidence are strong.' : 'Review recommended: parser found uncertainty, context fallback, or conflicting signals.'}
+          </div>
           <div className="grid gap-2 text-xs md:grid-cols-2">
             {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
           </div>
@@ -205,6 +229,16 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
                   <span className="text-slate-700">{field.label}: <span className="font-medium text-slate-900">{field.value || 'Missing'}</span></span>
                   <FieldConfidenceChip status={field.status} />
                 </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-600">
+            <div className="font-semibold text-slate-700">Parser evidence</div>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {(['project', 'owner', 'dueDate', 'kind'] as const).map((key) => (
+                <span key={key} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                  {key}: {parsed.fieldEvidence[key].status}
+                </span>
               ))}
             </div>
           </div>

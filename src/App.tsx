@@ -432,8 +432,6 @@ function MainApp() {
 
   return (
     <div className="app-shell text-slate-900">
-      <div className="app-shell-glow app-shell-glow-amber" />
-      <div className="app-shell-glow app-shell-glow-sky" />
       <div className="app-shell-layout">
         <aside className="app-nav-rail" aria-label="Primary workspace navigation">
           <div className="app-brand-block">

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Plus, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, Command, FileSpreadsheet, HardHat, Inbox, ListChecks, ListTodo, LockKeyhole, Mail, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 
 import { DuplicateReviewPanel } from './components/DuplicateReviewPanel';
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
@@ -380,9 +380,14 @@ function MainApp() {
     }
   }, [workspace, appMode, openTrackerItem, openTrackerView]);
 
+  const openQuickAdd = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('followuphq:open-quick-add', { detail: { focus: true, expand: true } }));
+  }, []);
+
   const commands = [
-    { label: 'New follow-up', run: () => openCreateModal() },
-    { label: 'New task', run: () => openCreateTaskModal() },
+    { label: 'Open Quick Add', run: openQuickAdd },
+    { label: 'Open Structured follow-up form', run: () => openCreateModal() },
+    { label: 'Open Structured task form', run: () => openCreateTaskModal() },
     { label: 'Open worklist', run: () => setWorkspace('worklist') },
     { label: 'Open follow-ups', run: () => setWorkspace('followups') },
     { label: 'Open tasks', run: () => setWorkspace('tasks') },
@@ -391,13 +396,13 @@ function MainApp() {
   const visibleCommands = commands.filter((command) => command.label.toLowerCase().includes(commandQuery.trim().toLowerCase()));
 
   const workspaceMeta: Record<WorkspaceKey, { title: string; purpose: string; health: string; actions: Array<{ label: string; run: () => void; primary?: boolean }> }> = {
-    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'New follow-up', run: openCreateModal, primary: true }] },
-    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Add follow-up', run: openCreateModal, primary: true }] },
-    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Add task', run: openCreateTaskModal, primary: true }] },
-    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [] },
-    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [] },
-    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [] },
-    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Export snapshots when you need external reporting.' : 'Export team-facing reporting and cadence summaries.', health: 'Export-ready data', actions: [] },
+    worklist: { title: 'Worklist', purpose: appMode === 'personal' ? 'Decide your next personal execution move quickly.' : 'Run the team queue with ownership and pressure visibility.', health: `${navCounts.worklist || 0} items due now`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
+    followups: { title: 'Follow Ups', purpose: appMode === 'personal' ? 'Keep your commitments moving with summary-first records.' : 'Coordinate follow-up ownership and team accountability.', health: `${navCounts.followups || 0} active follow-ups`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }] },
+    tasks: { title: 'Tasks', purpose: appMode === 'personal' ? 'Process your execution list with low-noise editing.' : 'Align task execution across teammates and linked follow-ups.', health: `${navCounts.tasks || 0} open tasks`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New task (structured)', run: openCreateTaskModal }] },
+    outlook: { title: 'Intake', purpose: appMode === 'personal' ? 'Capture incoming work and clean it into your queue.' : 'Route inbound intake safely for the whole team.', health: `${combinedCleanup} need cleanup`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }] },
+    projects: { title: 'Projects', purpose: appMode === 'personal' ? 'Secondary: monitor project context for your own commitments.' : 'Primary team lens for project pressure and escalation.', health: `${items.length} linked follow-ups`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
+    relationships: { title: 'Relationships', purpose: appMode === 'personal' ? 'Secondary: keep key relationship notes nearby.' : 'Primary team lens for relationship heat and communication risk.', health: `${items.length} connected threads`, actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }, { label: 'New follow-up (structured)', run: openCreateModal }, { label: 'New task (structured)', run: openCreateTaskModal }] },
+    exports: { title: 'Exports', purpose: appMode === 'personal' ? 'Export snapshots when you need external reporting.' : 'Export team-facing reporting and cadence summaries.', health: 'Export-ready data', actions: [{ label: 'Quick Add', run: openQuickAdd, primary: true }] },
   };
   const currentMeta = workspaceMeta[workspace];
 
@@ -451,7 +456,7 @@ function MainApp() {
               <div className="workspace-header-actions">
                 {currentMeta.actions.map((action) => (
                   <button key={action.label} type="button" onClick={action.run} className={action.primary ? 'primary-btn' : 'action-btn'}>
-                    {action.primary ? <Plus className="h-4 w-4" /> : null}
+                    {action.primary ? <Sparkles className="h-4 w-4" /> : null}
                     {action.label}
                   </button>
                 ))}

@@ -56,5 +56,40 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters }
     feedback: store.intakeReviewerFeedback,
   }), [store.forwardedCandidates, store.forwardedRules, store.forwardedRoutingAudit, store.intakeReviewerFeedback]);
 
-  return { ...store, tuningModel, queue, metrics, bucketCounts, filteredQueue, tuningInsights };
+  const reviewLane = {
+    queue,
+    filteredQueue,
+    metrics,
+    bucketCounts,
+    pendingQueue: filteredQueue.filter((item) => item.status === 'pending'),
+  };
+
+  const supportPanels = {
+    tuningModel,
+    tuningInsights,
+    forwardedLedger: store.forwardedLedger,
+    forwardedRoutingAudit: store.forwardedRoutingAudit,
+    forwardedRules: store.forwardedRules,
+  };
+
+  const mutations = {
+    ingestForwardedEmailPayload: store.ingestForwardedEmailPayload,
+    approveForwardedCandidate: store.approveForwardedCandidate,
+    rejectForwardedCandidate: store.rejectForwardedCandidate,
+    saveForwardedCandidateAsReference: store.saveForwardedCandidateAsReference,
+    linkForwardedCandidateToExisting: store.linkForwardedCandidateToExisting,
+    addForwardRuleFromCandidate: store.addForwardRuleFromCandidate,
+    updateForwardRule: store.updateForwardRule,
+    deleteForwardRule: store.deleteForwardRule,
+    addManualForwardRule: store.addManualForwardRule,
+  };
+
+  return {
+    forwardedEmails: store.forwardedEmails,
+    forwardedCandidates: store.forwardedCandidates,
+    items: store.items,
+    reviewLane,
+    supportPanels,
+    mutations,
+  };
 }

@@ -72,8 +72,8 @@ export function OutlookPanel({ showAdvanced = false, setWorkspace }: { showAdvan
   return (
     <AppShellCard className="space-y-4 outlook-command-surface" surface="command">
       <SectionHeader
-        title="Intake funnel"
-        subtitle="Use Intake to receive inbound material, correct parser output, and hand approved records into the execution lanes."
+        title="Intake review lane"
+        subtitle="Start with the review queue, process inbound work quickly, then use admin utilities only when needed."
         actions={
           <div className="flex flex-wrap gap-2 tonal-chip-panel">
             <Badge variant="success">Forwarding-first workflow</Badge>
@@ -84,17 +84,28 @@ export function OutlookPanel({ showAdvanced = false, setWorkspace }: { showAdvan
           </div>
         }
       />
-        <div className="flex flex-wrap gap-2 tonal-chip-panel toolbar-row">
-          <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>Intake Review</button>
-          <button className={`outlook-tab-btn ${activeTab === 'history' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('history')}>Intake History</button>
-          <button className={`outlook-tab-btn ${activeTab === 'rules' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('rules')}>Rules / Settings</button>
-          <button className={`outlook-tab-btn ${activeTab === 'settings' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('settings')}>Advanced Outlook Sync</button>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">Review queue</div>
+              <div className="text-xs text-slate-600">Open Intake, work Needs review items, approve or route, then move on.</div>
+            </div>
+            <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>
+              Open review lane
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3 text-xs">
+            <span className="font-semibold uppercase tracking-wide text-slate-500">Utilities</span>
+            <button className={`outlook-tab-btn ${activeTab === 'history' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
+            <button className={`outlook-tab-btn ${activeTab === 'rules' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('rules')}>Rules</button>
+            <button className={`outlook-tab-btn ${activeTab === 'settings' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('settings')}>Advanced sync</button>
+          </div>
         </div>
 
         {activeTab === 'review' ? <UniversalIntakeWorkspace setWorkspace={setWorkspace} /> : null}
         {activeTab === 'history' ? (
           <div className="surface-block text-sm text-slate-700">
-            Intake history is outcome-first. Select any item to verify source evidence, rule influence, final decision, and whether reviewers overrode the suggested path.
+            Intake history is outcome-first. Use it to confirm prior decisions and rule impact after today’s queue is processed.
           </div>
         ) : null}
         {activeTab === 'rules' ? <ForwardingIntakeWorkspace /> : null}

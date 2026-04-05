@@ -65,13 +65,11 @@ export function ForwardingIntakeWorkspace() {
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
 
+  const viewModel = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters });
+  const { forwardedEmails, forwardedCandidates, items, reviewLane, supportPanels, mutations } = viewModel;
+  const { metrics, bucketCounts, filteredQueue, queue } = reviewLane;
+  const { tuningInsights, forwardedRules, forwardedLedger, forwardedRoutingAudit } = supportPanels;
   const {
-    forwardedEmails,
-    forwardedCandidates,
-    forwardedRules,
-    forwardedLedger,
-    forwardedRoutingAudit,
-    items,
     ingestForwardedEmailPayload,
     approveForwardedCandidate,
     rejectForwardedCandidate,
@@ -81,13 +79,8 @@ export function ForwardingIntakeWorkspace() {
     updateForwardRule,
     deleteForwardRule,
     addManualForwardRule,
-    metrics,
-    bucketCounts,
-    filteredQueue,
-    queue,
-    tuningInsights,
-  } = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters });
-  const pendingIds = useMemo(() => filteredQueue.filter((entry) => entry.status === 'pending').map((entry) => entry.id), [filteredQueue]);
+  } = mutations;
+  const pendingIds = useMemo(() => reviewLane.pendingQueue.map((entry) => entry.id), [reviewLane.pendingQueue]);
 
   useEffect(() => {
     if (!pendingIds.includes(activeCandidateId || '')) setActiveCandidateId(pendingIds[0] ?? null);
@@ -135,25 +128,16 @@ export function ForwardingIntakeWorkspace() {
   return (
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <h3 className="text-base font-semibold text-slate-900">Email intake (forwarding-first)</h3>
-        <p className="mt-1 text-sm text-slate-600">Forward messages to <span className="font-semibold text-slate-900">{forwardingAddress}</span>. Pending queue is primary; rules and history support review decisions.</p>
+        <h3 className="text-base font-semibold text-slate-900">Forwarding intake review queue</h3>
+        <p className="mt-1 text-sm text-slate-600">Forward messages to <span className="font-semibold text-slate-900">{forwardingAddress}</span>. Process Needs review items first, then use rules/history support panels.</p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Pending review</div><div className="text-lg font-semibold text-amber-700">{metrics.pendingCount}</div></div>
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Batch-safe</div><div className="text-lg font-semibold text-emerald-700">{metrics.batchSafeCount}</div></div>
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Duplicate / link review</div><div className="text-lg font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Ready now</div><div className="text-lg font-semibold text-emerald-700">{metrics.batchSafeCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Link existing</div><div className="text-lg font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-lg font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-lg font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
-      </div>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-        <div className="text-sm font-semibold text-slate-900">Forwarding tuning snapshot</div>
-        <div className="mt-2 flex flex-wrap gap-1 text-xs">
-          {tuningInsights.weakParseHotspots.map((chip) => <Badge key={chip.label} variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.label}: {chip.value}</Badge>)}
-        </div>
-        <ul className="mt-2 space-y-1 text-xs text-slate-600">
-          {tuningInsights.tuningSuggestions.slice(0, 3).map((suggestion) => <li key={suggestion}>• {suggestion}</li>)}
-        </ul>
       </div>
 
       <div className="rounded-xl border border-slate-200 p-3">
@@ -165,7 +149,7 @@ export function ForwardingIntakeWorkspace() {
             if (queue.find((entry) => entry.id === candidateId)?.batchSafe) {
               approveForwardedCandidate(candidate.id, candidate.suggestedType === 'reference' ? 'followup' : candidate.suggestedType);
             }
-          })}>Batch approve batch-safe ({metrics.batchSafeCount})</button>
+          })}>Approve ready now ({metrics.batchSafeCount})</button>
         </div>
         <div className="mb-2 flex flex-wrap gap-2 text-[11px]">
           {(Object.keys(bucketLabels) as IntakeReviewBucket[]).map((bucket) => (
@@ -217,14 +201,14 @@ export function ForwardingIntakeWorkspace() {
 
                 <div className="mt-3 grid gap-2 lg:grid-cols-2">
                   <div className="rounded-lg border border-slate-200 p-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve into execution</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve as follow-up</button>
+                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve into Tasks</button>
+                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve into Follow Ups</button>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Alternative actions</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Alternative decisions</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button className="action-btn" onClick={() => runAndNext(candidate.id, () => saveForwardedCandidateAsReference(candidate.id))}><FileText className="h-4 w-4" /> Save as reference</button>
                       <button className="action-btn" onClick={() => runAndNext(candidate.id, () => rejectForwardedCandidate(candidate.id))}><AlertTriangle className="h-4 w-4" /> Reject</button>
@@ -285,6 +269,18 @@ export function ForwardingIntakeWorkspace() {
           {pendingIds.length === 0 ? <div className="text-sm text-slate-500">No pending emails in this queue view.</div> : null}
         </div>
       </div>
+
+      <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-900">
+          <ShieldCheck className="h-4 w-4" /> Forwarding tuning snapshot
+        </summary>
+        <div className="mt-2 flex flex-wrap gap-1 text-xs">
+          {tuningInsights.weakParseHotspots.map((chip) => <Badge key={chip.label} variant={chip.tone === 'danger' ? 'danger' : chip.tone === 'warn' ? 'warn' : 'neutral'}>{chip.label}: {chip.value}</Badge>)}
+        </div>
+        <ul className="mt-2 space-y-1 text-xs text-slate-600">
+          {tuningInsights.tuningSuggestions.slice(0, 3).map((suggestion) => <li key={suggestion}>• {suggestion}</li>)}
+        </ul>
+      </details>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 p-3">

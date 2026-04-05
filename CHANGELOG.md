@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Intake Phase 1: review-lane restructuring + admin de-emphasis
+- Reframed Intake entry around a dominant review lane with utility navigation for History, Rules, and Advanced sync so users land directly in queue execution instead of mode selection (`src/components/OutlookPanel.tsx`).
+- Restructured Universal Intake into an execution-first hierarchy (review summary, queue-first triage, candidate review lane, and contextual inspector) with clearer daily intake language and stronger fast-approve emphasis for ready-now items (`src/components/UniversalIntakeWorkspace.tsx`).
+- De-emphasized admin/tuning surfaces in Universal Intake by moving finalized history and intake tuning/admin analytics into collapsed support disclosures lower in the page (`src/components/UniversalIntakeWorkspace.tsx`).
+- Rebalanced Forwarding Intake toward queue-first processing, softened tuning/admin visual weight, and kept rules/history/developer tooling as secondary support surfaces while preserving full functionality (`src/components/ForwardingIntakeWorkspace.tsx`).
+- Refactored the intake review view-model return shape into grouped boundaries (`reviewLane`, `supportPanels`, `mutations`) so intake UIs can cleanly separate daily review flow from support/admin concerns (`src/domains/intake/hooks/useIntakeReviewViewModel.ts`).
+
 ### Save/sync trust overhaul phase 3: record-level persistence + explicit deletion propagation
 - Replaced coarse table-replacement persistence with operation-oriented record sync that scopes writes to changed dirty records, carries pending record operations through local cache, and prevents stale-client omission from triggering global stale-row deletes (`src/lib/persistence.ts`, `src/store/persistenceQueue.ts`).
 - Added explicit tombstone-based deletion support (`deleted_at`) to entity schema and persistence writes so records only disappear remotely through intentional persisted delete operations, not snapshot absence (`supabase/migrations/20260402_entity_persistence.sql`, `supabase/migrations/20260405_persistence_schema_hardening.sql`, `supabase/migrations/20260405_phase3_record_level_sync.sql`).

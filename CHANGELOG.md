@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Overview hierarchy phase 2: decisive triage center + quieter support surfaces
+- Rebalanced Overview into a strict three-level hierarchy: compressed start-of-day summary band, dominant triage list surface, and a narrower/quieter inspector so the eye path reads summary → list → inspector without competing content bands (`src/components/OverviewPage.tsx`, `src/styles/workspaces.css`).
+- Split summary-strip presentation into focused subcomponents (`OverviewSummaryStats`, `OverviewRouteActions`) and tightened copy/action density to keep metrics compact and route-first controls lightweight (`src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSummaryStats.tsx`, `src/components/overview/OverviewRouteActions.tsx`).
+- Demoted routing signal cards to glanceable support chips (smaller footprint, lower contrast, count + short label + route CTA) so they no longer rival the main list for visual priority (`src/components/overview/OverviewSignalCards.tsx`, `src/styles/workspaces.css`).
+- Strengthened triage row scan hierarchy by removing redundant metadata, keeping a clear title/support/reason order, reducing badge noise, and adding stronger selected-row affordance for instant current-item recognition (`src/components/overview/OverviewTriageList.tsx`, `src/styles/workspaces.css`).
+- Simplified inspector structure to four concise sections (selected item, why now, recommended destination, open full detail) with one dominant route action and restrained secondary actions (`src/components/overview/OverviewRouteInspector.tsx`, `src/components/overview/OverviewInspectorActionGroup.tsx`, `src/styles/workspaces.css`).
+
 ### Overview triage refactor: route-first cockpit + execution responsibility split
 - Replaced the execution-heavy `OverviewPage` controller with a composition-based triage surface that keeps one start strip, one compact signal-card layer, one small triage list, and one route-only inspector (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSignalCards.tsx`, `src/components/overview/OverviewTriageList.tsx`, `src/components/overview/OverviewRouteInspector.tsx`).
 - Added an Overview-specific read-mostly view model hook that reads the unified queue, computes hero stats and compact triage rows, derives routing signal cards, and exposes route helpers based on the existing execution handoff pattern (`openExecutionLane` with `source: 'overview'`) without exposing execution filters/saved views/bulk transitions (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`).

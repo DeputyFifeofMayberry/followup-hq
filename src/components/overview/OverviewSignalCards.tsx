@@ -7,16 +7,14 @@ interface OverviewSignalCardsProps {
 
 export function OverviewSignalCards({ cards, onRouteCard }: OverviewSignalCardsProps) {
   return (
-    <div className="grid gap-2 md:grid-cols-2">
+    <div className="overview-signal-grid" aria-label="Routing signals">
       {cards.map((card) => (
-        <div key={card.key} className="rounded-xl border border-slate-200 bg-white/85 p-3">
-          <div className="text-xs uppercase tracking-wide text-slate-500">{card.label}</div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <strong className="text-lg text-slate-950">{card.count}</strong>
-            <button onClick={() => onRouteCard(card)} className="action-btn !px-2.5 !py-1 text-xs">
-              {card.ctaLabel}
-            </button>
-          </div>
+        <div key={card.key} className="overview-signal-card">
+          <strong className="overview-signal-count">{card.count}</strong>
+          <span className="overview-signal-label">{card.label}</span>
+          <button onClick={() => onRouteCard(card)} className="action-btn overview-signal-cta !px-2 !py-0.5 text-[11px]">
+            {card.ctaLabel}
+          </button>
         </div>
       ))}
     </div>

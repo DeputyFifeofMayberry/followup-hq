@@ -36,8 +36,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const scopedCount = requestMeta?.dirtyRecords?.length ?? 0;
               const queuedEvent = createPersistenceActivityEvent({
                 kind: 'queued',
-                summary: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} queued for save.` : 'Changes queued for save.',
-                detail: scopedCount > 0 ? 'SetPoint will sync these updates automatically.' : 'SetPoint will sync your latest updates automatically.',
+                summary: 'Changes queued to save.',
+                detail: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} added to the save queue.` : 'SetPoint will save your latest updates automatically.',
               });
               const pendingRecordCount = merged.size;
               return {
@@ -54,9 +54,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
           },
           onSaving: ({ reason }) => set((state) => {
             const summary = reason === 'retry'
-              ? 'Retrying failed save.'
+              ? 'Retry in progress.'
               : reason === 'manual'
-                ? 'Manual save in progress.'
+                ? 'Saving latest changes.'
                 : 'Saving latest changes.';
             return {
               syncState: 'saving',
@@ -85,12 +85,12 @@ export const useAppStore = create<AppStore>()((set, get) => {
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
                 kind: 'saved',
                 at: timestamp,
-                summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry save completed.' : 'Changes saved successfully.',
+                summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry completed.' : 'Changes saved.',
                 detail: didPersist
                   ? mode === 'supabase'
-                    ? `Cloud-backed sync confirmed.${staleDeleteDetail}`
-                    : `Local persistence updated.${staleDeleteDetail}`
-                  : 'No new changes detected; trust state unchanged.',
+                    ? `Your latest updates are saved.${staleDeleteDetail}`
+                    : `Your latest updates are saved on this device.${staleDeleteDetail}`
+                  : 'No new changes were detected.',
               })),
             };
           }),
@@ -106,9 +106,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
-              summary: reason === 'retry' ? 'Retry failed.' : 'Save attempt failed.',
+              summary: reason === 'retry' ? 'Retry did not complete.' : 'Save did not complete.',
               detail: diagnostics?.failedTable
-                ? `${message} Failed table: ${diagnostics.failedTable}. Completed tables before failure: ${diagnostics.completedTables.join(', ') || 'none'}.`
+                ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                 : message,
             })),
           })),

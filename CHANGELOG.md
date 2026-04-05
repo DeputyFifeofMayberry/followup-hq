@@ -2,6 +2,14 @@
 
 ## 2026-04-05
 
+### Save/sync trust simplification phase 1: calmer default trust model + progressive diagnostics
+- Simplified trust-state projection to four primary user-facing states (`Checking save status`, `Saving`, `Saved`, `Needs attention`) while preserving detailed sync metadata and cloud sync diagnostics in store state (`src/lib/syncStatus.ts`).
+- Reworked the Trust Center panel to be summary-first (current state, save mode, last save timeline, reassurance/warning sentence) and moved backend diagnostics/log details into a collapsed `Technical details` disclosure (`src/components/SyncStatusControl.tsx`).
+- Updated persistence activity and initialization/load summaries to calmer, plain-language trust copy (queued/saving/saved/retry/fallback/load messages) without removing technical detail availability (`src/store/useAppStore.ts`, `src/store/slices/metaSlice.ts`, `src/store/persistenceActivity.ts`).
+- Expanded trust-model regression coverage to assert simplified primary states, `Needs attention` collapse for fallback/recovery/failure scenarios, and calmer user-facing copy expectations (`src/lib/__tests__/syncStatusTrustModel.test.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+
+## 2026-04-05
+
 ### Tasks workspace simplification phase 3: queue + inspector execution pass
 - Refactored task rows into a tighter execution scan pattern (dominant title, one concise execution line, quiet project context, urgency/state badges, and inline done/block controls) so each row answers what it is, why it matters now, and what should happen next without reading dense metadata (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
 - Reworked the task inspector from balanced tabbed reading/editing/context into an action-first command surface with explicit `What matters now`, prioritized `Take action now`, lightweight quick-update inputs, quieter linked follow-up context, and a collapsed maintenance area for deep edits/destructive actions (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).

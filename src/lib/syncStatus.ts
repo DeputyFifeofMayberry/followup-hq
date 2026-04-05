@@ -3,6 +3,7 @@ import type { AppStore } from '../store/types';
 import type { CloudSyncStatus } from '../store/state/types';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
+export type SyncPrimaryState = 'checking' | 'saving' | 'saved' | 'needs-attention';
 
 export interface SyncMetaSnapshot {
   hydrated: boolean;
@@ -24,8 +25,10 @@ export interface SyncMetaSnapshot {
 }
 
 export interface SyncStatusModel {
+  primaryState: SyncPrimaryState;
   stateLabel: string;
   stateDescription: string;
+  reassurance: string;
   modeLabel: string;
   modeDescription: string;
   tone: 'default' | 'info' | 'warn';
@@ -36,23 +39,23 @@ export interface SyncStatusModel {
 export function getCloudConfirmationLabel(meta: Pick<SyncMetaSnapshot, 'cloudSyncStatus'>): string {
   switch (meta.cloudSyncStatus) {
     case 'cloud-confirmed':
-      return 'Saved to cloud';
+      return 'Cloud confirmation complete';
     case 'pending-cloud':
-      return 'Saved locally, cloud confirmation pending';
+      return 'Awaiting cloud confirmation';
     case 'local-only-confirmed':
-      return 'Saved locally on this device';
+      return 'Saved on this device';
     case 'local-newer-than-cloud':
-      return 'Loaded from local recovery cache';
+      return 'Local copy newer than cloud';
     case 'local-recovery':
-      return 'Loaded from local recovery cache';
+      return 'Opened with protected local copy';
     case 'cloud-read-failed-local-fallback':
-      return 'Cloud read failed; local cache preserved';
+      return 'Cloud read issue; protected local copy used';
     case 'cloud-save-failed-local-preserved':
-      return 'Save failed; latest local changes preserved';
+      return 'Cloud save failed; local copy preserved';
     case 'load-failed-no-local-copy':
-      return 'Load issue';
+      return 'Could not confirm saved data';
     default:
-      return 'Cloud confirmation unavailable';
+      return 'Confirmation unavailable';
   }
 }
 
@@ -80,57 +83,45 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
 function describePersistenceMode(mode: PersistenceMode): Pick<SyncStatusModel, 'modeLabel' | 'modeDescription'> {
   if (mode === 'supabase') {
     return {
-      modeLabel: 'Supabase-backed',
-      modeDescription: 'Changes are persisted to SetPoint cloud storage and cached locally.',
+      modeLabel: 'Cloud-backed',
+      modeDescription: 'SetPoint saves to your account and keeps a protected local copy.',
     };
   }
 
   if (mode === 'tauri-sqlite') {
     return {
-      modeLabel: 'Desktop local storage',
-      modeDescription: 'Changes are saved in local desktop storage for this device.',
+      modeLabel: 'Local on this device',
+      modeDescription: 'SetPoint saves on this device profile.',
     };
   }
 
   if (mode === 'browser') {
     return {
-      modeLabel: 'Browser/local only',
-      modeDescription: 'Changes are currently stored in this browser cache only.',
+      modeLabel: 'Local-only (this device)',
+      modeDescription: 'SetPoint saves in this browser profile only.',
     };
   }
 
   return {
-    modeLabel: 'Checking storage',
-    modeDescription: 'SetPoint is determining the active persistence mode.',
+    modeLabel: 'Checking save mode',
+    modeDescription: 'SetPoint is determining where saves are stored.',
   };
 }
 
-function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateLabel' | 'stateDescription' | 'tone' | 'stateTone'> | null {
-  if (meta.cloudSyncStatus === 'load-failed-no-local-copy') {
-    return {
-      stateLabel: 'Load issue',
-      stateDescription: meta.saveError || 'SetPoint could not load persisted data. No local recovery copy was restored.',
-      tone: 'warn',
-      stateTone: 'danger',
-    };
-  }
-
+function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateDescription' | 'reassurance' | 'tone' | 'stateTone'> {
   if (meta.cloudSyncStatus === 'cloud-save-failed-local-preserved') {
     return {
-      stateLabel: 'Save failed; latest local changes preserved',
-      stateDescription: 'SetPoint kept your latest local cache and will retry cloud confirmation on the next save.',
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'Your recent changes were kept locally. Review save status and retry.',
       tone: 'warn',
       stateTone: 'danger',
     };
   }
 
   if (meta.cloudSyncStatus === 'cloud-read-failed-local-fallback') {
-    const schemaIssue = (meta.lastLoadFailureMessage ?? '').includes('Missing table:');
     return {
-      stateLabel: schemaIssue ? 'Cloud persistence setup issue' : 'Cloud read failed; local cache preserved',
-      stateDescription: schemaIssue
-        ? 'SetPoint loaded local cache because required cloud tables are missing. Cloud saves will fail until backend schema is fixed.'
-        : 'SetPoint loaded your local cache because cloud data could not be read.',
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'SetPoint opened your protected local copy because cloud data could not be confirmed.',
       tone: 'warn',
       stateTone: 'warn',
     };
@@ -138,8 +129,8 @@ function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'sta
 
   if (meta.cloudSyncStatus === 'local-newer-than-cloud') {
     return {
-      stateLabel: 'Loaded from local recovery cache',
-      stateDescription: 'Your local cache is newer than cloud data, so SetPoint restored it to avoid data loss.',
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'SetPoint restored the newer local copy to avoid data loss.',
       tone: 'warn',
       stateTone: 'warn',
     };
@@ -147,41 +138,28 @@ function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'sta
 
   if (meta.cloudSyncStatus === 'local-recovery' || meta.loadedFromLocalRecoveryCache) {
     return {
-      stateLabel: 'Loaded from local recovery cache',
-      stateDescription: 'SetPoint restored local cache data to protect your latest changes.',
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'SetPoint opened using protected local data while save confirmation needs review.',
       tone: 'warn',
       stateTone: 'warn',
     };
   }
 
-  if (meta.cloudSyncStatus === 'local-only-confirmed') {
+  if (meta.cloudSyncStatus === 'load-failed-no-local-copy') {
     return {
-      stateLabel: 'Saved locally on this device',
-      stateDescription: 'Changes are stored locally in this browser/device profile.',
-      tone: 'default',
-      stateTone: 'success',
+      reassurance: 'Save or load confirmation needs review.',
+      stateDescription: 'SetPoint could not confirm saved data. Review technical details.',
+      tone: 'warn',
+      stateTone: 'danger',
     };
   }
 
-  if (meta.cloudSyncStatus === 'pending-cloud') {
-    return {
-      stateLabel: 'Saved locally, cloud confirmation pending',
-      stateDescription: 'Recent changes are preserved locally and waiting for full cloud confirmation.',
-      tone: 'info',
-      stateTone: 'warn',
-    };
-  }
-
-  if (meta.cloudSyncStatus === 'cloud-confirmed') {
-    return {
-      stateLabel: 'Saved to cloud',
-      stateDescription: 'Latest updates are confirmed in cloud storage.',
-      tone: 'default',
-      stateTone: 'success',
-    };
-  }
-
-  return null;
+  return {
+    reassurance: 'Save confirmation needs review.',
+    stateDescription: 'SetPoint protected your recent work, but save or load confirmation needs review.',
+    tone: 'warn',
+    stateTone: 'warn',
+  };
 }
 
 export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
@@ -189,8 +167,10 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (!meta.hydrated || meta.syncState === 'checking' || meta.persistenceMode === 'loading') {
     return {
+      primaryState: 'checking',
       stateLabel: 'Checking save status',
-      stateDescription: 'SetPoint is loading your workspace and save connection.',
+      stateDescription: 'Loading your workspace and save status.',
+      reassurance: 'SetPoint is checking your latest save information.',
       tone: 'info',
       stateTone: 'info',
       showSpinner: true,
@@ -198,63 +178,72 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  const cloudStatus = describeCloudStatus(meta);
-
-  if (meta.syncState === 'saving') {
+  if (meta.syncState === 'saving' || meta.syncState === 'dirty' || meta.hasLocalUnsavedChanges) {
     return {
-      stateLabel: 'Saving changes',
-      stateDescription: 'SetPoint is writing your latest updates now.',
+      primaryState: 'saving',
+      stateLabel: 'Saving',
+      stateDescription: 'Saving your latest changes.',
+      reassurance: 'SetPoint is working on your latest updates now.',
       tone: 'info',
       stateTone: 'info',
-      showSpinner: true,
+      showSpinner: meta.syncState === 'saving',
       ...modeDetails,
     };
   }
 
-  if (meta.hasLocalUnsavedChanges || meta.syncState === 'dirty') {
-    const pendingDescription = meta.unsavedChangeCount > 1
-      ? `${meta.unsavedChangeCount} records with unsaved edits are waiting to sync.`
-      : '1 record with unsaved edits is waiting to sync.';
+  const needsAttention =
+    meta.syncState === 'error'
+    || Boolean(meta.saveError)
+    || meta.cloudSyncStatus === 'local-newer-than-cloud'
+    || meta.cloudSyncStatus === 'local-recovery'
+    || meta.cloudSyncStatus === 'cloud-read-failed-local-fallback'
+    || meta.cloudSyncStatus === 'cloud-save-failed-local-preserved'
+    || meta.cloudSyncStatus === 'load-failed-no-local-copy'
+    || Boolean(meta.loadedFromLocalRecoveryCache);
+
+  if (needsAttention) {
+    const attention = getAttentionNarrative(meta);
     return {
-      stateLabel: 'Unsaved local edits',
-      stateDescription: pendingDescription,
+      primaryState: 'needs-attention',
+      stateLabel: 'Needs attention',
+      ...attention,
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  const localOnlySaved = meta.cloudSyncStatus === 'local-only-confirmed' || meta.persistenceMode !== 'supabase';
+  if (localOnlySaved) {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved',
+      stateDescription: 'Your latest updates are saved on this device.',
+      reassurance: 'Your latest updates are saved on this device.',
+      tone: 'default',
+      stateTone: 'success',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  if (meta.cloudSyncStatus === 'pending-cloud') {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved',
+      stateDescription: 'Your latest updates are saved.',
+      reassurance: 'SetPoint is finalizing cloud confirmation in the background.',
       tone: 'info',
-      stateTone: 'warn',
-      showSpinner: false,
-      ...modeDetails,
-    };
-  }
-
-  if (meta.syncState === 'error' || meta.saveError) {
-    if (cloudStatus) {
-      return {
-        ...cloudStatus,
-        showSpinner: false,
-        ...modeDetails,
-      };
-    }
-
-    return {
-      stateLabel: 'Save issue',
-      stateDescription: meta.saveError || 'Recent changes are not fully confirmed yet.',
-      tone: 'warn',
-      stateTone: 'danger',
-      showSpinner: false,
-      ...modeDetails,
-    };
-  }
-
-  if (cloudStatus) {
-    return {
-      ...cloudStatus,
+      stateTone: 'info',
       showSpinner: false,
       ...modeDetails,
     };
   }
 
   return {
-    stateLabel: 'All changes saved',
-    stateDescription: 'Your latest updates are safely saved.',
+    primaryState: 'saved',
+    stateLabel: 'Saved',
+    stateDescription: 'Your latest updates are saved.',
+    reassurance: 'Your latest updates are saved.',
     tone: 'default',
     stateTone: 'success',
     showSpinner: false,

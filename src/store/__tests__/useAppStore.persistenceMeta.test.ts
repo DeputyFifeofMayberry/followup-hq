@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolvePostSaveMetaState } from '../persistenceMeta';
 
 function assert(condition: boolean, message: string): void {
@@ -37,7 +38,17 @@ function testPersistedSupabaseSavePromotesTrust(): void {
   assert(state.lastCloudConfirmedAt === '2026-04-05T11:00:00.000Z', 'persisted save should update cloud confirmed timestamp');
 }
 
+function testUseAppStoreActivityCopyIsCalmAndClear(): void {
+  const source = readFileSync(new URL('../../../src/store/useAppStore.ts', import.meta.url), 'utf8');
+
+  assert(source.includes("summary: 'Changes queued to save.'"), 'queued summary should use calm plain language');
+  assert(source.includes("? 'Saving latest changes.'"), 'saving summary should use plain language');
+  assert(source.includes("summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry completed.' : 'Changes saved.'"), 'saved summaries should use simplified phrasing');
+  assert(!source.includes('cloud confirmation pending'), 'useAppStore activity summary should avoid cloud confirmation pending jargon');
+}
+
 (function run() {
   testNoOpSavePreservesConservativeTrust();
   testPersistedSupabaseSavePromotesTrust();
+  testUseAppStoreActivityCopyIsCalmAndClear();
 })();

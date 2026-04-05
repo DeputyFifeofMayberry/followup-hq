@@ -114,19 +114,19 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
             summary: fallbackFailure
               ? fallbackFailure.summary
               : localNewerThanCloud && loadedFromFallback
-                ? 'Loaded from local recovery cache.'
+                ? 'Opened using protected local data.'
                 : mode === 'browser'
-                  ? 'Workspace loaded from this device.'
-                  : 'Workspace loaded from persisted data.',
+                  ? 'Opened using local device data.'
+                  : 'Workspace opened.',
             detail: fallbackFailure
               ? fallbackFailure.detail
               : localNewerThanCloud && loadedFromFallback
-                ? 'Local cache is newer than cloud data and was restored.'
+                ? 'SetPoint restored the newer local copy to avoid data loss.'
                 : mode === 'browser'
-                  ? 'Running in browser/local-only mode.'
+                  ? 'Your latest updates are saved on this device.'
                   : mode === 'supabase'
-                    ? 'Cloud-backed persistence mode active.'
-                    : 'Running in local/browser persistence mode.',
+                    ? 'Your latest updates are saved.'
+                    : 'Your latest updates are saved on this device.',
           })],
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
@@ -161,7 +161,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'failed',
             at: failureAt,
-            summary: 'Failed to load persisted workspace.',
+            summary: 'Could not confirm saved data during startup.',
             detail,
           })],
         });

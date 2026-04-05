@@ -39,8 +39,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     projects,
     openCreateFromCapture,
     openRecordDrawer,
-    openEditModal,
-    openEditTaskModal,
+    openRecordEditor,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -59,8 +58,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     projects: s.projects,
     openCreateFromCapture: s.openCreateFromCapture,
     openRecordDrawer: s.openRecordDrawer,
-    openEditModal: s.openEditModal,
-    openEditTaskModal: s.openEditTaskModal,
+    openRecordEditor: s.openRecordEditor,
   })));
   const { openExecutionLane } = useExecutionQueueViewModel();
 
@@ -333,14 +331,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
                   <div className="space-y-2">
-                    {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="w-full text-left">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openEditModal(item.id)} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditFollowUp}</button></div></div>)}
+                    {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="w-full text-left">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditFollowUp}</button></div></div>)}
                     {selectedFollowUps.length === 0 ? <StatePanel compact tone="empty" title="No linked follow-ups yet" message="Create or link follow-ups from relationship context actions." /> : null}
                   </div>
                 </div>
                 <div>
                   <div className="mb-2 text-sm font-semibold text-slate-900">Linked tasks</div>
                   <div className="space-y-2">
-                    {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="w-full text-left">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openEditTaskModal(task.id)} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditTask}</button></div></div>)}
+                    {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="w-full text-left">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'task', id: task.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditTask}</button></div></div>)}
                     {selectedTasks.length === 0 ? <StatePanel compact tone="empty" title="No linked tasks" message="Add a task to make execution ownership explicit." /> : null}
                   </div>
                 </div>

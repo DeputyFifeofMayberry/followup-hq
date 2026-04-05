@@ -80,6 +80,8 @@ export interface TaskModalState {
   taskId: string | null;
 }
 
+export type ActiveRecordSurface = 'none' | 'context_drawer' | 'full_editor' | 'transition_flow';
+
 export interface AppBusinessState {
   items: FollowUpItem[];
   contacts: ContactRecord[];
@@ -135,6 +137,10 @@ export interface AppUiState {
   executionIntent: ExecutionIntent | null;
   executionSelectedId: string | null;
   recordDrawerRef: RecordRef | null;
+  activeRecordSurface: ActiveRecordSurface;
+  activeRecordRef: RecordRef | null;
+  activeEditorMode: 'create' | 'edit' | null;
+  recordSurfaceSource: string | null;
   executionLaneSessions: Record<'followups' | 'tasks', ExecutionLaneSessionState>;
   lastExecutionRoute: ExecutionRouteHandoff | null;
 }

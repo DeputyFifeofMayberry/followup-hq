@@ -101,7 +101,7 @@ function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
 }
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const prefs = useMemo(() => readTaskWorkspacePrefs(), []);
@@ -131,6 +131,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
+  const openRecordEditor = useAppStore((s) => s.openRecordEditor);
   const isRecordDirty = useAppStore((s) => s.isRecordDirty);
 
   useEffect(() => {
@@ -585,7 +586,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       <p className="inspector-meta">Command surface: decide, act, continue.</p>
                       {selectedTaskDirty ? <p className="mt-1 text-xs font-medium text-amber-700">Unsaved local task edits</p> : null}
                     </div>
-                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
+                    <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'lane')} className="action-btn"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                   </div>
                   <div className="task-inspector-status-strip">
                     <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
@@ -609,7 +610,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                     <button onClick={() => openTaskFlow(selectedTask, 'done')} className="primary-btn">Mark done</button>
                     <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
                     <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
-                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn task-action-secondary">{editSurfaceCtas.fullEditTask}</button>
+                    <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'lane')} className="action-btn task-action-secondary">{editSurfaceCtas.fullEditTask}</button>
                   </div>
                   <div className="task-quick-edit-grid">
                     <label className="field-block"><span className="field-label">Quick next step</span><textarea value={quickNextStepDraft} onChange={(event) => setQuickNextStepDraft(event.target.value)} className="field-textarea" /></label>
@@ -639,7 +640,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                     <div className="mt-3 flex flex-wrap gap-2">
                       {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button> : null}
                       <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
-                      <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
+                      <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'lane')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                     </div>
                   </div>
                 </WorkspaceInspectorSection>

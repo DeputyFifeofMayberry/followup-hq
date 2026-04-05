@@ -2,6 +2,14 @@
 
 ## 2026-04-05
 
+
+### Deficiency 4 Phase 3: unified record editor engine + record-surface orchestration
+- Unified task/follow-up/project/relationship record editing under a shared editor engine, adapter model, and record-surface orchestration system.
+- Added a shared `src/domains/editor` layer with session, draft, dirty-state, validation, save payload contracts, plus follow-up/task adapters and a shared record summary model used by canonical surfaces.
+- Refactored canonical full-editor behavior to route draft state, validation, and save payload generation through the shared editor engine/adapters instead of per-record custom save logic.
+- Extended UI slice canonical record-surface orchestration with shared `activeRecordSurface`/`activeRecordRef`/`activeEditorMode` state and a unified `openRecordEditor` handoff path used by drawer/workspace/lane escalation.
+- Updated context drawer and support workspaces to escalate through shared record-editor orchestration for follow-up/task deep edits, reducing one-off workspace editing paths.
+
 ### Deficiency 4 Phase 2: canonical editor + context drawer consolidation
 - Consolidated task/follow-up deep editing into a shared canonical full-editor shell and section grammar, so both record types now follow the same product-level editing rhythm (core identity, execution state, workflow context, linkage, notes/detail, maintenance) with unified header/footer treatment (`src/components/CreateWorkModal.tsx`, `src/components/ui/AppPrimitives.tsx`).
 - Consolidated context inspection into a canonical drawer section model ordered around summary, surrounding context, linked records, relationship context, activity timeline, and explicit escalation into full edit (`src/components/UniversalRecordDrawer.tsx`, `src/components/ui/AppPrimitives.tsx`).

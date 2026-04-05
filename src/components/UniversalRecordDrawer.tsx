@@ -9,6 +9,7 @@ import { EmptyState, RecordContextDrawerSection, RecordContextDrawerShell } from
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
+import { buildRecordSurfaceSummary } from '../domains/editor';
 
 const typeLabel: Record<RecordType, string> = {
   followup: 'Follow-up',
@@ -19,23 +20,19 @@ const typeLabel: Record<RecordType, string> = {
 };
 
 function summaryRows(record: RecordDescriptor) {
+  const summary = buildRecordSurfaceSummary(record);
   return [
-    { label: 'Status', value: record.status || '—' },
-    { label: 'Priority', value: record.priority || '—' },
-    { label: 'Owner', value: record.owner || '—' },
-    { label: 'Project', value: record.projectName || '—' },
-    { label: 'Due', value: record.dueDate ? formatDateTime(record.dueDate) : '—' },
-    { label: 'Updated', value: record.updatedAt ? formatDateTime(record.updatedAt) : '—' },
+    { label: 'Type', value: summary.typeLabel },
+    ...summary.metadata.map((meta) => ({ label: meta.label, value: meta.value && meta.value !== '—' ? (meta.label === 'Updated' || meta.label === 'Due' ? formatDateTime(meta.value) : meta.value) : '—' })),
   ];
 }
 
 export function UniversalRecordDrawer() {
-  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, openEditModal, openEditTaskModal, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
+  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, openRecordEditor, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
     recordDrawerRef: s.recordDrawerRef,
     closeRecordDrawer: s.closeRecordDrawer,
     openRecordDrawer: s.openRecordDrawer,
-    openEditModal: s.openEditModal,
-    openEditTaskModal: s.openEditTaskModal,
+    openRecordEditor: s.openRecordEditor,
     items: s.items,
     tasks: s.tasks,
     projects: s.projects,
@@ -107,8 +104,8 @@ export function UniversalRecordDrawer() {
           <RecordContextDrawerShell>
             <RecordContextDrawerSection title="Actions">
               <div className="mt-2 flex flex-wrap gap-2">
-                {recordDrawerRef.type === 'followup' ? <button onClick={() => openEditModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditFollowUp}</button> : null}
-                {recordDrawerRef.type === 'task' ? <button onClick={() => openEditTaskModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditTask}</button> : null}
+                {recordDrawerRef.type === 'followup' ? <button onClick={() => openRecordEditor({ type: 'followup', id: recordDrawerRef.id }, 'edit', 'context_drawer')} className="action-btn">{editSurfaceCtas.fullEditFollowUp}</button> : null}
+                {recordDrawerRef.type === 'task' ? <button onClick={() => openRecordEditor({ type: 'task', id: recordDrawerRef.id }, 'edit', 'context_drawer')} className="action-btn">{editSurfaceCtas.fullEditTask}</button> : null}
               </div>
             </RecordContextDrawerSection>
 

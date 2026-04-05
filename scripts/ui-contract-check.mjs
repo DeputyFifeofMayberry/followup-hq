@@ -47,4 +47,12 @@ assertIncludes('src/components/RelationshipBoard.tsx', [
   'No linked projects',
 ]);
 
+assertIncludes('src/components/SyncStatusControl.tsx', [
+  'Save & sync trust center',
+  'Recent sync activity',
+  'Last failed sync attempt',
+  'Signed in as',
+  'Local/browser mode',
+]);
+
 console.log('UI contract checks passed.');

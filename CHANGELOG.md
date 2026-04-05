@@ -2,6 +2,12 @@
 
 ## 2026-04-05
 
+### Deficiency 2 Phase 4: save/sync trust center finishing pass
+- Expanded the shell sync control into a compact trust center with explicit persistence diagnostics (last successful sync, last failed sync attempt, pending local edits) plus clearer cloud-backed vs local/browser-mode explanations so users can quickly determine operational safety and sync posture (`src/components/SyncStatusControl.tsx`, `src/lib/syncStatus.ts`, `src/styles/primitives.css`).
+- Added a lightweight persistence activity trail in app meta state and queue plumbing so users can inspect recent meaningful save/sync events (queued, saving, success, and failures) without opening developer tools (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/persistenceActivity.ts`, `src/store/persistenceQueue.ts`, `src/store/useAppStore.ts`, `src/store/slices/metaSlice.ts`).
+- Improved session/persistence clarity directly in the trust center by surfacing signed-in account context and a dedicated sign-out affordance next to persistence diagnostics for a complete daily-use save/sync control surface (`src/components/SyncStatusControl.tsx`).
+- Hardened regression coverage for trust-center UI contracts by adding explicit checks for trust-center copy and diagnostics anchors to reduce accidental UX regressions in future changes (`scripts/ui-contract-check.mjs`).
+
 ### Deficiency 2 Phase 2: dirty-state visibility + manual save/retry controls
 - Extended persistence meta state and status modeling to track local unsaved edits (`syncState: dirty`, unsaved change counts, and scoped dirty record references), then map those states into consistent trust copy so users can distinguish pending local edits vs active save vs save failure (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
 - Upgraded the persistence queue contract with shared dirty-record metadata and explicit manual flush/retry methods while preserving debounced save behavior and existing retry logic for normal edit flow (`src/store/persistenceQueue.ts`, `src/store/slices/types.ts`, `src/store/useAppStore.ts`).

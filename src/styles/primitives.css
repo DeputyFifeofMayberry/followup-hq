@@ -241,7 +241,12 @@
 .sync-status-row-value { display: inline-flex; align-items: center; gap: 0.36rem; color: var(--text-primary); font-size: 0.79rem; font-weight: 640; }
 .sync-status-row-detail { color: var(--text-secondary); font-size: 0.74rem; line-height: 1.35; }
 .sync-status-row-detail-strong { color: var(--text-primary); font-weight: 620; }
+.sync-status-diagnostics-grid { display: grid; gap: 0.5rem; }
 .sync-status-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sync-status-signout { justify-self: flex-start; margin-top: 0.1rem; }
+.sync-status-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.sync-status-activity-item { border: 1px solid var(--border-default); border-radius: 0.65rem; background: var(--surface-muted); padding: 0.4rem 0.48rem; display: grid; gap: 0.12rem; }
+.sync-status-activity-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
 .sync-status-error {
   border: 1px solid #fda4af;
   background: #fff1f2;

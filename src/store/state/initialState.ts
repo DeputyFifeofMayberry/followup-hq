@@ -73,4 +73,6 @@ export const initialMetaState: AppMetaState = {
   hasLocalUnsavedChanges: false,
   dirtyRecordRefs: [],
   lastSyncedAt: undefined,
+  lastFailedSyncAt: undefined,
+  persistenceActivity: [],
 };

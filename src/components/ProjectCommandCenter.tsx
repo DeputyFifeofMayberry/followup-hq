@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardCopy, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ClipboardCopy, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   applyProjectFilters,
@@ -88,6 +88,16 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
   const selectedRow = sortedRows.find((row) => row.project.id === selectedProjectId) || null;
   const selectedProject = selectedRow?.project || null;
+  const pressureSummary = useMemo(() => {
+    const totals = allRows.reduce((acc, row) => {
+      acc.overdue += row.overdueFollowUpCount + row.overdueTaskCount;
+      acc.blocked += row.blockedTaskCount;
+      acc.closeout += row.health.breakdown.readyToCloseSignals > 0 ? 1 : 0;
+      acc.critical += row.health.tier === 'Critical' || row.health.tier === 'High' ? 1 : 0;
+      return acc;
+    }, { overdue: 0, blocked: 0, closeout: 0, critical: 0 });
+    return totals;
+  }, [allRows]);
 
   useEffect(() => {
     setSelectedFollowUpIds([]);
@@ -204,36 +214,47 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
       <SectionHeader title="Project context lens" subtitle={modeConfig.projectsSubtitle} />
       <div className="project-command-layout">
         <div className="project-list-rail page-section">
-          <div className="project-create-row">
-            <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
-            <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
-            <button onClick={createProject} className="primary-btn"><Plus className="h-4 w-4" />Quick Add</button>
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <StatTile label="Projects under pressure" value={pressureSummary.critical} helper="High + critical health signals" tone={pressureSummary.critical > 0 ? 'warn' : 'default'} />
+            <StatTile label="Overdue work" value={pressureSummary.overdue} helper="Follow-ups + tasks overdue" tone={pressureSummary.overdue > 0 ? 'warn' : 'default'} />
+            <StatTile label="Blocked tasks" value={pressureSummary.blocked} helper="Execution blockers to route" tone={pressureSummary.blocked > 0 ? 'danger' : 'default'} />
+            <StatTile label="Closeout candidates" value={pressureSummary.closeout} helper="Projects showing closeout signals" />
           </div>
 
           <div className="project-filter-panel advanced-filter-surface">
-            <input value={filters.query} onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))} className="field-input" placeholder="Search by project, owner, code, phase" />
-            <div className="grid gap-2 md:grid-cols-2">
-              <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as ProjectFilterState['status'] }))} className="field-input"><option value="All">All statuses</option><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
-              <select value={filters.owner} onChange={(e) => setFilters((prev) => ({ ...prev, owner: e.target.value }))} className="field-input"><option value="All">All owners</option>{[...new Set(projects.map((project) => project.owner))].map((owner) => <option key={owner}>{owner}</option>)}</select>
-              <select value={filters.healthTier} onChange={(e) => setFilters((prev) => ({ ...prev, healthTier: e.target.value as ProjectFilterState['healthTier'] }))} className="field-input"><option value="All">Any health</option><option>Critical</option><option>High</option><option>Moderate</option><option>Low</option></select>
-              <select value={filters.activity} onChange={(e) => setFilters((prev) => ({ ...prev, activity: e.target.value as ProjectFilterState['activity'] }))} className="field-input"><option value="all">Any activity</option><option value="recent">Recently updated</option><option value="stale">Stale</option></select>
-            </div>
             <div className="grid gap-2 md:grid-cols-3">
-              <select value={filters.hasOverdueFollowUp} onChange={(e) => setFilters((prev) => ({ ...prev, hasOverdueFollowUp: e.target.value as ProjectFilterState['hasOverdueFollowUp'] }))} className="field-input"><option value="all">Any overdue follow-up</option><option value="yes">Has overdue follow-up</option><option value="no">No overdue follow-up</option></select>
-              <select value={filters.hasBlockedTask} onChange={(e) => setFilters((prev) => ({ ...prev, hasBlockedTask: e.target.value as ProjectFilterState['hasBlockedTask'] }))} className="field-input"><option value="all">Any blocked tasks</option><option value="yes">Has blocked task</option><option value="no">No blocked task</option></select>
-              <select value={filters.hasOverdueTask} onChange={(e) => setFilters((prev) => ({ ...prev, hasOverdueTask: e.target.value as ProjectFilterState['hasOverdueTask'] }))} className="field-input"><option value="all">Any overdue tasks</option><option value="yes">Has overdue task</option><option value="no">No overdue task</option></select>
+              <input value={filters.query} onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))} className="field-input md:col-span-2" placeholder="Search by project, owner, code, phase" />
+              <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as ProjectFilterState['status'] }))} className="field-input"><option value="All">All statuses</option><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
+              <select value={filters.healthTier} onChange={(e) => setFilters((prev) => ({ ...prev, healthTier: e.target.value as ProjectFilterState['healthTier'] }))} className="field-input"><option value="All">Any health</option><option>Critical</option><option>High</option><option>Moderate</option><option>Low</option></select>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as ProjectSortKey)} className="field-input"><option value="health">Sort: health</option><option value="name">Sort: name</option><option value="updated">Sort: updated</option><option value="targetDate">Sort: target date</option><option value="overdueWork">Sort: overdue work</option></select>
             </div>
             <div className="project-filter-foot">
               <div className="flex flex-wrap gap-2">
                 {projectSavedViews.map((view) => <button key={view.key} onClick={() => applySavedView(view.key)} className={savedView === view.key ? 'action-btn !border-amber-500 !bg-amber-50' : 'action-btn'}>{view.label}</button>)}
               </div>
               <div className="flex gap-2">
-                <select value={sortKey} onChange={(e) => setSortKey(e.target.value as ProjectSortKey)} className="field-input"><option value="health">Sort: health</option><option value="name">Sort: name</option><option value="updated">Sort: updated</option><option value="targetDate">Sort: target date</option><option value="overdueWork">Sort: overdue work</option></select>
                 <button onClick={() => setSortDirection((prev) => prev === 'desc' ? 'asc' : 'desc')} className="action-btn">{sortDirection === 'desc' ? 'Desc' : 'Asc'}</button>
                 <button onClick={() => setDisplayMode((prev) => prev === 'compact' ? 'expanded' : 'compact')} className="action-btn">{displayMode === 'compact' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}</button>
                 <button onClick={() => { setFilters(defaultProjectFilters); setSavedView('All projects'); }} className="action-btn">Reset</button>
               </div>
             </div>
+            <details className="task-maintenance-disclosure mt-2">
+              <summary><ChevronDown className="h-4 w-4" />More filters and quick create</summary>
+              <div className="task-maintenance-body">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <select value={filters.owner} onChange={(e) => setFilters((prev) => ({ ...prev, owner: e.target.value }))} className="field-input"><option value="All">All owners</option>{[...new Set(projects.map((project) => project.owner))].map((owner) => <option key={owner}>{owner}</option>)}</select>
+                  <select value={filters.activity} onChange={(e) => setFilters((prev) => ({ ...prev, activity: e.target.value as ProjectFilterState['activity'] }))} className="field-input"><option value="all">Any activity</option><option value="recent">Recently updated</option><option value="stale">Stale</option></select>
+                  <select value={filters.hasOverdueFollowUp} onChange={(e) => setFilters((prev) => ({ ...prev, hasOverdueFollowUp: e.target.value as ProjectFilterState['hasOverdueFollowUp'] }))} className="field-input"><option value="all">Any overdue follow-up</option><option value="yes">Has overdue follow-up</option><option value="no">No overdue follow-up</option></select>
+                  <select value={filters.hasBlockedTask} onChange={(e) => setFilters((prev) => ({ ...prev, hasBlockedTask: e.target.value as ProjectFilterState['hasBlockedTask'] }))} className="field-input"><option value="all">Any blocked tasks</option><option value="yes">Has blocked task</option><option value="no">No blocked task</option></select>
+                  <select value={filters.hasOverdueTask} onChange={(e) => setFilters((prev) => ({ ...prev, hasOverdueTask: e.target.value as ProjectFilterState['hasOverdueTask'] }))} className="field-input"><option value="all">Any overdue tasks</option><option value="yes">Has overdue task</option><option value="no">No overdue task</option></select>
+                </div>
+                <div className="project-create-row mt-3">
+                  <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
+                  <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
+                  <button onClick={createProject} className="action-btn"><Plus className="h-4 w-4" />Quick Add</button>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div className="project-card-list">
@@ -259,14 +280,17 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               <div className="project-detail-top">
                 <div>
                   <h3 className="inspector-title">{selectedProject.name}</h3>
-                  <p className="inspector-meta">Pressure and health context for this project. Route execution-heavy work into Follow Ups or Tasks.</p>
+                  <p className="inspector-meta">Project pressure lens: understand why this project needs attention, then route into an execution lane.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="primary-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
+                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="primary-btn">Open task lane</button>
+                  <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Open blocked work</button>
+                  <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue work</button>
+                  <button onClick={() => openProjectScopedQueue('closeout')} className="action-btn">Open closeout work</button>
                   <button onClick={() => openCreateFlow('followup')} className="action-btn">Create follow-up</button>
                   <button onClick={() => openCreateFlow('task')} className="action-btn">Create task</button>
                   <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn">{editSurfaceCtas.openContext}</button>
-                  <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
-                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn">Open task lane</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
@@ -297,14 +321,12 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               </div>
 
               <div className="project-action-groups">
-                <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project context actions</div>
-                <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'act on project follow-ups' }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Route follow-up work</button>
-                <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'act on project tasks' }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Route task work</button>
+                <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Next best routing move</div>
+                <div className="rounded-xl tonal-micro text-xs text-slate-700">
+                  Main pressure: {selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}
+                </div>
+                <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Open waiting work</button>
                 <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
-                <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Blocked work</button>
-                <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Overdue work</button>
-                <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Waiting work</button>
-                <button onClick={() => openProjectScopedQueue('closeout')} className="action-btn">Closeout ready</button>
               </div>
 
               <details className="task-maintenance-disclosure">
@@ -340,11 +362,14 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                       </label>
                     ))}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => openBulkFlow('followup_close')} className="action-btn">Bulk close</button>
-                    <button onClick={() => openBulkFlow('followup_escalate')} className="action-btn">Bulk escalate</button>
-                    <button onClick={() => openBulkFlow('followup_snooze')} className="action-btn">Bulk snooze</button>
-                  </div>
+                  <details className="task-maintenance-disclosure mt-2">
+                    <summary>Maintenance: bulk follow-up actions</summary>
+                    <div className="task-maintenance-body flex flex-wrap gap-2">
+                      <button onClick={() => openBulkFlow('followup_close')} className="action-btn">Bulk close</button>
+                      <button onClick={() => openBulkFlow('followup_escalate')} className="action-btn">Bulk escalate</button>
+                      <button onClick={() => openBulkFlow('followup_snooze')} className="action-btn">Bulk snooze</button>
+                    </div>
+                  </details>
                 </div>
 
                 <div className="project-subpanel inspector-block">
@@ -356,11 +381,14 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                       </label>
                     ))}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button onClick={() => openBulkFlow('task_close')} className="action-btn">Bulk close</button>
-                    <button onClick={() => openBulkFlow('task_escalate')} className="action-btn">Bulk escalate</button>
-                    <button onClick={() => openBulkFlow('task_snooze')} className="action-btn">Bulk snooze</button>
-                  </div>
+                  <details className="task-maintenance-disclosure mt-2">
+                    <summary>Maintenance: bulk task actions</summary>
+                    <div className="task-maintenance-body flex flex-wrap gap-2">
+                      <button onClick={() => openBulkFlow('task_close')} className="action-btn">Bulk close</button>
+                      <button onClick={() => openBulkFlow('task_escalate')} className="action-btn">Bulk escalate</button>
+                      <button onClick={() => openBulkFlow('task_snooze')} className="action-btn">Bulk snooze</button>
+                    </div>
+                  </details>
                 </div>
               </div>
 

@@ -2,6 +2,11 @@
 
 ## 2026-04-05
 
+### Deficiency 5 Phase 1: support workspace role correction
+- Refocused Projects and Relationships as context-and-routing lenses; de-emphasized inline admin/editing surfaces.
+- Reframed `ProjectCommandCenter` around pressure summary + project portfolio scanning, promoted route-to-lane actions in selected project context, and pushed broader filtering, quick-add, bulk actions, and project maintenance into secondary disclosures (`src/components/ProjectCommandCenter.tsx`).
+- Reframed `RelationshipBoard` around coordination pressure summary + relationship portfolio scanning, promoted route and quick-create execution actions in selected relationship context, and moved advanced filtering plus quick-add/admin-heavy controls into quieter secondary disclosures (`src/components/RelationshipBoard.tsx`).
+
 
 ### Deficiency 4 Phase 3: unified record editor engine + record-surface orchestration
 - Unified task/follow-up/project/relationship record editing under a shared editor engine, adapter model, and record-surface orchestration system.

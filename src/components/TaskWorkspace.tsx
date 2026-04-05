@@ -1,8 +1,8 @@
-import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unlink2 } from 'lucide-react';
+import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unlink2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
-import { AppShellCard, EmptyState, FilterBar, SectionHeader, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
+import { AppShellCard, AppBadge, EmptyState, SectionHeader, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
@@ -85,7 +85,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [linkedFilter, setLinkedFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [parentStatusFilter, setParentStatusFilter] = useState<'All' | FollowUpStatus>('All');
   const [tagFilter, setTagFilter] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(Boolean(prefs?.inspectorCollapsed));
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('summary');
   const [flowState, setFlowState] = useState<{ kind: 'done' | 'block' | 'unblock' | 'defer'; taskId: string } | null>(null);
@@ -201,6 +201,23 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     return chips;
   }, [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, search, setTaskOwnerFilter, setTaskStatusFilter]);
 
+  const activeSecondaryFilterCount = useMemo(() => (
+    [
+      projectFilter !== 'All',
+      assigneeFilter !== 'All',
+      !personalMode && taskOwnerFilter !== 'All',
+      taskStatusFilter !== 'All',
+      !personalMode && parentStatusFilter !== 'All',
+      linkedFilter !== 'all',
+      Boolean(tagFilter),
+      sortBy !== 'due',
+    ].filter(Boolean).length
+  ), [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, sortBy]);
+
+  const activeWorkspacePreferenceCount = useMemo(() => (
+    [sessionPreset !== 'workNow', density !== 'standard', inspectorCollapsed].filter(Boolean).length
+  ), [sessionPreset, density, inspectorCollapsed]);
+
   const resetFilters = () => {
     setTaskOwnerFilter('All');
     setTaskStatusFilter('All');
@@ -274,10 +291,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
             <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
           </div>
-          {executionIntent?.target === 'tasks' ? <div className="text-xs text-slate-600">{describeExecutionIntent(executionIntent)}</div> : null}
-          <WorkspaceToolbarRow className="overview-support-row">
-            <span className="overview-inline-guidance"><strong>Task loop:</strong> Scan queue → decide in inspector execute tab → return to queue.</span>
-            <span className="overview-inline-guidance">Use filters only when needed; active filters stay visible as chips.</span>
+          <WorkspaceToolbarRow className="followup-summary-meta-row">
+            <span className="workspace-support-copy">Task loop: scan queue → select task → execute in inspector.</span>
+            {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </WorkspaceToolbarRow>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
@@ -285,8 +301,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       <WorkspacePrimaryLayout inspectorWidth="420px" className={inspectorCollapsed ? 'workspace-primary-layout-collapsed' : ''}>
         <AppShellCard className="workspace-list-panel" surface="data">
           <SectionHeader title="Task queue" subtitle="Fast tactical lane for personal-first execution." compact />
-          <div className="workspace-control-stack">
-            <FilterBar>
+          <div className="workspace-control-stack task-control-stack-calm">
+            <WorkspaceToolbarRow className="execution-toolbar-row task-primary-toolbar">
               <div className="task-mode-group" role="tablist" aria-label="Primary task modes">
                 {primaryModeOptions.map((option) => (
                   <button key={option.value} onClick={() => applyMode(option.value)} className={`task-mode-chip ${mode === option.value ? 'task-mode-chip-active' : ''}`} role="tab" aria-selected={mode === option.value}>{option.label}</button>
@@ -296,43 +312,63 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   {secondaryModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
-            </FilterBar>
 
-            <WorkspaceToolbarRow className="execution-toolbar-row">
-              <label className="field-block">
+              <label className="field-block task-search-block">
                 <span className="field-label">Search queue</span>
-                <div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" /></div>
+                <div className="search-field-wrap">
+                  <Search className="search-field-icon h-4 w-4" />
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />
+                  {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+                </div>
               </label>
-              <select value={sortBy} onChange={(event) => { setSortBy(event.target.value as typeof sortBy); setSessionPreset('custom'); }} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
-              <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
-              <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Filters <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
+
+              <button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
+                <SlidersHorizontal className="h-4 w-4" />
+                View options
+                {(activeSecondaryFilterCount + activeWorkspacePreferenceCount) > 0 ? <AppBadge tone="info">{activeSecondaryFilterCount + activeWorkspacePreferenceCount}</AppBadge> : null}
+                <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
+              </button>
               <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
             </WorkspaceToolbarRow>
 
-            <WorkspaceToolbarRow className="overview-support-row !border-t-0 !pt-0 task-session-strip">
-              <span className="overview-triage-label">Session</span>
-              {sessionPresets.map((preset) => <button key={preset.value} onClick={() => applySessionPreset(preset.value)} className={`action-btn !px-2.5 !py-1 text-xs ${sessionPreset === preset.value ? 'bg-slate-900 !text-white' : ''}`}>{preset.label}</button>)}
-              <span className="overview-triage-label">Density</span>
-              <button onClick={() => setDensity((current) => (current === 'standard' ? 'compact' : 'standard'))} className="action-btn !px-2.5 !py-1 text-xs">{density === 'compact' ? 'Compact' : 'Standard'}</button>
-              <button onClick={() => setInspectorCollapsed((current) => !current)} className="action-btn !px-2.5 !py-1 text-xs">{inspectorCollapsed ? 'Show details' : 'Hide details'}</button>
-            </WorkspaceToolbarRow>
-
             {activeFilterChips.length ? (
-              <div className="task-filter-chip-row">
+              <div className="task-filter-chip-row task-filter-chip-row-muted">
                 {activeFilterChips.map((chip) => <button key={chip.key} onClick={chip.clear} className="task-filter-chip">{chip.label} <span aria-hidden="true">×</span></button>)}
                 <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset all</button>
               </div>
             ) : null}
 
-            {advancedOpen ? (
-              <div className="task-advanced-controls advanced-filter-surface">
+            {viewOptionsOpen ? (
+              <div className="task-view-options-surface advanced-filter-surface">
+                <div className="task-view-options-section-head">
+                  <span className="task-view-options-title">Queue filters</span>
+                  <span className="workspace-support-copy">Refine what appears in the queue.</span>
+                </div>
                 <div className={`grid gap-2 ${personalMode ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+                  <select value={sortBy} onChange={(event) => { setSortBy(event.target.value as typeof sortBy); setSessionPreset('custom'); }} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
+                  <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
                   <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
                   {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
                   <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
                   {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
                   <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
                   <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
+                </div>
+
+                <div className="task-view-options-section-head">
+                  <span className="task-view-options-title">Workspace preferences</span>
+                  <span className="workspace-support-copy">Adjust presentation and session defaults.</span>
+                </div>
+                <div className="task-workspace-prefs-row">
+                  <label className="field-block task-preset-block">
+                    <span className="field-label">Session preset</span>
+                    <select value={sessionPreset} onChange={(event) => applySessionPreset(event.target.value as SessionPreset)} className="field-input">
+                      <option value="custom">Custom</option>
+                      {sessionPresets.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+                    </select>
+                  </label>
+                  <button onClick={() => setDensity((current) => (current === 'standard' ? 'compact' : 'standard'))} className="action-btn">Density: {density === 'compact' ? 'Compact' : 'Standard'}</button>
+                  <button onClick={() => setInspectorCollapsed((current) => !current)} className="action-btn">{inspectorCollapsed ? 'Show details panel' : 'Hide details panel'}</button>
                 </div>
               </div>
             ) : null}

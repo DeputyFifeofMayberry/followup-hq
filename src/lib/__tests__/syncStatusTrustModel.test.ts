@@ -105,6 +105,9 @@ function testSharedSnapshotSelectorConsistency(): void {
     lastLocalWriteAt: '2026-04-05T10:00:00.000Z',
     lastFallbackRestoreAt: undefined,
     lastFailedSyncAt: undefined,
+    lastLoadFailureStage: 'user_preferences',
+    lastLoadFailureMessage: 'relation "user_preferences" does not exist',
+    lastLoadRecoveredWithLocalCache: true,
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);
@@ -113,6 +116,8 @@ function testSharedSnapshotSelectorConsistency(): void {
   const headerModel = getSyncStatusModel(snapshotForHeader);
 
   assert(bannerModel.stateLabel === headerModel.stateLabel, 'header and banner should agree on status label');
+  assert(snapshotForBanner.lastLoadFailureStage === 'user_preferences', 'sync snapshot should include fallback failure stage');
+  assert(snapshotForHeader.lastLoadFailureMessage === 'relation "user_preferences" does not exist', 'sync snapshot should include fallback failure message');
 }
 
 (function run() {

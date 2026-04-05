@@ -130,6 +130,16 @@ export function SyncStatusControl() {
                 This session is currently using the local recovery cache to prevent data loss while cloud confirmation catches up.
               </div>
             ) : null}
+            {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? (
+              <div className="sync-status-row-detail">
+                Fallback reason: {syncMeta.lastLoadFailureStage}
+              </div>
+            ) : null}
+            {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? (
+              <div className="sync-status-row-detail">
+                Detail: {syncMeta.lastLoadFailureMessage}
+              </div>
+            ) : null}
             {syncMeta.dirtyRecordRefs.length ? (
               <div className="sync-status-row-detail">
                 Dirty records in focus: {syncMeta.dirtyRecordRefs.slice(0, 3).map((ref) => `${ref.type} ${ref.id}`).join(', ')}

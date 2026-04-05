@@ -68,7 +68,20 @@ export interface LoadResult {
   localCacheUpdatedAt?: string;
   localCacheLastCloudConfirmedAt?: string;
   cloudUpdatedAt?: string;
+  loadFailureStage?: LoadFailureStage;
+  loadFailureMessage?: string;
+  loadFailureRecoveredWithLocalCache?: boolean;
 }
+
+export type LoadFailureStage =
+  | 'auth_session'
+  | 'follow_up_items'
+  | 'tasks'
+  | 'projects'
+  | 'contacts'
+  | 'companies'
+  | 'user_preferences'
+  | 'unknown';
 
 export interface SaveDiagnostics {
   attemptedAt: string;
@@ -366,6 +379,7 @@ function isLocalNewer(localUpdatedAt: string | undefined, cloudUpdatedAt: string
 
 export async function loadPersistedPayload(): Promise<LoadResult> {
   const cache = readLocalCache();
+  const toErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
   let userId: string | null;
   try {
@@ -381,6 +395,9 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         cloudReadFailed: true,
         localCacheUpdatedAt: cache.updatedAt,
         localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+        loadFailureStage: 'auth_session',
+        loadFailureMessage: toErrorMessage(error),
+        loadFailureRecoveredWithLocalCache: true,
       };
     }
     throw error;
@@ -411,16 +428,26 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
 
   let cloudPayload: PersistedPayload;
   let cloudUpdatedAt: string | undefined;
+  let loadFailureStage: LoadFailureStage | undefined;
+  let loadFailureMessage: string | undefined;
 
   try {
-    const [items, tasks, projects, contacts, companies, auxiliaryResult] = await Promise.all([
-      readEntityRows<FollowUpItem>('follow_up_items', userId),
-      readEntityRows<TaskItem>('tasks', userId),
-      readEntityRows<ProjectRecord>('projects', userId),
-      readEntityRows<ContactRecord>('contacts', userId),
-      readEntityRows<CompanyRecord>('companies', userId),
-      readAuxiliaryState(userId),
-    ]);
+    const readAtStage = async <T>(stage: LoadFailureStage, fn: () => Promise<T>): Promise<T> => {
+      try {
+        return await fn();
+      } catch (error) {
+        loadFailureStage = stage;
+        loadFailureMessage = toErrorMessage(error);
+        throw error;
+      }
+    };
+
+    const items = await readAtStage('follow_up_items', () => readEntityRows<FollowUpItem>('follow_up_items', userId));
+    const tasks = await readAtStage('tasks', () => readEntityRows<TaskItem>('tasks', userId));
+    const projects = await readAtStage('projects', () => readEntityRows<ProjectRecord>('projects', userId));
+    const contacts = await readAtStage('contacts', () => readEntityRows<ContactRecord>('contacts', userId));
+    const companies = await readAtStage('companies', () => readEntityRows<CompanyRecord>('companies', userId));
+    const auxiliaryResult = await readAtStage('user_preferences', () => readAuxiliaryState(userId));
 
     cloudUpdatedAt = auxiliaryResult.updatedAt;
     cloudPayload = {
@@ -442,6 +469,9 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         cloudReadFailed: true,
         localCacheUpdatedAt: cache.updatedAt,
         localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+        loadFailureStage: loadFailureStage ?? 'unknown',
+        loadFailureMessage: loadFailureMessage ?? toErrorMessage(error),
+        loadFailureRecoveredWithLocalCache: true,
       };
     }
     throw error;

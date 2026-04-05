@@ -10,9 +10,12 @@ export interface DerivedSyncMeta {
   lastLocalWriteAt?: string;
   lastFallbackRestoreAt?: string;
   lastSyncedAt?: string;
+  lastLoadFailureStage?: string;
+  lastLoadFailureMessage?: string;
+  lastLoadRecoveredWithLocalCache?: boolean;
 }
 
-export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt'>): DerivedSyncMeta {
+export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt' | 'loadFailureStage' | 'loadFailureMessage' | 'loadFailureRecoveredWithLocalCache'>): DerivedSyncMeta {
   const loadedFromLocalCache = load.source === 'local-cache';
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
   const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback);
@@ -43,5 +46,8 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
     lastLocalWriteAt: load.localCacheUpdatedAt,
     lastFallbackRestoreAt: usingRecoveryCache ? todayIso() : undefined,
     lastSyncedAt: lastCloudConfirmedAt,
+    lastLoadFailureStage: load.loadFailureStage,
+    lastLoadFailureMessage: load.loadFailureMessage,
+    lastLoadRecoveredWithLocalCache: load.loadFailureRecoveredWithLocalCache,
   };
 }

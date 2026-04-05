@@ -11,7 +11,7 @@ import type { FollowUpColumnKey } from '../../types';
 import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
 import { refreshDuplicates } from '../useCases/mutationEffects';
-import { createPersistenceActivityEvent } from '../persistenceActivity';
+import { createPersistenceActivityEvent, describeLoadFallbackFailure } from '../persistenceActivity';
 import { deriveSyncMetaFromLoadResult } from './syncMetaDerivation';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
@@ -29,6 +29,9 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           cloudUpdatedAt,
           localCacheUpdatedAt,
           localCacheLastCloudConfirmedAt,
+          loadFailureStage,
+          loadFailureMessage,
+          loadFailureRecoveredWithLocalCache,
         } = await loadPersistedPayload();
         const syncMeta = deriveSyncMetaFromLoadResult({
           mode,
@@ -40,7 +43,13 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           cloudUpdatedAt,
           localCacheUpdatedAt,
           localCacheLastCloudConfirmedAt,
+          loadFailureStage,
+          loadFailureMessage,
+          loadFailureRecoveredWithLocalCache,
         });
+        const fallbackFailure = cloudReadFailed && loadedFromFallback
+          ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage)
+          : undefined;
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);
         const companies = (payload.companies ?? []).map(normalizeCompany);
@@ -94,17 +103,20 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           lastFallbackRestoreAt: syncMeta.lastFallbackRestoreAt,
           lastSyncedAt: syncMeta.lastSyncedAt,
           lastFailedSyncAt: undefined,
+          lastLoadFailureStage: syncMeta.lastLoadFailureStage,
+          lastLoadFailureMessage: syncMeta.lastLoadFailureMessage,
+          lastLoadRecoveredWithLocalCache: syncMeta.lastLoadRecoveredWithLocalCache,
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'saved',
-            summary: cloudReadFailed && loadedFromFallback
-              ? 'Cloud read failed; local copy preserved.'
+            summary: fallbackFailure
+              ? fallbackFailure.summary
               : localNewerThanCloud && loadedFromFallback
                 ? 'Loaded from local recovery cache.'
                 : mode === 'browser'
                   ? 'Workspace loaded from this device.'
                   : 'Workspace loaded from persisted data.',
-            detail: cloudReadFailed && loadedFromFallback
-              ? 'Cloud read failed; local cache preserved your latest data.'
+            detail: fallbackFailure
+              ? fallbackFailure.detail
               : localNewerThanCloud && loadedFromFallback
                 ? 'Local cache is newer than cloud data and was restored.'
                 : mode === 'browser'
@@ -132,6 +144,9 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           lastLocalWriteAt: undefined,
           lastFallbackRestoreAt: undefined,
           lastFailedSyncAt: failureAt,
+          lastLoadFailureStage: undefined,
+          lastLoadFailureMessage: error instanceof Error ? error.message : 'Failed to load saved data.',
+          lastLoadRecoveredWithLocalCache: false,
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'failed',
             at: failureAt,

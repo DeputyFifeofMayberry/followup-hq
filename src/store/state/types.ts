@@ -158,5 +158,8 @@ export interface AppMetaState {
   lastFallbackRestoreAt?: string;
   lastSyncedAt?: string;
   lastFailedSyncAt?: string;
+  lastLoadFailureStage?: string;
+  lastLoadFailureMessage?: string;
+  lastLoadRecoveredWithLocalCache?: boolean;
   persistenceActivity: PersistenceActivityEvent[];
 }

@@ -2,6 +2,14 @@
 
 ## 2026-04-05
 
+### Cloud-read fallback diagnostics now expose exact runtime failure stage
+- Extended persistence load results with explicit runtime diagnostics (`loadFailureStage`, `loadFailureMessage`, `loadFailureRecoveredWithLocalCache`) so local-cache fallback paths can identify exactly where cloud/session reads failed without changing existing trust-state decision rules (`src/lib/persistence.ts`).
+- Refined cloud-read failure handling to capture stage-level failures for session lookup and each Supabase read stage (`follow_up_items`, `tasks`, `projects`, `contacts`, `companies`, `user_preferences`) while preserving local-cache recovery behavior when cache is available (`src/lib/persistence.ts`).
+- Propagated load-failure diagnostics into app meta state and shared sync snapshot selectors so trust surfaces can render consistent fallback reason/detail data (`src/store/slices/syncMetaDerivation.ts`, `src/store/slices/metaSlice.ts`, `src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/lib/syncStatus.ts`).
+- Upgraded trust-center and banner diagnostics to display fallback reason/details (e.g. `auth_session`, `user_preferences`, and the underlying error message) whenever the current session is running from local recovery after a cloud read failure (`src/components/SyncStatusControl.tsx`, `src/components/PersistenceBanner.tsx`).
+- Improved persistence activity log wording for fallback restores so entries explicitly call out stage-specific failure causes like session lookup failures or table-level cloud read failures while keeping top-line trust labels unchanged (`src/store/persistenceActivity.ts`, `src/store/slices/metaSlice.ts`).
+- Added regression coverage for stage-specific fallback diagnostics and no-local-copy hard-failure behavior, including auth session failures, `user_preferences` read failures, and sync snapshot diagnostic field propagation (`src/lib/__tests__/persistenceReliability.test.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`).
+
 ### Persistence reliability + trust-state hardening pass
 - Fixed false-positive fallback messaging on hard load failures by introducing a dedicated `load-failed-no-local-copy` trust status and using explicit `Load issue` wording when persisted data cannot be loaded and no local recovery cache was restored (`src/store/slices/metaSlice.ts`, `src/store/state/types.ts`, `src/lib/syncStatus.ts`).
 - Tightened load-result trust derivation so `cloud-read-failed-local-fallback` now requires a real `loadedFromFallback` local-cache restore path, avoiding contradictory states where fallback language appeared without an actual fallback (`src/store/slices/metaSlice.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`).

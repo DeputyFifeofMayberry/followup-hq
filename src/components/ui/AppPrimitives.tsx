@@ -398,3 +398,68 @@ export function AppModalBody({ children, scrollable = true }: PropsWithChildren<
 export function AppModalFooter({ children }: PropsWithChildren) {
   return <div className="modal-footer">{children}</div>;
 }
+
+export function RecordEditorShell({ children }: PropsWithChildren) {
+  return <div className="space-y-4">{children}</div>;
+}
+
+export function RecordEditorHeader({
+  title,
+  subtitle,
+  badge,
+}: {
+  title: string;
+  subtitle?: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Canonical full editor</div>
+          <div className="mt-1 text-base font-semibold text-slate-900">{title}</div>
+          {subtitle ? <div className="mt-1 text-xs text-slate-600">{subtitle}</div> : null}
+        </div>
+        {badge ? <div>{badge}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+export function RecordEditorSection({
+  title,
+  subtitle,
+  children,
+}: PropsWithChildren<{ title: string; subtitle?: string }>) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+      {subtitle ? <div className="mt-1 text-xs text-slate-600">{subtitle}</div> : null}
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+export function RecordEditorMetaGrid({ children }: PropsWithChildren) {
+  return <div className="form-grid-two">{children}</div>;
+}
+
+export function RecordEditorFooter({ children }: PropsWithChildren) {
+  return <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>;
+}
+
+export function RecordContextDrawerShell({ children }: PropsWithChildren) {
+  return <div className="record-drawer-body">{children}</div>;
+}
+
+export function RecordContextDrawerSection({
+  title,
+  children,
+}: PropsWithChildren<{ title: string }>) {
+  return (
+    <section className="inspector-block">
+      <div className="workspace-inspector-section-title">{title}</div>
+      {children}
+    </section>
+  );
+}

@@ -10,6 +10,11 @@ let state = {
   followUpColumns: ['title'],
   selectedFollowUpIds: [],
   selectedId: null,
+  selectedTaskId: null,
+  itemModal: { open: false, mode: 'create', itemId: null },
+  taskModal: { open: false, mode: 'create', taskId: null },
+  recordDrawerRef: null,
+  createWorkDraft: null,
 } as unknown as AppStore;
 
 let queueCount = 0;
@@ -28,3 +33,8 @@ slice.saveFollowUpCustomView('My view', 'abc');
 slice.applySavedFollowUpCustomView('view-1');
 
 if (queueCount !== 4) throw new Error('persisted follow-up actions should queue persistence');
+
+slice.openEditModal('FUP-1');
+if (!state.itemModal.open || state.taskModal.open || state.recordDrawerRef !== null) throw new Error('openEditModal should focus canonical full-editor modal');
+slice.openRecordDrawer({ type: 'followup', id: 'FUP-1' });
+if (!state.recordDrawerRef || state.itemModal.open || state.taskModal.open) throw new Error('openRecordDrawer should deconflict modal surfaces');

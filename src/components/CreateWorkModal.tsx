@@ -5,7 +5,17 @@ import { buildItemFromForm, createId, fromDateInputValue, toDateInputValue, toda
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskItem } from '../types';
 import { EntityCombobox } from './EntityCombobox';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from './ui/AppPrimitives';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalFooter,
+  AppModalHeader,
+  RecordEditorFooter,
+  RecordEditorHeader,
+  RecordEditorMetaGrid,
+  RecordEditorSection,
+  RecordEditorShell,
+} from './ui/AppPrimitives';
 
 type WorkMode = 'followup' | 'task';
 
@@ -63,7 +73,6 @@ export function CreateWorkModal() {
   const [mode, setMode] = useState<WorkMode>(getRecentWorkMode());
   const [followUpForm, setFollowUpForm] = useState<FollowUpFormInput>(buildSmartFollowUpDefaults({ projectFilter }));
   const [taskForm, setTaskForm] = useState<TaskItem>(toTaskDraft(buildSmartTaskDefaults({ projectFilter })));
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [modalMode, setModalMode] = useState<'fast' | 'full'>('fast');
 
   useEffect(() => {
@@ -103,14 +112,12 @@ export function CreateWorkModal() {
         threadKey: currentItem.threadKey ?? '',
         draftFollowUp: currentItem.draftFollowUp ?? '',
       });
-      setShowAdvanced(true);
       setModalMode('full');
       return;
     }
     if (currentTask) {
       setMode('task');
       setTaskForm(currentTask);
-      setShowAdvanced(true);
       setModalMode('full');
       return;
     }
@@ -158,7 +165,6 @@ export function CreateWorkModal() {
     setMode(itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
     setFollowUpForm(defaultFollowUp);
     setTaskForm(defaultTask);
-    setShowAdvanced(false);
     setModalMode('fast');
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
 
@@ -212,134 +218,128 @@ export function CreateWorkModal() {
           save(false);
         }
       }}>
-        <AppModalHeader title="Create work" subtitle="Fast mode for speed, full mode for cleanup/editing." onClose={close} />
+        <AppModalHeader
+          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create work'}
+          subtitle={followUpEditing || taskEditing ? 'Canonical full-record editor for deep editing.' : 'Fast mode for speed, full mode for cleanup/editing.'}
+          onClose={close}
+        />
         <AppModalBody>
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
-          <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
-          <button onClick={() => setModalMode('fast')} className={modalMode === 'fast' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Fast mode</button>
-          <button onClick={() => setModalMode('full')} className={modalMode === 'full' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Full mode</button>
-        </div>
-
-        {mode === 'followup' ? (
-          <div className="form-grid-two">
-            <div className="field-block"><label className="field-label">Title</label><input autoFocus value={followUpForm.title} onChange={(e) => setFollowUpForm({ ...followUpForm, title: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Internal owner</label><input value={followUpForm.owner} onChange={(e) => setFollowUpForm({ ...followUpForm, owner: e.target.value })} className="field-input" placeholder="Who owns outcome?" /></div>
-            <div className="field-block"><label className="field-label">Assignee</label><input value={followUpForm.assigneeDisplayName || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who executes next step?" /></div>
-            <EntityCombobox
-              label="External contact"
-              valueId={followUpForm.contactId}
-              valueLabel={contacts.find((contact) => contact.id === followUpForm.contactId)?.name}
-              options={contactOptions}
-              onSelect={(option) => setFollowUpForm({ ...followUpForm, contactId: option.id })}
-              onCreate={(label) => {
-                const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
-                setFollowUpForm({ ...followUpForm, contactId: id });
-              }}
-            />
-            <EntityCombobox
-              label="Project"
-              valueId={followUpForm.projectId}
-              valueLabel={followUpForm.project}
-              options={projectOptions}
-              onSelect={(option) => setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id })}
-              onCreate={(label) => {
-                const id = addProject({ name: label, owner: followUpForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
-                setFollowUpForm({ ...followUpForm, project: label, projectId: id });
-              }}
-            />
-            <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(followUpForm.dueDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-            <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={followUpForm.nextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, nextAction: e.target.value })} className="field-textarea" /></div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
+            <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
+            <button onClick={() => setModalMode('fast')} className={modalMode === 'fast' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Fast mode</button>
+            <button onClick={() => setModalMode('full')} className={modalMode === 'full' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Full mode</button>
           </div>
-        ) : (
-          <div className="form-grid-two">
-            <div className="field-block"><label className="field-label">Title</label><input autoFocus value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Internal owner</label><input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} className="field-input" /></div>
-            <EntityCombobox
-              label="External contact"
-              valueId={taskForm.contactId}
-              valueLabel={contacts.find((contact) => contact.id === taskForm.contactId)?.name}
-              options={contactOptions}
-              onSelect={(option) => setTaskForm({ ...taskForm, contactId: option.id })}
-              onCreate={(label) => {
-                const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
-                setTaskForm({ ...taskForm, contactId: id });
-              }}
-            />
-            <div className="field-block"><label className="field-label">Assignee</label><input value={taskForm.assigneeDisplayName || ''} onChange={(e) => setTaskForm({ ...taskForm, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who will execute this?" /></div>
-            <EntityCombobox
-              label="Project"
-              valueId={taskForm.projectId}
-              valueLabel={taskForm.project}
-              options={projectOptions}
-              onSelect={(option) => setTaskForm({ ...taskForm, project: option.label, projectId: option.id })}
-              onCreate={(label) => {
-                const id = addProject({ name: label, owner: taskForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] });
-                setTaskForm({ ...taskForm, project: label, projectId: id });
-              }}
-            />
-            <div className="field-block"><label className="field-label">Start date</label><input type="date" value={toDateInputValue(taskForm.startDate)} onChange={(e) => setTaskForm({ ...taskForm, startDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(taskForm.dueDate)} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Deferred / snooze until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Block reason</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Linked follow-up ID</label><input value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })} className="field-input" placeholder="FUP-..." /></div>
-            <div className="field-block"><label className="field-label">Context note</label><input value={taskForm.contextNote || ''} onChange={(e) => setTaskForm({ ...taskForm, contextNote: e.target.value })} className="field-input" /></div>
-            <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'advance_parent'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskItem['completionImpact'] })} className="field-input"><option value="none">none</option><option value="advance_parent">advance_parent</option><option value="close_parent">close_parent</option></select></div>
-            <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={taskForm.nextStep} onChange={(e) => setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" /></div>
-            <div className="field-block field-block-span-2"><label className="field-label">Tags (comma separated)</label><input value={taskForm.tags.join(', ')} onChange={(e) => setTaskForm({ ...taskForm, tags: e.target.value.split(',').map((tag) => tag.trim()).filter(Boolean) })} className="field-input" /></div>
-          </div>
-        )}
 
-        {modalMode === 'full' ? (<details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" open={showAdvanced}>
-          <summary onClick={() => setShowAdvanced((v) => !v)} className="cursor-pointer text-sm font-semibold text-slate-700">Advanced fields (optional)</summary>
-          {mode === 'followup' ? (
-            <div className="form-grid-two mt-4">
-              <div className="field-block"><label className="field-label">Status</label><select value={followUpForm.status} onChange={(e) => setFollowUpForm({ ...followUpForm, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
-              <div className="field-block"><label className="field-label">Priority</label><select value={followUpForm.priority} onChange={(e) => setFollowUpForm({ ...followUpForm, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-              <EntityCombobox
-                label="Company"
-                valueId={followUpForm.companyId}
-                valueLabel={companies.find((company) => company.id === followUpForm.companyId)?.name}
-                options={companyOptions}
-                onSelect={(option) => setFollowUpForm({ ...followUpForm, companyId: option.id })}
-                onCreate={(label) => {
-                  const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
-                  setFollowUpForm({ ...followUpForm, companyId: id });
-                }}
-              />
-              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={followUpForm.summary} onChange={(e) => setFollowUpForm({ ...followUpForm, summary: e.target.value })} className="field-textarea" /></div>
-            </div>
-          ) : (
-            <div className="form-grid-two mt-4">
-              <div className="field-block"><label className="field-label">Status</label><select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
-              <div className="field-block"><label className="field-label">Priority</label><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-              <EntityCombobox
-                label="Company"
-                valueId={taskForm.companyId}
-                valueLabel={companies.find((company) => company.id === taskForm.companyId)?.name}
-                options={companyOptions}
-                onSelect={(option) => setTaskForm({ ...taskForm, companyId: option.id })}
-                onCreate={(label) => {
-                  const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
-                  setTaskForm({ ...taskForm, companyId: id });
-                }}
-              />
-              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={taskForm.notes} onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={taskForm.completionNote || ''} onChange={(e) => setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" /></div>
-            </div>
-          )}
-        </details>) : null}
+          <RecordEditorShell>
+            <RecordEditorHeader
+              title={mode === 'followup' ? 'Follow-up record editor' : 'Task record editor'}
+              subtitle="Shared grammar: core identity, execution state, workflow context, relationship linkage, notes/detail, maintenance."
+            />
 
+            {mode === 'followup' ? (
+              <>
+                <RecordEditorSection title="1. Core identity">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block"><label className="field-label">Title</label><input autoFocus value={followUpForm.title} onChange={(e) => setFollowUpForm({ ...followUpForm, title: e.target.value })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={followUpForm.projectId} valueLabel={followUpForm.project} options={projectOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: followUpForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, project: label, projectId: id }); }} /></div>
+                    <div className="field-block"><label className="field-label">Internal owner</label><input value={followUpForm.owner} onChange={(e) => setFollowUpForm({ ...followUpForm, owner: e.target.value })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Assignee</label><input value={followUpForm.assigneeDisplayName || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="2. Execution state">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block"><label className="field-label">Status</label><select value={followUpForm.status} onChange={(e) => setFollowUpForm({ ...followUpForm, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
+                    <div className="field-block"><label className="field-label">Priority</label><select value={followUpForm.priority} onChange={(e) => setFollowUpForm({ ...followUpForm, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+                    <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(followUpForm.dueDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="3. Workflow context">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={followUpForm.nextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, nextAction: e.target.value })} className="field-textarea" /></div>
+                    {modalMode === 'full' ? <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={followUpForm.summary} onChange={(e) => setFollowUpForm({ ...followUpForm, summary: e.target.value })} className="field-textarea" /></div> : null}
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="4. Relationship / linkage">
+                  <RecordEditorMetaGrid>
+                    <EntityCombobox label="External contact" valueId={followUpForm.contactId} valueLabel={contacts.find((contact) => contact.id === followUpForm.contactId)?.name} options={contactOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, contactId: id }); }} />
+                    <EntityCombobox label="Company" valueId={followUpForm.companyId} valueLabel={companies.find((company) => company.id === followUpForm.companyId)?.name} options={companyOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, companyId: id }); }} />
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                {modalMode === 'full' ? (
+                  <RecordEditorSection title="5. Notes / detail">
+                    <RecordEditorMetaGrid>
+                      <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={followUpForm.notes} onChange={(e) => setFollowUpForm({ ...followUpForm, notes: e.target.value })} className="field-textarea" /></div>
+                    </RecordEditorMetaGrid>
+                  </RecordEditorSection>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <RecordEditorSection title="1. Core identity">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block"><label className="field-label">Title</label><input autoFocus value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={taskForm.projectId} valueLabel={taskForm.project} options={projectOptions} onSelect={(option) => setTaskForm({ ...taskForm, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: taskForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setTaskForm({ ...taskForm, project: label, projectId: id }); }} /></div>
+                    <div className="field-block"><label className="field-label">Internal owner</label><input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Assignee</label><input value={taskForm.assigneeDisplayName || ''} onChange={(e) => setTaskForm({ ...taskForm, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="2. Execution state">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block"><label className="field-label">Status</label><select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
+                    <div className="field-block"><label className="field-label">Priority</label><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+                    <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(taskForm.dueDate)} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Deferred / snooze until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="3. Workflow context">
+                  <RecordEditorMetaGrid>
+                    <div className="field-block"><label className="field-label">Block reason</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" /></div>
+                    <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={taskForm.nextStep} onChange={(e) => setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" /></div>
+                    {modalMode === 'full' ? <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div> : null}
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                <RecordEditorSection title="4. Relationship / linkage">
+                  <RecordEditorMetaGrid>
+                    <EntityCombobox label="External contact" valueId={taskForm.contactId} valueLabel={contacts.find((contact) => contact.id === taskForm.contactId)?.name} options={contactOptions} onSelect={(option) => setTaskForm({ ...taskForm, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setTaskForm({ ...taskForm, contactId: id }); }} />
+                    <EntityCombobox label="Company" valueId={taskForm.companyId} valueLabel={companies.find((company) => company.id === taskForm.companyId)?.name} options={companyOptions} onSelect={(option) => setTaskForm({ ...taskForm, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setTaskForm({ ...taskForm, companyId: id }); }} />
+                    <div className="field-block"><label className="field-label">Linked follow-up ID</label><input value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })} className="field-input" /></div>
+                    <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'advance_parent'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskItem['completionImpact'] })} className="field-input"><option value="none">none</option><option value="advance_parent">advance_parent</option><option value="close_parent">close_parent</option></select></div>
+                  </RecordEditorMetaGrid>
+                </RecordEditorSection>
+
+                {modalMode === 'full' ? (
+                  <RecordEditorSection title="5. Notes / detail">
+                    <RecordEditorMetaGrid>
+                      <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={taskForm.notes} onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
+                      <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={taskForm.completionNote || ''} onChange={(e) => setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" /></div>
+                    </RecordEditorMetaGrid>
+                  </RecordEditorSection>
+                ) : null}
+              </>
+            )}
+
+            <RecordEditorSection title="6. Maintenance" subtitle="Destructive/admin workflows are intentionally secondary.">
+              <div className="text-xs text-slate-600">Use structured transition or dedicated maintenance flows for high-risk changes.</div>
+            </RecordEditorSection>
+          </RecordEditorShell>
         </AppModalBody>
         <AppModalFooter>
-          <button onClick={close} className="action-btn">Cancel</button>
-          {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and add another</button> : null}
-          <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
-            {followUpEditing || taskEditing ? 'Save changes' : 'Save work'}
-          </button>
+          <RecordEditorFooter>
+            <button onClick={close} className="action-btn">Cancel</button>
+            {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and add another</button> : null}
+            <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
+              {followUpEditing || taskEditing ? 'Save changes' : 'Save work'}
+            </button>
+          </RecordEditorFooter>
         </AppModalFooter>
       </div>
     </AppModal>

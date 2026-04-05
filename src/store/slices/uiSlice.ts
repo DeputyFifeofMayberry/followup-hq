@@ -70,9 +70,19 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       set({ followUpDuplicateModule: mode });
       queuePersist();
     },
-    openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+    openCreateModal: () => set({
+      itemModal: { open: true, mode: 'create', itemId: null },
+      taskModal: { open: false, mode: 'create', taskId: null },
+      recordDrawerRef: null,
+      createWorkDraft: null,
+    }),
     // Canonical deep-edit surface: full record modal.
-    openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
+    openEditModal: (id) => set({
+      itemModal: { open: true, mode: 'edit', itemId: id },
+      taskModal: { open: false, mode: 'create', taskId: null },
+      recordDrawerRef: null,
+      selectedId: id,
+    }),
     closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
     openTouchModal: () => set({ touchModalOpen: true }),
     closeTouchModal: () => set({ touchModalOpen: false }),
@@ -95,17 +105,32 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
     })),
     setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
     setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
-    openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null }, itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
+    openCreateTaskModal: () => set({
+      taskModal: { open: true, mode: 'create', taskId: null },
+      itemModal: { open: false, mode: 'create', itemId: null },
+      recordDrawerRef: null,
+      createWorkDraft: null,
+    }),
     openCreateFromCapture: (draft) => set({
       createWorkDraft: draft,
       itemModal: draft.kind === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
       taskModal: draft.kind === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
+      recordDrawerRef: null,
     }),
     // Canonical deep-edit surface: full record modal.
-    openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
+    openEditTaskModal: (id) => set({
+      taskModal: { open: true, mode: 'edit', taskId: id },
+      itemModal: { open: false, mode: 'create', itemId: null },
+      recordDrawerRef: null,
+      selectedTaskId: id,
+    }),
     closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
     // Context-inspection surface: record drawer (not the primary full editor).
-    openRecordDrawer: (ref) => set({ recordDrawerRef: ref }),
+    openRecordDrawer: (ref) => set({
+      recordDrawerRef: ref,
+      itemModal: { open: false, mode: 'create', itemId: null },
+      taskModal: { open: false, mode: 'create', taskId: null },
+    }),
     closeRecordDrawer: () => set({ recordDrawerRef: null }),
   };
 }

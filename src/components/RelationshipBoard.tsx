@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRightLeft, Building2, Clock3, Filter, Flame, PlusCircle, Search, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Building2, ChevronDown, Clock3, Filter, Flame, PlusCircle, Search, Trash2, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { buildOwnerSummary } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -166,6 +166,14 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     setRelationshipResult({ tone: 'success', message: 'Relationship operation completed.' });
   };
 
+  const coordinationSummary = useMemo(() => relationshipRows.reduce((acc, row) => {
+    acc.waiting += row.waitingFollowUps;
+    acc.overdue += row.overdueFollowUps + row.overdueTasks;
+    acc.blocked += row.blockedTasks;
+    if (row.riskTier === 'High' || row.riskTier === 'Critical') acc.highRisk += 1;
+    return acc;
+  }, { waiting: 0, overdue: 0, blocked: 0, highRisk: 0 }), [relationshipRows]);
+
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
       <div className="border-b border-slate-200 px-5 py-4">
@@ -183,27 +191,13 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <option value="contact">Contacts</option>
                 <option value="company">Companies</option>
               </select>
-              <select value={filters.companyType} onChange={(e) => setFilters((prev) => ({ ...prev, companyType: e.target.value as typeof prev.companyType }))} className="field-input">
-                <option value="all">All company types</option>
-                <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
-              </select>
               <select value={filters.riskTier} onChange={(e) => setFilters((prev) => ({ ...prev, riskTier: e.target.value as typeof prev.riskTier }))} className="field-input">
                 <option value="all">All risk tiers</option>
                 <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
               </select>
-              <input type="number" min={0} value={filters.minActiveProjects} onChange={(e) => setFilters((prev) => ({ ...prev, minActiveProjects: Number(e.target.value) || 0 }))} placeholder="Min active projects" className="field-input" />
-              <input type="number" min={0} value={filters.minWaitingPressure} onChange={(e) => setFilters((prev) => ({ ...prev, minWaitingPressure: Number(e.target.value) || 0 }))} placeholder="Min waiting pressure" className="field-input" />
-              <input type="number" min={0} value={filters.minOverduePressure} onChange={(e) => setFilters((prev) => ({ ...prev, minOverduePressure: Number(e.target.value) || 0 }))} placeholder="Min overdue pressure" className="field-input" />
-              <input type="number" min={0} value={filters.minBlockedTaskPressure} onChange={(e) => setFilters((prev) => ({ ...prev, minBlockedTaskPressure: Number(e.target.value) || 0 }))} placeholder="Min blocked task pressure" className="field-input" />
-              <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={filters.staleOnly} onChange={(e) => setFilters((prev) => ({ ...prev, staleOnly: e.target.checked }))} />Stale only (&gt;=14 days since touch)</label>
-              <div className="flex gap-2">
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as RelationshipSortKey)} className="field-input">
-                  <option value="pressure">Sort by pressure</option><option value="name">Sort by name</option><option value="activeProjects">Sort by projects</option><option value="waiting">Sort by waiting</option><option value="overdue">Sort by overdue</option><option value="touchAge">Sort by touch age</option><option value="risk">Sort by risk</option>
-                </select>
-                <select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as typeof sortDirection)} className="field-input">
-                  <option value="desc">Desc</option><option value="asc">Asc</option>
-                </select>
-              </div>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as RelationshipSortKey)} className="field-input">
+                <option value="pressure">Sort by pressure</option><option value="name">Sort by name</option><option value="activeProjects">Sort by projects</option><option value="waiting">Sort by waiting</option><option value="overdue">Sort by overdue</option><option value="touchAge">Sort by touch age</option><option value="risk">Sort by risk</option>
+              </select>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {relationshipSavedViews.map((view) => (
@@ -219,8 +213,52 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                   {view.label}
                 </button>
               ))}
+              <button onClick={() => setSortDirection((prev) => prev === 'desc' ? 'asc' : 'desc')} className="action-btn !px-2.5 !py-1 text-xs">{sortDirection.toUpperCase()}</button>
               <button onClick={() => setFilters(defaultRelationshipFilter)} className="action-btn !px-2.5 !py-1 text-xs">Reset</button>
             </div>
+            <details className="task-maintenance-disclosure mt-2">
+              <summary><ChevronDown className="h-4 w-4" />More filters and quick create</summary>
+              <div className="task-maintenance-body space-y-3">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <select value={filters.companyType} onChange={(e) => setFilters((prev) => ({ ...prev, companyType: e.target.value as typeof prev.companyType }))} className="field-input">
+                    <option value="all">All company types</option>
+                    <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
+                  </select>
+                  <input type="number" min={0} value={filters.minActiveProjects} onChange={(e) => setFilters((prev) => ({ ...prev, minActiveProjects: Number(e.target.value) || 0 }))} placeholder="Min active projects" className="field-input" />
+                  <input type="number" min={0} value={filters.minWaitingPressure} onChange={(e) => setFilters((prev) => ({ ...prev, minWaitingPressure: Number(e.target.value) || 0 }))} placeholder="Min waiting pressure" className="field-input" />
+                  <input type="number" min={0} value={filters.minOverduePressure} onChange={(e) => setFilters((prev) => ({ ...prev, minOverduePressure: Number(e.target.value) || 0 }))} placeholder="Min overdue pressure" className="field-input" />
+                  <input type="number" min={0} value={filters.minBlockedTaskPressure} onChange={(e) => setFilters((prev) => ({ ...prev, minBlockedTaskPressure: Number(e.target.value) || 0 }))} placeholder="Min blocked task pressure" className="field-input" />
+                  <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={filters.staleOnly} onChange={(e) => setFilters((prev) => ({ ...prev, staleOnly: e.target.checked }))} />Stale only (&gt;=14 days since touch)</label>
+                </div>
+                <div className="grid gap-3">
+                  <div className="rounded-2xl tonal-panel">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Users className="h-4 w-4" />Quick add contact</div>
+                    <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
+                      <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="field-input" />
+                      <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="field-input" />
+                      <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl tonal-panel">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Building2 className="h-4 w-4" />Quick add company</div>
+                    <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
+                      <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company" className="field-input" />
+                      <select value={companyType} onChange={(e) => setCompanyType(e.target.value as typeof companyType)} className="field-input">
+                        <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
+                      </select>
+                      <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div className="overview-stat-grid overview-stat-grid-compact">
+            <div className="stat-tile"><div className="stat-tile-label">Waiting pressure</div><div className="stat-tile-value">{coordinationSummary.waiting}</div><div className="stat-tile-helper">Follow-ups waiting on others</div></div>
+            <div className="stat-tile stat-tile-warn"><div className="stat-tile-label">Overdue pressure</div><div className="stat-tile-value">{coordinationSummary.overdue}</div><div className="stat-tile-helper">Overdue follow-ups + tasks</div></div>
+            <div className="stat-tile stat-tile-danger"><div className="stat-tile-label">Blocked tasks</div><div className="stat-tile-value">{coordinationSummary.blocked}</div><div className="stat-tile-helper">Coordination bottlenecks</div></div>
+            <div className="stat-tile"><div className="stat-tile-label">High-risk relationships</div><div className="stat-tile-value">{coordinationSummary.highRisk}</div><div className="stat-tile-helper">High + critical risk tier</div></div>
           </div>
 
           <div className="rounded-2xl tonal-panel">
@@ -248,25 +286,6 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
             </div>
           </div>
 
-          <div className="rounded-2xl tonal-panel">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Users className="h-4 w-4" />Quick add contact</div>
-            <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
-              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="field-input" />
-              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="field-input" />
-              <button onClick={() => { if (!contactName.trim()) return; addContact({ name: contactName.trim(), email: contactEmail.trim(), role: 'External', notes: '', tags: [], active: true, relationshipStatus: 'Active', riskTier: 'Low' }); setContactName(''); setContactEmail(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl tonal-panel">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Building2 className="h-4 w-4" />Quick add company</div>
-            <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
-              <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company" className="field-input" />
-              <select value={companyType} onChange={(e) => setCompanyType(e.target.value as typeof companyType)} className="field-input">
-                <option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option>
-              </select>
-              <button onClick={() => { if (!companyName.trim()) return; addCompany({ name: companyName.trim(), type: companyType, notes: '', tags: [], relationshipStatus: 'Active', riskTier: 'Low', active: true }); setCompanyName(''); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><PlusCircle className="h-4 w-4" />Add</button>
-            </div>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -297,17 +316,17 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="inspector-title">{selected.name}</div>
-                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}. Route actions into execution lanes.</div>
+                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}. Coordination lens first: understand pressure then route to the right lane.</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
-                  <button onClick={() => openCreateWorkFromRelationship('followup')} className="action-btn !px-2.5 !py-1.5 text-xs">Add follow-up</button>
+                  <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Route into execution</div>
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="primary-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
+                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="primary-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
+                  <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting pressure</button>
+                  <button onClick={() => setFilters((prev) => ({ ...prev, minOverduePressure: 1 }))} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue pressure</button>
+                  <button onClick={() => openCreateWorkFromRelationship('followup')} className="action-btn !px-2.5 !py-1.5 text-xs">Create follow-up</button>
+                  <button onClick={() => openCreateWorkFromRelationship('task')} className="action-btn !px-2.5 !py-1.5 text-xs">Create task</button>
                   <button onClick={() => openRecordDrawer({ type: selected.entityType, id: selected.id })} className="action-btn !px-2.5 !py-1.5 text-xs">{editSurfaceCtas.openContext}</button>
-                  <button onClick={() => openCreateWorkFromRelationship('task')} className="action-btn !px-2.5 !py-1.5 text-xs">Add task</button>
-                  <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
-                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
-                  <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting</button>
-                  <button onClick={() => setFilters((prev) => ({ ...prev, minOverduePressure: 1 }))} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue</button>
                   <button onClick={() => { setRelationshipFlow('watch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
                   <button onClick={() => { setRelationshipFlow('log_touch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn">Log interaction</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, section: 'triage', intentLabel: `next touch ${selected.name}` }); setWorkspace('followups'); }} className="action-btn">Route next touch</button>

@@ -18,6 +18,7 @@ import { useExecutionQueueViewModel } from '../domains/shared';
 import type { WorkspaceKey } from '../lib/appModeConfig';
 import { StructuredActionFlow } from './actions/StructuredActionFlow';
 import { getCompanyLinkedRecords, getContactLinkedRecords } from '../lib/recordContext';
+import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
 export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
@@ -227,7 +228,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <button key={`${entry.entityType}-${entry.id}`} onClick={() => { setSelectedId(entry.id); setSelectedEntityType(entry.entityType); }} className="w-full rounded-xl tonal-micro text-left text-sm  list-row-family">
                   <div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{entry.name}</span><span className="text-xs text-rose-700">Score {entry.pressureScore}</span></div>
                   <div className="mt-1 text-xs text-slate-600">Waiting {entry.waitingFollowUps} • Overdue {entry.overdueFollowUps + entry.overdueTasks} • Blocked tasks {entry.blockedTasks}</div>
-                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: entry.entityType, id: entry.id }); }} className="action-btn !px-2 !py-1 text-xs">Open record</button></div>
+                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: entry.entityType, id: entry.id }); }} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button></div>
                 </button>
               ))}
             </div>
@@ -283,7 +284,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                     <div className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">{row.pressureScore}</div>
                   </div>
                   <div className="mt-1 text-xs text-slate-600">FU {row.openFollowUps} (W {row.waitingFollowUps}/O {row.overdueFollowUps}) • Tasks {row.openTasks} (B {row.blockedTasks}/O {row.overdueTasks}) • Projects {row.activeProjectCount}</div>
-                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: row.entityType, id: row.id }); }} className="action-btn !px-2 !py-1 text-xs">Open record</button></div>
+                  <div className="mt-2"><button onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: row.entityType, id: row.id }); }} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button></div>
                 </button>
               ))}
             </div>
@@ -299,7 +300,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div className="flex flex-wrap gap-2">
                   <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Relationship context actions</div>
                   <button onClick={() => openCreateWorkFromRelationship('followup')} className="action-btn !px-2.5 !py-1.5 text-xs">Add follow-up</button>
-                  <button onClick={() => openRecordDrawer({ type: selected.entityType, id: selected.id })} className="action-btn !px-2.5 !py-1.5 text-xs">Open record</button>
+                  <button onClick={() => openRecordDrawer({ type: selected.entityType, id: selected.id })} className="action-btn !px-2.5 !py-1.5 text-xs">{editSurfaceCtas.openContext}</button>
                   <button onClick={() => openCreateWorkFromRelationship('task')} className="action-btn !px-2.5 !py-1.5 text-xs">Add task</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
@@ -351,39 +352,51 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
 
               {selected.entityType === 'contact' && selectedContact ? (
                 <div className="mt-4 rounded-2xl tonal-panel">
-                  <div className="mb-2 text-sm font-semibold text-slate-900">Contact details</div>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <input value={selectedContact.title || ''} onChange={(e) => updateContact(selectedContact.id, { title: e.target.value })} placeholder="Title" className="field-input" />
-                    <input value={selectedContact.department || ''} onChange={(e) => updateContact(selectedContact.id, { department: e.target.value })} placeholder="Department" className="field-input" />
-                    <input value={selectedContact.internalOwner || ''} onChange={(e) => updateContact(selectedContact.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
-                    <input value={selectedContact.role} onChange={(e) => updateContact(selectedContact.id, { role: e.target.value })} placeholder="Role" className="field-input" />
-                    <select value={selectedContact.relationshipStatus || 'Active'} onChange={(e) => updateContact(selectedContact.id, { relationshipStatus: e.target.value as typeof selectedContact.relationshipStatus })} className="field-input"><option>Active</option><option>Watch</option><option>Escalated</option><option>Dormant</option></select>
-                    <select value={selectedContact.riskTier || 'Low'} onChange={(e) => updateContact(selectedContact.id, { riskTier: e.target.value as typeof selectedContact.riskTier })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <button onClick={() => { setRelationshipFlow('delete_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
-                  </div>
+                  <div className="mb-2 text-sm font-semibold text-slate-900">Contact context</div>
+                  <div className="text-xs text-slate-600">{editSurfacePolicy.context.intent}</div>
+                  <details className="task-maintenance-disclosure mt-2">
+                    <summary>{editSurfacePolicy.maintenance.label} controls</summary>
+                    <div className="task-maintenance-body">
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <input value={selectedContact.title || ''} onChange={(e) => updateContact(selectedContact.id, { title: e.target.value })} placeholder="Title" className="field-input" />
+                        <input value={selectedContact.department || ''} onChange={(e) => updateContact(selectedContact.id, { department: e.target.value })} placeholder="Department" className="field-input" />
+                        <input value={selectedContact.internalOwner || ''} onChange={(e) => updateContact(selectedContact.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
+                        <input value={selectedContact.role} onChange={(e) => updateContact(selectedContact.id, { role: e.target.value })} placeholder="Role" className="field-input" />
+                        <select value={selectedContact.relationshipStatus || 'Active'} onChange={(e) => updateContact(selectedContact.id, { relationshipStatus: e.target.value as typeof selectedContact.relationshipStatus })} className="field-input"><option>Active</option><option>Watch</option><option>Escalated</option><option>Dormant</option></select>
+                        <select value={selectedContact.riskTier || 'Low'} onChange={(e) => updateContact(selectedContact.id, { riskTier: e.target.value as typeof selectedContact.riskTier })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                        <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                        <button onClick={() => { setRelationshipFlow('delete_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               ) : null}
 
               {selected.entityType === 'company' && selectedCompany ? (
                 <div className="mt-4 rounded-2xl tonal-panel">
-                  <div className="mb-2 text-sm font-semibold text-slate-900">Company details</div>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <input value={selectedCompany.internalOwner || ''} onChange={(e) => updateCompany(selectedCompany.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
-                    <select value={selectedCompany.type} onChange={(e) => updateCompany(selectedCompany.id, { type: e.target.value as typeof selectedCompany.type })} className="field-input"><option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option></select>
-                    <select value={selectedCompany.relationshipStatus || 'Active'} onChange={(e) => updateCompany(selectedCompany.id, { relationshipStatus: e.target.value as typeof selectedCompany.relationshipStatus })} className="field-input"><option>Active</option><option>Watch</option><option>Escalated</option><option>Dormant</option></select>
-                    <select value={selectedCompany.riskTier || 'Low'} onChange={(e) => updateCompany(selectedCompany.id, { riskTier: e.target.value as typeof selectedCompany.riskTier })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
-                    <select value={selectedCompany.primaryContactId || ''} onChange={(e) => updateCompany(selectedCompany.id, { primaryContactId: e.target.value || undefined })} className="field-input"><option value="">Primary contact</option>{contactOptions.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <textarea value={selectedCompany.escalationNotes || ''} onChange={(e) => updateCompany(selectedCompany.id, { escalationNotes: e.target.value })} placeholder="Escalation notes" className="field-textarea" />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
-                    <button onClick={() => { setRelationshipFlow('delete_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
-                  </div>
+                  <div className="mb-2 text-sm font-semibold text-slate-900">Company context</div>
+                  <div className="text-xs text-slate-600">{editSurfacePolicy.context.intent}</div>
+                  <details className="task-maintenance-disclosure mt-2">
+                    <summary>{editSurfacePolicy.maintenance.label} controls</summary>
+                    <div className="task-maintenance-body">
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <input value={selectedCompany.internalOwner || ''} onChange={(e) => updateCompany(selectedCompany.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
+                        <select value={selectedCompany.type} onChange={(e) => updateCompany(selectedCompany.id, { type: e.target.value as typeof selectedCompany.type })} className="field-input"><option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option></select>
+                        <select value={selectedCompany.relationshipStatus || 'Active'} onChange={(e) => updateCompany(selectedCompany.id, { relationshipStatus: e.target.value as typeof selectedCompany.relationshipStatus })} className="field-input"><option>Active</option><option>Watch</option><option>Escalated</option><option>Dormant</option></select>
+                        <select value={selectedCompany.riskTier || 'Low'} onChange={(e) => updateCompany(selectedCompany.id, { riskTier: e.target.value as typeof selectedCompany.riskTier })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+                        <select value={selectedCompany.primaryContactId || ''} onChange={(e) => updateCompany(selectedCompany.id, { primaryContactId: e.target.value || undefined })} className="field-input"><option value="">Primary contact</option>{contactOptions.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                        <textarea value={selectedCompany.escalationNotes || ''} onChange={(e) => updateCompany(selectedCompany.id, { escalationNotes: e.target.value })} placeholder="Escalation notes" className="field-textarea" />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('reassign_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Reassign links to…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                        <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
+                        <button onClick={() => { setRelationshipFlow('delete_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               ) : null}
             </div>

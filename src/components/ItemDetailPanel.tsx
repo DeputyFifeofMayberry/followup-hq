@@ -10,8 +10,9 @@ import type { FollowUpActionFeedback, FollowUpActionType } from './actions/follo
 import { getLinkedTasksForFollowUp, getRelatedRecordBundle } from '../lib/recordContext';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { useFollowUpLaneContext } from '../domains/followups';
+import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
-type DetailTab = 'overview' | 'act' | 'details';
+type DetailTab = 'overview' | 'act' | 'context';
 
 export function ItemDetailPanel({ personalMode = false }: { personalMode?: boolean }) {
   const {
@@ -107,14 +108,15 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             {followUpDirty ? <Badge variant="warn">Unsaved local edits</Badge> : null}
           </div>
         </div>
-        <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />Edit</button>
+        <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
       </div>
 
       <div className="followup-operational-summary">
         {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
         {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
-        {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
-      </div>
+            {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
+            <AppBadge tone="info">{editSurfacePolicy.context.intent}</AppBadge>
+          </div>
 
       <div className="detail-card inspector-block mb-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Needs attention</div>
@@ -136,7 +138,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           options={[
             { value: 'overview', label: 'What matters' },
             { value: 'act', label: 'Take action' },
-            { value: 'details', label: `Details (${noteEntries.length} notes)` },
+            { value: 'context', label: `Context & maintenance (${noteEntries.length} notes)` },
           ]}
         />
       </div>
@@ -168,10 +170,10 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           </>
         ) : null}
 
-        {activeTab === 'act' ? (
+            {activeTab === 'act' ? (
           <>
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Take action now</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{editSurfacePolicy.execution.label}</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => { openDraftModal(item.id); setActionFeedback({ tone: 'success', message: 'Draft flow opened. Keep queue selection on this record to complete send/confirm.' }); }} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
                 <button onClick={() => { const nextTouchDate = addDaysIso(todayIso(), item.cadenceDays || 3); addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate }); setActionFeedback({ tone: 'success', message: `Touch logged. Next touch moved to ${formatDate(nextTouchDate)}.` }); }} className="action-btn">Log touch</button>
@@ -209,11 +211,11 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           </>
         ) : null}
 
-        {activeTab === 'details' ? (
+        {activeTab === 'context' ? (
           <>
             <div className="detail-card inspector-block">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">Notes</div>
+                <div className="text-sm font-semibold text-slate-900">Execution notes</div>
                 <div className="text-xs text-slate-500">{noteEntries.length} entries</div>
               </div>
               <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
@@ -226,14 +228,23 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             <div className="detail-card inspector-block">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked context</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />Open record drawer</button>
+                <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />{editSurfaceCtas.openContext}</button>
+                <button className="action-btn" onClick={() => openEditModal(item.id)}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
+              </div>
+              <details className="task-maintenance-disclosure mt-2">
+                <summary>Linked context maintenance</summary>
+                <div className="task-maintenance-body">
+                  <div className="text-xs text-slate-600">Use these only for supporting link maintenance. Primary deep editing stays in {editSurfacePolicy.full_edit.label.toLowerCase()}.</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
                 <select value={linkTaskIdDraft} onChange={(event) => setLinkTaskIdDraft(event.target.value)} className="field-input !w-auto">
                   <option value="">Link existing task…</option>
                   {unlinkedSiblingTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
                 </select>
                 <button className="action-btn" onClick={linkTaskToFollowUp} disabled={!linkTaskIdDraft}>Link task</button>
-                <button onClick={() => setActiveAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
-              </div>
+                    <button onClick={() => setActiveAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
+                  </div>
+                </div>
+              </details>
               <div className="mt-2 space-y-2">
                 {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet. Create one from Act.</div> : linkedTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2 list-row-family">
@@ -248,7 +259,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             </div>
 
             <div className="detail-card inspector-block">
-              <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Maintenance history</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button></div>
+              <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">{editSurfacePolicy.maintenance.label} history</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button></div>
               <div className="timeline-list mt-3">{activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>)}</div>
             </div>
           </>

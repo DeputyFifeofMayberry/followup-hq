@@ -31,6 +31,7 @@ import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { buildExecutionSelectedContext, describeHandoffMission, getExecutionLaneNextSelection, resolveExecutionLaneSelection, toExecutionLaneHandoff } from '../domains/shared';
+import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
@@ -586,7 +587,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       <p className="inspector-meta">Command surface: decide, act, continue.</p>
                       {selectedTaskDirty ? <p className="mt-1 text-xs font-medium text-amber-700">Unsaved local task edits</p> : null}
                     </div>
-                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button>
+                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                   </div>
                   <div className="task-inspector-status-strip">
                     <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
@@ -605,12 +606,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Take action now" subtitle="Primary actions are optimized for rapid throughput.">
+                <WorkspaceInspectorSection title={editSurfacePolicy.execution.label} subtitle="Primary actions are optimized for rapid throughput.">
                   <div className="task-inspector-actions">
                     <button onClick={() => openTaskFlow(selectedTask, 'done')} className="primary-btn">Mark done</button>
                     <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
                     <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
-                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn task-action-secondary">Edit details</button>
+                    <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn task-action-secondary">{editSurfaceCtas.fullEditTask}</button>
                   </div>
                   <div className="task-quick-edit-grid">
                     <label className="field-block"><span className="field-label">Quick next step</span><textarea value={quickNextStepDraft} onChange={(event) => setQuickNextStepDraft(event.target.value)} className="field-textarea" /></label>
@@ -622,7 +623,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Linked context" subtitle="Visible and actionable, but intentionally secondary.">
+                <WorkspaceInspectorSection title="Linked context" subtitle="Context inspection and routing stay secondary to execution.">
                   <div className="rounded-2xl tonal-panel task-link-context-panel">
                     <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
                     {linkedFollowUp ? <div className="tonal-micro">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
@@ -639,23 +640,32 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                     ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button> : null}
-                      {linkedFollowUp ? <button onClick={() => updateTask(selectedTask.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from parent follow-up' })} className="action-btn !px-2.5 !py-1.5 text-xs"><Unlink2 className="h-4 w-4" />Unlink parent</button> : null}
-                      <select value={linkParentDraft} onChange={(event) => setLinkParentDraft(event.target.value)} className="field-input !w-auto">
-                        <option value="">Link to follow-up…</option>
-                        {parentCandidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-                      </select>
-                      <button onClick={() => { if (!linkParentDraft) return; updateTask(selectedTask.id, { linkedFollowUpId: linkParentDraft, contextNote: 'Linked from task workspace' }); setLinkParentDraft(''); }} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!linkParentDraft}>Link parent</button>
+                      <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
                     </div>
+                    <details className="task-maintenance-disclosure mt-2">
+                      <summary>Linked context maintenance</summary>
+                      <div className="task-maintenance-body">
+                        <div className="text-xs text-slate-600">Use only when link maintenance is required. Primary path remains execution actions and full edit.</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {linkedFollowUp ? <button onClick={() => updateTask(selectedTask.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from parent follow-up' })} className="action-btn !px-2.5 !py-1.5 text-xs"><Unlink2 className="h-4 w-4" />Unlink parent</button> : null}
+                          <select value={linkParentDraft} onChange={(event) => setLinkParentDraft(event.target.value)} className="field-input !w-auto">
+                            <option value="">Link to follow-up…</option>
+                            {parentCandidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                          </select>
+                          <button onClick={() => { if (!linkParentDraft) return; updateTask(selectedTask.id, { linkedFollowUpId: linkParentDraft, contextNote: 'Linked from task workspace' }); setLinkParentDraft(''); }} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!linkParentDraft}>Link parent</button>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Details / maintenance" subtitle="Deep edit and destructive actions are available but de-emphasized.">
+                <WorkspaceInspectorSection title={editSurfacePolicy.maintenance.label} subtitle="Deep edit and destructive actions are available but de-emphasized.">
                   <details className="task-maintenance-disclosure">
                     <summary>Open full maintenance controls</summary>
                     <div className="task-maintenance-body">
                       <div className="text-xs text-slate-600">Completion note: {selectedTask.completionNote || 'None recorded'}</div>
                       <div className="flex flex-wrap gap-2">
-                        <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit full record</button>
+                        <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                         <button onClick={() => deleteTask(selectedTask.id)} className="action-btn task-action-danger">Delete task</button>
                       </div>
                     </div>

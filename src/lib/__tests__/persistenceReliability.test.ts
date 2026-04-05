@@ -192,7 +192,7 @@ async function run() {
   let threwNoCacheLoadFailure = false;
   try {
     await loadPersistedPayload();
-  } catch (error) {
+  } catch (error: any) {
     threwNoCacheLoadFailure = true;
     assert(error instanceof PersistenceLoadError, 'hard cloud read failure should throw PersistenceLoadError');
     assert(error.stage === 'follow_up_items', 'hard cloud read failure should preserve stage');

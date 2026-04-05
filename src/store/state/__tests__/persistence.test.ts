@@ -34,6 +34,8 @@ export function runPersistenceChecks() {
     followUpFilters: defaultFollowUpFilters,
     followUpColumns: ['title'],
     savedFollowUpViews: [],
+    followUpTableDensity: 'compact',
+    followUpDuplicateModule: 'auto',
   });
 
   assert(payload.items.length === starterItems.length, 'payload items should persist all follow-ups');

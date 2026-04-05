@@ -52,6 +52,14 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       set({ followUpColumns: columns });
       queuePersist();
     },
+    setFollowUpTableDensity: (density) => {
+      set({ followUpTableDensity: density });
+      queuePersist();
+    },
+    setFollowUpDuplicateModule: (mode) => {
+      set({ followUpDuplicateModule: mode });
+      queuePersist();
+    },
     openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
     openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
     closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),

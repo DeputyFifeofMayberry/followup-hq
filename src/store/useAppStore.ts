@@ -16,7 +16,6 @@ import { createMetaSlice } from './slices/metaSlice';
 import type { AppStore } from './types';
 import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } from './persistenceQueue';
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
-import type { SaveDiagnostics } from '../lib/persistence';
 import { resolvePostSaveMetaState } from './persistenceMeta';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;

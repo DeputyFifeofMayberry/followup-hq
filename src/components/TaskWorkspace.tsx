@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unlink2 } from 'lucide-react';
+import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unlink2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
@@ -354,7 +354,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                         <Badge variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>
                         <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
                         {isUrgent ? <Badge variant="danger">Overdue</Badge> : null}
-                        {parent ? <Badge variant="info">Linked</Badge> : <Badge variant="neutral">Unlinked</Badge>}
+                        {parent ? <Badge variant="neutral">Linked</Badge> : <Badge variant="neutral">Unlinked</Badge>}
                       </div>
                       <button onClick={() => openTaskFlow(task, 'done')} className="action-btn !px-2.5 !py-1 text-xs">Done</button>
                     </div>

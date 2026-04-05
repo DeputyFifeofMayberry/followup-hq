@@ -53,6 +53,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
   const [linkParentDraft, setLinkParentDraft] = useState('');
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
+  const isRecordDirty = useAppStore((s) => s.isRecordDirty);
 
   useEffect(() => {
     if (executionIntent?.target !== 'tasks') return;
@@ -123,6 +124,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [tasks, items, taskOwnerFilter, taskStatusFilter, search, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, blockedOnly, deferredOnly, cleanupOnly, tagFilter]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
+  const selectedTaskDirty = selectedTask ? isRecordDirty('task', selectedTask.id) : false;
   const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
   const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
@@ -283,6 +285,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   <div>
                     <h3 className="inspector-title">{selectedTask.title}</h3>
                     <p className="inspector-meta">Task execution detail</p>
+                    {selectedTaskDirty ? <p className="mt-1 text-xs font-medium text-amber-700">Unsaved local task edits</p> : null}
                   </div>
                   <div className="flex gap-2"><button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />Edit</button><button onClick={() => deleteTask(selectedTask.id)} className="action-btn text-rose-600"><Trash2 className="h-4 w-4" />Delete</button></div>
                 </div>

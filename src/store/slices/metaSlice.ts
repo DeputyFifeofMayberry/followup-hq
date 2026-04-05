@@ -60,12 +60,23 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           savedFollowUpViews: payload.auxiliary.savedFollowUpViews ?? [],
           saveError: '',
           syncState: 'saved',
+          unsavedChangeCount: 0,
+          hasLocalUnsavedChanges: false,
+          dirtyRecordRefs: [],
           lastSyncedAt: todayIso(),
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
         });
       } catch (error) {
-        set({ hydrated: true, persistenceMode: 'browser', saveError: error instanceof Error ? error.message : 'Failed to load saved data.', syncState: 'error' });
+        set({
+          hydrated: true,
+          persistenceMode: 'browser',
+          saveError: error instanceof Error ? error.message : 'Failed to load saved data.',
+          syncState: 'error',
+          unsavedChangeCount: 0,
+          hasLocalUnsavedChanges: false,
+          dirtyRecordRefs: [],
+        });
       }
     },
   };

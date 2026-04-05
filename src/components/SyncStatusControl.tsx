@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, RefreshCcw, Save, Upload } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
 import { getSyncStatusModel } from '../lib/syncStatus';
@@ -19,8 +19,15 @@ export function SyncStatusControl() {
     syncState: s.syncState,
     saveError: s.saveError,
     lastSyncedAt: s.lastSyncedAt,
+    unsavedChangeCount: s.unsavedChangeCount,
+    hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
+    dirtyRecordRefs: s.dirtyRecordRefs,
+    flushPersistenceNow: s.flushPersistenceNow,
+    retryPersistenceNow: s.retryPersistenceNow,
   })));
   const [open, setOpen] = useState(false);
+  const [runningManualSave, setRunningManualSave] = useState(false);
+  const [runningRetry, setRunningRetry] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
@@ -74,6 +81,46 @@ export function SyncStatusControl() {
             <div className="sync-status-row-detail sync-status-row-detail-strong">
               {syncMeta.lastSyncedAt ? formatDateTime(syncMeta.lastSyncedAt) : 'No successful sync recorded yet.'}
             </div>
+          </div>
+
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Pending local edits</span>
+            <div className="sync-status-row-detail sync-status-row-detail-strong">
+              {syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} pending change${syncMeta.unsavedChangeCount === 1 ? '' : 's'}` : 'No pending local edits.'}
+            </div>
+            {syncMeta.dirtyRecordRefs.length ? (
+              <div className="sync-status-row-detail">
+                Dirty records in focus: {syncMeta.dirtyRecordRefs.slice(0, 3).map((ref) => `${ref.type} ${ref.id}`).join(', ')}
+                {syncMeta.dirtyRecordRefs.length > 3 ? ` +${syncMeta.dirtyRecordRefs.length - 3} more` : ''}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="sync-status-actions">
+            <button
+              type="button"
+              className="action-btn"
+              disabled={!syncMeta.hasLocalUnsavedChanges || runningManualSave}
+              onClick={() => {
+                setRunningManualSave(true);
+                void syncMeta.flushPersistenceNow().finally(() => setRunningManualSave(false));
+              }}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {runningManualSave ? 'Saving now…' : 'Save now'}
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              disabled={syncMeta.syncState !== 'error' || runningRetry}
+              onClick={() => {
+                setRunningRetry(true);
+                void syncMeta.retryPersistenceNow().finally(() => setRunningRetry(false));
+              }}
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              {runningRetry ? 'Retrying…' : 'Retry failed save'}
+            </button>
           </div>
 
           {syncMeta.saveError ? (

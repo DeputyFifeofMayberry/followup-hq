@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-05
+
+### Deficiency 2 Phase 2: dirty-state visibility + manual save/retry controls
+- Extended persistence meta state and status modeling to track local unsaved edits (`syncState: dirty`, unsaved change counts, and scoped dirty record references), then map those states into consistent trust copy so users can distinguish pending local edits vs active save vs save failure (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
+- Upgraded the persistence queue contract with shared dirty-record metadata and explicit manual flush/retry methods while preserving debounced save behavior and existing retry logic for normal edit flow (`src/store/persistenceQueue.ts`, `src/store/slices/types.ts`, `src/store/useAppStore.ts`).
+- Expanded the shell sync detail surface to show pending local edit counts, focused dirty-record hints, and manual `Save now` / `Retry failed save` controls tied directly to queue flush/retry behavior (`src/components/SyncStatusControl.tsx`, `src/styles/primitives.css`).
+- Added targeted per-record dirty affordances in active detail surfaces (follow-up inspector badge and selected task dirty label) so users can see when in-focus records still have unsynced local edits (`src/components/ItemDetailPanel.tsx`, `src/components/TaskWorkspace.tsx`, `src/store/slices/followUpsSlice.ts`, `src/store/slices/tasksSlice.ts`).
+- Updated compact persistence banner behavior to include pending-local-edit visibility so secondary shell surfaces stay aligned with the trust state model (`src/components/PersistenceBanner.tsx`).
+
 ## 2026-04-04
 
 ### Deficiency 2 Phase 1: save/sync trust visibility foundation

@@ -8,11 +8,27 @@ interface QueueConfig {
   retryDelayMs?: number;
 }
 
+export interface DirtyRecordRef {
+  type: 'followup' | 'task' | 'project' | 'contact' | 'company';
+  id: string;
+}
+
+export interface QueueRequestMeta {
+  dirtyRecords?: DirtyRecordRef[];
+}
+
 interface QueueHandlers {
   getPayload: () => PersistedPayload;
+  onQueued: (meta?: QueueRequestMeta) => void;
   onSaving: () => void;
   onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string) => void;
   onError: (message: string) => void;
+}
+
+export interface PersistenceQueueController {
+  enqueue: (meta?: QueueRequestMeta) => void;
+  flushNow: () => Promise<void>;
+  retryNow: () => Promise<void>;
 }
 
 export function createPersistenceQueue(handlers: QueueHandlers, config: QueueConfig = {}) {
@@ -25,6 +41,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
 
   const flush = async (attempt = 0): Promise<void> => {
+    handlers.onSaving();
     const payload = handlers.getPayload();
     const payloadJson = JSON.stringify(payload);
 
@@ -49,11 +66,23 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     }
   };
 
-  return () => {
+  const schedule = (meta?: QueueRequestMeta) => {
     if (timer) clearTimeout(timer);
-    handlers.onSaving();
+    handlers.onQueued(meta);
     timer = setTimeout(() => {
       void flush();
     }, debounceMs);
   };
+
+  const flushNow = async () => {
+    if (timer) clearTimeout(timer);
+    handlers.onSaving();
+    await flush();
+  };
+
+  return {
+    enqueue: schedule,
+    flushNow,
+    retryNow: flushNow,
+  } satisfies PersistenceQueueController;
 }

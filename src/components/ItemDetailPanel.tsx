@@ -34,6 +34,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     setSelectedTaskId,
     openRecordDrawer,
     attemptFollowUpTransition,
+    isRecordDirty,
   } = useAppStore(useShallow((s) => ({
     selectedId: s.selectedId,
     items: s.items,
@@ -52,6 +53,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     setSelectedTaskId: s.setSelectedTaskId,
     openRecordDrawer: s.openRecordDrawer,
     attemptFollowUpTransition: s.attemptFollowUpTransition,
+    isRecordDirty: s.isRecordDirty,
   })));
 
   const item = items.find((entry) => entry.id === selectedId) ?? null;
@@ -87,6 +89,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
   const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks);
   const closeout = evaluateFollowUpCloseout(item, tasks);
+  const followUpDirty = isRecordDirty('followup', item.id);
   const doneLinkedTasks = childRollup.done;
   const blockedLinkedTasks = childRollup.blocked;
   const overdueLinkedTasks = childRollup.overdue;
@@ -112,6 +115,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             <Badge variant={statusTone(item.status)}>{item.status}</Badge>
             <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge>
             <Badge variant={escalationTone(item.escalationLevel)}>{item.escalationLevel}</Badge>
+            {followUpDirty ? <Badge variant="warn">Unsaved local edits</Badge> : null}
           </div>
         </div>
         <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />Edit</button>

@@ -36,6 +36,7 @@ import type {
 } from '../../types';
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
+import type { DirtyRecordRef } from '../persistenceQueue';
 
 export interface ItemModalState {
   open: boolean;
@@ -119,6 +120,9 @@ export interface AppMetaState {
   hydrated: boolean;
   persistenceMode: PersistenceMode;
   saveError: string;
-  syncState: 'idle' | 'checking' | 'saving' | 'saved' | 'error';
+  syncState: 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
+  unsavedChangeCount: number;
+  hasLocalUnsavedChanges: boolean;
+  dirtyRecordRefs: DirtyRecordRef[];
   lastSyncedAt?: string;
 }

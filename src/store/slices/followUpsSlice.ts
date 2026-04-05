@@ -38,7 +38,7 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
         });
         return applyItemMutationEffects(state, items);
       });
-      queuePersist();
+      queuePersist({ dirtyRecords: [{ type: 'followup', id }] });
     },
     addItem: (item) => {
       set((state: AppStore) => {
@@ -46,7 +46,7 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
         const items = [normalized, ...state.items].map(normalizeItem);
         return { ...applyItemMutationEffects(state, items), selectedId: normalized.id, itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null };
       });
-      queuePersist();
+      queuePersist({ dirtyRecords: [{ type: 'followup', id: item.id }] });
     },
     deleteItem: (id) => {
       set((state: AppStore) => {
@@ -59,14 +59,14 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
           selectedId: state.selectedId === id ? nextItems[0]?.id ?? null : state.selectedId,
         };
       });
-      queuePersist();
+      queuePersist({ dirtyRecords: [{ type: 'followup', id }] });
     },
     addRunningNote: (id, note) => {
       set((state: AppStore) => {
         const items = withItemUpdate(state.items, id, (item) => ({ ...item, notes: appendRunningNote(item.notes, note), lastTouchDate: todayIso(), timeline: [buildTouchEvent('Added a running note entry.', 'note'), ...item.timeline] }));
         return { items, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
       });
-      queuePersist();
+      queuePersist({ dirtyRecords: [{ type: 'followup', id }] });
     },
     attemptFollowUpTransition: (id, status, patch = {}, options) => {
       const state = get();
@@ -93,14 +93,14 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
         const items = withItemUpdate(state.items, id, (item) => ({ ...item, status: status ?? item.status, dueDate: dueDate ?? item.dueDate, nextTouchDate: nextTouchDate ?? addDaysIso(todayIso(), item.cadenceDays), promisedDate: promisedDate !== undefined ? promisedDate : item.promisedDate, waitingOn: waitingOn !== undefined ? waitingOn : item.waitingOn, lastTouchDate: todayIso(), timeline: [buildTouchEvent(summary, status && status !== item.status ? 'status_changed' : 'touched'), ...item.timeline] }));
         return { items, touchModalOpen: false, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) };
       });
-      queuePersist();
+      queuePersist({ dirtyRecords: [{ type: 'followup', id }] });
     },
-    importItems: (rows) => { set((state: AppStore) => { const imported = rows.map(buildImportedItem); const items = [...imported, ...state.items].map(normalizeItem); return { items, selectedId: imported[0]?.id ?? state.selectedId, importModalOpen: false, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist(); },
+    importItems: (rows) => { set((state: AppStore) => { const imported = rows.map(buildImportedItem); const items = [...imported, ...state.items].map(normalizeItem); return { items, selectedId: imported[0]?.id ?? state.selectedId, importModalOpen: false, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist({ dirtyRecords: rows.map((row) => ({ type: 'followup' as const, id: row.id })) }); },
     addDroppedEmailImports: (imports) => { if (!imports.length) return; set((state: AppStore) => { const existing = new Map(state.droppedEmailImports.map((entry) => [entry.sourceRef, entry])); imports.forEach((entry) => existing.set(entry.sourceRef, entry)); return { droppedEmailImports: Array.from(existing.values()) }; }); queuePersist(); },
     removeDroppedEmailImport: (id) => { set((state: AppStore) => ({ droppedEmailImports: state.droppedEmailImports.filter((entry) => entry.id !== id) })); queuePersist(); },
     clearDroppedEmailImports: () => { set({ droppedEmailImports: [] }); queuePersist(); },
-    convertDroppedEmailToItem: (id) => { const importItem = get().droppedEmailImports.find((entry) => entry.id === id); if (!importItem) return; const item = normalizeItem({ ...buildFollowUpFromDroppedEmail(importItem), timeline: [buildTouchEvent(`Imported from dropped email file ${importItem.fileName}.`, 'imported')] }); set((state: AppStore) => { const items = [item, ...state.items].map(normalizeItem); return { items, selectedId: item.id, droppedEmailImports: state.droppedEmailImports.filter((entry) => entry.id !== id), duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist(); },
-    convertSignalToItem: (signalId) => { const signal = get().intakeSignals.find((entry) => entry.id === signalId); if (!signal) return; const item = normalizeItem({ id: createId(), title: signal.title, source: signal.source, project: 'General', owner: 'Unassigned', status: signal.urgency === 'High' ? 'Needs action' : 'In progress', priority: signal.urgency === 'High' ? 'High' : signal.urgency === 'Medium' ? 'Medium' : 'Low', dueDate: todayIso(), promisedDate: undefined, lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), signal.urgency === 'High' ? 1 : 3), nextAction: 'Review the intake signal and confirm owner, project, and next action.', summary: signal.detail, tags: ['Imported'], sourceRef: `Intake signal ${signal.id}`, sourceRefs: [`Intake signal ${signal.id}`], mergedItemIds: [], notes: '', timeline: [buildTouchEvent('Converted from intake signal.', 'imported')], category: 'General', owesNextAction: 'Unknown', escalationLevel: signal.urgency === 'High' ? 'Watch' : 'None', cadenceDays: signal.urgency === 'High' ? 2 : 4, draftFollowUp: '' }); set((state: AppStore) => { const items = [item, ...state.items].map(normalizeItem); return { items, intakeSignals: state.intakeSignals.filter((entry) => entry.id !== signalId), selectedId: item.id, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist(); },
+    convertDroppedEmailToItem: (id) => { const importItem = get().droppedEmailImports.find((entry) => entry.id === id); if (!importItem) return; const item = normalizeItem({ ...buildFollowUpFromDroppedEmail(importItem), timeline: [buildTouchEvent(`Imported from dropped email file ${importItem.fileName}.`, 'imported')] }); set((state: AppStore) => { const items = [item, ...state.items].map(normalizeItem); return { items, selectedId: item.id, droppedEmailImports: state.droppedEmailImports.filter((entry) => entry.id !== id), duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist({ dirtyRecords: [{ type: 'followup', id: item.id }] }); },
+    convertSignalToItem: (signalId) => { const signal = get().intakeSignals.find((entry) => entry.id === signalId); if (!signal) return; const item = normalizeItem({ id: createId(), title: signal.title, source: signal.source, project: 'General', owner: 'Unassigned', status: signal.urgency === 'High' ? 'Needs action' : 'In progress', priority: signal.urgency === 'High' ? 'High' : signal.urgency === 'Medium' ? 'Medium' : 'Low', dueDate: todayIso(), promisedDate: undefined, lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), signal.urgency === 'High' ? 1 : 3), nextAction: 'Review the intake signal and confirm owner, project, and next action.', summary: signal.detail, tags: ['Imported'], sourceRef: `Intake signal ${signal.id}`, sourceRefs: [`Intake signal ${signal.id}`], mergedItemIds: [], notes: '', timeline: [buildTouchEvent('Converted from intake signal.', 'imported')], category: 'General', owesNextAction: 'Unknown', escalationLevel: signal.urgency === 'High' ? 'Watch' : 'None', cadenceDays: signal.urgency === 'High' ? 2 : 4, draftFollowUp: '' }); set((state: AppStore) => { const items = [item, ...state.items].map(normalizeItem); return { items, intakeSignals: state.intakeSignals.filter((entry) => entry.id !== signalId), selectedId: item.id, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist({ dirtyRecords: [{ type: 'followup', id: item.id }] }); },
     dismissDuplicatePair: (leftId, rightId) => { set((state: AppStore) => { const pairKey = buildPairKey(leftId, rightId); if (state.dismissedDuplicatePairs.includes(pairKey)) return state; const dismissedDuplicatePairs = [...state.dismissedDuplicatePairs, pairKey]; return { dismissedDuplicatePairs, duplicateReviews: refreshDuplicates(state.items, dismissedDuplicatePairs) }; }); queuePersist(); },
     mergeItems: (baseId, candidateId, draft) => { set((state: AppStore) => { const base = state.items.find((item) => item.id === baseId); const candidate = state.items.find((item) => item.id === candidateId); if (!base || !candidate) return state; const mergedRecord = normalizeItem({ ...base, ...draft, id: base.id, timeline: [buildTouchEvent(`Merged ${candidate.id} into this record.`, 'merged'), ...draft.timeline].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()) }); const dismissedDuplicatePairs = state.dismissedDuplicatePairs.filter((pairKey) => !pairKey.split('::').includes(candidateId)); const items = [mergedRecord, ...state.items.filter((item) => item.id !== baseId && item.id !== candidateId)].map(normalizeItem); return { items, dismissedDuplicatePairs, selectedId: baseId, mergeModal: { open: false, baseId: null, candidateId: null }, duplicateReviews: refreshDuplicates(items, dismissedDuplicatePairs) }; }); queuePersist(); },
     markNudged: (id) => { set((state: AppStore) => { const items = withItemUpdate(state.items, id, (item) => ({ ...item, lastTouchDate: todayIso(), lastNudgedAt: todayIso(), nextTouchDate: addDaysIso(todayIso(), item.cadenceDays), snoozedUntilDate: undefined, timeline: [buildTouchEvent('Marked as nudged and pushed to next touch date.', 'nudged'), ...item.timeline] })); return { items, duplicateReviews: refreshDuplicates(items, state.dismissedDuplicatePairs) }; }); queuePersist(); },
@@ -117,8 +117,8 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
       });
       queuePersist();
     },
-    updateDraftForItem: (id, draft) => { set((state: AppStore) => ({ items: withItemUpdate(state.items, id, (item) => ({ ...item, draftFollowUp: draft })) })); queuePersist(); },
-    generateDraftForItem: (id) => { set((state: AppStore) => { const item = state.items.find((entry) => entry.id === id); if (!item) return state; const contact = state.contacts.find((entry) => entry.id === item.contactId); const company = state.companies.find((entry) => entry.id === item.companyId); const draft = buildDraftText(item, contact, company); return { items: withItemUpdate(state.items, id, (entry) => ({ ...entry, draftFollowUp: draft })) }; }); queuePersist(); },
-    confirmFollowUpSent: (id, notes) => { set((state: AppStore) => ({ items: withItemUpdate(state.items, id, (item) => ({ ...item, actionState: 'Sent (confirmed)', status: 'Waiting on external', lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3), lastCompletedAction: 'Sent follow-up (confirmed)', lastActionAt: todayIso(), actionReceipts: [{ id: createId('ACT'), at: todayIso(), actor: 'Current user', action: 'send_confirmed', confirmed: true, notes }, ...(item.actionReceipts || [])], timeline: [buildTouchEvent('Send confirmed by user in composer.', 'bundle_action'), ...item.timeline] })) })); queuePersist(); },
+    updateDraftForItem: (id, draft) => { set((state: AppStore) => ({ items: withItemUpdate(state.items, id, (item) => ({ ...item, draftFollowUp: draft })) })); queuePersist({ dirtyRecords: [{ type: 'followup', id }] }); },
+    generateDraftForItem: (id) => { set((state: AppStore) => { const item = state.items.find((entry) => entry.id === id); if (!item) return state; const contact = state.contacts.find((entry) => entry.id === item.contactId); const company = state.companies.find((entry) => entry.id === item.companyId); const draft = buildDraftText(item, contact, company); return { items: withItemUpdate(state.items, id, (entry) => ({ ...entry, draftFollowUp: draft })) }; }); queuePersist({ dirtyRecords: [{ type: 'followup', id }] }); },
+    confirmFollowUpSent: (id, notes) => { set((state: AppStore) => ({ items: withItemUpdate(state.items, id, (item) => ({ ...item, actionState: 'Sent (confirmed)', status: 'Waiting on external', lastTouchDate: todayIso(), nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3), lastCompletedAction: 'Sent follow-up (confirmed)', lastActionAt: todayIso(), actionReceipts: [{ id: createId('ACT'), at: todayIso(), actor: 'Current user', action: 'send_confirmed', confirmed: true, notes }, ...(item.actionReceipts || [])], timeline: [buildTouchEvent('Send confirmed by user in composer.', 'bundle_action'), ...item.timeline] })) })); queuePersist({ dirtyRecords: [{ type: 'followup', id }] }); },
   };
 }

@@ -30,7 +30,7 @@ import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/reco
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
-import { describeHandoffMission, getExecutionLaneNextSelection, resolveExecutionLaneSelection, toExecutionLaneHandoff } from '../domains/shared';
+import { buildExecutionSelectedContext, describeHandoffMission, getExecutionLaneNextSelection, resolveExecutionLaneSelection, toExecutionLaneHandoff } from '../domains/shared';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
@@ -100,7 +100,7 @@ function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
 }
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent } = useTasksViewModel();
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const prefs = useMemo(() => readTaskWorkspacePrefs(), []);
@@ -211,6 +211,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const queueTaskIds = useMemo(() => filteredTasks.map((task) => task.id), [filteredTasks]);
   const resolvedSelectedTaskId = useMemo(() => resolveExecutionLaneSelection({ selectedId: selectedTaskId, queueIds: queueTaskIds, targetedId: executionIntent?.recordType === 'task' ? executionIntent.recordId : null }), [selectedTaskId, queueTaskIds, executionIntent]);
   const selectedTask = filteredTasks.find((task) => task.id === resolvedSelectedTaskId) ?? tasks.find((task) => task.id === resolvedSelectedTaskId) ?? null;
+  const selectedExecution = laneItems.find((item) => item.surface.id === selectedTask?.id) ?? null;
+  const selectedContext = buildExecutionSelectedContext(selectedExecution?.surface ?? null, lastExecutionRoute);
   const selectedTaskDirty = selectedTask ? isRecordDirty('task', selectedTask.id) : false;
   const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
@@ -395,6 +397,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           </div>
           <ExecutionLaneToolbar className="followup-summary-meta-row">
             <span className="workspace-support-copy">Task loop: scan queue → select task → execute in inspector.</span>
+            <span className="workspace-support-copy">Shared metrics: due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · ready to close {executionMetrics.readyToClose}</span>
             {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </ExecutionLaneToolbar>
         </ExecutionLaneSummary>
@@ -504,10 +507,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           {handoffSummary ? <ExecutionLaneHandoffStrip title="Lane handoff" summary={handoffSummary} /> : null}
           <ExecutionLaneSelectionStrip
             title={selectedTask?.title}
-            helper={selectedTask ? `Next move: ${selectedTask.nextStep || selectedTask.recommendedAction || 'Define next move'}` : undefined}
+            helper={selectedTask ? `Next move: ${selectedContext?.nextMove || selectedTask.nextStep || selectedTask.recommendedAction || 'Define next move'}` : undefined}
             emptyMessage="Select a task to review and execute."
             badges={selectedTask ? (
               <>
+                {selectedContext?.topSignal ? <AppBadge tone="info">{selectedContext.topSignal}</AppBadge> : null}
                 <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
                 <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
                 {linkedFollowUp ? <AppBadge tone="info">Linked follow-up</AppBadge> : <AppBadge tone="warn">Unlinked</AppBadge>}

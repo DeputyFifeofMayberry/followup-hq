@@ -13,7 +13,17 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
   'openRecordDrawer' | 'closeRecordDrawer'
 > {
   return {
-    setSelectedId: (id) => set({ selectedId: id }),
+    setSelectedId: (id) => set((state: AppStore) => ({
+      selectedId: id,
+      executionLaneSessions: {
+        ...state.executionLaneSessions,
+        followups: {
+          ...state.executionLaneSessions.followups,
+          lastSelectedRecordId: id,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    })),
     setSearch: (value) => set({ search: value }),
     setProjectFilter: (value) => set({ projectFilter: value }),
     setStatusFilter: (value) => set({ statusFilter: value }),
@@ -71,7 +81,17 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
     closeMergeModal: () => set({ mergeModal: { open: false, baseId: null, candidateId: null } }),
     openDraftModal: (id) => set({ draftModal: { open: true, itemId: id }, selectedId: id }),
     closeDraftModal: () => set({ draftModal: { open: false, itemId: null } }),
-    setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+    setSelectedTaskId: (id) => set((state: AppStore) => ({
+      selectedTaskId: id,
+      executionLaneSessions: {
+        ...state.executionLaneSessions,
+        tasks: {
+          ...state.executionLaneSessions.tasks,
+          lastSelectedRecordId: id,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    })),
     setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
     setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
     openCreateTaskModal: () => set({ taskModal: { open: true, mode: 'create', taskId: null }, itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),

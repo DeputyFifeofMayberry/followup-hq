@@ -39,6 +39,7 @@ import type {
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
+import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 
 export type PersistenceActivityKind =
   | 'queued'
@@ -134,6 +135,8 @@ export interface AppUiState {
   executionIntent: ExecutionIntent | null;
   executionSelectedId: string | null;
   recordDrawerRef: RecordRef | null;
+  executionLaneSessions: Record<'followups' | 'tasks', ExecutionLaneSessionState>;
+  lastExecutionRoute: ExecutionRouteHandoff | null;
 }
 
 export type CloudSyncStatus =

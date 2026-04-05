@@ -18,7 +18,7 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   void appMode;
-  const { stats, triageRows, selected, signalCards, openCreateFromCapture, setSelectedId, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
+  const { stats, sharedMetrics, triageRows, selected, signalCards, openCreateFromCapture, setSelectedId, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
   const [searchQuery, setSearchQuery] = useState('');
   const visibleRows = useMemo(() => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())), [triageRows, searchQuery]);
 
@@ -54,7 +54,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             className="overview-primary-toolbar"
             left={<label className="field-block followup-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title, project, owner" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
             middle={<span className="workspace-support-copy">Focus: Route triage items into execution lanes.</span>}
-            right={<span className="workspace-support-copy">Overview stays lightweight; deep execution happens in destination lanes.</span>}
+            right={<span className="workspace-support-copy">Visible {sharedMetrics.visible} · Due now {sharedMetrics.dueNow} · Blocked/at risk {sharedMetrics.blockedOrAtRisk}</span>}
           />
 
           <div className="overview-signal-support">

@@ -482,6 +482,7 @@ export type ExecutionSectionKey = 'now' | 'triage' | 'blocked' | 'ready_to_close
 export type ExecutionRouteTarget = 'overview' | 'followups' | 'tasks';
 export type ExecutionIntentKind = 'open_record' | 'open_lane' | 'open_section';
 export type ExecutionIntentSource = 'overview' | 'outlook' | 'projects' | 'relationships';
+export type ExecutionRouteKind = 'review' | 'action' | 'context';
 
 export interface ExecutionIntent {
   kind: ExecutionIntentKind;
@@ -495,6 +496,8 @@ export interface ExecutionIntent {
   preset?: UnifiedQueuePreset;
   filter?: UnifiedQueueFilter;
   project?: string;
+  routeKind?: ExecutionRouteKind;
+  reason?: string;
   createdAt: string;
 }
 

@@ -64,6 +64,27 @@ export const initialUiState: AppUiState = {
   executionIntent: null,
   executionSelectedId: null,
   recordDrawerRef: null,
+  executionLaneSessions: {
+    followups: {
+      lane: 'followups',
+      lastSelectedRecordId: null,
+      lastProjectScope: null,
+      lastSection: null,
+      lastIntentLabel: null,
+      lastSourceWorkspace: null,
+      updatedAt: new Date(0).toISOString(),
+    },
+    tasks: {
+      lane: 'tasks',
+      lastSelectedRecordId: null,
+      lastProjectScope: null,
+      lastSection: null,
+      lastIntentLabel: null,
+      lastSourceWorkspace: null,
+      updatedAt: new Date(0).toISOString(),
+    },
+  },
+  lastExecutionRoute: null,
 };
 
 export const initialMetaState: AppMetaState = {

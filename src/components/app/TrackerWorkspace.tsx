@@ -19,12 +19,14 @@ import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 import { describeExecutionIntent } from '../../lib/executionHandoff';
-import { describeHandoffMission, toExecutionLaneHandoff } from '../../domains/shared';
+import { buildExecutionSelectedContext, describeHandoffMission, toExecutionLaneHandoff } from '../../domains/shared';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { followUpStats, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
+  const { followUpStats, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId, executionMetrics, laneItems, lastExecutionRoute } = useFollowUpsViewModel();
   const laneContext = useFollowUpLaneContext();
   const [handoffSummary, setHandoffSummary] = useState<string | null>(null);
+  const selectedExecution = laneItems.find((item) => item.surface.id === laneContext.selectedItem?.id) ?? null;
+  const selectedContext = buildExecutionSelectedContext(selectedExecution?.surface ?? null, lastExecutionRoute);
 
   useEffect(() => {
     if (executionIntent?.target !== 'followups') return;
@@ -50,6 +52,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             <span className="workspace-support-copy">
               {followUpStats.total} visible · {followUpStats.needsNudge} need nudge · {followUpStats.atRisk} at risk · {followUpStats.readyToClose} ready to close
             </span>
+            <span className="workspace-support-copy">Shared metrics: due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · waiting {executionMetrics.waiting}</span>
             {executionIntent?.target === 'followups' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </div>
         </ExecutionLaneSummary>
@@ -60,11 +63,11 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
           {handoffSummary ? <ExecutionLaneHandoffStrip title="Lane handoff" summary={handoffSummary} /> : null}
           <ExecutionLaneSelectionStrip
             title={laneContext.selectedItem?.title}
-            helper={laneContext.selectedItem ? `Next move: ${laneContext.nextMove?.label ?? laneContext.recommendedNextMove}` : undefined}
+            helper={laneContext.selectedItem ? `Next move: ${selectedContext?.nextMove ?? laneContext.nextMove?.label ?? laneContext.recommendedNextMove}` : undefined}
             emptyMessage="Select a follow-up to review and act."
             badges={laneContext.selectedItem ? (
               <>
-                {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
+                {selectedContext?.topSignal ? <AppBadge tone={laneContext.attentionSignal?.tone === 'default' ? 'info' : laneContext.attentionSignal?.tone}>{selectedContext.topSignal}</AppBadge> : null}
                 {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
                 {laneContext.closeoutEvaluation?.readiness === 'ready_to_close' ? <AppBadge tone="success">Ready to close</AppBadge> : null}
                 {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}

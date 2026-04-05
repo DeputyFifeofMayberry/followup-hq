@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Overview hierarchy phase 3: shallow route inspector
+- Rebuilt the Overview inspector into a strict decision panel with only three compact sections (selected snapshot, why this surfaced now, and recommended destination) plus an inline “Open full detail” secondary action, removing stacked deep-inspector treatment (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewRouteInspector.tsx`, `src/styles/workspaces.css`).
+- Added a dedicated Overview recommendation helper that derives destination, user-facing recommendation label, reason text, urgency signals, and an optional secondary route (including Intake only for cleanup-oriented cases) from a selected queue record (`src/domains/overview/lib/getOverviewInspectorRecommendation.ts`).
+- Removed the old multi-action inspector action-group component so Overview no longer carries a reusable action cluster pattern that encourages in-inspector execution (`src/components/overview/OverviewInspectorActionGroup.tsx`).
+
+## 2026-04-05
+
 ### Overview hierarchy phase 2: decisive triage center + quieter support surfaces
 - Rebalanced Overview into a strict three-level hierarchy: compressed start-of-day summary band, dominant triage list surface, and a narrower/quieter inspector so the eye path reads summary → list → inspector without competing content bands (`src/components/OverviewPage.tsx`, `src/styles/workspaces.css`).
 - Split summary-strip presentation into focused subcomponents (`OverviewSummaryStats`, `OverviewRouteActions`) and tightened copy/action density to keep metrics compact and route-first controls lightweight (`src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSummaryStats.tsx`, `src/components/overview/OverviewRouteActions.tsx`).

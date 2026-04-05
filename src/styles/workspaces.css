@@ -201,8 +201,8 @@
 .overview-triage-row .scan-row-badge-cluster { gap: 0.25rem; }
 .overview-inspector-shell {
   display: grid;
-  gap: 0.58rem;
-  opacity: 0.95;
+  gap: 0.5rem;
+  opacity: 0.92;
   border-color: var(--border-default);
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
@@ -342,7 +342,52 @@
   font-size: 0.74rem;
   color: #8a4d00;
 }
-.overview-inspector-kpis-tight { grid-template-columns: 1fr; gap: 0.32rem; }
+
+.overview-route-inspector {
+  display: grid;
+  gap: 0.45rem;
+}
+.overview-inspector-meta-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+.overview-inspector-meta-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: #526277;
+}
+.overview-inspector-meta-grid span {
+  font-weight: 600;
+  color: #73859b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+}
+.overview-inspector-meta-grid strong {
+  font-size: 0.76rem;
+  color: #1f3146;
+  font-weight: 650;
+  text-align: right;
+}
+.overview-inspector-why {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.38;
+  color: #32475e;
+}
+.overview-inspector-signals {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.18rem;
+  color: #526277;
+  font-size: 0.73rem;
+}
+.overview-inspector-actions {
+  gap: 0.35rem;
+}
 .overview-inspector-primary-action {
   background: #0f172a;
   border-color: #0f172a;

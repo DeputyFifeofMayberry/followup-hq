@@ -78,6 +78,10 @@ export function WorkspaceSummaryStrip({ children, className = '' }: PropsWithChi
   return <AppShellCard className={`workspace-summary-strip ${className}`.trim()} surface="hero">{children}</AppShellCard>;
 }
 
+export function ExecutionLaneSummary({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <WorkspaceSummaryStrip className={`execution-lane-summary ${className}`.trim()}>{children}</WorkspaceSummaryStrip>;
+}
+
 export function WorkspacePrimaryLayout({
   children,
   inspectorWidth = '380px',
@@ -92,6 +96,44 @@ export function WorkspaceTopStack({ children, className = '' }: PropsWithChildre
 
 export function WorkspaceToolbarRow({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <div className={`workspace-toolbar-row toolbar-row ${className}`.trim()}>{children}</div>;
+}
+
+export function ExecutionLaneToolbar({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <WorkspaceToolbarRow className={`execution-lane-toolbar ${className}`.trim()}>{children}</WorkspaceToolbarRow>;
+}
+
+export function ExecutionLaneQueueCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <AppShellCard className={`workspace-list-panel execution-lane-queue-card ${className}`.trim()} surface="data">{children}</AppShellCard>;
+}
+
+export function ExecutionLaneInspectorCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <AppShellCard className={`workspace-inspector-panel execution-lane-inspector-card ${className}`.trim()} surface="inspector">{children}</AppShellCard>;
+}
+
+export function ExecutionLaneSelectionStrip({
+  title,
+  helper,
+  badges,
+  emptyMessage = 'Select an item to continue.',
+}: {
+  title?: string;
+  helper?: string;
+  badges?: ReactNode;
+  emptyMessage?: string;
+}) {
+  if (!title) {
+    return <div className="execution-lane-selection-strip"><div className="execution-lane-selection-empty">{emptyMessage}</div></div>;
+  }
+  return (
+    <div className="execution-lane-selection-strip">
+      <div>
+        <div className="execution-lane-selection-kicker">Selected item</div>
+        <div className="execution-lane-selection-title">{title}</div>
+        {helper ? <div className="execution-lane-selection-helper">{helper}</div> : null}
+      </div>
+      {badges ? <div className="execution-lane-selection-badges">{badges}</div> : null}
+    </div>
+  );
 }
 
 export function WorkspaceInspectorSection({

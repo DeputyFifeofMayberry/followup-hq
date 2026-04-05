@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { FilterBar, WorkspaceToolbarRow } from './ui/AppPrimitives';
+import { ExecutionLaneToolbar, FilterBar } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close'];
@@ -180,7 +180,7 @@ export function ControlBar() {
         </div>
       </FilterBar>
 
-      <WorkspaceToolbarRow className="execution-toolbar-row followup-primary-toolbar">
+      <ExecutionLaneToolbar className="execution-toolbar-row followup-primary-toolbar">
         <label className="field-block followup-search-block">
           <span className="field-label">Search queue</span>
           <div className="search-field-wrap">
@@ -221,7 +221,7 @@ export function ControlBar() {
           <Plus className="h-4 w-4" />
           Add follow-up
         </button>
-      </WorkspaceToolbarRow>
+      </ExecutionLaneToolbar>
 
       {openPanel === 'filters' ? (
         <div className="followup-filter-grid advanced-filter-surface">

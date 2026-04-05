@@ -18,6 +18,9 @@ export interface SyncMetaSnapshot {
   lastLocalWriteAt?: string;
   lastFallbackRestoreAt?: string;
   lastFailedSyncAt?: string;
+  lastLoadFailureStage?: string;
+  lastLoadFailureMessage?: string;
+  lastLoadRecoveredWithLocalCache?: boolean;
 }
 
 export interface SyncStatusModel {
@@ -68,6 +71,9 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     lastLocalWriteAt: state.lastLocalWriteAt,
     lastFallbackRestoreAt: state.lastFallbackRestoreAt,
     lastFailedSyncAt: state.lastFailedSyncAt,
+    lastLoadFailureStage: state.lastLoadFailureStage,
+    lastLoadFailureMessage: state.lastLoadFailureMessage,
+    lastLoadRecoveredWithLocalCache: state.lastLoadRecoveredWithLocalCache,
   };
 }
 

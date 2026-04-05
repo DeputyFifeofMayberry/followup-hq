@@ -79,5 +79,8 @@ export const initialMetaState: AppMetaState = {
   lastFallbackRestoreAt: undefined,
   lastSyncedAt: undefined,
   lastFailedSyncAt: undefined,
+  lastLoadFailureStage: undefined,
+  lastLoadFailureMessage: undefined,
+  lastLoadRecoveredWithLocalCache: undefined,
   persistenceActivity: [],
 };

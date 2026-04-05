@@ -44,18 +44,27 @@ const payloadFixture: PersistedPayload = {
 
 const mock = {
   sessionUserId: 'user-1' as string | null,
-  failRead: false,
+  failSessionLookup: false,
+  sessionFailureMessage: 'session failed',
+  failReadTable: '' as string,
+  readFailureMessage: 'read failed',
   failSaveTable: '' as string,
   auxiliaryUpdatedAt: undefined as string | undefined,
   rows: { follow_up_items: [] as any[], tasks: [] as any[], projects: [] as any[], contacts: [] as any[], companies: [] as any[] },
   auxiliary: null as PersistedPayload['auxiliary'] | null,
 };
 
-(supabase.auth as any).getSession = async () => ({ data: { session: mock.sessionUserId ? { user: { id: mock.sessionUserId } } : null }, error: null });
+(supabase.auth as any).getSession = async () => {
+  if (mock.failSessionLookup) throw new Error(mock.sessionFailureMessage);
+  return { data: { session: mock.sessionUserId ? { user: { id: mock.sessionUserId } } : null }, error: null };
+};
 (supabase as any).from = (table: string) => ({
   select: (columns: string) => ({
     eq: () => ({
       maybeSingle: async () => {
+        if (mock.failReadTable === table) {
+          return { data: null, error: new Error(mock.readFailureMessage) };
+        }
         if (table === 'user_preferences' && columns === 'auxiliary, updated_at') {
           return { data: mock.auxiliary ? { auxiliary: mock.auxiliary, updated_at: mock.auxiliaryUpdatedAt } : null, error: null };
         }
@@ -65,7 +74,7 @@ const mock = {
         return { data: null, error: null };
       },
       then: (resolve: any) => {
-        if (mock.failRead && columns === 'record') return Promise.resolve(resolve({ data: null, error: new Error('read failed') }));
+        if (mock.failReadTable === table && columns === 'record') return Promise.resolve(resolve({ data: null, error: new Error(mock.readFailureMessage) }));
         if (columns === 'record') return Promise.resolve(resolve({ data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record })), error: null }));
         if (columns === 'record_id') return Promise.resolve(resolve({ data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record_id: record.id })), error: null }));
         return Promise.resolve(resolve({ data: null, error: null }));
@@ -91,7 +100,10 @@ const mock = {
 function reset() {
   storage.clear();
   mock.sessionUserId = 'user-1';
-  mock.failRead = false;
+  mock.failSessionLookup = false;
+  mock.sessionFailureMessage = 'session failed';
+  mock.failReadTable = '';
+  mock.readFailureMessage = 'read failed';
   mock.failSaveTable = '';
   mock.auxiliaryUpdatedAt = undefined;
   mock.auxiliary = null;
@@ -119,9 +131,13 @@ async function run() {
 
   reset();
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending' }));
-  mock.failRead = true;
+  mock.failSessionLookup = true;
+  mock.sessionFailureMessage = 'JWT expired';
   let loaded = await loadPersistedPayload();
   assert(loaded.source === 'local-cache', 'should load from local cache fallback');
+  assert(loaded.loadFailureStage === 'auth_session', 'auth session failure should report auth_session stage');
+  assert(loaded.loadFailureMessage === 'JWT expired', 'auth session failure should include source message');
+  assert(loaded.loadFailureRecoveredWithLocalCache === true, 'auth session failure should report cache recovery');
 
   reset();
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T11:00:00.000Z', cloudStatus: 'pending' }));
@@ -133,6 +149,25 @@ async function run() {
   assert(loaded.localNewerThanCloud === true, 'newer local cache should win over older cloud payload');
 
   reset();
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T12:00:00.000Z', cloudStatus: 'pending' }));
+  mock.failReadTable = 'user_preferences';
+  mock.readFailureMessage = 'relation \"user_preferences\" does not exist';
+  loaded = await loadPersistedPayload();
+  assert(loaded.source === 'local-cache', 'user preferences read failure should restore local cache');
+  assert(loaded.loadFailureStage === 'user_preferences', 'user preferences read failure should report stage');
+  assert(loaded.loadFailureMessage === 'relation \"user_preferences\" does not exist', 'user preferences read failure should include DB error');
+
+  reset();
+  mock.failReadTable = 'follow_up_items';
+  let threwNoCacheLoadFailure = false;
+  try {
+    await loadPersistedPayload();
+  } catch {
+    threwNoCacheLoadFailure = true;
+  }
+  assert(threwNoCacheLoadFailure, 'hard cloud read failure without local cache should throw');
+
+  reset();
   mock.failSaveTable = 'tasks';
   let rejectedAgain = false;
   try {
@@ -142,7 +177,7 @@ async function run() {
   }
   assert(rejectedAgain, 'expected save to reject');
   mock.failSaveTable = '';
-  mock.failRead = true;
+  mock.failReadTable = 'follow_up_items';
   loaded = await loadPersistedPayload();
   assert(loaded.payload.items[0].id === 'item-1', 'local payload should survive failed cloud save and refresh');
 

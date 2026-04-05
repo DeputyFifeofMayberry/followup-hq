@@ -47,6 +47,8 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           <span className="font-medium">{statusModel.stateLabel}</span>
         </div>
         <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
+        {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? <div className="mt-1 text-slate-500">Fallback reason: {syncMeta.lastLoadFailureStage}</div> : null}
+        {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? <div className="mt-1 text-slate-500">Detail: {syncMeta.lastLoadFailureMessage}</div> : null}
         {syncMeta.hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{syncMeta.unsavedChangeCount} record{syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits.</div> : null}
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
@@ -78,6 +80,12 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
               <TriangleAlert className="h-4 w-4" />
               {syncMeta.saveError}
             </div>
+          ) : null}
+          {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? (
+            <div className="text-xs text-slate-500">Fallback reason: {syncMeta.lastLoadFailureStage}</div>
+          ) : null}
+          {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? (
+            <div className="text-xs text-slate-500">Detail: {syncMeta.lastLoadFailureMessage}</div>
           ) : null}
         </div>
         {email ? (

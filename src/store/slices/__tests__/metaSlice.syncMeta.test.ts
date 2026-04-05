@@ -36,10 +36,16 @@ function testCloudReadFailureFallback(): void {
     cloudReadFailed: true,
     loadedFromFallback: true,
     localCacheUpdatedAt: '2026-04-05T09:00:00.000Z',
+    loadFailureStage: 'auth_session',
+    loadFailureMessage: 'JWT expired',
+    loadFailureRecoveredWithLocalCache: true,
   });
 
   assert(meta.cloudSyncStatus === 'cloud-read-failed-local-fallback', 'cloud read fallback should use explicit read-failure status');
   assert(meta.loadedFromLocalRecoveryCache === true, 'cloud read fallback should be marked as recovery');
+  assert(meta.lastLoadFailureStage === 'auth_session', 'cloud read fallback should preserve failure stage');
+  assert(meta.lastLoadFailureMessage === 'JWT expired', 'cloud read fallback should preserve failure details');
+  assert(meta.lastLoadRecoveredWithLocalCache === true, 'cloud read fallback should preserve recovery marker');
 }
 
 function testCloudReadFailureWithoutFallbackDoesNotLie(): void {

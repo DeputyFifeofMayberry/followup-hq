@@ -16,7 +16,7 @@ import { createMetaSlice } from './slices/metaSlice';
 import type { AppStore } from './types';
 import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } from './persistenceQueue';
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
-import { resolvePostSaveMetaState } from './persistenceMeta';
+import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -46,8 +46,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: 'dirty',
                 saveError: '',
-                cloudSyncStatus: state.persistenceMode === 'supabase' ? 'pending-cloud' : 'local-only-confirmed',
-                loadedFromLocalRecoveryCache: false,
+                cloudSyncStatus: state.sessionDegraded
+                  ? state.cloudSyncStatus
+                  : state.persistenceMode === 'supabase'
+                    ? 'pending-cloud'
+                    : 'local-only-confirmed',
                 persistenceActivity: appendPersistenceActivity(state.persistenceActivity, queuedEvent),
               };
             });
@@ -66,9 +69,33 @@ export const useAppStore = create<AppStore>()((set, get) => {
           }),
           onSaved: (mode, timestamp, reason, didPersist, diagnostics) => set((state) => {
             const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist);
+            const saveKind = getSaveResultKind(mode, didPersist);
             const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
               ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
               : '';
+            const recoveredByCloudSave = state.sessionDegraded && !postSave.sessionDegraded && postSave.sessionDegradedClearedByCloudSave;
+            const saveSummary = reason === 'retry'
+              ? recoveredByCloudSave
+                ? 'Retry completed and trust restored.'
+                : 'Retry completed.'
+              : saveKind === 'cloud-confirmed'
+                ? 'Changes confirmed to cloud.'
+                : saveKind === 'local-only'
+                  ? 'Changes saved locally.'
+                  : 'No new changes to save.';
+            const saveDetail = saveKind === 'cloud-confirmed'
+              ? `Your latest updates are confirmed in cloud storage.${staleDeleteDetail}`
+              : saveKind === 'local-only'
+                ? `Your latest updates are saved on this device.${staleDeleteDetail}`
+                : 'No new changes were detected.';
+            const recoveredEvent = recoveredByCloudSave
+              ? createPersistenceActivityEvent({
+                kind: 'saved',
+                at: timestamp,
+                summary: 'Cloud-backed trust restored for this session.',
+                detail: 'SetPoint confirmed a cloud-backed save and cleared the session trust warning.',
+              })
+              : null;
             return {
               persistenceMode: mode,
               syncState: postSave.syncState,
@@ -76,22 +103,29 @@ export const useAppStore = create<AppStore>()((set, get) => {
               lastSyncedAt: postSave.lastSyncedAt,
               lastCloudConfirmedAt: postSave.lastCloudConfirmedAt,
               lastLocalWriteAt: postSave.lastLocalWriteAt,
+              lastSuccessfulPersistAt: postSave.lastSuccessfulPersistAt,
+              lastSuccessfulCloudPersistAt: postSave.lastSuccessfulCloudPersistAt,
               lastFallbackRestoreAt: state.lastFallbackRestoreAt,
               unsavedChangeCount: 0,
               hasLocalUnsavedChanges: false,
               dirtyRecordRefs: [],
               cloudSyncStatus: postSave.cloudSyncStatus,
               loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
-              persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+              sessionTrustState: postSave.sessionTrustState,
+              sessionDegraded: postSave.sessionDegraded,
+              sessionDegradedReason: postSave.sessionDegradedReason,
+              sessionDegradedAt: postSave.sessionDegradedAt,
+              sessionDegradedClearedByCloudSave: postSave.sessionDegradedClearedByCloudSave,
+              sessionTrustRecoveredAt: postSave.sessionTrustRecoveredAt,
+              persistenceActivity: appendPersistenceActivity(
+                recoveredEvent ? appendPersistenceActivity(state.persistenceActivity, recoveredEvent) : state.persistenceActivity,
+                createPersistenceActivityEvent({
                 kind: 'saved',
                 at: timestamp,
-                summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry completed.' : 'Changes saved.',
-                detail: didPersist
-                  ? mode === 'supabase'
-                    ? `Your latest updates are saved.${staleDeleteDetail}`
-                    : `Your latest updates are saved on this device.${staleDeleteDetail}`
-                  : 'No new changes were detected.',
-              })),
+                summary: saveSummary,
+                detail: saveDetail,
+                }),
+              ),
             };
           }),
           onError: (message, timestamp, reason, diagnostics) => set((state) => ({
@@ -103,10 +137,15 @@ export const useAppStore = create<AppStore>()((set, get) => {
             loadedFromLocalRecoveryCache: false,
             lastLocalWriteAt: timestamp,
             lastFailedSyncAt: timestamp,
+            sessionTrustState: 'degraded',
+            sessionDegraded: true,
+            sessionDegradedReason: 'cloud-save-failed',
+            sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
+            sessionDegradedClearedByCloudSave: false,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
-              summary: reason === 'retry' ? 'Retry did not complete.' : 'Save did not complete.',
+              summary: reason === 'retry' ? 'Retry failed. Protected local copy retained.' : 'Save failed. Protected local copy retained.',
               detail: diagnostics?.failedTable
                 ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                 : message,

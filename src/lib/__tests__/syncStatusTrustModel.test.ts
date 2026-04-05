@@ -45,7 +45,7 @@ function testCloudReadFallback(): void {
     cloudSyncStatus: 'cloud-read-failed-local-fallback',
     loadedFromLocalRecoveryCache: true,
   });
-  assert(model.stateLabel === 'Cloud read failed; local copy preserved', `expected cloud read fallback label, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Cloud read failed; local cache preserved', `expected cloud read fallback label, got ${model.stateLabel}`);
 }
 
 function testLocalNewerThanCloud(): void {

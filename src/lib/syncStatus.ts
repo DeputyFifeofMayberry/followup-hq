@@ -46,7 +46,7 @@ export function getCloudConfirmationLabel(meta: Pick<SyncMetaSnapshot, 'cloudSyn
     case 'local-recovery':
       return 'Loaded from local recovery cache';
     case 'cloud-read-failed-local-fallback':
-      return 'Cloud read failed; local copy preserved';
+      return 'Cloud read failed; local cache preserved';
     case 'cloud-save-failed-local-preserved':
       return 'Save failed; latest local changes preserved';
     case 'load-failed-no-local-copy':
@@ -126,7 +126,7 @@ function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'sta
 
   if (meta.cloudSyncStatus === 'cloud-read-failed-local-fallback') {
     return {
-      stateLabel: 'Cloud read failed; local copy preserved',
+      stateLabel: 'Cloud read failed; local cache preserved',
       stateDescription: 'SetPoint loaded your local cache because cloud data could not be read.',
       tone: 'warn',
       stateTone: 'warn',

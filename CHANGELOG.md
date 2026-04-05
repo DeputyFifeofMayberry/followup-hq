@@ -2,6 +2,12 @@
 
 ## 2026-04-05
 
+### Persistence error diagnostics: object-safe normalization + stage-preserving hard failures
+- Fixed the root cause of `Detail: [object Object]` by introducing a shared persistence error normalizer/formatter that extracts structured fields (`message`, `error_description`, `details`, `hint`, `code`, `status`, `name`) from Supabase/PostgREST/fetch/custom thrown objects and guarantees stable fallback serialization for unknown or circular values (`src/lib/persistenceError.ts`).
+- Updated all persistence load/save surfacing paths to use shared normalization so cloud-read fallback, hard load failure (no local cache), and cloud-save failure all emit readable diagnostics with consistent structured context instead of generic stringification (`src/lib/persistence.ts`, `src/store/slices/metaSlice.ts`, `src/store/persistenceQueue.ts`, `src/store/persistenceActivity.ts`).
+- Added a dedicated `PersistenceLoadError` that preserves failure stage, normalized detail, and local-cache recovery flag through load boundaries, then propagated those fields into meta state so trust surfaces keep accurate stage/detail metadata during both fallback and hard-failure flows (`src/lib/persistence.ts`, `src/store/slices/metaSlice.ts`).
+- Added regression coverage for Supabase-style plain-object failures, auth/session object failures, hard no-cache load failures, save object failures, unknown nested objects, circular thrown values, and baseline `Error` instance behavior to prevent future diagnostics regressions (`src/lib/__tests__/persistenceReliability.test.ts`, `src/lib/__tests__/persistenceError.test.ts`).
+
 ### Cloud-read fallback diagnostics now expose exact runtime failure stage
 - Extended persistence load results with explicit runtime diagnostics (`loadFailureStage`, `loadFailureMessage`, `loadFailureRecoveredWithLocalCache`) so local-cache fallback paths can identify exactly where cloud/session reads failed without changing existing trust-state decision rules (`src/lib/persistence.ts`).
 - Refined cloud-read failure handling to capture stage-level failures for session lookup and each Supabase read stage (`follow_up_items`, `tasks`, `projects`, `contacts`, `companies`, `user_preferences`) while preserving local-cache recovery behavior when cache is available (`src/lib/persistence.ts`).

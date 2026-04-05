@@ -3,6 +3,7 @@ import { createId, todayIso } from '../../lib/utils';
 import type { AppStore, AppStoreActions } from '../types';
 import type { ExecutionIntent, UnifiedQueueFilter } from '../../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
+import { executionIntentToHandoff } from '../../domains/shared/execution';
 
 export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePersist }: SliceContext): Pick<AppStoreActions,
   'getUnifiedQueue' | 'setQueuePreset' | 'setExecutionFilter' | 'setExecutionSort' | 'setQueueDensity' | 'saveExecutionView' | 'applyExecutionView' |
@@ -60,9 +61,28 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
         project: options?.project,
         section: options?.section,
         intentLabel: options?.intentLabel,
+        routeKind: options?.routeKind ?? (options?.recordId ? 'review' : options?.section ? 'action' : 'context'),
+        reason: options?.reason ?? options?.intentLabel,
         createdAt: new Date().toISOString(),
       };
-      set({ executionIntent: intent });
+      const handoff = executionIntentToHandoff(intent);
+      set((state: AppStore) => ({
+        executionIntent: intent,
+        lastExecutionRoute: handoff,
+        executionLaneSessions: {
+          ...state.executionLaneSessions,
+          [target]: {
+            ...state.executionLaneSessions[target],
+            lane: target,
+            lastSelectedRecordId: options?.recordId ?? state.executionLaneSessions[target].lastSelectedRecordId,
+            lastProjectScope: options?.project ?? state.executionLaneSessions[target].lastProjectScope,
+            lastSection: options?.section ?? state.executionLaneSessions[target].lastSection,
+            lastIntentLabel: options?.intentLabel ?? state.executionLaneSessions[target].lastIntentLabel,
+            lastSourceWorkspace: options?.source ?? state.executionLaneSessions[target].lastSourceWorkspace,
+            updatedAt: intent.createdAt,
+          },
+        },
+      }));
       if (target === 'followups') {
         if (options?.recordType === 'followup' && options.recordId) set({ selectedId: options.recordId });
         set({

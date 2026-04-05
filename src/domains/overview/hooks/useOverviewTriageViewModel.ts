@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { ExecutionRouteTarget, ExecutionSectionKey, UnifiedQueueItem } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildExecutionQueueStats } from '../../shared/selectors/executionQueueSelectors';
-import { resolveExecutionLaneSelection } from '../../shared';
+import { buildExecutionLaneMetrics, resolveExecutionLaneSelection, selectExecutionLaneItems } from '../../shared';
 
 const TRIAGE_LIMIT = 12;
 
@@ -38,6 +38,8 @@ export function useOverviewTriageViewModel() {
 
   const queue = store.getUnifiedQueue();
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
+  const executionItems = useMemo(() => selectExecutionLaneItems('overview', queue), [queue]);
+  const sharedMetrics = useMemo(() => buildExecutionLaneMetrics(executionItems, store.executionSelectedId), [executionItems, store.executionSelectedId]);
   const triageRows = useMemo(() => queue.slice(0, TRIAGE_LIMIT), [queue]);
 
   const triageIds = useMemo(() => triageRows.map((row) => row.id), [triageRows]);
@@ -52,10 +54,10 @@ export function useOverviewTriageViewModel() {
   const selected = triageRows.find((row) => row.id === (resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds }))) || null;
 
   const signalCards = useMemo<OverviewSignalCard[]>(() => {
-    const dueNowRows = queue.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday);
-    const readyToCloseRows = queue.filter((row) => row.queueFlags.readyToCloseParent);
-    const blockedRows = queue.filter((row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk || row.queueFlags.waiting);
-    const cleanupRows = queue.filter((row) => row.queueFlags.cleanupRequired || row.queueFlags.waitingTooLong || row.queueFlags.orphanedTask);
+    const dueNowRows = executionItems.filter((entry) => entry.surface.queueFlags.overdue || entry.surface.queueFlags.dueToday || entry.surface.queueFlags.needsTouchToday).map((entry) => entry.surface.sourceItem);
+    const readyToCloseRows = executionItems.filter((entry) => entry.surface.queueFlags.readyToCloseParent).map((entry) => entry.surface.sourceItem);
+    const blockedRows = executionItems.filter((entry) => entry.surface.queueFlags.blocked || entry.surface.queueFlags.parentAtRisk || entry.surface.queueFlags.waiting).map((entry) => entry.surface.sourceItem);
+    const cleanupRows = executionItems.filter((entry) => entry.surface.queueFlags.cleanupRequired || entry.surface.queueFlags.waitingTooLong || entry.surface.queueFlags.orphanedTask).map((entry) => entry.surface.sourceItem);
 
     return [
       {
@@ -95,7 +97,7 @@ export function useOverviewTriageViewModel() {
         intentLabel: 'review cleanup and routing',
       },
     ];
-  }, [queue]);
+  }, [executionItems]);
 
   const routeToLane = (lane: LaneTarget, options?: { record?: UnifiedQueueItem | null; section?: ExecutionSectionKey; intentLabel?: string }) => {
     store.openExecutionLane(lane, {
@@ -115,6 +117,7 @@ export function useOverviewTriageViewModel() {
 
   return {
     stats,
+    sharedMetrics,
     triageRows,
     selected,
     signalCards,

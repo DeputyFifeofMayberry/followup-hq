@@ -160,6 +160,15 @@
 - Added targeted per-record dirty affordances in active detail surfaces (follow-up inspector badge and selected task dirty label) so users can see when in-focus records still have unsynced local edits (`src/components/ItemDetailPanel.tsx`, `src/components/TaskWorkspace.tsx`, `src/store/slices/followUpsSlice.ts`, `src/store/slices/tasksSlice.ts`).
 - Updated compact persistence banner behavior to include pending-local-edit visibility so secondary shell surfaces stay aligned with the trust state model (`src/components/PersistenceBanner.tsx`).
 
+## 2026-04-05
+
+### Deficiency 3 — Phase 3 execution cohesion overhaul
+- Unified Overview, Follow-Ups, and Tasks under a shared execution engine, route model, and lane-session continuity layer.
+- Added a shared execution domain foundation with normalized execution record surfaces, signal derivation, lane selectors, lane metrics vocabulary, lane registry definitions, shared action capability grouping, shared route/handoff contract helpers, and selected-context composition (`src/domains/shared/execution/*`, `src/domains/shared/index.ts`).
+- Extended execution lane routing and continuity state in the store so cross-lane handoffs retain meaningful lane memory (last selected record, scope, section, source workspace, and latest route context) and so lanes consume one consistent route object contract (`src/store/slices/executionViewSlice.ts`, `src/store/slices/uiSlice.ts`, `src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/types.ts`).
+- Wired Overview, Follow-Ups, and Tasks view models/components into the shared execution layer for common metrics and selected-context signal treatment while preserving lane-specific workflows (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
+- Added focused shared-domain tests covering normalized adapter mapping, metrics derivation, route/handoff conversion, and progression policy behavior (`src/domains/shared/execution/executionShared.test.ts`).
+
 ## 2026-04-04
 
 ### Deficiency 2 Phase 1: save/sync trust visibility foundation

@@ -43,7 +43,10 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, 
     feedback: store.intakeReviewerFeedback,
   }), [store.forwardedCandidates, store.forwardedRules, store.forwardedRoutingAudit, store.intakeReviewerFeedback]);
 
-  const queue = useMemo(() => buildForwardedReviewQueue(store.forwardedCandidates, tuningModel), [store.forwardedCandidates, tuningModel]);
+  const queue = useMemo(
+    () => buildForwardedReviewQueue(store.forwardedCandidates, tuningModel, store.intakeReviewerFeedback, store.forwardedRoutingAudit),
+    [store.forwardedCandidates, tuningModel, store.intakeReviewerFeedback, store.forwardedRoutingAudit],
+  );
   const metrics = useMemo(() => buildQueueMetrics(queue), [queue]);
   const bucketCounts = useMemo(() => buildQueueBucketCounts(queue), [queue]);
   const filteredQueue = useMemo(() => {
@@ -76,6 +79,14 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, 
       tuningPressure,
     });
   }, [selectedQueueItem, selectedFieldSummary, selectedSafety]);
+  const selectedDecisionPolicy = selectedQueueItem?.decisionPolicy ?? null;
+  const selectedAutomationEligibility = selectedDecisionPolicy?.autoActionEligible ?? false;
+  const selectedPatternRisk = selectedDecisionPolicy?.patternRisk ?? 'medium';
+  const selectedAuditExplanation = selectedDecisionPolicy?.auditExplanation ?? [];
+  const sourceTrustStatus = useMemo(() => {
+    if (!selectedQueueItem) return null;
+    return tuningModel.directImportReadiness.find((entry) => entry.source === selectedQueueItem.sourceType || (selectedQueueItem.sourceType === 'forwarded_email' && entry.source === 'forwarded_email')) ?? null;
+  }, [selectedQueueItem, tuningModel.directImportReadiness]);
 
   const reviewLane = {
     queue,
@@ -118,6 +129,18 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, 
     selectedSafety,
     selectedActionHints,
     selectedReviewPlan,
+    selectedDecisionPolicy,
+    selectedAutomationEligibility,
+    selectedPatternRisk,
+    selectedAuditExplanation,
+    queueAutomationMetrics: {
+      autoResolvedCount: metrics.autoResolvedCount,
+      autoRoutedReferenceCount: metrics.autoRoutedReferenceCount,
+      forcedReviewCount: metrics.forcedReviewCount,
+      duplicateLinkFirstCount: metrics.duplicateLinkFirstCount,
+      automationCaptureRate: metrics.automationCaptureRate,
+    },
+    sourceTrustStatus,
     selectedSuggestions: [],
     selectedBestMatch: null,
     selectedQuickFixes: selectedReviewPlan?.quickFixActions ?? [],

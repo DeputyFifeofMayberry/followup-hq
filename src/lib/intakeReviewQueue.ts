@@ -1,9 +1,10 @@
 import { buildForwardedFieldReviews, buildWorkCandidateFieldReviews, summarizeFieldReviews } from './intakeEvidence';
 import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from './intakeImportSafety';
-import type { ForwardedIntakeCandidate, IntakeAssetRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
+import type { ForwardedIntakeCandidate, ForwardedRoutingAuditEntry, IntakeAssetRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
 import { buildIntakeTuningModel, type IntakeTuningModel } from './intakeTuningModel';
+import { evaluateIntakeDecisionPolicy, ruleIdsForForwardedCandidate, type IntakeDecisionPolicyResult } from './intakeDecisionPolicy';
 
-export type IntakeReviewBucket = 'ready_to_approve' | 'needs_correction' | 'link_duplicate_review' | 'reference_likely' | 'finalized_history';
+export type IntakeReviewBucket = 'auto_resolved' | 'ready_to_approve' | 'needs_correction' | 'link_duplicate_review' | 'reference_likely' | 'finalized_history';
 export type IntakeReviewSort = 'highest_confidence' | 'lowest_confidence' | 'most_missing_fields' | 'newest' | 'duplicate_risk_first';
 export type IntakeConfidenceTier = 'high' | 'medium' | 'low';
 
@@ -35,6 +36,8 @@ export interface IntakeQueueItem {
   readiness: 'ready_to_approve' | 'ready_after_correction' | 'needs_link_decision' | 'reference_likely' | 'unsafe_to_create';
   priorityScore: number;
   nextStepHint: string;
+  decisionPolicy: IntakeDecisionPolicyResult;
+  triageCategory: 'auto_resolved' | 'ready_now' | 'needs_correction' | 'link_review' | 'reference_likely' | 'manual_review';
 }
 
 export interface IntakeQueueFilters {
@@ -49,9 +52,10 @@ export interface IntakeQueueFilters {
   batchSafeOnly?: boolean;
 }
 
-const REVIEW_BUCKET_ORDER: IntakeReviewBucket[] = ['ready_to_approve', 'needs_correction', 'link_duplicate_review', 'reference_likely', 'finalized_history'];
+const REVIEW_BUCKET_ORDER: IntakeReviewBucket[] = ['auto_resolved', 'ready_to_approve', 'needs_correction', 'link_duplicate_review', 'reference_likely', 'finalized_history'];
 
 const SCORE_BY_BUCKET: Record<IntakeReviewBucket, number> = {
+  auto_resolved: 5,
   ready_to_approve: 4,
   needs_correction: 3,
   link_duplicate_review: 2,
@@ -104,6 +108,7 @@ export function buildIntakeReviewQueue(
   candidates: IntakeWorkCandidate[],
   assets: IntakeAssetRecord[],
   tuningModel?: IntakeTuningModel,
+  feedback: IntakeReviewerFeedback[] = [],
 ): IntakeQueueItem[] {
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
 
@@ -139,6 +144,15 @@ export function buildIntakeReviewQueue(
 
     const minReadyConfidence = model?.thresholds.minimumReadyConfidence ?? 0.75;
     const minBatchSafeConfidence = model?.thresholds.minimumBatchSafeConfidence ?? 0.82;
+    const policy = evaluateIntakeDecisionPolicy({
+      kind: 'work',
+      candidate,
+      fieldSummary,
+      safety,
+      tuningModel: model,
+      feedback,
+      ruleIds: [],
+    });
 
     const batchSafe = status === 'pending'
       && safety.safeToBatchApprove
@@ -150,7 +164,9 @@ export function buildIntakeReviewQueue(
       && candidate.confidence >= minBatchSafeConfidence
       && !tuneReviewPressure
       && !dueDateGuard
-      && !projectGuard;
+      && !projectGuard
+      && policy.requiredReviewLevel !== 'manual_required'
+      && policy.requiredReviewLevel !== 'correction_required';
 
     const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
       ? 'ready_to_approve'
@@ -172,6 +188,8 @@ export function buildIntakeReviewQueue(
 
     const bucket: IntakeReviewBucket = status === 'finalized'
       ? 'finalized_history'
+      : policy.decisionMode === 'auto_resolve'
+        ? 'auto_resolved'
       : readiness === 'reference_likely'
         ? 'reference_likely'
         : readiness === 'needs_link_decision'
@@ -191,6 +209,17 @@ export function buildIntakeReviewQueue(
       + (dueDateGuard ? 6 : 0)
       + (projectGuard ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
+    const triageCategory: IntakeQueueItem['triageCategory'] = policy.decisionMode === 'auto_resolve'
+      ? 'auto_resolved'
+      : policy.decisionMode === 'ready_now'
+        ? 'ready_now'
+        : policy.decisionMode === 'link_review_first'
+          ? 'link_review'
+          : policy.decisionMode === 'reference_lane'
+            ? 'reference_likely'
+            : policy.decisionMode === 'manual_review'
+              ? 'manual_review'
+              : 'needs_correction';
 
     return {
       id: candidate.id,
@@ -214,11 +243,18 @@ export function buildIntakeReviewQueue(
       readiness,
       priorityScore,
       nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference, tuningEscalation: tuneReviewPressure || dueDateGuard || projectGuard }),
+      decisionPolicy: policy,
+      triageCategory,
     };
   });
 }
 
-export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[], tuningModel?: IntakeTuningModel): IntakeQueueItem[] {
+export function buildForwardedReviewQueue(
+  candidates: ForwardedIntakeCandidate[],
+  tuningModel?: IntakeTuningModel,
+  feedback: IntakeReviewerFeedback[] = [],
+  routingAudit: ForwardedRoutingAuditEntry[] = [],
+): IntakeQueueItem[] {
   return candidates.map((candidate) => {
     const fieldSummary = summarizeFieldReviews(buildForwardedFieldReviews(candidate));
     const safety = evaluateForwardedImportSafety(candidate);
@@ -249,6 +285,15 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
 
     const minReadyConfidence = tuningModel?.thresholds.minimumReadyConfidence ?? 0.75;
     const minBatchSafeConfidence = tuningModel?.thresholds.minimumBatchSafeConfidence ?? 0.82;
+    const policy = evaluateIntakeDecisionPolicy({
+      kind: 'forwarded',
+      candidate,
+      fieldSummary,
+      safety,
+      tuningModel,
+      feedback,
+      ruleIds: ruleIdsForForwardedCandidate(candidate, routingAudit),
+    });
 
     const batchSafe = status === 'pending'
       && safety.safeToBatchApprove
@@ -259,7 +304,9 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       && candidate.confidence >= minBatchSafeConfidence
       && !tuneReviewPressure
       && !dueDateGuard
-      && !projectGuard;
+      && !projectGuard
+      && policy.requiredReviewLevel !== 'manual_required'
+      && policy.requiredReviewLevel !== 'correction_required';
 
     const readiness: IntakeQueueItem['readiness'] = status === 'finalized'
       ? 'ready_to_approve'
@@ -280,6 +327,8 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
 
     const bucket: IntakeReviewBucket = status === 'finalized'
       ? 'finalized_history'
+      : policy.decisionMode === 'auto_resolve'
+        ? 'auto_resolved'
       : readiness === 'reference_likely'
         ? 'reference_likely'
         : readiness === 'needs_link_decision'
@@ -299,6 +348,17 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       + (dueDateGuard ? 6 : 0)
       + (projectGuard ? 6 : 0)
       + Math.round((1 - candidate.confidence) * 10);
+    const triageCategory: IntakeQueueItem['triageCategory'] = policy.decisionMode === 'auto_resolve'
+      ? 'auto_resolved'
+      : policy.decisionMode === 'ready_now'
+        ? 'ready_now'
+        : policy.decisionMode === 'link_review_first'
+          ? 'link_review'
+          : policy.decisionMode === 'reference_lane'
+            ? 'reference_likely'
+            : policy.decisionMode === 'manual_review'
+              ? 'manual_review'
+              : 'needs_correction';
 
     return {
       id: candidate.id,
@@ -321,6 +381,8 @@ export function buildForwardedReviewQueue(candidates: ForwardedIntakeCandidate[]
       readiness,
       priorityScore,
       nextStepHint: getNextStepHint({ readiness, missingCriticalFields, conflictingEvidence, duplicateRisk, likelyReference, tuningEscalation: tuneReviewPressure || dueDateGuard || projectGuard }),
+      decisionPolicy: policy,
+      triageCategory,
     };
   });
 }
@@ -338,7 +400,7 @@ export function buildTuningAwareReviewQueue(input: {
     forwardedRoutingAudit: [],
     feedback: input.feedback,
   });
-  return { queue: buildIntakeReviewQueue(input.intakeWorkCandidates, input.intakeAssets, tuningModel), tuningModel };
+  return { queue: buildIntakeReviewQueue(input.intakeWorkCandidates, input.intakeAssets, tuningModel, input.feedback), tuningModel };
 }
 
 export function filterReviewQueue(queue: IntakeQueueItem[], filters: IntakeQueueFilters): IntakeQueueItem[] {
@@ -378,6 +440,7 @@ export function buildQueueBucketCounts(queue: IntakeQueueItem[]): Record<IntakeR
     acc[key] = queue.filter((item) => item.bucket === key).length;
     return acc;
   }, {
+    auto_resolved: 0,
     ready_to_approve: 0,
     needs_correction: 0,
     link_duplicate_review: 0,
@@ -388,8 +451,17 @@ export function buildQueueBucketCounts(queue: IntakeQueueItem[]): Record<IntakeR
 
 export function buildQueueMetrics(queue: IntakeQueueItem[]) {
   const pending = queue.filter((item) => item.status === 'pending');
+  const autoResolved = pending.filter((item) => item.triageCategory === 'auto_resolved');
+  const reviewerNeeded = pending.filter((item) => item.triageCategory !== 'auto_resolved');
   return {
+    inboundCount: queue.length,
     pendingCount: pending.length,
+    autoResolvedCount: autoResolved.length,
+    autoRoutedReferenceCount: pending.filter((item) => item.decisionPolicy.autoActionType === 'save_reference').length,
+    forcedReviewCount: pending.filter((item) => item.decisionPolicy.requiredReviewLevel === 'manual_required').length,
+    duplicateLinkFirstCount: pending.filter((item) => item.decisionPolicy.decisionMode === 'link_review_first').length,
+    automationCaptureRate: pending.length ? autoResolved.length / pending.length : 0,
+    humanReviewCount: reviewerNeeded.length,
     batchSafeCount: pending.filter((item) => item.batchSafe).length,
     duplicateReviewCount: pending.filter((item) => item.bucket === 'link_duplicate_review').length,
     weakOrConflictingCount: pending.filter((item) => item.bucket === 'needs_correction').length,

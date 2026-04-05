@@ -88,7 +88,7 @@ export function OutlookPanel({ showAdvanced = false, setWorkspace }: { showAdvan
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-sm font-semibold text-slate-900">Review queue</div>
-              <div className="text-xs text-slate-600">Open Intake, work Needs review items, approve or route, then move on.</div>
+              <div className="text-xs text-slate-600">Open Intake to see auto-resolved work, ready-now items, and focused exception review lanes.</div>
             </div>
             <button className={`outlook-tab-btn ${activeTab === 'review' ? 'outlook-tab-btn-active' : ''}`} onClick={() => setActiveTab('review')}>
               Open review lane

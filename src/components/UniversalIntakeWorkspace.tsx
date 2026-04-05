@@ -32,6 +32,7 @@ import { useExecutionQueueViewModel } from '../domains/shared';
 import { StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
+  auto_resolved: 'Auto-resolved',
   ready_to_approve: 'Ready now',
   needs_correction: 'Needs correction',
   link_duplicate_review: 'Needs link decision',
@@ -107,7 +108,10 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
     forwardedRoutingAudit,
     feedback: intakeReviewerFeedback,
   }), [intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback]);
-  const queue = useMemo(() => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets, tuningModel), [intakeWorkCandidates, intakeAssets, tuningModel]);
+  const queue = useMemo(
+    () => buildIntakeReviewQueue(intakeWorkCandidates, intakeAssets, tuningModel, intakeReviewerFeedback),
+    [intakeWorkCandidates, intakeAssets, tuningModel, intakeReviewerFeedback],
+  );
   const tuningInsights = useMemo(() => buildIntakeTuningInsights({
     intakeWorkCandidates,
     forwardedCandidates,
@@ -312,11 +316,11 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Needs review</div><div className="text-xl font-semibold text-amber-700">{metrics.pendingCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Auto-resolved</div><div className="text-xl font-semibold text-emerald-700">{metrics.autoResolvedCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Ready now</div><div className="text-xl font-semibold text-emerald-700">{bucketCounts.ready_to_approve}</div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Link existing</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-xl font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-xl font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Link review</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateLinkFirstCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Forced review</div><div className="text-xl font-semibold text-amber-700">{metrics.forcedReviewCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Automation capture</div><div className="text-xl font-semibold text-slate-900">{Math.round(metrics.automationCaptureRate * 100)}%</div></div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-12">

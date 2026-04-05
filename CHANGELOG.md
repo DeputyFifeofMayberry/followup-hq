@@ -2,6 +2,11 @@
 
 ## 2026-04-04
 
+### Deficiency 2 Phase 1: save/sync trust visibility foundation
+- Added a shared save/sync status language helper that maps internal persistence + sync meta state (`hydrated`, `persistenceMode`, `syncState`, `saveError`) into consistent user-facing labels, descriptions, and tones so shell and secondary surfaces use one trust vocabulary (`src/lib/syncStatus.ts`, `src/components/PersistenceBanner.tsx`).
+- Added a compact shell-level Save & sync status control in the workspace header with an always-available indicator and an on-demand detail panel that explains current save state, persistence mode (`Supabase-backed` vs `Browser/local only`), last successful sync time, and the latest save error when present (`src/components/SyncStatusControl.tsx`, `src/App.tsx`, `src/styles/primitives.css`).
+- Preserved existing persistence queue behavior and callbacks while making trust state visible without introducing noisy save toasts or changing underlying save architecture in this phase (`src/store/persistenceQueue.ts`, `src/store/useAppStore.ts`).
+
 ### Deficiency 1 Phase 5: closeout orchestration + readiness explanations
 - Added a shared follow-up closeout readiness evaluator that centralizes hard blockers, override-required conditions, warnings, and ready signals with plain-language explanations (open/blocked/overdue child tasks, missing completion context, unresolved waiting state, and intake-review ambiguity) to power cross-record close decisions consistently (`src/lib/closeoutReadiness.ts`).
 - Updated follow-up transition validation to consume centralized closeout readiness logic for close transitions, preserving current transition APIs while making override requirements and blocker/warning messaging consistent and explainable (`src/lib/workflowPolicy.ts`).

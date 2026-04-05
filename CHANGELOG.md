@@ -2,6 +2,16 @@
 
 ## 2026-04-05
 
+### Persistence reliability hardening: authenticated fallback, local-cache freshness, and persisted follow-up preferences
+- Upgraded the entity local cache format to preserve save metadata (`updatedAt`, cloud confirmation status, and last cloud-confirmed timestamp), and changed save flow to always stage local cache as pending first, only flipping to confirmed after full entity + auxiliary cloud success (`src/lib/persistence.ts`).
+- Hardened authenticated load behavior so cloud read failures now recover from local cache instead of dropping data, while cloud-vs-local freshness checks prevent stale cloud payloads from overwriting newer local pending/confirmed data (`src/lib/persistence.ts`).
+- Extended load diagnostics returned from persistence to include source/fallback metadata, then wired initialization meta state to distinguish cloud-confirmed loads from local-recovery and cloud-failed/local-preserved scenarios (`src/lib/persistence.ts`, `src/store/slices/metaSlice.ts`, `src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`).
+- Added missing persistence enqueue triggers for persisted follow-up UI state mutations (filters, columns, saved/apply custom views) so durable follow-up preferences are consistently written (`src/store/slices/uiSlice.ts`, `src/store/useAppStore.ts`).
+- Updated save/sync trust status modeling and panel diagnostics to clearly separate “Saved to cloud” from “Saved locally, cloud confirmation pending”, “Loaded from local recovery cache”, and “Cloud sync failed; local copy preserved” (`src/lib/syncStatus.ts`, `src/components/SyncStatusControl.tsx`).
+- Added regression-oriented persistence checks for local-pending behavior, cloud-confirmed transitions, authenticated fallback, local-newer-than-cloud preference, and follow-up preference queue triggers (`src/lib/__tests__/persistenceReliability.test.ts`, `src/store/slices/__tests__/uiSlice.persistence.test.ts`).
+
+## 2026-04-05
+
 ### Deficiency 2 Phase 4: save/sync trust center finishing pass
 - Expanded the shell sync control into a compact trust center with explicit persistence diagnostics (last successful sync, last failed sync attempt, pending local edits) plus clearer cloud-backed vs local/browser-mode explanations so users can quickly determine operational safety and sync posture (`src/components/SyncStatusControl.tsx`, `src/lib/syncStatus.ts`, `src/styles/primitives.css`).
 - Added a lightweight persistence activity trail in app meta state and queue plumbing so users can inspect recent meaningful save/sync events (queued, saving, success, and failures) without opening developer tools (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/persistenceActivity.ts`, `src/store/persistenceQueue.ts`, `src/store/useAppStore.ts`, `src/store/slices/metaSlice.ts`).

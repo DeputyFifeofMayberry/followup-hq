@@ -43,6 +43,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 unsavedChangeCount: state.unsavedChangeCount + 1,
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: state.syncState === 'error' ? 'error' : 'dirty',
+                cloudSyncStatus: 'pending-cloud',
+                loadedFromLocalRecoveryCache: false,
                 persistenceActivity: appendPersistenceActivity(state.persistenceActivity, queuedEvent),
               };
             });
@@ -67,6 +69,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
             unsavedChangeCount: 0,
             hasLocalUnsavedChanges: false,
             dirtyRecordRefs: [],
+            cloudSyncStatus: mode === 'supabase' ? 'cloud-confirmed' : 'pending-cloud',
+            loadedFromLocalRecoveryCache: false,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'saved',
               at: timestamp,
@@ -78,6 +82,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
             syncState: 'error',
             saveError: message,
             hasLocalUnsavedChanges: true,
+            cloudSyncStatus: 'cloud-failed-local-preserved',
+            loadedFromLocalRecoveryCache: true,
             lastFailedSyncAt: timestamp,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
@@ -98,7 +104,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
     ...initialUiState,
     ...initialMetaState,
     ...createMetaSlice(set, defaultOutlookConnection),
-    ...createUiSlice(set),
+    ...createUiSlice(set, queuePersist),
     ...createExecutionViewSlice(set, get, { queuePersist }),
     ...createFollowUpsSlice(set, get, { queuePersist }),
     ...createTasksSlice(set, get, { queuePersist }),

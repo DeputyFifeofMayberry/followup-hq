@@ -1,0 +1,149 @@
+import { loadPersistedPayload, savePersistedPayload, type PersistedPayload } from '../persistence';
+import { supabase } from '../supabase';
+
+function assert(condition: boolean, message: string) {
+  if (!condition) throw new Error(message);
+}
+
+interface MemoryStorage {
+  data: Map<string, string>;
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+  clear: () => void;
+}
+
+function createMemoryStorage(): MemoryStorage {
+  const data = new Map<string, string>();
+  return {
+    data,
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+    removeItem: (key) => void data.delete(key),
+    clear: () => data.clear(),
+  };
+}
+
+const storage = createMemoryStorage();
+(globalThis as any).window = { localStorage: storage };
+
+const payloadFixture: PersistedPayload = {
+  items: [{ id: 'item-1' } as any],
+  tasks: [{ id: 'task-1' } as any],
+  projects: [{ id: 'project-1' } as any],
+  contacts: [{ id: 'contact-1' } as any],
+  companies: [{ id: 'company-1' } as any],
+  auxiliary: {
+    intakeSignals: [], intakeDocuments: [], dismissedDuplicatePairs: [], droppedEmailImports: [],
+    outlookConnection: { settings: {} as any, mailboxLinked: false, syncStatus: 'idle', syncCursorByFolder: { inbox: {}, sentitems: {} } },
+    outlookMessages: [], forwardedEmails: [], forwardedRules: [], forwardedCandidates: [], forwardedLedger: [], forwardedRoutingAudit: [],
+    intakeCandidates: [], intakeAssets: [], intakeBatches: [], intakeWorkCandidates: [], intakeReviewerFeedback: [], savedExecutionViews: [],
+    followUpFilters: undefined, followUpColumns: undefined, savedFollowUpViews: [],
+  },
+};
+
+const mock = {
+  sessionUserId: 'user-1' as string | null,
+  failRead: false,
+  failSaveTable: '' as string,
+  auxiliaryUpdatedAt: undefined as string | undefined,
+  rows: { follow_up_items: [] as any[], tasks: [] as any[], projects: [] as any[], contacts: [] as any[], companies: [] as any[] },
+  auxiliary: null as PersistedPayload['auxiliary'] | null,
+};
+
+(supabase.auth as any).getSession = async () => ({ data: { session: mock.sessionUserId ? { user: { id: mock.sessionUserId } } : null }, error: null });
+(supabase as any).from = (table: string) => ({
+  select: (columns: string) => ({
+    eq: () => ({
+      maybeSingle: async () => {
+        if (table === 'user_preferences' && columns === 'auxiliary, updated_at') {
+          return { data: mock.auxiliary ? { auxiliary: mock.auxiliary, updated_at: mock.auxiliaryUpdatedAt } : null, error: null };
+        }
+        if (table === 'user_preferences' && columns === 'migration_complete, auxiliary') {
+          return { data: { migration_complete: true, auxiliary: mock.auxiliary }, error: null };
+        }
+        return { data: null, error: null };
+      },
+      then: (resolve: any) => {
+        if (mock.failRead && columns === 'record') return Promise.resolve(resolve({ data: null, error: new Error('read failed') }));
+        if (columns === 'record') return Promise.resolve(resolve({ data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record })), error: null }));
+        if (columns === 'record_id') return Promise.resolve(resolve({ data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record_id: record.id })), error: null }));
+        return Promise.resolve(resolve({ data: null, error: null }));
+      },
+    }),
+  }),
+  upsert: async (value: any) => {
+    if (mock.failSaveTable === table) return { error: new Error(`save failed:${table}`) };
+    if (table === 'user_preferences') {
+      mock.auxiliary = value.auxiliary;
+      mock.auxiliaryUpdatedAt = value.updated_at;
+      return { error: null };
+    }
+    mock.rows[table as keyof typeof mock.rows] = value.map((entry: any) => entry.record);
+    return { error: null };
+  },
+  delete: () => ({ eq: () => ({ in: async (_: string, ids: string[]) => {
+    mock.rows[table as keyof typeof mock.rows] = (mock.rows[table as keyof typeof mock.rows] ?? []).filter((entry: any) => !ids.includes(entry.id));
+    return { error: null };
+  } }) }),
+});
+
+function reset() {
+  storage.clear();
+  mock.sessionUserId = 'user-1';
+  mock.failRead = false;
+  mock.failSaveTable = '';
+  mock.auxiliaryUpdatedAt = undefined;
+  mock.auxiliary = null;
+  mock.rows = { follow_up_items: [], tasks: [], projects: [], contacts: [], companies: [] };
+}
+
+async function run() {
+  reset();
+  mock.failSaveTable = 'tasks';
+  let rejected = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, 'expected save to reject');
+  let cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
+  assert(cache.cloudStatus === 'pending', 'cache should stay pending after failed cloud save');
+
+  reset();
+  await savePersistedPayload(payloadFixture);
+  cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
+  assert(cache.cloudStatus === 'confirmed', 'cache should be confirmed after successful cloud save');
+
+  reset();
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending' }));
+  mock.failRead = true;
+  let loaded = await loadPersistedPayload();
+  assert(loaded.source === 'local-cache', 'should load from local cache fallback');
+
+  reset();
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T11:00:00.000Z', cloudStatus: 'pending' }));
+  mock.rows.follow_up_items = [{ id: 'item-cloud' } as any];
+  mock.auxiliary = payloadFixture.auxiliary;
+  mock.auxiliaryUpdatedAt = '2026-04-05T09:00:00.000Z';
+  loaded = await loadPersistedPayload();
+  assert(loaded.source === 'local-cache', 'should load from local cache fallback');
+  assert(loaded.localNewerThanCloud === true, 'newer local cache should win over older cloud payload');
+
+  reset();
+  mock.failSaveTable = 'tasks';
+  let rejectedAgain = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch {
+    rejectedAgain = true;
+  }
+  assert(rejectedAgain, 'expected save to reject');
+  mock.failSaveTable = '';
+  mock.failRead = true;
+  loaded = await loadPersistedPayload();
+  assert(loaded.payload.items[0].id === 'item-1', 'local payload should survive failed cloud save and refresh');
+}
+
+void run();

@@ -31,6 +31,10 @@ export function SyncStatusControl() {
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
   const isNeedsAttention = statusModel.primaryState === 'needs-attention';
+  const showRetry = syncMeta.syncState === 'error' || syncMeta.sessionDegradedReason === 'cloud-save-failed';
+  const trustAction = syncMeta.persistenceMode === 'supabase'
+    ? 'Run a successful cloud save (Save now or Retry failed save) to restore trust.'
+    : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
   const lastSavedLabel = syncMeta.lastCloudConfirmedAt
     ? `Last confirmed save: ${formatDateTime(syncMeta.lastCloudConfirmedAt)}`
     : syncMeta.lastLocalWriteAt
@@ -112,9 +116,22 @@ export function SyncStatusControl() {
             <span className="sync-status-row-label">Summary</span>
             <div className="sync-status-row-detail">{statusModel.reassurance}</div>
             {isNeedsAttention ? <div className="sync-status-row-detail">{statusModel.stateDescription}</div> : null}
+            {statusModel.trustRecoveryMessage ? <div className="sync-status-row-detail">{statusModel.trustRecoveryMessage}</div> : null}
           </div>
 
-          {(syncMeta.hasLocalUnsavedChanges || syncMeta.syncState === 'error') ? (
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Session trust</span>
+            <div className="sync-status-row-detail">{statusModel.trustLabel ?? 'Session trust status unavailable.'}</div>
+            {statusModel.trustDescription ? <div className="sync-status-row-detail">{statusModel.trustDescription}</div> : null}
+            {syncMeta.sessionDegraded ? (
+              <>
+                <div className="sync-status-row-detail">Why review is needed: {syncMeta.sessionDegradedReason.replaceAll('-', ' ')}.</div>
+                <div className="sync-status-row-detail">{trustAction}</div>
+              </>
+            ) : null}
+          </div>
+
+          {(syncMeta.hasLocalUnsavedChanges || showRetry) ? (
             <div className="sync-status-actions">
               <button
                 type="button"
@@ -131,14 +148,14 @@ export function SyncStatusControl() {
               <button
                 type="button"
                 className="action-btn"
-                disabled={syncMeta.syncState !== 'error' || runningRetry}
+                disabled={!showRetry || runningRetry}
                 onClick={() => {
                   setRunningRetry(true);
                   void syncMeta.retryPersistenceNow().finally(() => setRunningRetry(false));
                 }}
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
-                {runningRetry ? 'Retrying…' : 'Retry failed save'}
+                {runningRetry ? 'Retrying…' : 'Retry save'}
               </button>
             </div>
           ) : null}

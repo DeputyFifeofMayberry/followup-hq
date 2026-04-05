@@ -147,6 +147,16 @@ export type CloudSyncStatus =
   | 'cloud-save-failed-local-preserved'
   | 'load-failed-no-local-copy';
 
+export type SessionTrustState = 'healthy' | 'degraded' | 'recovered';
+
+export type SessionDegradedReason =
+  | 'none'
+  | 'cloud-save-failed'
+  | 'cloud-read-failed-fallback'
+  | 'local-newer-than-cloud'
+  | 'local-recovery-fallback'
+  | 'load-failed-no-local-copy';
+
 export interface AppMetaState {
   hydrated: boolean;
   persistenceMode: PersistenceMode;
@@ -165,5 +175,13 @@ export interface AppMetaState {
   lastLoadFailureStage?: string;
   lastLoadFailureMessage?: string;
   lastLoadRecoveredWithLocalCache?: boolean;
+  sessionTrustState: SessionTrustState;
+  sessionDegraded: boolean;
+  sessionDegradedReason: SessionDegradedReason;
+  sessionDegradedAt?: string;
+  sessionDegradedClearedByCloudSave: boolean;
+  sessionTrustRecoveredAt?: string;
+  lastSuccessfulPersistAt?: string;
+  lastSuccessfulCloudPersistAt?: string;
   persistenceActivity: PersistenceActivityEvent[];
 }

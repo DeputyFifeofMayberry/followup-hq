@@ -1,6 +1,6 @@
 import type { PersistenceMode } from '../types';
 import type { AppStore } from '../store/types';
-import type { CloudSyncStatus } from '../store/state/types';
+import type { CloudSyncStatus, SessionDegradedReason, SessionTrustState } from '../store/state/types';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 export type SyncPrimaryState = 'checking' | 'saving' | 'saved' | 'needs-attention';
@@ -22,6 +22,14 @@ export interface SyncMetaSnapshot {
   lastLoadFailureStage?: string;
   lastLoadFailureMessage?: string;
   lastLoadRecoveredWithLocalCache?: boolean;
+  sessionTrustState: SessionTrustState;
+  sessionDegraded: boolean;
+  sessionDegradedReason: SessionDegradedReason;
+  sessionDegradedAt?: string;
+  sessionDegradedClearedByCloudSave: boolean;
+  sessionTrustRecoveredAt?: string;
+  lastSuccessfulPersistAt?: string;
+  lastSuccessfulCloudPersistAt?: string;
 }
 
 export interface SyncStatusModel {
@@ -34,6 +42,9 @@ export interface SyncStatusModel {
   tone: 'default' | 'info' | 'warn';
   stateTone: 'info' | 'success' | 'warn' | 'danger';
   showSpinner: boolean;
+  trustLabel?: string;
+  trustDescription?: string;
+  trustRecoveryMessage?: string;
 }
 
 export function getCloudConfirmationLabel(meta: Pick<SyncMetaSnapshot, 'cloudSyncStatus'>): string {
@@ -77,6 +88,14 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     lastLoadFailureStage: state.lastLoadFailureStage,
     lastLoadFailureMessage: state.lastLoadFailureMessage,
     lastLoadRecoveredWithLocalCache: state.lastLoadRecoveredWithLocalCache,
+    sessionTrustState: state.sessionTrustState,
+    sessionDegraded: state.sessionDegraded,
+    sessionDegradedReason: state.sessionDegradedReason,
+    sessionDegradedAt: state.sessionDegradedAt,
+    sessionDegradedClearedByCloudSave: state.sessionDegradedClearedByCloudSave,
+    sessionTrustRecoveredAt: state.sessionTrustRecoveredAt,
+    lastSuccessfulPersistAt: state.lastSuccessfulPersistAt,
+    lastSuccessfulCloudPersistAt: state.lastSuccessfulCloudPersistAt,
   };
 }
 
@@ -109,6 +128,51 @@ function describePersistenceMode(mode: PersistenceMode): Pick<SyncStatusModel, '
 }
 
 function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateDescription' | 'reassurance' | 'tone' | 'stateTone'> {
+  if (meta.sessionDegradedReason === 'load-failed-no-local-copy') {
+    return {
+      reassurance: 'Save or load confirmation needs review.',
+      stateDescription: 'SetPoint could not confirm saved data. Save once workspace is rebuilt to restore trust.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
+  if (meta.sessionDegradedReason === 'cloud-save-failed') {
+    return {
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'A cloud save failed. Retry a confirmed cloud save to restore session trust.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
+  if (meta.sessionDegradedReason === 'cloud-read-failed-fallback') {
+    return {
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'This session opened from protected local data after a cloud read issue. Confirm one cloud save to restore trust.',
+      tone: 'warn',
+      stateTone: 'warn',
+    };
+  }
+
+  if (meta.sessionDegradedReason === 'local-newer-than-cloud') {
+    return {
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'Local data was newer than cloud data. Confirm one cloud save to realign trust.',
+      tone: 'warn',
+      stateTone: 'warn',
+    };
+  }
+
+  if (meta.sessionDegradedReason === 'local-recovery-fallback') {
+    return {
+      reassurance: 'Your recent work was protected.',
+      stateDescription: 'SetPoint opened with protected local data. Confirm one cloud save to restore trust.',
+      tone: 'warn',
+      stateTone: 'warn',
+    };
+  }
+
   if (meta.cloudSyncStatus === 'cloud-save-failed-local-preserved') {
     return {
       reassurance: 'Your recent work was protected.',
@@ -192,7 +256,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   const needsAttention =
-    meta.syncState === 'error'
+    meta.sessionDegraded
+    || meta.syncState === 'error'
     || Boolean(meta.saveError)
     || meta.cloudSyncStatus === 'local-newer-than-cloud'
     || meta.cloudSyncStatus === 'local-recovery'
@@ -207,6 +272,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       primaryState: 'needs-attention',
       stateLabel: 'Needs attention',
       ...attention,
+      trustLabel: 'Session trust needs review',
+      trustDescription: attention.stateDescription,
       showSpinner: false,
       ...modeDetails,
     };
@@ -222,6 +289,13 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       tone: 'default',
       stateTone: 'success',
       showSpinner: false,
+      trustLabel: meta.sessionTrustState === 'recovered' ? 'Session trust recovered' : 'Session trust healthy',
+      trustDescription: meta.persistenceMode === 'browser'
+        ? 'Local-only save mode is active and healthy for this session.'
+        : 'Session trust is healthy.',
+      trustRecoveryMessage: meta.sessionTrustRecoveredAt
+        ? 'Cloud-backed save trust has been restored for this session.'
+        : undefined,
       ...modeDetails,
     };
   }
@@ -235,6 +309,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       tone: 'info',
       stateTone: 'info',
       showSpinner: false,
+      trustLabel: 'Session trust healthy',
+      trustDescription: 'SetPoint is finalizing cloud confirmation for the current healthy session.',
       ...modeDetails,
     };
   }
@@ -247,6 +323,11 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     tone: 'default',
     stateTone: 'success',
     showSpinner: false,
+    trustLabel: meta.sessionTrustState === 'recovered' ? 'Session trust recovered' : 'Session trust healthy',
+    trustDescription: 'Session trust is healthy.',
+    trustRecoveryMessage: meta.sessionTrustRecoveredAt
+      ? 'Cloud-backed save trust has been restored for this session.'
+      : undefined,
     ...modeDetails,
   };
 }

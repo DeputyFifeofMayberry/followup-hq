@@ -23,6 +23,14 @@ function baseMeta() {
     lastLoadFailureStage: undefined,
     lastLoadFailureMessage: undefined,
     lastLoadRecoveredWithLocalCache: false,
+    sessionTrustState: 'healthy',
+    sessionDegraded: false,
+    sessionDegradedReason: 'none',
+    sessionDegradedAt: undefined,
+    sessionDegradedClearedByCloudSave: false,
+    sessionTrustRecoveredAt: undefined,
+    lastSuccessfulPersistAt: '2026-04-05T10:00:00.000Z',
+    lastSuccessfulCloudPersistAt: '2026-04-05T10:00:00.000Z',
   } as const;
 }
 
@@ -83,17 +91,21 @@ function testFailureNarrativesAreCalmAndSpecific(): void {
     syncState: 'error',
     saveError: 'network exploded',
     cloudSyncStatus: 'cloud-save-failed-local-preserved',
+    sessionDegraded: true,
+    sessionDegradedReason: 'cloud-save-failed',
   });
   assert(saveFailure.reassurance === 'Your recent work was protected.', `expected reassurance-first save failure narrative, got ${saveFailure.reassurance}`);
-  assert(saveFailure.stateDescription === 'Your recent changes were kept locally. Review save status and retry.', `unexpected save failure description: ${saveFailure.stateDescription}`);
+  assert(saveFailure.stateDescription === 'A cloud save failed. Retry a confirmed cloud save to restore session trust.', `unexpected save failure description: ${saveFailure.stateDescription}`);
 
   const noLocalCopy = getSyncStatusModel({
     ...baseMeta(),
     syncState: 'error',
     saveError: 'network exploded',
     cloudSyncStatus: 'load-failed-no-local-copy',
+    sessionDegraded: true,
+    sessionDegradedReason: 'load-failed-no-local-copy',
   });
-  assert(noLocalCopy.stateDescription === 'SetPoint could not confirm saved data. Review technical details.', `unexpected no-local-copy description: ${noLocalCopy.stateDescription}`);
+  assert(noLocalCopy.stateDescription === 'SetPoint could not confirm saved data. Save once workspace is rebuilt to restore trust.', `unexpected no-local-copy description: ${noLocalCopy.stateDescription}`);
 }
 
 function testDirtyMapsToSavingState(): void {
@@ -126,6 +138,14 @@ function testSharedSnapshotSelectorConsistency(): void {
     lastLoadFailureStage: 'user_preferences',
     lastLoadFailureMessage: 'relation "user_preferences" does not exist',
     lastLoadRecoveredWithLocalCache: true,
+    sessionTrustState: 'degraded',
+    sessionDegraded: true,
+    sessionDegradedReason: 'cloud-read-failed-fallback',
+    sessionDegradedAt: '2026-04-05T08:59:00.000Z',
+    sessionDegradedClearedByCloudSave: false,
+    sessionTrustRecoveredAt: undefined,
+    lastSuccessfulPersistAt: '2026-04-05T09:00:00.000Z',
+    lastSuccessfulCloudPersistAt: '2026-04-05T09:00:00.000Z',
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);

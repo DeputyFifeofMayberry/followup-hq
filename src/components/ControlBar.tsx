@@ -1,13 +1,15 @@
-import { ChevronDown, Plus, Search, SlidersHorizontal, TriangleAlert, X, Zap } from 'lucide-react';
+import { ChevronDown, Plus, Search, Settings2, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
 import { useAppStore } from '../store/useAppStore';
-import type { SavedViewKey } from '../types';
+import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { FilterBar, WorkspaceToolbarRow } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
-const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Ready to close'];
+const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close'];
+const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
+const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
 export function ControlBar({ compact = true }: { compact?: boolean }) {
   const {
@@ -19,6 +21,9 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     followUpFilters,
     savedFollowUpViews,
     selectedFollowUpIds,
+    followUpColumns,
+    followUpTableDensity,
+    followUpDuplicateModule,
     setSearch,
     setActiveView,
     setFollowUpFilters,
@@ -29,6 +34,9 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     applySavedFollowUpCustomView,
     batchUpdateFollowUps,
     runValidatedBatchFollowUpTransition,
+    setFollowUpColumns,
+    setFollowUpTableDensity,
+    setFollowUpDuplicateModule,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -38,6 +46,9 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     followUpFilters: s.followUpFilters,
     savedFollowUpViews: s.savedFollowUpViews,
     selectedFollowUpIds: s.selectedFollowUpIds,
+    followUpColumns: s.followUpColumns,
+    followUpTableDensity: s.followUpTableDensity,
+    followUpDuplicateModule: s.followUpDuplicateModule,
     setSearch: s.setSearch,
     setActiveView: s.setActiveView,
     setFollowUpFilters: s.setFollowUpFilters,
@@ -48,9 +59,13 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     applySavedFollowUpCustomView: s.applySavedFollowUpCustomView,
     batchUpdateFollowUps: s.batchUpdateFollowUps,
     runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
+    setFollowUpColumns: s.setFollowUpColumns,
+    setFollowUpTableDensity: s.setFollowUpTableDensity,
+    setFollowUpDuplicateModule: s.setFollowUpDuplicateModule,
   })));
   const [customViewName, setCustomViewName] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
   const [batchDate, setBatchDate] = useState('');
@@ -113,38 +128,31 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     setBatchResult({ tone: 'success', message: `Snoozed ${selectedFollowUpIds.length} follow-up(s).` });
   };
 
-  const chips = [
-    { key: 'All' as const, label: 'All', count: stats.total },
-    { key: 'Overdue' as const, label: 'Overdue', count: stats.overdue, icon: TriangleAlert },
-    { key: 'Needs nudge' as const, label: 'Needs nudge', count: stats.needsNudge },
-    { key: 'At risk' as const, label: 'At risk', count: stats.atRisk, icon: Zap },
-    { key: 'Ready to close' as const, label: 'Ready to close', count: stats.readyToClose },
-  ];
+  const toggleColumn = (column: FollowUpColumnKey) => {
+    if (followUpColumns.includes(column)) {
+      setFollowUpColumns(followUpColumns.filter((entry) => entry !== column));
+      return;
+    }
+    setFollowUpColumns([...followUpColumns, column]);
+  };
 
   return (
     <div className="workspace-control-stack followup-control-stack">
-      <WorkspaceToolbarRow className="followup-primary-head">
-        <div>
-          <h2 className="followup-primary-title">Follow-up execution lane</h2>
-          <p className="followup-primary-subtitle">Run follow-up actions fast. Use the inspector for context-heavy decisions.</p>
-        </div>
-        {!compact ? (
-          <button onClick={openCreateModal} className="action-btn">
-            <Plus className="h-4 w-4" />
-            Add follow-up
-          </button>
-        ) : null}
-      </WorkspaceToolbarRow>
-
       <FilterBar>
         <div className="followup-chip-row followup-chip-strip">
-          {chips.map(({ key, label, count, icon: Icon }) => (
-            <button key={key} onClick={() => setActiveView(key)} className={activeView === key ? 'followup-chip followup-chip-active' : 'followup-chip'}>
-              {Icon ? <Icon className="h-4 w-4" /> : null}
-              <span>{label}</span>
-              <strong>{count}</strong>
-            </button>
-          ))}
+          {PRIMARY_VIEWS.map((view) => {
+            const count = view === 'All' ? stats.total : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : stats.readyToClose;
+            return (
+              <button key={view} onClick={() => setActiveView(view)} className={activeView === view ? 'followup-chip followup-chip-active' : 'followup-chip'}>
+                <span>{view === 'All' ? 'All open' : view}</span>
+                <strong>{count}</strong>
+              </button>
+            );
+          })}
+          <select value={SECONDARY_VIEWS.includes(activeView) ? activeView : ''} onChange={(event) => setActiveView(event.target.value as SavedViewKey)} className="field-input !w-auto">
+            <option value="">More views</option>
+            {SECONDARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
+          </select>
         </div>
       </FilterBar>
 
@@ -160,19 +168,23 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
           <option value="All">All statuses</option><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
         </select>
-        <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">
-          {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
-        </select>
-        <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />View options <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
+        <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Filters <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
+        <button onClick={() => setPreferencesOpen((prev) => !prev)} className="action-btn"><Settings2 className="h-4 w-4" />Customize <ChevronDown className={`h-4 w-4 ${preferencesOpen ? 'rotate-180' : ''}`} /></button>
+        {!compact ? (
+          <button onClick={openCreateModal} className="action-btn">
+            <Plus className="h-4 w-4" />
+            Add follow-up
+          </button>
+        ) : null}
       </WorkspaceToolbarRow>
 
       {advancedOpen ? (
         <div className="followup-filter-grid advanced-filter-surface">
-          <select value={activeView} onChange={(event) => setActiveView(event.target.value as SavedViewKey)} className="field-input">
-            {PRIMARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
-          </select>
           <select value={followUpFilters.project} onChange={(event) => setFollowUpFilters({ project: event.target.value })} className="field-input">
             {projects.map((project) => <option key={project} value={project}>{project}</option>)}
+          </select>
+          <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">
+            {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
           </select>
           <select value={followUpFilters.assignee} onChange={(event) => setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
           <select value={followUpFilters.priority} onChange={(event) => setFollowUpFilters({ priority: event.target.value as typeof followUpFilters.priority })} className="field-input"><option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
@@ -188,12 +200,38 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         </div>
       ) : null}
 
+      {preferencesOpen ? (
+        <div className="followup-filter-grid advanced-filter-surface">
+          <label className="field-block"><span className="field-label">Row density</span>
+            <select value={followUpTableDensity} onChange={(event) => setFollowUpTableDensity(event.target.value as typeof followUpTableDensity)} className="field-input">
+              <option value="compact">Compact</option>
+              <option value="comfortable">Expanded</option>
+            </select>
+          </label>
+          <label className="field-block"><span className="field-label">Duplicate module</span>
+            <select value={followUpDuplicateModule} onChange={(event) => setFollowUpDuplicateModule(event.target.value as typeof followUpDuplicateModule)} className="field-input">
+              <option value="auto">Show only when flagged</option>
+              <option value="collapsed">Collapsed when flagged</option>
+              <option value="expanded">Always expanded when flagged</option>
+            </select>
+          </label>
+          <div className="followup-saved-views-row followup-secondary-utility">
+            <span className="followup-secondary-label">Optional columns</span>
+            {OPTIONAL_COLUMNS.map((column) => (
+              <label key={column} className="inline-flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" checked={followUpColumns.includes(column)} onChange={() => toggleColumn(column)} />
+                {column}
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {selectedFollowUpIds.length > 0 ? (
         <div className="followup-toolbar-foot bulk-action-strip execution-batch-strip">
           <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{selectedFollowUpIds.length}</span> selected</div>
           <div className="followup-action-row">
             <button onClick={() => openBatchFlow('nudge')} className="action-btn">Mark nudged</button>
-            <button onClick={() => batchUpdateFollowUps(selectedFollowUpIds, { status: 'In progress' }, 'Status changed to In progress (batch).')} className="action-btn">Set in progress</button>
             <button onClick={() => openBatchFlow('snooze')} className="action-btn">Snooze selected</button>
             <button onClick={() => openBatchFlow('close')} className="action-btn">Close selected</button>
             <button onClick={clearFollowUpSelection} className="action-btn">Clear</button>
@@ -202,7 +240,6 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
       ) : (
         <div className="followup-toolbar-foot execution-toolbar-foot">
           <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown</div>
-          <div className="followup-action-row"><span className="workspace-support-copy">Select a row to run context-heavy actions from the inspector.</span></div>
         </div>
       )}
       <StructuredActionFlow

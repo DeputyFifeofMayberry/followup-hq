@@ -6,6 +6,8 @@ import type {
   FollowUpAdvancedFilters,
   FollowUpColumnKey,
   FollowUpItem,
+  FollowUpTableDensity,
+  FollowUpDuplicateModuleMode,
   FollowUpStatus,
   ForwardedEmailProviderPayload,
   ForwardedEmailRule,
@@ -63,6 +65,8 @@ export interface AppStoreActions {
   saveFollowUpCustomView: (name: string, search: string) => void;
   applySavedFollowUpCustomView: (id: string) => void;
   setFollowUpColumns: (columns: FollowUpColumnKey[]) => void;
+  setFollowUpTableDensity: (density: FollowUpTableDensity) => void;
+  setFollowUpDuplicateModule: (mode: FollowUpDuplicateModuleMode) => void;
   openCreateModal: () => void;
   openEditModal: (id: string) => void;
   closeItemModal: () => void;

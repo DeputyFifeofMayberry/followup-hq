@@ -2,6 +2,12 @@
 
 ## 2026-04-05
 
+### Tasks workspace simplification phase 2: unified secondary controls + calmer hierarchy
+- Refactored Tasks secondary controls into one `Filters & layout` surface with three explicit sections—`Queue filters`, `Queue ordering & scope`, and `Workspace preferences`—so users no longer switch between fragmented secondary control concepts (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Moved secondary/rare modes into `Queue ordering & scope`, kept primary mode chips focused on core lane navigation, and reframed session presets as optional low-emphasis accelerators inside preferences instead of a second visible navigation system (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Separated reset semantics into `Reset filters` (queue constraints only) and `Reset preferences` (layout/behavior only), while keeping active chips scoped strictly to queue constraints and preserving queue-first visual priority (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Simplified task workspace persistence and state boundaries by storing only durable queue shape/layout preferences (mode, sort, density, inspector collapse) while making preset state transient to avoid stale shortcut state after reload (`src/components/TaskWorkspace.tsx`).
+
 ### Tasks workspace simplification pass: one calm primary toolbar + tucked secondary controls
 - Refactored the Tasks lane control hierarchy so default load now shows one compact execution-first row (primary lane chips + search + a single `View options` entry point + `Add task`) and removed the always-visible second session-management strip from initial paint (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
 - Moved secondary queue controls (sort, project/assignee/owner/status/parent/link/tag filters) and workspace preferences (session preset, density, inspector visibility) into one on-demand `View options` surface to separate filtering from workspace preferences and reduce first-impression control noise (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).

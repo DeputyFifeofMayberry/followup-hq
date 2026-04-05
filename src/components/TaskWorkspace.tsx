@@ -18,11 +18,11 @@ type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'at
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
 type TaskRowDensity = 'standard' | 'compact';
 type InspectorTab = 'summary' | 'execute' | 'context';
+type TaskSort = 'due' | 'priority' | 'updated';
 
 type TaskWorkspacePreferences = {
   mode: TaskMode;
-  sortBy: 'due' | 'priority' | 'updated';
-  sessionPreset: SessionPreset;
+  sortBy: TaskSort;
   density: TaskRowDensity;
   inspectorCollapsed: boolean;
 };
@@ -44,12 +44,25 @@ const secondaryModeOptions: Array<{ value: TaskMode; label: string }> = [
   { value: 'recent', label: 'Recently updated' },
 ];
 
-const sessionPresets: Array<{ value: SessionPreset; label: string; mode: TaskMode; sortBy: 'due' | 'priority' | 'updated' }> = [
-  { value: 'workNow', label: 'Work now', mode: 'dueNow', sortBy: 'due' },
-  { value: 'planWeek', label: 'Plan week', mode: 'thisWeek', sortBy: 'due' },
-  { value: 'resolveBlockers', label: 'Resolve blockers', mode: 'blocked', sortBy: 'priority' },
-  { value: 'cleanup', label: 'Cleanup', mode: 'cleanup', sortBy: 'updated' },
+const sessionPresets: Array<{ value: SessionPreset; label: string; mode: TaskMode; sortBy: TaskSort; description: string }> = [
+  { value: 'workNow', label: 'Work now', mode: 'dueNow', sortBy: 'due', description: 'Due-now queue sorted by due date.' },
+  { value: 'planWeek', label: 'Plan week', mode: 'thisWeek', sortBy: 'due', description: 'This-week scope sorted by due date.' },
+  { value: 'resolveBlockers', label: 'Resolve blockers', mode: 'blocked', sortBy: 'priority', description: 'Blocked queue sorted by priority.' },
+  { value: 'cleanup', label: 'Cleanup', mode: 'cleanup', sortBy: 'updated', description: 'Cleanup scope sorted by latest updates.' },
 ];
+
+const defaultFilterState = {
+  project: 'All',
+  assignee: 'All',
+  linked: 'all' as const,
+  parentStatus: 'All' as const,
+  tag: '',
+};
+
+const defaultWorkspacePrefs = {
+  density: 'standard' as TaskRowDensity,
+  inspectorCollapsed: false,
+};
 
 function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
   if (typeof window === 'undefined') return null;
@@ -57,11 +70,10 @@ function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
     const raw = window.localStorage.getItem(TASK_WORKSPACE_PREFS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TaskWorkspacePreferences>;
-    if (!parsed.mode || !parsed.sortBy || !parsed.sessionPreset || !parsed.density) return null;
+    if (!parsed.mode || !parsed.sortBy || !parsed.density) return null;
     return {
       mode: parsed.mode,
       sortBy: parsed.sortBy,
-      sessionPreset: parsed.sessionPreset,
       density: parsed.density,
       inspectorCollapsed: Boolean(parsed.inspectorCollapsed),
     };
@@ -75,18 +87,18 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   const modeConfig = getModeConfig(appMode);
   const prefs = useMemo(() => readTaskWorkspacePrefs(), []);
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'due' | 'priority' | 'updated'>(prefs?.sortBy ?? 'due');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<TaskSort>(prefs?.sortBy ?? 'due');
   const [mode, setMode] = useState<TaskMode>(prefs?.mode ?? 'dueNow');
-  const [sessionPreset, setSessionPreset] = useState<SessionPreset>(prefs?.sessionPreset ?? 'workNow');
-  const [density, setDensity] = useState<TaskRowDensity>(prefs?.density ?? 'standard');
-  const [projectFilter, setProjectFilter] = useState('All');
-  const [assigneeFilter, setAssigneeFilter] = useState('All');
-  const [linkedFilter, setLinkedFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
-  const [parentStatusFilter, setParentStatusFilter] = useState<'All' | FollowUpStatus>('All');
-  const [tagFilter, setTagFilter] = useState('');
+  const [sessionPreset, setSessionPreset] = useState<SessionPreset>('custom');
+  const [density, setDensity] = useState<TaskRowDensity>(prefs?.density ?? defaultWorkspacePrefs.density);
+  const [projectFilter, setProjectFilter] = useState(defaultFilterState.project);
+  const [assigneeFilter, setAssigneeFilter] = useState(defaultFilterState.assignee);
+  const [linkedFilter, setLinkedFilter] = useState<'all' | 'linked' | 'unlinked'>(defaultFilterState.linked);
+  const [parentStatusFilter, setParentStatusFilter] = useState<'All' | FollowUpStatus>(defaultFilterState.parentStatus);
+  const [tagFilter, setTagFilter] = useState(defaultFilterState.tag);
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(Boolean(prefs?.inspectorCollapsed));
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(Boolean(prefs?.inspectorCollapsed ?? defaultWorkspacePrefs.inspectorCollapsed));
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('summary');
   const [flowState, setFlowState] = useState<{ kind: 'done' | 'block' | 'unblock' | 'defer'; taskId: string } | null>(null);
   const [completionNoteDraft, setCompletionNoteDraft] = useState('');
@@ -110,9 +122,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const payload: TaskWorkspacePreferences = { mode, sortBy, sessionPreset, density, inspectorCollapsed };
+    const payload: TaskWorkspacePreferences = { mode, sortBy, density, inspectorCollapsed };
     window.localStorage.setItem(TASK_WORKSPACE_PREFS_KEY, JSON.stringify(payload));
-  }, [mode, sortBy, sessionPreset, density, inspectorCollapsed]);
+  }, [mode, sortBy, density, inspectorCollapsed]);
 
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [tasks]);
@@ -157,7 +169,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       const linkedMatch = linkedFilter === 'all' || (linkedFilter === 'linked' ? !!task.linkedFollowUpId : !task.linkedFollowUpId);
       const parentStatusMatch = parentStatusFilter === 'All' || parent?.status === parentStatusFilter;
       const tagMatch = !tagFilter || task.tags.includes(tagFilter);
-      const textMatch = [task.title, task.project, task.summary, task.nextStep, task.notes, task.contextNote, task.blockReason, task.tags.join(' ')].join(' ').toLowerCase().includes(search.toLowerCase());
+      const textMatch = [task.title, task.project, task.summary, task.nextStep, task.notes, task.contextNote, task.blockReason, task.tags.join(' ')].join(' ').toLowerCase().includes(searchQuery.toLowerCase());
       return ownerMatch && statusMatch && projectMatch && assigneeMatch && linkedMatch && parentStatusMatch && tagMatch && textMatch;
     });
 
@@ -171,7 +183,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [tasks, items, taskOwnerFilter, taskStatusFilter, search, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, tagFilter]);
+  }, [tasks, items, taskOwnerFilter, taskStatusFilter, searchQuery, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, tagFilter]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
   const selectedTaskDirty = selectedTask ? isRecordDirty('task', selectedTask.id) : false;
@@ -190,45 +202,58 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
-    if (projectFilter !== 'All') chips.push({ key: 'project', label: `Project: ${projectFilter}`, clear: () => setProjectFilter('All') });
-    if (assigneeFilter !== 'All') chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => setAssigneeFilter('All') });
+    if (projectFilter !== defaultFilterState.project) chips.push({ key: 'project', label: `Project: ${projectFilter}`, clear: () => setProjectFilter(defaultFilterState.project) });
+    if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => setAssigneeFilter(defaultFilterState.assignee) });
     if (!personalMode && taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${taskOwnerFilter}`, clear: () => setTaskOwnerFilter('All') });
     if (taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${taskStatusFilter}`, clear: () => setTaskStatusFilter('All') });
-    if (!personalMode && parentStatusFilter !== 'All') chips.push({ key: 'parent', label: `Parent: ${parentStatusFilter}`, clear: () => setParentStatusFilter('All') });
-    if (linkedFilter !== 'all') chips.push({ key: 'linked', label: `Linked: ${linkedFilter === 'linked' ? 'Linked' : 'Unlinked'}`, clear: () => setLinkedFilter('all') });
-    if (tagFilter) chips.push({ key: 'tag', label: `Tag: ${tagFilter}`, clear: () => setTagFilter('') });
-    if (search.trim()) chips.push({ key: 'search', label: `Search: ${search.trim()}`, clear: () => setSearch('') });
+    if (!personalMode && parentStatusFilter !== defaultFilterState.parentStatus) chips.push({ key: 'parent', label: `Parent: ${parentStatusFilter}`, clear: () => setParentStatusFilter(defaultFilterState.parentStatus) });
+    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: `Linked: ${linkedFilter === 'linked' ? 'Linked' : 'Unlinked'}`, clear: () => setLinkedFilter(defaultFilterState.linked) });
+    if (tagFilter) chips.push({ key: 'tag', label: `Tag: ${tagFilter}`, clear: () => setTagFilter(defaultFilterState.tag) });
+    if (searchQuery.trim()) chips.push({ key: 'search', label: `Search: ${searchQuery.trim()}`, clear: () => setSearchQuery('') });
     return chips;
-  }, [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, search, setTaskOwnerFilter, setTaskStatusFilter]);
+  }, [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, searchQuery, setTaskOwnerFilter, setTaskStatusFilter]);
 
-  const activeSecondaryFilterCount = useMemo(() => (
+  const activeQueueFilterCount = useMemo(() => (
     [
-      projectFilter !== 'All',
-      assigneeFilter !== 'All',
+      projectFilter !== defaultFilterState.project,
+      assigneeFilter !== defaultFilterState.assignee,
       !personalMode && taskOwnerFilter !== 'All',
       taskStatusFilter !== 'All',
-      !personalMode && parentStatusFilter !== 'All',
-      linkedFilter !== 'all',
+      !personalMode && parentStatusFilter !== defaultFilterState.parentStatus,
+      linkedFilter !== defaultFilterState.linked,
       Boolean(tagFilter),
+      Boolean(searchQuery.trim()),
+    ].filter(Boolean).length
+  ), [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, searchQuery]);
+
+  const activeQueueShapeCount = useMemo(() => (
+    [
+      !primaryModeOptions.some((option) => option.value === mode),
       sortBy !== 'due',
     ].filter(Boolean).length
-  ), [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, parentStatusFilter, linkedFilter, tagFilter, sortBy]);
+  ), [mode, sortBy]);
 
   const activeWorkspacePreferenceCount = useMemo(() => (
-    [sessionPreset !== 'workNow', density !== 'standard', inspectorCollapsed].filter(Boolean).length
-  ), [sessionPreset, density, inspectorCollapsed]);
+    [
+      density !== defaultWorkspacePrefs.density,
+      inspectorCollapsed !== defaultWorkspacePrefs.inspectorCollapsed,
+    ].filter(Boolean).length
+  ), [density, inspectorCollapsed]);
 
   const resetFilters = () => {
     setTaskOwnerFilter('All');
     setTaskStatusFilter('All');
-    setProjectFilter('All');
-    setAssigneeFilter('All');
-    setLinkedFilter('all');
-    setParentStatusFilter('All');
-    setTagFilter('');
-    setSearch('');
-    setMode('dueNow');
-    setSessionPreset('workNow');
+    setProjectFilter(defaultFilterState.project);
+    setAssigneeFilter(defaultFilterState.assignee);
+    setLinkedFilter(defaultFilterState.linked);
+    setParentStatusFilter(defaultFilterState.parentStatus);
+    setTagFilter(defaultFilterState.tag);
+    setSearchQuery('');
+  };
+
+  const resetWorkspacePreferences = () => {
+    setDensity(defaultWorkspacePrefs.density);
+    setInspectorCollapsed(defaultWorkspacePrefs.inspectorCollapsed);
   };
 
   const applySessionPreset = (preset: SessionPreset) => {
@@ -242,6 +267,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   const applyMode = (nextMode: TaskMode) => {
     setMode(nextMode);
+    setSessionPreset('custom');
+  };
+
+  const applySort = (nextSort: TaskSort) => {
+    setSortBy(nextSort);
     setSessionPreset('custom');
   };
 
@@ -307,25 +337,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 {primaryModeOptions.map((option) => (
                   <button key={option.value} onClick={() => applyMode(option.value)} className={`task-mode-chip ${mode === option.value ? 'task-mode-chip-active' : ''}`} role="tab" aria-selected={mode === option.value}>{option.label}</button>
                 ))}
-                <select value={primaryModeOptions.some((option) => option.value === mode) ? '' : mode} onChange={(event) => applyMode(event.target.value as TaskMode)} className="field-input task-secondary-mode-select" aria-label="More views">
-                  <option value="">More views…</option>
-                  {secondaryModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
               </div>
 
               <label className="field-block task-search-block">
                 <span className="field-label">Search queue</span>
                 <div className="search-field-wrap">
                   <Search className="search-field-icon h-4 w-4" />
-                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />
-                  {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+                  <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />
+                  {searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
                 </div>
               </label>
 
               <button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
                 <SlidersHorizontal className="h-4 w-4" />
-                View options
-                {(activeSecondaryFilterCount + activeWorkspacePreferenceCount) > 0 ? <AppBadge tone="info">{activeSecondaryFilterCount + activeWorkspacePreferenceCount}</AppBadge> : null}
+                Filters & layout
+                {(activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount) > 0 ? <AppBadge tone="info">{activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount}</AppBadge> : null}
                 <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
               </button>
               <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
@@ -334,42 +360,81 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             {activeFilterChips.length ? (
               <div className="task-filter-chip-row task-filter-chip-row-muted">
                 {activeFilterChips.map((chip) => <button key={chip.key} onClick={chip.clear} className="task-filter-chip">{chip.label} <span aria-hidden="true">×</span></button>)}
-                <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset all</button>
+                <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset filters</button>
               </div>
             ) : null}
 
             {viewOptionsOpen ? (
               <div className="task-view-options-surface advanced-filter-surface">
-                <div className="task-view-options-section-head">
-                  <span className="task-view-options-title">Queue filters</span>
-                  <span className="workspace-support-copy">Refine what appears in the queue.</span>
+                <div className="task-view-options-panel-head">
+                  <p className="workspace-support-copy">One place for non-default controls. Filters shape the queue, while preferences change workspace behavior.</p>
                 </div>
-                <div className={`grid gap-2 ${personalMode ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
-                  <select value={sortBy} onChange={(event) => { setSortBy(event.target.value as typeof sortBy); setSessionPreset('custom'); }} className="field-input"><option value="due">Sort: due date</option><option value="priority">Sort: priority</option><option value="updated">Sort: recently updated</option></select>
-                  <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
-                  <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
-                  {!personalMode ? <select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select> : null}
-                  <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select>
-                  {!personalMode ? <select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : `Parent: ${status}`}</option>)}</select> : null}
-                  <select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select>
-                  <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select>
-                </div>
+                <section className="task-view-options-section">
+                  <div className="task-view-options-section-head">
+                    <span className="task-view-options-title">Queue filters</span>
+                    <span className="workspace-support-copy">Refine which tasks appear in the queue.</span>
+                  </div>
+                  <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
+                    <label className="field-block"><span className="field-label">Project</span><select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select></label>
+                    <label className="field-block"><span className="field-label">Assignee</span><select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select></label>
+                    {!personalMode ? <label className="field-block"><span className="field-label">Owner</span><select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select></label> : null}
+                    <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
+                    {!personalMode ? <label className="field-block"><span className="field-label">Parent status</span><select value={parentStatusFilter} onChange={(event) => setParentStatusFilter(event.target.value as 'All' | FollowUpStatus)} className="field-input">{['All', 'Needs action', 'Waiting on external', 'Waiting internal', 'In progress', 'At risk', 'Closed'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All parent statuses' : status}</option>)}</select></label> : null}
+                    <label className="field-block"><span className="field-label">Linked state</span><select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All linked states</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select></label>
+                    <label className="field-block"><span className="field-label">Tag</span><select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="field-input"><option value="">All tags</option>{allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select></label>
+                  </div>
+                  <div className="task-view-options-reset-row">
+                    <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset filters</button>
+                  </div>
+                </section>
 
-                <div className="task-view-options-section-head">
-                  <span className="task-view-options-title">Workspace preferences</span>
-                  <span className="workspace-support-copy">Adjust presentation and session defaults.</span>
-                </div>
-                <div className="task-workspace-prefs-row">
-                  <label className="field-block task-preset-block">
-                    <span className="field-label">Session preset</span>
-                    <select value={sessionPreset} onChange={(event) => applySessionPreset(event.target.value as SessionPreset)} className="field-input">
-                      <option value="custom">Custom</option>
-                      {sessionPresets.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
-                    </select>
-                  </label>
-                  <button onClick={() => setDensity((current) => (current === 'standard' ? 'compact' : 'standard'))} className="action-btn">Density: {density === 'compact' ? 'Compact' : 'Standard'}</button>
-                  <button onClick={() => setInspectorCollapsed((current) => !current)} className="action-btn">{inspectorCollapsed ? 'Show details panel' : 'Hide details panel'}</button>
-                </div>
+                <section className="task-view-options-section">
+                  <div className="task-view-options-section-head">
+                    <span className="task-view-options-title">Queue ordering & scope</span>
+                    <span className="workspace-support-copy">Change how the queue is shaped without changing display preferences.</span>
+                  </div>
+                  <div className="task-view-options-grid task-view-options-grid-personal">
+                    <label className="field-block">
+                      <span className="field-label">Sort queue</span>
+                      <select value={sortBy} onChange={(event) => applySort(event.target.value as TaskSort)} className="field-input">
+                        <option value="due">Due date</option>
+                        <option value="priority">Priority</option>
+                        <option value="updated">Recently updated</option>
+                      </select>
+                    </label>
+                    <label className="field-block">
+                      <span className="field-label">Additional modes</span>
+                      <select value={primaryModeOptions.some((option) => option.value === mode) ? '' : mode} onChange={(event) => applyMode(event.target.value as TaskMode)} className="field-input">
+                        <option value="">None selected</option>
+                        {secondaryModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="task-view-options-section task-view-options-section-preferences">
+                  <div className="task-view-options-section-head">
+                    <span className="task-view-options-title">Workspace preferences</span>
+                    <span className="workspace-support-copy">Calm defaults with optional shortcuts and layout settings.</span>
+                  </div>
+                  <div className="task-workspace-prefs-row">
+                    <div className="task-preset-list" role="list" aria-label="Session presets">
+                      {sessionPresets.map((preset) => (
+                        <button key={preset.value} onClick={() => applySessionPreset(preset.value)} className={`task-preset-chip ${sessionPreset === preset.value ? 'task-preset-chip-active' : ''}`} type="button">
+                          <span>{preset.label}</span>
+                          <small>{preset.description}</small>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="field-block task-preset-block">
+                      <span className="field-label">Preset state</span>
+                      <input value={sessionPreset === 'custom' ? 'Custom queue shape' : 'Preset applied'} className="field-input" readOnly />
+                    </label>
+                    <button onClick={() => setDensity((current) => (current === 'standard' ? 'compact' : 'standard'))} className="action-btn">Density: {density === 'compact' ? 'Compact' : 'Standard'}</button>
+                    <button onClick={() => setInspectorCollapsed((current) => !current)} className="action-btn">{inspectorCollapsed ? 'Show details panel' : 'Hide details panel'}</button>
+                    <button onClick={resetWorkspacePreferences} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset preferences</button>
+                  </div>
+                </section>
               </div>
             ) : null}
           </div>

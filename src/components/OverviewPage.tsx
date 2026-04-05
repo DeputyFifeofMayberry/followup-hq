@@ -63,19 +63,19 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         </AppShellCard>
 
         <AppShellCard className="overview-inspector-shell" surface="inspector">
-          <SectionHeader title="Route inspector" subtitle="Context + destination for the selected item." compact />
+          <SectionHeader title="Route inspector" subtitle="Decide where to handle the selected item next." compact />
           <OverviewRouteInspector
             selected={selected}
-            onOpenFollowUps={() => {
-              routeToLane('followups', { record: selected, section: 'triage', intentLabel: 'route selected overview item to follow-ups' });
-              onOpenWorkspace('followups');
-            }}
-            onOpenTasks={() => {
-              routeToLane('tasks', { record: selected, section: 'now', intentLabel: 'route selected overview item to tasks' });
-              onOpenWorkspace('tasks');
+            onRouteDestination={(destination) => {
+              routeToLane(destination, {
+                record: selected,
+                section: destination === 'tasks' ? 'now' : 'triage',
+                intentLabel: `route selected overview item to ${destination}`,
+              });
+              onOpenWorkspace(destination);
             }}
             onOpenDetail={openSelectedDetail}
-            onOpenIntake={selected?.queueFlags.cleanupRequired ? () => onOpenWorkspace('outlook') : undefined}
+            onOpenIntake={() => onOpenWorkspace('outlook')}
           />
         </AppShellCard>
       </WorkspacePrimaryLayout>

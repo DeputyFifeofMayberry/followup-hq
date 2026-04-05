@@ -98,6 +98,118 @@ export function WorkspaceToolbarRow({ children, className = '' }: PropsWithChild
   return <div className={`workspace-toolbar-row toolbar-row ${className}`.trim()}>{children}</div>;
 }
 
+export function SupportWorkspaceSummary({
+  title,
+  subtitle,
+  supportSentence,
+  metrics,
+}: {
+  title: string;
+  subtitle: string;
+  supportSentence: string;
+  metrics: ReactNode;
+}) {
+  return (
+    <WorkspaceSummaryStrip className="space-y-3">
+      <SectionHeader title={title} subtitle={subtitle} />
+      <div className="overview-stat-grid overview-stat-grid-compact">{metrics}</div>
+      <p className="text-xs text-slate-600">{supportSentence}</p>
+    </WorkspaceSummaryStrip>
+  );
+}
+
+export function SupportWorkspaceToolbar({
+  primary,
+  secondary,
+}: {
+  primary: ReactNode;
+  secondary?: ReactNode;
+}) {
+  return (
+    <AppShellCard className="advanced-filter-surface space-y-3" surface="command">
+      <div className="grid gap-2 md:grid-cols-4">{primary}</div>
+      {secondary ? (
+        <details className="task-maintenance-disclosure">
+          <summary>More filters and support actions</summary>
+          <div className="task-maintenance-body">{secondary}</div>
+        </details>
+      ) : null}
+    </AppShellCard>
+  );
+}
+
+export function SupportWorkspacePortfolioCard({
+  title,
+  subtitle,
+  children,
+}: PropsWithChildren<{ title: string; subtitle?: string }>) {
+  return (
+    <AppShellCard className="space-y-3" surface="data">
+      <SectionHeader title={title} subtitle={subtitle} compact />
+      {children}
+    </AppShellCard>
+  );
+}
+
+export function SupportWorkspaceSelectedContextCard({
+  title,
+  subtitle,
+  children,
+}: PropsWithChildren<{ title: string; subtitle: string }>) {
+  return (
+    <AppShellCard className="space-y-4" surface="inspector">
+      <SectionHeader title={title} subtitle={subtitle} compact />
+      {children}
+    </AppShellCard>
+  );
+}
+
+export function SupportWorkspaceRouteActions({
+  title = 'Route into execution',
+  support,
+  children,
+}: PropsWithChildren<{ title?: string; support?: string }>) {
+  return (
+    <div className="space-y-2 rounded-2xl tonal-panel">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</div>
+      {support ? <p className="text-xs text-slate-600">{support}</p> : null}
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+export function SupportWorkspaceRelatedList({
+  title,
+  subtitle,
+  children,
+}: PropsWithChildren<{ title: string; subtitle?: string }>) {
+  return (
+    <div className="space-y-2 rounded-2xl tonal-panel">
+      <div>
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+        {subtitle ? <p className="text-xs text-slate-600">{subtitle}</p> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function SupportWorkspaceMaintenanceTray({
+  title = 'Maintenance',
+  subtitle,
+  children,
+}: PropsWithChildren<{ title?: string; subtitle?: string }>) {
+  return (
+    <details className="task-maintenance-disclosure">
+      <summary>{title}</summary>
+      <div className="task-maintenance-body">
+        {subtitle ? <p className="mb-2 text-xs text-slate-600">{subtitle}</p> : null}
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export function ExecutionLaneToolbar({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <WorkspaceToolbarRow className={`execution-lane-toolbar ${className}`.trim()}>{children}</WorkspaceToolbarRow>;
 }

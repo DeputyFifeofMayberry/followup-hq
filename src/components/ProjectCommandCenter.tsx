@@ -14,7 +14,17 @@ import { addDaysIso, formatDate, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { AppMode, ProjectCardDisplayMode, ProjectSortKey, SavedViewKey } from '../types';
-import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
+import {
+  AppShellCard,
+  StatTile,
+  SupportWorkspaceMaintenanceTray,
+  SupportWorkspacePortfolioCard,
+  SupportWorkspaceRelatedList,
+  SupportWorkspaceRouteActions,
+  SupportWorkspaceSelectedContextCard,
+  SupportWorkspaceSummary,
+  SupportWorkspaceToolbar,
+} from './ui/AppPrimitives';
 import { getModeConfig, type WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { BatchSummarySection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
@@ -211,23 +221,34 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
   return (
     <AppShellCard className="project-command-surface" surface="shell">
-      <SectionHeader title="Project context lens" subtitle={modeConfig.projectsSubtitle} />
-      <div className="project-command-layout">
-        <div className="project-list-rail page-section">
-          <div className="overview-stat-grid overview-stat-grid-compact">
+      <SupportWorkspaceSummary
+        title="Project support workspace"
+        subtitle={modeConfig.projectsSubtitle}
+        supportSentence="Projects are a context-and-routing lens: read pressure quickly, select the target project, then route into execution lanes."
+        metrics={(
+          <>
             <StatTile label="Projects under pressure" value={pressureSummary.critical} helper="High + critical health signals" tone={pressureSummary.critical > 0 ? 'warn' : 'default'} />
             <StatTile label="Overdue work" value={pressureSummary.overdue} helper="Follow-ups + tasks overdue" tone={pressureSummary.overdue > 0 ? 'warn' : 'default'} />
             <StatTile label="Blocked tasks" value={pressureSummary.blocked} helper="Execution blockers to route" tone={pressureSummary.blocked > 0 ? 'danger' : 'default'} />
             <StatTile label="Closeout candidates" value={pressureSummary.closeout} helper="Projects showing closeout signals" />
-          </div>
-
-          <div className="project-filter-panel advanced-filter-surface">
+          </>
+        )}
+      />
+      <div className="project-command-layout">
+        <div className="project-list-rail page-section">
+          <SupportWorkspaceToolbar
+            primary={(
+              <>
             <div className="grid gap-2 md:grid-cols-3">
               <input value={filters.query} onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))} className="field-input md:col-span-2" placeholder="Search by project, owner, code, phase" />
               <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as ProjectFilterState['status'] }))} className="field-input"><option value="All">All statuses</option><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
               <select value={filters.healthTier} onChange={(e) => setFilters((prev) => ({ ...prev, healthTier: e.target.value as ProjectFilterState['healthTier'] }))} className="field-input"><option value="All">Any health</option><option>Critical</option><option>High</option><option>Moderate</option><option>Low</option></select>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as ProjectSortKey)} className="field-input"><option value="health">Sort: health</option><option value="name">Sort: name</option><option value="updated">Sort: updated</option><option value="targetDate">Sort: target date</option><option value="overdueWork">Sort: overdue work</option></select>
             </div>
+              </>
+            )}
+            secondary={(
+              <>
             <div className="project-filter-foot">
               <div className="flex flex-wrap gap-2">
                 {projectSavedViews.map((view) => <button key={view.key} onClick={() => applySavedView(view.key)} className={savedView === view.key ? 'action-btn !border-amber-500 !bg-amber-50' : 'action-btn'}>{view.label}</button>)}
@@ -238,9 +259,6 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <button onClick={() => { setFilters(defaultProjectFilters); setSavedView('All projects'); }} className="action-btn">Reset</button>
               </div>
             </div>
-            <details className="task-maintenance-disclosure mt-2">
-              <summary><ChevronDown className="h-4 w-4" />More filters and quick create</summary>
-              <div className="task-maintenance-body">
                 <div className="grid gap-2 md:grid-cols-2">
                   <select value={filters.owner} onChange={(e) => setFilters((prev) => ({ ...prev, owner: e.target.value }))} className="field-input"><option value="All">All owners</option>{[...new Set(projects.map((project) => project.owner))].map((owner) => <option key={owner}>{owner}</option>)}</select>
                   <select value={filters.activity} onChange={(e) => setFilters((prev) => ({ ...prev, activity: e.target.value as ProjectFilterState['activity'] }))} className="field-input"><option value="all">Any activity</option><option value="recent">Recently updated</option><option value="stale">Stale</option></select>
@@ -251,11 +269,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <div className="project-create-row mt-3">
                   <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="field-input" placeholder="Project name" />
                   <input value={newProjectOwner} onChange={(e) => setNewProjectOwner(e.target.value)} className="field-input" placeholder="Owner" />
-                  <button onClick={createProject} className="action-btn"><Plus className="h-4 w-4" />Quick Add</button>
+                  <button onClick={createProject} className="action-btn"><Plus className="h-4 w-4" />Quick add project</button>
                 </div>
-              </div>
-            </details>
-          </div>
+              </>
+            )}
+          />
 
           <div className="project-card-list">
             {sortedRows.map((row) => (
@@ -277,22 +295,26 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
         <div className="project-detail-pane">
           {selectedProject && selectedRow ? (
             <>
-              <div className="project-detail-top">
+              <SupportWorkspaceSelectedContextCard title={selectedProject.name} subtitle="Project pressure lens: understand why this record needs attention now, then route into execution.">
+              <div className="project-detail-top !p-0 !bg-transparent !border-0">
                 <div>
-                  <h3 className="inspector-title">{selectedProject.name}</h3>
-                  <p className="inspector-meta">Project pressure lens: understand why this project needs attention, then route into an execution lane.</p>
+                  <h3 className="inspector-title">Identity + why it matters</h3>
+                  <p className="inspector-meta">{selectedProject.name} • {selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <SupportWorkspaceRouteActions support="Route actions stay primary; maintenance stays secondary below.">
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="primary-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="primary-btn">Open task lane</button>
                   <button onClick={() => openProjectScopedQueue('blocked')} className="action-btn"><ShieldAlert className="h-4 w-4" />Open blocked work</button>
                   <button onClick={() => openProjectScopedQueue('overdue')} className="action-btn"><AlertTriangle className="h-4 w-4" />Open overdue work</button>
+                  <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Open waiting work</button>
                   <button onClick={() => openProjectScopedQueue('closeout')} className="action-btn">Open closeout work</button>
                   <button onClick={() => openCreateFlow('followup')} className="action-btn">Create follow-up</button>
                   <button onClick={() => openCreateFlow('task')} className="action-btn">Create task</button>
+                  <button onClick={createProjectDoc} className="action-btn"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
                   <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn">{editSurfaceCtas.openContext}</button>
+                  <button onClick={() => openRecordEditor({ type: 'project', id: selectedProject.id }, 'edit', 'workspace')} className="action-btn">{editSurfaceCtas.fullEditProject}</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
-                </div>
+                </SupportWorkspaceRouteActions>
               </div>
 
               <div className="project-subpanel inspector-block">
@@ -329,10 +351,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>
               </div>
 
-              <details className="task-maintenance-disclosure">
-                <summary>{editSurfacePolicy.maintenance.label} (project metadata + admin controls)</summary>
-                <div className="task-maintenance-body">
-                  <div className="mb-2 text-xs text-slate-600">Projects remain a context lens first. Use maintenance only for deeper metadata/admin updates.</div>
+              <SupportWorkspaceMaintenanceTray title={`${editSurfacePolicy.maintenance.label} (project metadata + admin controls)`} subtitle="Projects remain a context lens first. Use maintenance only for deeper metadata/admin updates.">
                   <div className="grid gap-2 md:grid-cols-2">
                     <input value={selectedProject.name} onChange={(e) => updateProject(selectedProject.id, { name: e.target.value })} className="field-input" placeholder="Project name" />
                     <input value={selectedProject.owner} onChange={(e) => updateProject(selectedProject.id, { owner: e.target.value })} className="field-input" placeholder="Project owner" />
@@ -349,11 +368,11 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                     <div className="mb-2 text-sm font-semibold text-rose-700">Archive / delete project</div>
                     <button onClick={() => { setDeleteFlowOpen((prev) => !prev); setDeleteTargetProjectId(projects.find((project) => project.name === 'General')?.id || ''); }} className="action-btn action-btn-danger">{deleteFlowOpen ? 'Hide delete workflow' : 'Open safe delete workflow'}</button>
                   </div>
-                </div>
-              </details>
+              </SupportWorkspaceMaintenanceTray>
+              </SupportWorkspaceSelectedContextCard>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="project-subpanel inspector-block">
+                <SupportWorkspaceRelatedList title="Linked follow-ups" subtitle="Supporting preview for pressure context and routing decisions.">
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open follow-ups</span><button onClick={() => setSelectedFollowUpIds(selectedRow.openFollowUps.map((item) => item.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
@@ -370,9 +389,9 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                       <button onClick={() => openBulkFlow('followup_snooze')} className="action-btn">Bulk snooze</button>
                     </div>
                   </details>
-                </div>
+                </SupportWorkspaceRelatedList>
 
-                <div className="project-subpanel inspector-block">
+                <SupportWorkspaceRelatedList title="Linked tasks" subtitle="Compact preview only; route into Tasks lane for full queue execution.">
                   <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-900"><span>Open tasks</span><button onClick={() => setSelectedTaskIds(selectedRow.openTasks.map((task) => task.id))} className="action-btn !px-2 !py-1 text-xs">Select all</button></div>
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
@@ -389,7 +408,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                       <button onClick={() => openBulkFlow('task_snooze')} className="action-btn">Bulk snooze</button>
                     </div>
                   </details>
-                </div>
+                </SupportWorkspaceRelatedList>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">

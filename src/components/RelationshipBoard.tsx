@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRightLeft, Building2, ChevronDown, Clock3, Filter, Flame, PlusCircle, Search, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Building2, Clock3, Filter, Flame, PlusCircle, Trash2, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { buildOwnerSummary } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
@@ -11,7 +11,17 @@ import {
   sortRelationshipSummaries,
   type RelationshipSortKey,
 } from '../lib/relationshipSelectors';
-import { AppShellCard, SectionHeader, StatePanel } from './ui/AppPrimitives';
+import {
+  AppShellCard,
+  StatePanel,
+  SupportWorkspaceMaintenanceTray,
+  SupportWorkspacePortfolioCard,
+  SupportWorkspaceRelatedList,
+  SupportWorkspaceRouteActions,
+  SupportWorkspaceSelectedContextCard,
+  SupportWorkspaceSummary,
+  SupportWorkspaceToolbar,
+} from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { AppMode } from '../types';
 import { useExecutionQueueViewModel } from '../domains/shared';
@@ -176,14 +186,25 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
 
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <SectionHeader title="Relationship coordination lens" subtitle={modeConfig.relationshipsSubtitle} />
-      </div>
+      <SupportWorkspaceSummary
+        title="Relationship support workspace"
+        subtitle={modeConfig.relationshipsSubtitle}
+        supportSentence="Relationships are a coordination pressure lens: identify who is stalled, then route into follow-up or task execution lanes."
+        metrics={(
+          <>
+            <div className="stat-tile"><div className="stat-tile-label">Waiting pressure</div><div className="stat-tile-value">{coordinationSummary.waiting}</div><div className="stat-tile-helper">Follow-ups waiting on others</div></div>
+            <div className="stat-tile stat-tile-warn"><div className="stat-tile-label">Overdue pressure</div><div className="stat-tile-value">{coordinationSummary.overdue}</div><div className="stat-tile-helper">Overdue follow-ups + tasks</div></div>
+            <div className="stat-tile stat-tile-danger"><div className="stat-tile-label">Blocked tasks</div><div className="stat-tile-value">{coordinationSummary.blocked}</div><div className="stat-tile-helper">Coordination bottlenecks</div></div>
+            <div className="stat-tile"><div className="stat-tile-label">High-risk relationships</div><div className="stat-tile-value">{coordinationSummary.highRisk}</div><div className="stat-tile-helper">High + critical risk tier</div></div>
+          </>
+        )}
+      />
 
       <div className="grid gap-4 p-4 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl tonal-panel advanced-filter-surface">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4" />Find relationships</div>
+          <SupportWorkspaceToolbar
+            primary={(
+              <>
             <div className="grid gap-2 md:grid-cols-2">
               <input value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} placeholder="Search contact, company, owner, role" className="field-input" />
               <select value={filters.entityType} onChange={(e) => setFilters((prev) => ({ ...prev, entityType: e.target.value as typeof prev.entityType }))} className="field-input">
@@ -199,6 +220,10 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <option value="pressure">Sort by pressure</option><option value="name">Sort by name</option><option value="activeProjects">Sort by projects</option><option value="waiting">Sort by waiting</option><option value="overdue">Sort by overdue</option><option value="touchAge">Sort by touch age</option><option value="risk">Sort by risk</option>
               </select>
             </div>
+              </>
+            )}
+            secondary={(
+              <>
             <div className="mt-3 flex flex-wrap gap-2">
               {relationshipSavedViews.map((view) => (
                 <button
@@ -216,9 +241,6 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               <button onClick={() => setSortDirection((prev) => prev === 'desc' ? 'asc' : 'desc')} className="action-btn !px-2.5 !py-1 text-xs">{sortDirection.toUpperCase()}</button>
               <button onClick={() => setFilters(defaultRelationshipFilter)} className="action-btn !px-2.5 !py-1 text-xs">Reset</button>
             </div>
-            <details className="task-maintenance-disclosure mt-2">
-              <summary><ChevronDown className="h-4 w-4" />More filters and quick create</summary>
-              <div className="task-maintenance-body space-y-3">
                 <div className="grid gap-2 md:grid-cols-2">
                   <select value={filters.companyType} onChange={(e) => setFilters((prev) => ({ ...prev, companyType: e.target.value as typeof prev.companyType }))} className="field-input">
                     <option value="all">All company types</option>
@@ -250,16 +272,9 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                     </div>
                   </div>
                 </div>
-              </div>
-            </details>
-          </div>
-
-          <div className="overview-stat-grid overview-stat-grid-compact">
-            <div className="stat-tile"><div className="stat-tile-label">Waiting pressure</div><div className="stat-tile-value">{coordinationSummary.waiting}</div><div className="stat-tile-helper">Follow-ups waiting on others</div></div>
-            <div className="stat-tile stat-tile-warn"><div className="stat-tile-label">Overdue pressure</div><div className="stat-tile-value">{coordinationSummary.overdue}</div><div className="stat-tile-helper">Overdue follow-ups + tasks</div></div>
-            <div className="stat-tile stat-tile-danger"><div className="stat-tile-label">Blocked tasks</div><div className="stat-tile-value">{coordinationSummary.blocked}</div><div className="stat-tile-helper">Coordination bottlenecks</div></div>
-            <div className="stat-tile"><div className="stat-tile-label">High-risk relationships</div><div className="stat-tile-value">{coordinationSummary.highRisk}</div><div className="stat-tile-helper">High + critical risk tier</div></div>
-          </div>
+              </>
+            )}
+          />
 
           <div className="rounded-2xl tonal-panel">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><Filter className="h-4 w-4" />Likely bottlenecks</div>
@@ -289,9 +304,9 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl tonal-panel">
+          <SupportWorkspacePortfolioCard title={`Relationship portfolio (${filteredRows.length})`} subtitle="Select an entity to inspect pressure, route next action, and open canonical record context.">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="panel-title">Relationship portfolio ({filteredRows.length})</div>
+              <div className="panel-title">Portfolio list</div>
               <div className="panel-supporting-text">Click any row for detail + actions</div>
             </div>
             <div className="max-h-[340px] space-y-2 overflow-auto pr-1">
@@ -309,17 +324,16 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 </button>
               ))}
             </div>
-          </div>
+          </SupportWorkspacePortfolioCard>
 
           {selected ? (
-            <div className="rounded-2xl tonal-panel">
+            <SupportWorkspaceSelectedContextCard title={selected.name} subtitle={`${selected.entityType === 'contact' ? 'Contact' : 'Company'} • ${selected.subtitle}. Coordination lens first: understand pressure then route to the right lane.`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="inspector-title">{selected.name}</div>
-                  <div className="panel-supporting-text">{selected.entityType === 'contact' ? 'Contact' : 'Company'} • {selected.subtitle}. Coordination lens first: understand pressure then route to the right lane.</div>
+                  <div className="inspector-title">Identity + why it matters</div>
+                  <div className="panel-supporting-text">{selected.name} • Risk {selected.riskTier} • Waiting {selected.waitingFollowUps} • Overdue {selected.overdueFollowUps + selected.overdueTasks}</div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Route into execution</div>
+                <SupportWorkspaceRouteActions support="Keep routing and context actions primary; maintenance stays below.">
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="primary-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `unblock ${selected.name}` }); setWorkspace('tasks'); }} className="primary-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
                   <button onClick={() => setFilters((prev) => ({ ...prev, minWaitingPressure: 1 }))} className="action-btn"><Clock3 className="h-4 w-4" />Open waiting pressure</button>
@@ -330,7 +344,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                   <button onClick={() => { setRelationshipFlow('watch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn"><Flame className="h-4 w-4" />Mark watch</button>
                   <button onClick={() => { setRelationshipFlow('log_touch'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn">Log interaction</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, section: 'triage', intentLabel: `next touch ${selected.name}` }); setWorkspace('followups'); }} className="action-btn">Route next touch</button>
-                </div>
+                </SupportWorkspaceRouteActions>
               </div>
 
               <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-3">
@@ -347,20 +361,18 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               </div>
 
               <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                <div>
-                  <div className="mb-2 text-sm font-semibold text-slate-900">Linked follow-ups</div>
+                <SupportWorkspaceRelatedList title="Linked follow-ups" subtitle="Compact preview to explain coordination pressure and support routing decisions.">
                   <div className="space-y-2">
                     {selectedFollowUps.map((item) => <div key={item.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="w-full text-left">{item.title}<div className="text-slate-500">{item.project} • {item.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditFollowUp}</button></div></div>)}
                     {selectedFollowUps.length === 0 ? <StatePanel compact tone="empty" title="No linked follow-ups yet" message="Create or link follow-ups from relationship context actions." /> : null}
                   </div>
-                </div>
-                <div>
-                  <div className="mb-2 text-sm font-semibold text-slate-900">Linked tasks</div>
+                </SupportWorkspaceRelatedList>
+                <SupportWorkspaceRelatedList title="Linked tasks" subtitle="Compact preview only; use task lane for full execution management.">
                   <div className="space-y-2">
                     {selectedTasks.map((task) => <div key={task.id} className="rounded-xl tonal-micro p-2 text-xs text-left w-full"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="w-full text-left">{task.title}<div className="text-slate-500">{task.project} • {task.status}</div></button><div className="mt-2 flex gap-2"><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'task', id: task.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-[11px]">{editSurfaceCtas.fullEditTask}</button></div></div>)}
                     {selectedTasks.length === 0 ? <StatePanel compact tone="empty" title="No linked tasks" message="Add a task to make execution ownership explicit." /> : null}
                   </div>
-                </div>
+                </SupportWorkspaceRelatedList>
               </div>
 
               <div className="mt-4">
@@ -375,9 +387,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div className="mt-4 rounded-2xl tonal-panel">
                   <div className="mb-2 text-sm font-semibold text-slate-900">Contact context</div>
                   <div className="text-xs text-slate-600">{editSurfacePolicy.context.intent}</div>
-                  <details className="task-maintenance-disclosure mt-2">
-                    <summary>{editSurfacePolicy.maintenance.label} controls</summary>
-                    <div className="task-maintenance-body">
+                  <SupportWorkspaceMaintenanceTray title={`${editSurfacePolicy.maintenance.label} controls`}>
                       <div className="grid gap-2 md:grid-cols-2">
                         <input value={selectedContact.title || ''} onChange={(e) => updateContact(selectedContact.id, { title: e.target.value })} placeholder="Title" className="field-input" />
                         <input value={selectedContact.department || ''} onChange={(e) => updateContact(selectedContact.id, { department: e.target.value })} placeholder="Department" className="field-input" />
@@ -391,8 +401,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                         <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{contactOptions.filter((entry) => entry.id !== selectedContact.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
                         <button onClick={() => { setRelationshipFlow('delete_contact'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
                       </div>
-                    </div>
-                  </details>
+                  </SupportWorkspaceMaintenanceTray>
                 </div>
               ) : null}
 
@@ -400,9 +409,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                 <div className="mt-4 rounded-2xl tonal-panel">
                   <div className="mb-2 text-sm font-semibold text-slate-900">Company context</div>
                   <div className="text-xs text-slate-600">{editSurfacePolicy.context.intent}</div>
-                  <details className="task-maintenance-disclosure mt-2">
-                    <summary>{editSurfacePolicy.maintenance.label} controls</summary>
-                    <div className="task-maintenance-body">
+                  <SupportWorkspaceMaintenanceTray title={`${editSurfacePolicy.maintenance.label} controls`}>
                       <div className="grid gap-2 md:grid-cols-2">
                         <input value={selectedCompany.internalOwner || ''} onChange={(e) => updateCompany(selectedCompany.id, { internalOwner: e.target.value })} placeholder="Internal owner" className="field-input" />
                         <select value={selectedCompany.type} onChange={(e) => updateCompany(selectedCompany.id, { type: e.target.value as typeof selectedCompany.type })} className="field-input"><option>Government</option><option>Owner</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Internal</option><option>Other</option></select>
@@ -416,11 +423,10 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
                         <select defaultValue="" onChange={(e) => { setRelationshipTargetId(e.target.value); if (!e.target.value) return; setRelationshipFlow('merge_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="field-input max-w-xs"><option value="">Merge into…</option>{companyOptions.filter((entry) => entry.id !== selectedCompany.id).map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select>
                         <button onClick={() => { setRelationshipFlow('delete_company'); setRelationshipWarnings([]); setRelationshipResult(null); }} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete safely</button>
                       </div>
-                    </div>
-                  </details>
+                  </SupportWorkspaceMaintenanceTray>
                 </div>
               ) : null}
-            </div>
+            </SupportWorkspaceSelectedContextCard>
           ) : (
             <StatePanel tone="empty" title="No relationships match these filters" message="Reset filters or lower pressure thresholds to bring records back into view." />
           )}

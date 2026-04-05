@@ -2,6 +2,12 @@
 
 ## 2026-04-05
 
+### Deficiency 5 Phase 2: support workspace family standardization
+- Standardized Projects and Relationships around a shared support-workspace model with consistent context, routing, linked-work preview, and secondary maintenance patterns.
+- Added thin shared support-workspace primitives (`SupportWorkspaceSummary`, `SupportWorkspaceToolbar`, `SupportWorkspacePortfolioCard`, `SupportWorkspaceSelectedContextCard`, `SupportWorkspaceRouteActions`, `SupportWorkspaceRelatedList`, `SupportWorkspaceMaintenanceTray`) so support pages reuse one page grammar instead of page-specific wrappers (`src/components/ui/AppPrimitives.tsx`).
+- Refactored `ProjectCommandCenter` to use the shared support-workspace shell pattern across summary strip, toolbar, selected-context route cluster, linked-work previews, and secondary maintenance tray boundaries (`src/components/ProjectCommandCenter.tsx`).
+- Refactored `RelationshipBoard` to use the same shared support-workspace shell pattern for summary strip, toolbar, portfolio panel, selected context actions, linked-work previews, and maintenance-admin controls (`src/components/RelationshipBoard.tsx`).
+
 ### Deficiency 5 Phase 1: support workspace role correction
 - Refocused Projects and Relationships as context-and-routing lenses; de-emphasized inline admin/editing surfaces.
 - Reframed `ProjectCommandCenter` around pressure summary + project portfolio scanning, promoted route-to-lane actions in selected project context, and pushed broader filtering, quick-add, bulk actions, and project maintenance into secondary disclosures (`src/components/ProjectCommandCenter.tsx`).

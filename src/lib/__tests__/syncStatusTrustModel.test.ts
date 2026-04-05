@@ -48,6 +48,16 @@ function testCloudReadFallback(): void {
   assert(model.stateLabel === 'Cloud read failed; local cache preserved', `expected cloud read fallback label, got ${model.stateLabel}`);
 }
 
+function testSchemaMissingFallback(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    cloudSyncStatus: 'cloud-read-failed-local-fallback',
+    loadedFromLocalRecoveryCache: true,
+    lastLoadFailureMessage: 'Cloud persistence is not configured correctly. Missing table: public.follow_up_items (PGRST205).',
+  });
+  assert(model.stateLabel === 'Cloud persistence setup issue', `expected schema-missing label, got ${model.stateLabel}`);
+}
+
 function testLocalNewerThanCloud(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
@@ -124,6 +134,7 @@ function testSharedSnapshotSelectorConsistency(): void {
   testCloudConfirmed();
   testBrowserLocalOnly();
   testCloudReadFallback();
+  testSchemaMissingFallback();
   testLocalNewerThanCloud();
   testHardLoadFailureNoLocalCopy();
   testSaveFailure();

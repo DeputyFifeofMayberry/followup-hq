@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, LoaderCircle, LogOut, TriangleAlert, UserR
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
-import { supabase } from '../lib/supabase';
+import { getSupabaseHost, supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
 export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
@@ -49,6 +49,7 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
         <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
         {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? <div className="mt-1 text-slate-500">Fallback reason: {syncMeta.lastLoadFailureStage}</div> : null}
         {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? <div className="mt-1 text-slate-500">Detail: {syncMeta.lastLoadFailureMessage}</div> : null}
+        {syncMeta.lastLoadRecoveredWithLocalCache ? <div className="mt-1 text-slate-500">Supabase host: {getSupabaseHost()}</div> : null}
         {syncMeta.hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{syncMeta.unsavedChangeCount} record{syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits.</div> : null}
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
@@ -86,6 +87,9 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           ) : null}
           {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? (
             <div className="text-xs text-slate-500">Detail: {syncMeta.lastLoadFailureMessage}</div>
+          ) : null}
+          {syncMeta.lastLoadRecoveredWithLocalCache ? (
+            <div className="text-xs text-slate-500">Supabase host: {getSupabaseHost()}</div>
           ) : null}
         </div>
         {email ? (

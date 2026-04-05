@@ -125,9 +125,12 @@ function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'sta
   }
 
   if (meta.cloudSyncStatus === 'cloud-read-failed-local-fallback') {
+    const schemaIssue = (meta.lastLoadFailureMessage ?? '').includes('Missing table:');
     return {
-      stateLabel: 'Cloud read failed; local cache preserved',
-      stateDescription: 'SetPoint loaded your local cache because cloud data could not be read.',
+      stateLabel: schemaIssue ? 'Cloud persistence setup issue' : 'Cloud read failed; local cache preserved',
+      stateDescription: schemaIssue
+        ? 'SetPoint loaded local cache because required cloud tables are missing. Cloud saves will fail until backend schema is fixed.'
+        : 'SetPoint loaded your local cache because cloud data could not be read.',
       tone: 'warn',
       stateTone: 'warn',
     };

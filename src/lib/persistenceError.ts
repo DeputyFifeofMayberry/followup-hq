@@ -165,7 +165,13 @@ export function formatPersistenceErrorMessage(normalized: NormalizedPersistenceE
   if (normalized.hint) suffix.push(`hint: ${normalized.hint}`);
   if (normalized.status) suffix.push(`status: ${normalized.status}`);
 
-  const prefix = `${baseMessage}${location}`.trim();
+  const codeUpper = normalized.code?.toUpperCase();
+  const looksMissingTable = codeUpper === 'PGRST205'
+    || baseMessage.toLowerCase().includes('could not find the table')
+    || (normalized.details ?? '').toLowerCase().includes('does not exist');
+  const prefix = looksMissingTable
+    ? `Supabase persistence table ${normalized.table ? `public.${normalized.table}` : 'in the configured schema'} was not found in the connected project`
+    : `${baseMessage}${location}`.trim();
   if (suffix.length === 0) return prefix || 'Persistence operation failed';
   return `${prefix} (${suffix.join('; ')})`;
 }

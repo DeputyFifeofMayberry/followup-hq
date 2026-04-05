@@ -5,6 +5,11 @@ import {
   normalizePersistenceError,
   type NormalizedPersistenceError,
 } from './persistenceError';
+import {
+  runPersistenceSchemaHealthCheck,
+  type PersistenceSchemaHealthResult,
+} from './persistenceSchemaHealth';
+import { getSupabaseHost } from './supabase';
 import type {
   AppSnapshot,
   CompanyRecord,
@@ -86,6 +91,7 @@ export type LoadFailureStage =
   | 'contacts'
   | 'companies'
   | 'user_preferences'
+  | 'schema_preflight'
   | 'unknown';
 
 export interface SaveDiagnostics {
@@ -400,6 +406,36 @@ function isLocalNewer(localUpdatedAt: string | undefined, cloudUpdatedAt: string
   return new Date(localUpdatedAt).getTime() > new Date(cloudUpdatedAt).getTime();
 }
 
+function toStageFromTable(table?: string): LoadFailureStage {
+  if (!table) return 'schema_preflight';
+  if (table === 'follow_up_items'
+    || table === 'tasks'
+    || table === 'projects'
+    || table === 'contacts'
+    || table === 'companies'
+    || table === 'user_preferences') {
+    return table;
+  }
+  return 'schema_preflight';
+}
+
+function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): string {
+  if (result.status === 'healthy') return 'Persistence schema health check passed.';
+  const table = result.schemaQualifiedTable ?? result.failingTable;
+  const code = result.errorCode ? ` (${result.errorCode})` : '';
+  const host = result.supabaseHost ? ` Connected Supabase host: ${result.supabaseHost}.` : '';
+  if (result.status === 'missing_table' && table) {
+    return `Cloud persistence is not configured correctly. Missing table: ${table}${code}.${host}`;
+  }
+  if (result.status === 'permissions_error' && table) {
+    return `Cloud persistence permissions issue while checking ${table}${code}.${host}`;
+  }
+  if (result.status === 'auth_unavailable') {
+    return `Cloud persistence preflight could not verify your authenticated session${code}.${host}`;
+  }
+  return `Cloud persistence preflight failed${code}.${host}`;
+}
+
 export async function loadPersistedPayload(): Promise<LoadResult> {
   const cache = readLocalCache();
 
@@ -458,6 +494,63 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   let cloudUpdatedAt: string | undefined;
   let loadFailureStage: LoadFailureStage | undefined;
   let loadFailureNormalized: NormalizedPersistenceError | undefined;
+  const supabaseHost = getSupabaseHost();
+
+  try {
+    const health = await runPersistenceSchemaHealthCheck(userId);
+    if (health.status !== 'healthy') {
+      const stage = toStageFromTable(health.failingTable);
+      const topLine = formatSchemaHealthMessage(health);
+      const normalized = health.normalized
+        ?? normalizePersistenceError(new Error(topLine), {
+          stage,
+          operation: 'schema-preflight',
+          table: health.failingTable,
+        });
+      const detail = `${topLine}${health.message ? ` Detail: ${health.message}` : ''}`;
+      throw new PersistenceLoadError({
+        stage,
+        normalized: {
+          ...normalized,
+          message: detail,
+          code: normalized.code ?? health.errorCode,
+          stage,
+          table: health.failingTable,
+        },
+        recoveredWithLocalCache: false,
+      });
+    }
+  } catch (error) {
+    const fromLoadError = error instanceof PersistenceLoadError ? error : undefined;
+    const normalized = fromLoadError?.normalized
+      ?? normalizePersistenceError(error, { stage: 'schema_preflight', operation: 'schema-preflight' });
+    const loadFailureMessage = formatPersistenceErrorMessage(normalized);
+    if (cache) {
+      const preflightStage: LoadFailureStage = fromLoadError?.stage
+        ?? (normalized.stage ? toStageFromTable(normalized.stage) : 'schema_preflight');
+      return {
+        payload: cache.entities,
+        mode: 'supabase',
+        source: 'local-cache',
+        cacheStatus: cache.cloudStatus,
+        loadedFromFallback: true,
+        cloudReadFailed: true,
+        localCacheUpdatedAt: cache.updatedAt,
+        localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+        loadFailureStage: preflightStage,
+        loadFailureMessage,
+        loadFailureRecoveredWithLocalCache: true,
+      };
+    }
+    throw new PersistenceLoadError({
+      stage: fromLoadError?.stage ?? 'schema_preflight',
+      normalized: {
+        ...normalized,
+        message: `${loadFailureMessage} Connected Supabase host: ${supabaseHost}.`,
+      },
+      recoveredWithLocalCache: false,
+    });
+  }
 
   try {
     const readAtStage = async <T>(stage: LoadFailureStage, fn: () => Promise<T>): Promise<T> => {

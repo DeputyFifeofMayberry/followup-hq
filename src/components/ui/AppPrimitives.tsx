@@ -102,6 +102,42 @@ export function ExecutionLaneToolbar({ children, className = '' }: PropsWithChil
   return <WorkspaceToolbarRow className={`execution-lane-toolbar ${className}`.trim()}>{children}</WorkspaceToolbarRow>;
 }
 
+
+export function ExecutionLaneToolbarScaffold({
+  left,
+  middle,
+  right,
+  className = '',
+}: {
+  left?: ReactNode;
+  middle?: ReactNode;
+  right?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <ExecutionLaneToolbar className={`execution-lane-toolbar-scaffold ${className}`.trim()}>
+      <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-left">{left}</div>
+      <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-middle">{middle}</div>
+      <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-right">{right}</div>
+    </ExecutionLaneToolbar>
+  );
+}
+
+export function ExecutionLaneHandoffStrip({
+  title,
+  summary,
+}: {
+  title: string;
+  summary: string;
+}) {
+  return (
+    <div className="execution-lane-handoff-strip" role="status" aria-live="polite">
+      <div className="execution-lane-handoff-title">{title}</div>
+      <div className="execution-lane-handoff-summary">{summary}</div>
+    </div>
+  );
+}
+
 export function ExecutionLaneQueueCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <AppShellCard className={`workspace-list-panel execution-lane-queue-card ${className}`.trim()} surface="data">{children}</AppShellCard>;
 }
@@ -132,6 +168,28 @@ export function ExecutionLaneSelectionStrip({
         {helper ? <div className="execution-lane-selection-helper">{helper}</div> : null}
       </div>
       {badges ? <div className="execution-lane-selection-badges">{badges}</div> : null}
+    </div>
+  );
+}
+
+
+export function ExecutionLaneFooterMeta({
+  shownCount,
+  selectedCount,
+  scopeSummary,
+  hint,
+}: {
+  shownCount: number;
+  selectedCount?: number;
+  scopeSummary?: string;
+  hint?: string;
+}) {
+  return (
+    <div className="execution-lane-footer-meta text-xs text-slate-500">
+      <span>{shownCount} shown</span>
+      {typeof selectedCount === 'number' ? <span> · {selectedCount} selected</span> : null}
+      {scopeSummary ? <span> · {scopeSummary}</span> : null}
+      {hint ? <span> · {hint}</span> : null}
     </div>
   );
 }

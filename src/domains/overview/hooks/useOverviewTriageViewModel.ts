@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { ExecutionRouteTarget, ExecutionSectionKey, UnifiedQueueItem } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildExecutionQueueStats } from '../../shared/selectors/executionQueueSelectors';
+import { resolveExecutionLaneSelection } from '../../shared';
 
 const TRIAGE_LIMIT = 12;
 
@@ -39,17 +40,16 @@ export function useOverviewTriageViewModel() {
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
   const triageRows = useMemo(() => queue.slice(0, TRIAGE_LIMIT), [queue]);
 
-  useEffect(() => {
-    if (!triageRows.length) {
-      store.setExecutionSelectedId(null);
-      return;
-    }
-    if (!store.executionSelectedId || !triageRows.some((row) => row.id === store.executionSelectedId)) {
-      store.setExecutionSelectedId(triageRows[0].id);
-    }
-  }, [triageRows, store]);
+  const triageIds = useMemo(() => triageRows.map((row) => row.id), [triageRows]);
 
-  const selected = triageRows.find((row) => row.id === store.executionSelectedId) || null;
+  useEffect(() => {
+    const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds });
+    if (resolved !== store.executionSelectedId) {
+      store.setExecutionSelectedId(resolved);
+    }
+  }, [triageIds, store]);
+
+  const selected = triageRows.find((row) => row.id === (resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds }))) || null;
 
   const signalCards = useMemo<OverviewSignalCard[]>(() => {
     const dueNowRows = queue.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday);

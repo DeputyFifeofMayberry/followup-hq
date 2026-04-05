@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { ExecutionLaneToolbar, FilterBar } from './ui/AppPrimitives';
+import { ExecutionLaneToolbarScaffold, FilterBar } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
 const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close'];
@@ -180,48 +180,54 @@ export function ControlBar() {
         </div>
       </FilterBar>
 
-      <ExecutionLaneToolbar className="execution-toolbar-row followup-primary-toolbar">
-        <label className="field-block followup-search-block">
-          <span className="field-label">Search queue</span>
-          <div className="search-field-wrap">
-            <Search className="search-field-icon h-4 w-4" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, owner, project, contact" className="field-input search-field-input" />
-            {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
-          </div>
-        </label>
-
-        <label className="field-block followup-status-block">
-          <span className="field-label">Status</span>
-          <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
-            <option value="All">All statuses</option>
-            <option>Needs action</option>
-            <option>Waiting on external</option>
-            <option>Waiting internal</option>
-            <option>In progress</option>
-            <option>At risk</option>
-            <option>Closed</option>
-          </select>
-        </label>
-
-        <button onClick={() => togglePanel('filters')} className="action-btn">
-          <SlidersHorizontal className="h-4 w-4" />
-          More filters{activeAdvancedFilterCount > 0 ? ` (${activeAdvancedFilterCount})` : ''}
-          <ChevronDown className={`h-4 w-4 ${openPanel === 'filters' ? 'rotate-180' : ''}`} />
-        </button>
-        <button onClick={() => togglePanel('display')} className="action-btn">
-          Display
-          <ChevronDown className={`h-4 w-4 ${openPanel === 'display' ? 'rotate-180' : ''}`} />
-        </button>
-        <button onClick={() => togglePanel('savedViews')} className="action-btn">
-          Saved views
-          <ChevronDown className={`h-4 w-4 ${openPanel === 'savedViews' ? 'rotate-180' : ''}`} />
-        </button>
-
-        <button onClick={openCreateModal} className="primary-btn ml-auto">
-          <Plus className="h-4 w-4" />
-          Add follow-up
-        </button>
-      </ExecutionLaneToolbar>
+      <ExecutionLaneToolbarScaffold
+        className="followup-primary-toolbar"
+        left={(
+          <label className="field-block followup-search-block">
+            <span className="field-label">Search queue</span>
+            <div className="search-field-wrap">
+              <Search className="search-field-icon h-4 w-4" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, owner, project, contact" className="field-input search-field-input" />
+              {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+            </div>
+          </label>
+        )}
+        middle={(
+          <label className="field-block followup-status-block">
+            <span className="field-label">Status</span>
+            <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
+              <option value="All">All statuses</option>
+              <option>Needs action</option>
+              <option>Waiting on external</option>
+              <option>Waiting internal</option>
+              <option>In progress</option>
+              <option>At risk</option>
+              <option>Closed</option>
+            </select>
+          </label>
+        )}
+        right={(
+          <>
+            <button onClick={() => togglePanel('filters')} className="action-btn">
+              <SlidersHorizontal className="h-4 w-4" />
+              More filters{activeAdvancedFilterCount > 0 ? ` (${activeAdvancedFilterCount})` : ''}
+              <ChevronDown className={`h-4 w-4 ${openPanel === 'filters' ? 'rotate-180' : ''}`} />
+            </button>
+            <button onClick={() => togglePanel('display')} className="action-btn">
+              Display
+              <ChevronDown className={`h-4 w-4 ${openPanel === 'display' ? 'rotate-180' : ''}`} />
+            </button>
+            <button onClick={() => togglePanel('savedViews')} className="action-btn">
+              Saved views
+              <ChevronDown className={`h-4 w-4 ${openPanel === 'savedViews' ? 'rotate-180' : ''}`} />
+            </button>
+            <button onClick={openCreateModal} className="primary-btn">
+              <Plus className="h-4 w-4" />
+              Add follow-up
+            </button>
+          </>
+        )}
+      />
 
       {openPanel === 'filters' ? (
         <div className="followup-filter-grid advanced-filter-surface">

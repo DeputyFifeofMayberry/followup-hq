@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Deficiency 3 Phase 2: standardized lane interaction model
+- Standardized core lane interaction model across Overview, Follow-Ups, and Tasks.
+- Added a shared execution-lane behavior layer (handoff, selection resolution/progression, and lane contract types) to prevent per-lane interaction drift (`src/domains/shared/executionLane/types.ts`, `src/domains/shared/executionLane/helpers.ts`, `src/domains/shared/index.ts`).
+- Unified lane routing/handoff treatment with a shared handoff strip in Follow-Ups and Tasks so route source, mission, and targeted scope read consistently when entering a destination lane (`src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/ui/AppPrimitives.tsx`).
+- Normalized toolbar and lane-meta rhythm by introducing a shared toolbar scaffold and shared footer meta language, then applying them across Overview, Follow-Ups, Tasks, and the Follow-Ups table footer (`src/components/OverviewPage.tsx`, `src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/TrackerTable.tsx`, `src/components/ui/AppPrimitives.tsx`).
+- Standardized selection continuity by moving Tasks and Overview to shared lane selection helpers for route-target selection, stable active selection, and predictable post-action progression (`src/components/TaskWorkspace.tsx`, `src/domains/overview/hooks/useOverviewTriageViewModel.ts`).
+
 ### Deficiency 3 Phase 1: shared execution-lane anatomy baseline
 - Established shared execution-lane anatomy across Overview, Follow-Ups, and Tasks with thin reusable lane primitives (`ExecutionLaneSummary`, `ExecutionLaneToolbar`, `ExecutionLaneQueueCard`, `ExecutionLaneInspectorCard`, `ExecutionLaneSelectionStrip`) so all three workspaces use one page grammar (`src/components/ui/AppPrimitives.tsx`, `src/styles/workspaces.css`).
 - Refactored Overview to act as the reference lane pattern while preserving lightweight triage-and-route intent, including lane-family queue/inspector cards and a shared selected-context strip between signal cards and triage queue (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewRouteInspector.tsx`).

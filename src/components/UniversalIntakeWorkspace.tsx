@@ -135,6 +135,15 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
   const selectedAsset = intakeAssets.find((entry) => entry.id === selectedCandidate?.assetId);
   const actionHints = useMemo(() => selectedFieldSummary ? buildReviewerActionHints(selectedFieldSummary) : [], [selectedFieldSummary]);
   const fieldLookup = useMemo(() => new Map((selectedFieldSummary?.priorityReviewFields ?? []).map((field) => [field.key, field])), [selectedFieldSummary]);
+  const selectedIsReadyNow = Boolean(selectedQueueItem?.batchSafe && selectedSafety?.safeToCreateNew);
+  const selectedNeedsDeepReview = Boolean(
+    selectedQueueItem && (
+      selectedQueueItem.readiness === 'ready_after_correction'
+      || selectedQueueItem.readiness === 'needs_link_decision'
+      || selectedQueueItem.readiness === 'unsafe_to_create'
+      || (selectedSafety && (!selectedSafety.safeToCreateNew || selectedSafety.blockers.length > 0))
+    ),
+  );
 
   const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => {
     const currentIds = pendingQueueIds;
@@ -239,20 +248,20 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
   return (
     <div className="space-y-4">
       <div
-        className={`rounded-2xl border-2 border-dashed p-5 transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50'}`}
+        className={`rounded-2xl border-2 border-dashed p-4 transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-slate-50'}`}
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-base font-semibold text-slate-900">Universal intake review funnel</div>
-            <div className="text-sm text-slate-600">Queue by risk, correct weak fields, verify matches, then hand approved records into Follow Ups or Tasks.</div>
+            <div className="text-base font-semibold text-slate-900">Review queue</div>
+            <div className="text-sm text-slate-600">Needs review first. Correct fields only when needed, then approve into Follow Ups or Tasks.</div>
           </div>
           <div className="flex gap-2">
             <button className="action-btn" onClick={() => setWorkspace('worklist')}>Open Overview</button>
-            <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Choose files</button>
-            <button className="action-btn" onClick={batchApproveHighConfidence} disabled={metrics.batchSafeCount === 0}>Batch approve safe ({metrics.batchSafeCount})</button>
+            <button className="action-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Add files</button>
+            <button className="action-btn" onClick={batchApproveHighConfidence} disabled={metrics.batchSafeCount === 0}>Approve ready now ({metrics.batchSafeCount})</button>
           </div>
         </div>
         <input ref={fileInputRef} type="file" className="hidden" multiple onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
@@ -277,9 +286,9 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Pending</div><div className="text-xl font-semibold text-amber-700">{metrics.pendingCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Needs review</div><div className="text-xl font-semibold text-amber-700">{metrics.pendingCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Ready now</div><div className="text-xl font-semibold text-emerald-700">{bucketCounts.ready_to_approve}</div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Needs link decision</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Link existing</div><div className="text-xl font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-xl font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-xl font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
       </div>
@@ -336,7 +345,7 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Candidate correction workspace</div>
+                  <div className="text-sm font-semibold text-slate-900">Candidate review lane</div>
                   <div className="text-xs text-slate-500">Reviewing {queuePosition} of {pendingQueueIds.length}. {selectedQueueItem.nextStepHint}</div>
                 </div>
                 <button className="action-btn" onClick={() => {
@@ -345,36 +354,53 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                 }}><SkipForward className="h-4 w-4" /> Next</button>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+              <div className={`rounded-lg border p-2 text-xs text-slate-700 ${selectedIsReadyNow ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
                 <div className="font-semibold">Review readiness</div>
                 <div className="mt-1"><Badge variant={readinessCopy[selectedQueueItem.readiness].tone}>{readinessCopy[selectedQueueItem.readiness].title}</Badge> <span className="ml-1">{readinessCopy[selectedQueueItem.readiness].body}</span></div>
                 {selectedSafety.blockers[0] ? <div className="mt-2 rounded-md bg-rose-100 px-2 py-1 text-rose-800">{selectedSafety.blockers[0]}</div> : null}
               </div>
 
               <div className="rounded-xl border border-slate-200 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Critical review fields</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="field-block"><span className="field-label">Type</span>
-                    <select className="field-input" value={selectedCandidate.candidateType} onChange={(event) => updateCandidateField('candidateType', event.target.value as IntakeCandidateType)}>
-                      <option value="followup">followup</option><option value="task">task</option><option value="reference">reference</option><option value="update_existing_followup">update existing followup</option><option value="update_existing_task">update existing task</option>
-                    </select>
-                    {renderFieldMeta('type')}
-                  </label>
-                  <label className="field-block"><span className="field-label">Due date</span><input className="field-input" value={selectedCandidate.dueDate || ''} placeholder="YYYY-MM-DD" onChange={(event) => updateCandidateField('dueDate', event.target.value)} />{renderFieldMeta('dueDate')}</label>
-                  <label className="field-block sm:col-span-2"><span className="field-label">Title</span><input className="field-input" value={selectedCandidate.title || ''} onChange={(event) => updateCandidateField('title', event.target.value)} />{renderFieldMeta('title')}</label>
-                  <label className="field-block"><span className="field-label">Project</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateCandidateField('project', event.target.value)} />{renderFieldMeta('project')}</label>
-                  <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateCandidateField('owner', event.target.value)} />{renderFieldMeta('owner')}</label>
-                  <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={selectedCandidate.assignee || ''} onChange={(event) => updateCandidateField('assignee', event.target.value)} /></label>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:col-span-2 text-xs">
-                    <div className="font-semibold text-slate-700">Existing link recommendation</div>
-                    <div className="mt-1 text-slate-600">{selectedCandidate.existingRecordMatches[0] ? describeMatch(selectedCandidate.existingRecordMatches[0]) : 'No strong match detected.'}</div>
-                  </div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Decision actions</div>
+                  {selectedIsReadyNow ? <Badge variant="success">Fast approve recommended</Badge> : null}
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve into Tasks</button>
+                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_followup')}><Paperclip className="h-4 w-4" /> Approve into Follow Ups</button>
+                  <button className={selectedQueueItem.readiness === 'needs_link_decision' && selectedCandidate.existingRecordMatches[0] ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('link')} disabled={!selectedCandidate.existingRecordMatches[0]}><Link2 className="h-4 w-4" /> Link existing</button>
+                  <button className={selectedQueueItem.readiness === 'reference_likely' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('reference')}><Save className="h-4 w-4" /> Save as reference</button>
+                  <button className="action-btn action-btn-danger" onClick={() => openDecisionFlow('reject')}><XCircle className="h-4 w-4" /> Reject</button>
+                </div>
+                <div className="mt-2 text-xs text-slate-600">Keyboard: [A] follow-up, [T] task, [L] link top match, [S] reference, [R] reject, [N] next.</div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Supporting execution fields</div>
-                <div className="grid gap-2 sm:grid-cols-2">
+              {selectedNeedsDeepReview ? (
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Correct fields (required)</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="field-block"><span className="field-label">Type</span>
+                      <select className="field-input" value={selectedCandidate.candidateType} onChange={(event) => updateCandidateField('candidateType', event.target.value as IntakeCandidateType)}>
+                        <option value="followup">followup</option><option value="task">task</option><option value="reference">reference</option><option value="update_existing_followup">update existing followup</option><option value="update_existing_task">update existing task</option>
+                      </select>
+                      {renderFieldMeta('type')}
+                    </label>
+                    <label className="field-block"><span className="field-label">Due date</span><input className="field-input" value={selectedCandidate.dueDate || ''} placeholder="YYYY-MM-DD" onChange={(event) => updateCandidateField('dueDate', event.target.value)} />{renderFieldMeta('dueDate')}</label>
+                    <label className="field-block sm:col-span-2"><span className="field-label">Title</span><input className="field-input" value={selectedCandidate.title || ''} onChange={(event) => updateCandidateField('title', event.target.value)} />{renderFieldMeta('title')}</label>
+                    <label className="field-block"><span className="field-label">Project</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateCandidateField('project', event.target.value)} />{renderFieldMeta('project')}</label>
+                    <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateCandidateField('owner', event.target.value)} />{renderFieldMeta('owner')}</label>
+                    <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={selectedCandidate.assignee || ''} onChange={(event) => updateCandidateField('assignee', event.target.value)} /></label>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:col-span-2 text-xs">
+                      <div className="font-semibold text-slate-700">Existing link recommendation</div>
+                      <div className="mt-1 text-slate-600">{selectedCandidate.existingRecordMatches[0] ? describeMatch(selectedCandidate.existingRecordMatches[0]) : 'No strong match detected.'}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <details className="rounded-xl border border-slate-200 p-3" open={selectedNeedsDeepReview}>
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">Supporting fields</summary>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <label className="field-block"><span className="field-label">Priority</span>
                     <select className="field-input" value={selectedCandidate.priority} onChange={(event) => updateCandidateField('priority', event.target.value as IntakeWorkCandidate['priority'])}>
                       <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
@@ -384,19 +410,7 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                   <label className="field-block sm:col-span-2"><span className="field-label">Next step / next action</span><input className="field-input" value={selectedCandidate.nextStep || ''} onChange={(event) => updateCandidateField('nextStep', event.target.value)} /></label>
                   <label className="field-block sm:col-span-2"><span className="field-label">Summary</span><textarea className="field-textarea !min-h-[90px]" value={selectedCandidate.summary || ''} onChange={(event) => updateCandidateField('summary', event.target.value)} /></label>
                 </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Decision area</div>
-                <div className="flex flex-wrap gap-2">
-                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_task')}><CheckCircle2 className="h-4 w-4" /> Approve as task</button>
-                  <button className={selectedQueueItem.readiness === 'ready_to_approve' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('approve_followup')}><Paperclip className="h-4 w-4" /> Approve as follow-up</button>
-                  <button className={selectedQueueItem.readiness === 'needs_link_decision' && selectedCandidate.existingRecordMatches[0] ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('link')} disabled={!selectedCandidate.existingRecordMatches[0]}><Link2 className="h-4 w-4" /> Link best match</button>
-                  <button className={selectedQueueItem.readiness === 'reference_likely' ? 'primary-btn' : 'action-btn'} onClick={() => openDecisionFlow('reference')}><Save className="h-4 w-4" /> Save reference</button>
-                  <button className="action-btn action-btn-danger" onClick={() => openDecisionFlow('reject')}><XCircle className="h-4 w-4" /> Reject</button>
-                </div>
-                <div className="mt-2 text-xs text-slate-600">Keyboard: [A] follow-up, [T] task, [L] link top match, [S] reference, [R] reject, [N] next.</div>
-              </div>
+              </details>
 
               {guardedApproval?.candidateId === selectedCandidate.id ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs">
@@ -422,8 +436,8 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                 <div className="text-xs text-slate-500">Understand what is weak, why it was inferred, and what action is safest.</div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs">
-                <div className="font-semibold text-slate-700">Field actions needed</div>
+              <details className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs" open={selectedNeedsDeepReview}>
+                <summary className="cursor-pointer font-semibold text-slate-700">Field actions needed</summary>
                 <div className="mt-2 space-y-2 max-h-[270px] overflow-auto pr-1">
                   {actionHints.map((hint) => (
                     <div key={hint.field.key} className={`rounded-lg border p-2 ${hint.isBlocker ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
@@ -439,10 +453,10 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                   ))}
                   {actionHints.length === 0 ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">No weak/missing/conflicting fields. Candidate appears ready.</div> : null}
                 </div>
-              </div>
+              </details>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs">
-                <div className="font-semibold text-slate-700">Link vs create guidance</div>
+              <details className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs" open={selectedNeedsDeepReview}>
+                <summary className="cursor-pointer font-semibold text-slate-700">Link existing guidance</summary>
                 <div className="mt-1 text-slate-600">{selectedQueueItem.readiness === 'needs_link_decision' ? 'Duplicate risk is elevated. Linking existing is the safer default.' : 'Create new only after blockers and high-risk mismatches are resolved.'}</div>
                 {selectedCandidate.existingRecordMatches.slice(0, 3).map((match, idx) => {
                   const compareRows = buildCandidateMatchCompareRows(selectedCandidate, match);
@@ -467,7 +481,7 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                   );
                 })}
                 {selectedCandidate.existingRecordMatches.length === 0 ? <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-slate-600">No existing matches suggested.</div> : null}
-              </div>
+              </details>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
                 <div className="font-semibold">Safety checklist</div>
@@ -488,7 +502,8 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
       </div>
 
       {filteredQueue.filter((entry) => entry.status === 'finalized').length > 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+        <details className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">Finalized outcomes</summary>
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Finalized outcomes</div>
           <div className="space-y-1">
             {filteredQueue.filter((entry) => entry.status === 'finalized').slice(0, 5).map((queueEntry) => {
@@ -502,12 +517,13 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
               );
             })}
           </div>
-        </div>
+        </details>
       ) : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <details className="rounded-2xl border border-slate-200 bg-white p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">Intake admin insights</summary>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-slate-900">Intake tuning ops panel</div>
+          <div className="text-sm font-semibold text-slate-900">Intake tuning snapshot</div>
           <div className="flex flex-wrap gap-1">
             <Badge variant={tuningInsights.trustPosture === 'stable' ? 'success' : tuningInsights.trustPosture === 'caution' ? 'warn' : 'danger'}>Trust posture: {tuningInsights.trustPosture}</Badge>
             <Badge variant={tuningInsights.automationHealth === 'strong' ? 'success' : tuningInsights.automationHealth === 'watch' ? 'warn' : 'danger'}>Automation health: {tuningInsights.automationHealth}</Badge>
@@ -572,7 +588,7 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
           </div>
         </div>
         <div className="mt-2 text-xs text-slate-600">Linked records available: {items.length} follow-ups • {tasks.length} tasks • Batches: {intakeBatches.length}.</div>
-      </div>
+      </details>
       <StructuredActionFlow
         open={!!decisionFlow}
         title="Intake decision review"

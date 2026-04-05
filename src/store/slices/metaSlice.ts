@@ -136,7 +136,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'saved',
             summary: cloudReadFailed
-              ? 'Cloud read failed; local copy preserved'
+              ? 'Cloud read failed; local copy preserved.'
               : localNewerThanCloud
                 ? 'Loaded from local recovery cache.'
                 : mode === 'browser'

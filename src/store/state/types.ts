@@ -132,7 +132,15 @@ export interface AppUiState {
   recordDrawerRef: RecordRef | null;
 }
 
-export type CloudSyncStatus = 'unknown' | 'cloud-confirmed' | 'pending-cloud' | 'local-recovery' | 'cloud-failed-local-preserved';
+export type CloudSyncStatus =
+  | 'unknown'
+  | 'cloud-confirmed'
+  | 'pending-cloud'
+  | 'local-only-confirmed'
+  | 'local-recovery'
+  | 'local-newer-than-cloud'
+  | 'cloud-read-failed-local-fallback'
+  | 'cloud-save-failed-local-preserved';
 
 export interface AppMetaState {
   hydrated: boolean;
@@ -144,6 +152,9 @@ export interface AppMetaState {
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
   dirtyRecordRefs: DirtyRecordRef[];
+  lastCloudConfirmedAt?: string;
+  lastLocalWriteAt?: string;
+  lastFallbackRestoreAt?: string;
   lastSyncedAt?: string;
   lastFailedSyncAt?: string;
   persistenceActivity: PersistenceActivityEvent[];

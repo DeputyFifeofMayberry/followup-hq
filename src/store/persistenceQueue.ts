@@ -21,7 +21,7 @@ interface QueueHandlers {
   getPayload: () => PersistedPayload;
   onQueued: (meta?: QueueRequestMeta) => void;
   onSaving: (context: { reason: 'auto' | 'manual' | 'retry'; attempt: number }) => void;
-  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry') => void;
+  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry', didPersist: boolean) => void;
   onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry') => void;
 }
 
@@ -46,7 +46,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     const payloadJson = JSON.stringify(payload);
 
     if (payloadJson === lastSavedJson) {
-      handlers.onSaved(lastMode, todayIso(), reason);
+      handlers.onSaved(lastMode, todayIso(), reason, false);
       return;
     }
 
@@ -54,7 +54,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       const { mode } = await savePersistedPayload(payload);
       lastMode = mode;
       lastSavedJson = payloadJson;
-      handlers.onSaved(mode, todayIso(), reason);
+      handlers.onSaved(mode, todayIso(), reason, true);
     } catch (error) {
       if (attempt < maxRetries) {
         timer = setTimeout(() => {

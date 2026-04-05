@@ -42,8 +42,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 hasLocalUnsavedChanges: true,
                 unsavedChangeCount: state.unsavedChangeCount + 1,
                 dirtyRecordRefs: Array.from(merged.values()),
-                syncState: state.syncState === 'error' ? 'error' : 'dirty',
-                cloudSyncStatus: 'pending-cloud',
+                syncState: 'dirty',
+                saveError: '',
+                cloudSyncStatus: state.persistenceMode === 'supabase' ? 'pending-cloud' : 'local-only-confirmed',
                 loadedFromLocalRecoveryCache: false,
                 persistenceActivity: appendPersistenceActivity(state.persistenceActivity, queuedEvent),
               };
@@ -61,29 +62,35 @@ export const useAppStore = create<AppStore>()((set, get) => {
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
           }),
-          onSaved: (mode, timestamp, reason) => set((state) => ({
+          onSaved: (mode, timestamp, reason, didPersist) => set((state) => ({
             persistenceMode: mode,
             syncState: 'saved',
             saveError: '',
-            lastSyncedAt: timestamp,
+            lastSyncedAt: didPersist && mode === 'supabase' ? timestamp : state.lastSyncedAt,
+            lastCloudConfirmedAt: didPersist && mode === 'supabase' ? timestamp : state.lastCloudConfirmedAt,
+            lastLocalWriteAt: didPersist ? timestamp : state.lastLocalWriteAt,
+            lastFallbackRestoreAt: state.lastFallbackRestoreAt,
             unsavedChangeCount: 0,
             hasLocalUnsavedChanges: false,
             dirtyRecordRefs: [],
-            cloudSyncStatus: mode === 'supabase' ? 'cloud-confirmed' : 'pending-cloud',
+            cloudSyncStatus: mode === 'supabase' ? 'cloud-confirmed' : 'local-only-confirmed',
             loadedFromLocalRecoveryCache: false,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'saved',
               at: timestamp,
               summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry save completed.' : 'Changes saved successfully.',
-              detail: mode === 'supabase' ? 'Cloud-backed sync confirmed.' : 'Local persistence updated.',
+              detail: didPersist
+                ? mode === 'supabase' ? 'Cloud-backed sync confirmed.' : 'Local persistence updated.'
+                : 'No new changes detected; persistence already up to date.',
             })),
           })),
           onError: (message, timestamp, reason) => set((state) => ({
             syncState: 'error',
             saveError: message,
             hasLocalUnsavedChanges: true,
-            cloudSyncStatus: 'cloud-failed-local-preserved',
-            loadedFromLocalRecoveryCache: true,
+            cloudSyncStatus: 'cloud-save-failed-local-preserved',
+            loadedFromLocalRecoveryCache: false,
+            lastLocalWriteAt: timestamp,
             lastFailedSyncAt: timestamp,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',

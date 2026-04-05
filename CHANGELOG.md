@@ -2,6 +2,15 @@
 
 ## 2026-04-05
 
+### Save/sync trust-state reliability cleanup (overview + header alignment)
+- Fixed the misleading Overview “Save issue” behavior by unifying banner and header on a shared sync snapshot selector, so both surfaces now interpret the same full trust state instead of assembling partial/stale state independently (`src/lib/syncStatus.ts`, `src/components/PersistenceBanner.tsx`, `src/components/SyncStatusControl.tsx`).
+- Expanded trust-state modeling to explicitly separate cloud read fallback, cloud save failure, browser/local-only confirmation, and local-newer-than-cloud restoration, while preserving pending-cloud and cloud-confirmed states (`src/store/state/types.ts`, `src/store/slices/metaSlice.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
+- Corrected initialization classification so plain `source: local-cache` browser loads are no longer treated as recovery mode by default; `loadedFromLocalRecoveryCache` is now reserved for actual fallback/recovery scenarios (`src/store/slices/metaSlice.ts`, `src/lib/persistence.ts`).
+- Corrected browser/local-only save success handling so non-cloud saves no longer appear as `pending-cloud` and now render explicit “Saved locally on this device” trust messaging (`src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
+- Fixed sticky error behavior by moving top-line status back to dirty/pending on new edits after failures (while retaining failure diagnostics/history), preventing persistent hard-error status once the session is retryable (`src/store/useAppStore.ts`).
+- Hardened timestamp diagnostics to distinguish last confirmed cloud save, last local write, and fallback restore timing, and avoided optimistic cloud-sync timestamps during initialize/no-op save paths (`src/store/state/types.ts`, `src/store/persistenceQueue.ts`, `src/store/useAppStore.ts`, `src/store/slices/metaSlice.ts`, `src/components/SyncStatusControl.tsx`).
+- Added deterministic trust-model regression scripts for sync status language/state mapping and load-result classification coverage (`src/lib/__tests__/syncStatusTrustModel.test.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`).
+
 ### Persistence reliability hardening: authenticated fallback, local-cache freshness, and persisted follow-up preferences
 - Upgraded the entity local cache format to preserve save metadata (`updatedAt`, cloud confirmation status, and last cloud-confirmed timestamp), and changed save flow to always stage local cache as pending first, only flipping to confirmed after full entity + auxiliary cloud success (`src/lib/persistence.ts`).
 - Hardened authenticated load behavior so cloud read failures now recover from local cache instead of dropping data, while cloud-vs-local freshness checks prevent stale cloud payloads from overwriting newer local pending/confirmed data (`src/lib/persistence.ts`).

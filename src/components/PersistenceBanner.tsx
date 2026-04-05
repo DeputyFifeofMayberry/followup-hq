@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CloudAlert, CloudCog, CloudUpload, LogOut, TriangleAlert, UserRound } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, LoaderCircle, LogOut, TriangleAlert, UserRound } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import { formatDateTime } from '../lib/utils';
+import { getSyncStatusModel } from '../lib/syncStatus';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
@@ -34,24 +34,19 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     };
   }, []);
 
-  const status = useMemo(() => {
-    if (!hydrated || syncState === 'checking' || persistenceMode === 'loading') {
-      return { label: 'Checking connection', detail: 'Loading workspace from Supabase.', icon: CloudCog };
-    }
-    if (saveError || syncState === 'error') {
-      return { label: 'Sync issue', detail: saveError || 'Changes are not confirmed in Supabase. Latest changes may only be cached in this browser.', icon: CloudAlert };
-    }
-    if (syncState === 'saving') {
-      return { label: 'Saving to Supabase', detail: 'Recent changes are being pushed online.', icon: CloudUpload };
-    }
-    return {
-      label: 'Saved',
-      detail: lastSyncedAt ? `Last saved ${formatDateTime(lastSyncedAt)}` : 'Changes are saved automatically.',
-      icon: BadgeCheck,
-    };
-  }, [hydrated, syncState, persistenceMode, saveError, lastSyncedAt]);
+  const statusModel = useMemo(() => getSyncStatusModel({
+    persistenceMode,
+    saveError,
+    hydrated,
+    syncState,
+    lastSyncedAt,
+  }), [hydrated, syncState, persistenceMode, saveError, lastSyncedAt]);
 
-  const StatusIcon = status.icon;
+  const StatusIcon = statusModel.stateTone === 'danger'
+    ? AlertTriangle
+    : statusModel.showSpinner || statusModel.stateTone === 'info'
+      ? LoaderCircle
+      : CheckCircle2;
 
   if (compact) {
     if (!saveError && syncState !== 'saving' && syncState !== 'error') {
@@ -60,10 +55,10 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
         <div className="flex items-center gap-2 text-slate-700">
-          <StatusIcon className="h-4 w-4" />
-          <span className="font-medium">{status.label}</span>
+          <StatusIcon className={statusModel.showSpinner ? 'h-4 w-4 state-spin' : 'h-4 w-4'} />
+          <span className="font-medium">{statusModel.stateLabel}</span>
         </div>
-        <div className="mt-1 text-slate-500">{status.detail}</div>
+        <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
             <UserRound className="h-3.5 w-3.5" />
@@ -85,9 +80,9 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-            <StatusIcon className="h-4 w-4" />
-            <span className="font-medium">{status.label}</span>
-            <span className="text-slate-500">{status.detail}</span>
+            <StatusIcon className={statusModel.showSpinner ? 'h-4 w-4 state-spin' : 'h-4 w-4'} />
+            <span className="font-medium">{statusModel.stateLabel}</span>
+            <span className="text-slate-500">{statusModel.stateDescription}</span>
           </div>
           {saveError ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">

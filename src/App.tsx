@@ -21,6 +21,7 @@ import { getModeConfig, getWorkspaceOrder, type WorkspaceKey as ModeWorkspaceKey
 import { buildCommandPaletteConfig, buildGlobalRecordSearchIndex, filterCommands, type AppCommandGroup } from './lib/commandPaletteConfig';
 import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
+import { SyncStatusControl } from './components/SyncStatusControl';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -459,6 +460,7 @@ function MainApp() {
                 <div className="workspace-header-meta-top">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
                   <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                  <SyncStatusControl />
                 </div>
                 <div className="workspace-header-actions">
                   {currentMeta.primaryAction ? (

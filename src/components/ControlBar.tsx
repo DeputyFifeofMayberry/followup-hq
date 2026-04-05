@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, Search, Settings2, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
@@ -11,7 +11,9 @@ const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready t
 const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
-export function ControlBar({ compact = true }: { compact?: boolean }) {
+type ControlPanel = 'filters' | 'display' | 'savedViews' | null;
+
+export function ControlBar() {
   const {
     items,
     contacts,
@@ -63,9 +65,9 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     setFollowUpTableDensity: s.setFollowUpTableDensity,
     setFollowUpDuplicateModule: s.setFollowUpDuplicateModule,
   })));
+
   const [customViewName, setCustomViewName] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<ControlPanel>(null);
   const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
   const [batchDate, setBatchDate] = useState('');
@@ -81,6 +83,32 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
 
   const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
   const stats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
+
+  const activeAdvancedFilterCount = useMemo(() => (
+    [
+      followUpFilters.project !== 'All',
+      followUpFilters.owner !== 'All',
+      followUpFilters.assignee !== 'All',
+      followUpFilters.priority !== 'All',
+      followUpFilters.escalation !== 'All',
+      followUpFilters.waitingOn !== 'All',
+      followUpFilters.actionState !== 'All',
+      followUpFilters.category !== 'All',
+      followUpFilters.linkedTaskState !== 'all',
+      followUpFilters.dueDateRange !== 'all',
+      followUpFilters.nextTouchDateRange !== 'all',
+      followUpFilters.promisedDateRange !== 'all',
+      followUpFilters.cleanupOnly,
+    ].filter(Boolean).length
+  ), [followUpFilters]);
+
+  const toggleColumn = (column: FollowUpColumnKey) => {
+    if (followUpColumns.includes(column)) {
+      setFollowUpColumns(followUpColumns.filter((entry) => entry !== column));
+      return;
+    }
+    setFollowUpColumns([...followUpColumns, column]);
+  };
 
   const applyBatchClose = () => {
     const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
@@ -128,12 +156,8 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
     setBatchResult({ tone: 'success', message: `Snoozed ${selectedFollowUpIds.length} follow-up(s).` });
   };
 
-  const toggleColumn = (column: FollowUpColumnKey) => {
-    if (followUpColumns.includes(column)) {
-      setFollowUpColumns(followUpColumns.filter((entry) => entry !== column));
-      return;
-    }
-    setFollowUpColumns([...followUpColumns, column]);
+  const togglePanel = (panel: Exclude<ControlPanel, null>) => {
+    setOpenPanel((current) => (current === panel ? null : panel));
   };
 
   return (
@@ -156,29 +180,50 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         </div>
       </FilterBar>
 
-      <WorkspaceToolbarRow className="execution-toolbar-row">
-        <label className="field-block">
+      <WorkspaceToolbarRow className="execution-toolbar-row followup-primary-toolbar">
+        <label className="field-block followup-search-block">
           <span className="field-label">Search queue</span>
           <div className="search-field-wrap">
             <Search className="search-field-icon h-4 w-4" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Title, owner, project, next action, contact" className="field-input search-field-input" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, owner, project, contact" className="field-input search-field-input" />
             {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
           </div>
         </label>
-        <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
-          <option value="All">All statuses</option><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
-        </select>
-        <button onClick={() => setAdvancedOpen((prev) => !prev)} className="action-btn"><SlidersHorizontal className="h-4 w-4" />Filters <ChevronDown className={`h-4 w-4 ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-        <button onClick={() => setPreferencesOpen((prev) => !prev)} className="action-btn"><Settings2 className="h-4 w-4" />Customize <ChevronDown className={`h-4 w-4 ${preferencesOpen ? 'rotate-180' : ''}`} /></button>
-        {!compact ? (
-          <button onClick={openCreateModal} className="action-btn">
-            <Plus className="h-4 w-4" />
-            Add follow-up
-          </button>
-        ) : null}
+
+        <label className="field-block followup-status-block">
+          <span className="field-label">Status</span>
+          <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
+            <option value="All">All statuses</option>
+            <option>Needs action</option>
+            <option>Waiting on external</option>
+            <option>Waiting internal</option>
+            <option>In progress</option>
+            <option>At risk</option>
+            <option>Closed</option>
+          </select>
+        </label>
+
+        <button onClick={() => togglePanel('filters')} className="action-btn">
+          <SlidersHorizontal className="h-4 w-4" />
+          More filters{activeAdvancedFilterCount > 0 ? ` (${activeAdvancedFilterCount})` : ''}
+          <ChevronDown className={`h-4 w-4 ${openPanel === 'filters' ? 'rotate-180' : ''}`} />
+        </button>
+        <button onClick={() => togglePanel('display')} className="action-btn">
+          Display
+          <ChevronDown className={`h-4 w-4 ${openPanel === 'display' ? 'rotate-180' : ''}`} />
+        </button>
+        <button onClick={() => togglePanel('savedViews')} className="action-btn">
+          Saved views
+          <ChevronDown className={`h-4 w-4 ${openPanel === 'savedViews' ? 'rotate-180' : ''}`} />
+        </button>
+
+        <button onClick={openCreateModal} className="primary-btn ml-auto">
+          <Plus className="h-4 w-4" />
+          Add follow-up
+        </button>
       </WorkspaceToolbarRow>
 
-      {advancedOpen ? (
+      {openPanel === 'filters' ? (
         <div className="followup-filter-grid advanced-filter-surface">
           <select value={followUpFilters.project} onChange={(event) => setFollowUpFilters({ project: event.target.value })} className="field-input">
             {projects.map((project) => <option key={project} value={project}>{project}</option>)}
@@ -186,21 +231,49 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
           <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">
             {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
           </select>
-          <select value={followUpFilters.assignee} onChange={(event) => setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
-          <select value={followUpFilters.priority} onChange={(event) => setFollowUpFilters({ priority: event.target.value as typeof followUpFilters.priority })} className="field-input"><option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
-          <select value={followUpFilters.escalation} onChange={(event) => setFollowUpFilters({ escalation: event.target.value as typeof followUpFilters.escalation })} className="field-input"><option value="All">All escalation</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option></select>
-          <select value={followUpFilters.linkedTaskState} onChange={(event) => setFollowUpFilters({ linkedTaskState: event.target.value as typeof followUpFilters.linkedTaskState })} className="field-input"><option value="all">All linked task states</option><option value="blocked_child">Blocked child</option><option value="overdue_child">Overdue child</option><option value="all_children_done">All children done</option><option value="has_open_children">Has open children</option><option value="none">No linked tasks</option></select>
+          <select value={followUpFilters.assignee} onChange={(event) => setFollowUpFilters({ assignee: event.target.value })} className="field-input">
+            {assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}
+          </select>
+          <select value={followUpFilters.priority} onChange={(event) => setFollowUpFilters({ priority: event.target.value as typeof followUpFilters.priority })} className="field-input">
+            <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+          </select>
+          <select value={followUpFilters.escalation} onChange={(event) => setFollowUpFilters({ escalation: event.target.value as typeof followUpFilters.escalation })} className="field-input">
+            <option value="All">All escalation</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
+          </select>
+          <select value={followUpFilters.linkedTaskState} onChange={(event) => setFollowUpFilters({ linkedTaskState: event.target.value as typeof followUpFilters.linkedTaskState })} className="field-input">
+            <option value="all">All linked task states</option><option value="blocked_child">Blocked child</option><option value="overdue_child">Overdue child</option><option value="all_children_done">All children done</option><option value="has_open_children">Has open children</option><option value="none">No linked tasks</option>
+          </select>
+          <select value={followUpFilters.waitingOn} onChange={(event) => setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
+            <option value="All">All waiting-on values</option>
+            <option value="Unspecified">Unspecified</option>
+            {Array.from(new Set(filteredRows.map((row) => row.waitingOn).filter(Boolean))).map((waitingOn) => (
+              <option key={waitingOn} value={waitingOn}>{waitingOn}</option>
+            ))}
+          </select>
+          <select value={followUpFilters.actionState} onChange={(event) => setFollowUpFilters({ actionState: event.target.value as typeof followUpFilters.actionState })} className="field-input">
+            <option value="All">All action states</option>
+            <option>Draft created</option>
+            <option>Sent (confirmed)</option>
+            <option>Complete</option>
+          </select>
+          <select value={followUpFilters.dueDateRange} onChange={(event) => setFollowUpFilters({ dueDateRange: event.target.value as typeof followUpFilters.dueDateRange })} className="field-input">
+            <option value="all">All due dates</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Due today</option>
+            <option value="this_week">Due this week</option>
+            <option value="next_7_days">Due in next 7 days</option>
+          </select>
           <div className="followup-saved-views-row followup-secondary-utility">
-            <span className="followup-secondary-label">Saved views</span>
-            <input value={customViewName} onChange={(event) => setCustomViewName(event.target.value)} className="field-input" placeholder="View name" />
-            <button className="action-btn" onClick={() => { if (!customViewName.trim()) return; saveFollowUpCustomView(customViewName.trim(), search); setCustomViewName(''); }}>Save view</button>
-            {savedFollowUpViews.map((view) => <button key={view.id} className="action-btn" onClick={() => applySavedFollowUpCustomView(view.id)}>{view.name}</button>)}
-            <button className="action-btn" onClick={resetFollowUpFilters}>Reset filters</button>
+            <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={followUpFilters.cleanupOnly} onChange={(event) => setFollowUpFilters({ cleanupOnly: event.target.checked })} />
+              Cleanup-only
+            </label>
+            <button className="action-btn" onClick={resetFollowUpFilters}>Clear advanced filters</button>
           </div>
         </div>
       ) : null}
 
-      {preferencesOpen ? (
+      {openPanel === 'display' ? (
         <div className="followup-filter-grid advanced-filter-surface">
           <label className="field-block"><span className="field-label">Row density</span>
             <select value={followUpTableDensity} onChange={(event) => setFollowUpTableDensity(event.target.value as typeof followUpTableDensity)} className="field-input">
@@ -227,6 +300,32 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         </div>
       ) : null}
 
+      {openPanel === 'savedViews' ? (
+        <div className="advanced-filter-surface followup-saved-views-panel">
+          <div className="followup-saved-views-row">
+            <input value={customViewName} onChange={(event) => setCustomViewName(event.target.value)} className="field-input" placeholder="Saved view name" />
+            <button
+              className="action-btn"
+              onClick={() => {
+                if (!customViewName.trim()) return;
+                saveFollowUpCustomView(customViewName.trim(), search);
+                setCustomViewName('');
+              }}
+            >
+              Save current view
+            </button>
+          </div>
+          <div className="followup-saved-view-list">
+            {savedFollowUpViews.length === 0 ? <span className="text-xs text-slate-500">No saved views yet.</span> : null}
+            {savedFollowUpViews.map((view) => (
+              <button key={view.id} className="action-btn" onClick={() => applySavedFollowUpCustomView(view.id)}>
+                {view.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {selectedFollowUpIds.length > 0 ? (
         <div className="followup-toolbar-foot bulk-action-strip execution-batch-strip">
           <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{selectedFollowUpIds.length}</span> selected</div>
@@ -239,9 +338,10 @@ export function ControlBar({ compact = true }: { compact?: boolean }) {
         </div>
       ) : (
         <div className="followup-toolbar-foot execution-toolbar-foot">
-          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown</div>
+          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown · {stats.waiting} waiting · {stats.overdue} overdue</div>
         </div>
       )}
+
       <StructuredActionFlow
         open={!!batchFlow}
         title={batchFlow === 'nudge' ? 'Bulk mark nudged' : batchFlow === 'snooze' ? 'Bulk snooze follow-ups' : 'Bulk close follow-ups'}

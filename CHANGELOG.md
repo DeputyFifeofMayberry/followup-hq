@@ -2,6 +2,14 @@
 
 ## 2026-04-05
 
+### Save/sync trust overhaul phase 2: durable session trust lifecycle + explicit recovery
+- Added a stronger session-level trust layer in app meta state (degraded/recovered lifecycle, degraded reason category, degraded entry timestamp, recovery-clear marker, last successful local persistence timestamp, and last successful cloud-confirmed timestamp) while preserving existing sync metadata for backward compatibility (`src/store/state/types.ts`, `src/store/state/initialState.ts`).
+- Refactored post-save trust resolution into explicit result-kind + recovery rules so no-op saves and local-only saves cannot accidentally clear cloud-related degraded sessions, while confirmed cloud saves can explicitly restore trust (`src/store/persistenceMeta.ts`, `src/store/useAppStore.ts`).
+- Unified load-time fallback trust and save-time failure trust into one coherent session narrative by deriving degraded reason/state during hydration and preserving degraded startup sessions until explicit cloud-confirmed recovery (`src/store/slices/syncMetaDerivation.ts`, `src/store/slices/metaSlice.ts`).
+- Hardened sync status projection to separate current write progress from session trust health, keeping “Needs attention” durable until explicit recovery and surfacing recovery context after trust is restored (`src/lib/syncStatus.ts`).
+- Updated the Save & sync Trust Center UX to show session trust review state, plain-language degraded reason/action guidance, recovery visibility, and retry controls only when they are relevant (`src/components/SyncStatusControl.tsx`).
+- Expanded trust lifecycle coverage for degraded persistence, no-op/non-cloud non-recovery behavior, explicit cloud recovery, and copy/derivation expectations (`src/lib/__tests__/syncStatusTrustModel.test.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/store/__tests__/persistenceMeta.recovery.test.ts`, `package.json`).
+
 ### Save/sync trust simplification phase 1: calmer default trust model + progressive diagnostics
 - Simplified trust-state projection to four primary user-facing states (`Checking save status`, `Saving`, `Saved`, `Needs attention`) while preserving detailed sync metadata and cloud sync diagnostics in store state (`src/lib/syncStatus.ts`).
 - Reworked the Trust Center panel to be summary-first (current state, save mode, last save timeline, reassurance/warning sentence) and moved backend diagnostics/log details into a collapsed `Technical details` disclosure (`src/components/SyncStatusControl.tsx`).

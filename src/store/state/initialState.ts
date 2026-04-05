@@ -84,5 +84,13 @@ export const initialMetaState: AppMetaState = {
   lastLoadFailureStage: undefined,
   lastLoadFailureMessage: undefined,
   lastLoadRecoveredWithLocalCache: undefined,
+  sessionTrustState: 'healthy',
+  sessionDegraded: false,
+  sessionDegradedReason: 'none',
+  sessionDegradedAt: undefined,
+  sessionDegradedClearedByCloudSave: false,
+  sessionTrustRecoveredAt: undefined,
+  lastSuccessfulPersistAt: undefined,
+  lastSuccessfulCloudPersistAt: undefined,
   persistenceActivity: [],
 };

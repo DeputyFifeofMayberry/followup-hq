@@ -44,6 +44,8 @@ function testCloudReadFailureFallback(): void {
 
   assert(meta.cloudSyncStatus === 'cloud-read-failed-local-fallback', 'cloud read fallback should use explicit read-failure status');
   assert(meta.loadedFromLocalRecoveryCache === true, 'cloud read fallback should be marked as recovery');
+  assert(meta.sessionDegraded === true, 'cloud read fallback should mark session degraded');
+  assert(meta.sessionDegradedReason === 'cloud-read-failed-fallback', 'cloud read fallback should preserve degraded reason');
   assert(meta.lastLoadFailureStage === 'auth_session', 'cloud read fallback should preserve failure stage');
   assert(meta.lastLoadFailureMessage === 'JWT expired', 'cloud read fallback should preserve failure details');
   assert(meta.lastLoadRecoveredWithLocalCache === true, 'cloud read fallback should preserve recovery marker');
@@ -76,6 +78,8 @@ function testLocalNewerThanCloud(): void {
 
   assert(meta.cloudSyncStatus === 'local-newer-than-cloud', 'local newer than cloud should use explicit status');
   assert(meta.loadedFromLocalRecoveryCache === true, 'local newer than cloud should be marked as recovery');
+  assert(meta.sessionDegraded === true, 'local newer fallback should mark session degraded');
+  assert(meta.sessionDegradedReason === 'local-newer-than-cloud', 'local newer fallback should preserve degraded reason');
 }
 
 function testFallbackCopyIsCalmAndNonJargony(): void {

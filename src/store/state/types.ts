@@ -132,11 +132,15 @@ export interface AppUiState {
   recordDrawerRef: RecordRef | null;
 }
 
+export type CloudSyncStatus = 'unknown' | 'cloud-confirmed' | 'pending-cloud' | 'local-recovery' | 'cloud-failed-local-preserved';
+
 export interface AppMetaState {
   hydrated: boolean;
   persistenceMode: PersistenceMode;
   saveError: string;
   syncState: 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
+  cloudSyncStatus: CloudSyncStatus;
+  loadedFromLocalRecoveryCache: boolean;
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
   dirtyRecordRefs: DirtyRecordRef[];

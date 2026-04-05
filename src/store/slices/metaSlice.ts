@@ -17,7 +17,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
   return {
     initializeApp: async () => {
       try {
-        const { payload, mode } = await loadPersistedPayload();
+        const { payload, mode, source, cacheStatus, loadedFromFallback, cloudReadFailed, localNewerThanCloud } = await loadPersistedPayload();
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);
         const companies = (payload.companies ?? []).map(normalizeCompany);
@@ -60,7 +60,15 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           followUpColumns: payload.auxiliary.followUpColumns?.length ? payload.auxiliary.followUpColumns : (['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'assignee', 'nextAction'] as FollowUpColumnKey[]),
           savedFollowUpViews: payload.auxiliary.savedFollowUpViews ?? [],
           saveError: '',
-          syncState: 'saved',
+          syncState: cloudReadFailed ? 'error' : 'saved',
+          cloudSyncStatus: cloudReadFailed
+            ? 'cloud-failed-local-preserved'
+            : localNewerThanCloud || source === 'local-cache'
+              ? 'local-recovery'
+              : cacheStatus === 'pending'
+                ? 'pending-cloud'
+                : 'cloud-confirmed',
+          loadedFromLocalRecoveryCache: Boolean(loadedFromFallback || source === 'local-cache'),
           unsavedChangeCount: 0,
           hasLocalUnsavedChanges: false,
           dirtyRecordRefs: [],
@@ -68,8 +76,14 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           lastFailedSyncAt: undefined,
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'saved',
-            summary: 'Workspace loaded from persisted data.',
-            detail: mode === 'supabase' ? 'Cloud-backed persistence mode active.' : 'Running in local/browser persistence mode.',
+            summary: source === 'local-cache' ? 'Workspace restored from local recovery cache.' : 'Workspace loaded from persisted data.',
+            detail: cloudReadFailed
+              ? 'Cloud read failed; local cache preserved your latest data.'
+              : localNewerThanCloud
+                ? 'Local cache is newer than cloud data and was restored.'
+                : mode === 'supabase'
+                  ? 'Cloud-backed persistence mode active.'
+                  : 'Running in local/browser persistence mode.',
           })],
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
@@ -81,6 +95,8 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           persistenceMode: 'browser',
           saveError: error instanceof Error ? error.message : 'Failed to load saved data.',
           syncState: 'error',
+          cloudSyncStatus: 'cloud-failed-local-preserved',
+          loadedFromLocalRecoveryCache: false,
           unsavedChangeCount: 0,
           hasLocalUnsavedChanges: false,
           dirtyRecordRefs: [],

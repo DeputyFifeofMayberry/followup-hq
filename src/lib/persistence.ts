@@ -49,14 +49,21 @@ export interface PersistedPayload extends CoreEntities {
   auxiliary: AppAuxiliaryState;
 }
 
-interface LocalCachePayload {
+export interface LocalCachePayload {
   entities: PersistedPayload;
   updatedAt: string;
+  cloudStatus: 'pending' | 'confirmed';
+  lastCloudConfirmedAt?: string;
 }
 
 export interface LoadResult {
   payload: PersistedPayload;
   mode: PersistenceMode;
+  source: 'supabase' | 'local-cache';
+  cacheStatus?: 'pending' | 'confirmed';
+  loadedFromFallback?: boolean;
+  cloudReadFailed?: boolean;
+  localNewerThanCloud?: boolean;
 }
 
 interface SaveResult {
@@ -142,22 +149,52 @@ function canUseBrowserStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
-function readLocalCache(): PersistedPayload | null {
+function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const asRecord = parsed as Record<string, unknown>;
+  const entities = asRecord.entities;
+
+  if (!entities || typeof entities !== 'object') return null;
+
+  const cloudStatus = asRecord.cloudStatus === 'confirmed' ? 'confirmed' : 'pending';
+  const updatedAt = typeof asRecord.updatedAt === 'string' ? asRecord.updatedAt : new Date().toISOString();
+  const lastCloudConfirmedAt = typeof asRecord.lastCloudConfirmedAt === 'string' ? asRecord.lastCloudConfirmedAt : undefined;
+
+  return {
+    entities: entities as PersistedPayload,
+    updatedAt,
+    cloudStatus,
+    lastCloudConfirmedAt,
+  };
+}
+
+function readLocalCache(): LocalCachePayload | null {
   if (!canUseBrowserStorage()) return null;
   try {
     const raw = window.localStorage.getItem(LOCAL_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as LocalCachePayload;
-    return parsed.entities;
+    const parsed = JSON.parse(raw) as unknown;
+    const normalized = normalizeLocalCache(parsed);
+    if (normalized) return normalized;
+
+    // Backward compatibility with older cache format.
+    if (parsed && typeof parsed === 'object' && 'items' in (parsed as Record<string, unknown>)) {
+      return {
+        entities: parsed as PersistedPayload,
+        updatedAt: new Date().toISOString(),
+        cloudStatus: 'pending',
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }
 }
 
-function writeLocalCache(payload: PersistedPayload): void {
+function writeLocalCache(cache: LocalCachePayload): void {
   if (!canUseBrowserStorage()) return;
   try {
-    const cache: LocalCachePayload = { entities: payload, updatedAt: new Date().toISOString() };
     window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cache));
     window.localStorage.removeItem(LEGACY_BROWSER_SNAPSHOT_KEY);
   } catch {
@@ -192,11 +229,23 @@ async function readEntityRows<T>(table: string, userId: string): Promise<T[]> {
   return ((data ?? []).map((row) => row.record) as T[]);
 }
 
-async function readAuxiliaryState(userId: string): Promise<AppAuxiliaryState | null> {
-  const { data, error } = await supabase.from('user_preferences').select('auxiliary').eq('user_id', userId).maybeSingle();
+interface AuxiliaryReadResult {
+  auxiliary: AppAuxiliaryState | null;
+  updatedAt?: string;
+}
+
+async function readAuxiliaryState(userId: string): Promise<AuxiliaryReadResult> {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('auxiliary, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
   if (error) throw error;
-  if (!data?.auxiliary) return null;
-  return data.auxiliary as AppAuxiliaryState;
+  if (!data) return { auxiliary: null };
+  return {
+    auxiliary: (data.auxiliary as AppAuxiliaryState | null) ?? null,
+    updatedAt: typeof data.updated_at === 'string' ? data.updated_at : undefined,
+  };
 }
 
 async function readLegacySnapshotFromSupabase(userId: string): Promise<AppSnapshot | null> {
@@ -205,8 +254,12 @@ async function readLegacySnapshotFromSupabase(userId: string): Promise<AppSnapsh
   return (data?.snapshot as AppSnapshot | null) ?? null;
 }
 
+/**
+ * NOTE: This table-level replacement flow can still be vulnerable to stale-client deletes.
+ * We preserve the current architecture here, but avoid broadening deletion scope.
+ */
 async function saveEntityTable(table: string, userId: string, records: Array<{ id: string }>) {
-  const ids = records.map((record) => record.id);
+  const ids = new Set(records.map((record) => record.id));
   const payload = records.map((record) => ({ user_id: userId, record_id: record.id, record }));
 
   if (payload.length > 0) {
@@ -217,7 +270,10 @@ async function saveEntityTable(table: string, userId: string, records: Array<{ i
   const { data: existingRows, error: existingError } = await supabase.from(table).select('record_id').eq('user_id', userId);
   if (existingError) throw existingError;
 
-  const staleIds = (existingRows ?? []).map((row) => row.record_id as string).filter((id) => !ids.includes(id));
+  const staleIds = (existingRows ?? [])
+    .map((row) => row.record_id as string)
+    .filter((id) => !ids.has(id));
+
   if (staleIds.length > 0) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId).in('record_id', staleIds);
     if (error) throw error;
@@ -272,8 +328,19 @@ async function migrateLegacySnapshotIfNeeded(userId: string, currentPayload: Per
   await saveEntityTable('contacts', userId, migrated.contacts);
   await saveEntityTable('companies', userId, migrated.companies);
   await saveAuxiliaryState(userId, migrated.auxiliary, true);
-  writeLocalCache(migrated);
+  writeLocalCache({
+    entities: migrated,
+    updatedAt: new Date().toISOString(),
+    cloudStatus: 'confirmed',
+    lastCloudConfirmedAt: new Date().toISOString(),
+  });
   return migrated;
+}
+
+function isLocalNewer(localUpdatedAt: string | undefined, cloudUpdatedAt: string | undefined): boolean {
+  if (!localUpdatedAt) return false;
+  if (!cloudUpdatedAt) return true;
+  return new Date(localUpdatedAt).getTime() > new Date(cloudUpdatedAt).getTime();
 }
 
 export async function loadPersistedPayload(): Promise<LoadResult> {
@@ -283,46 +350,102 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   try {
     userId = await getSessionUserId();
   } catch (error) {
-    if (cache) return { payload: cache, mode: 'browser' };
+    if (cache) {
+      return { payload: cache.entities, mode: 'browser', source: 'local-cache', cacheStatus: cache.cloudStatus, loadedFromFallback: true, cloudReadFailed: true };
+    }
     throw error;
   }
 
   if (!userId) {
-    if (cache) return { payload: cache, mode: 'browser' };
+    if (cache) {
+      return { payload: cache.entities, mode: 'browser', source: 'local-cache', cacheStatus: cache.cloudStatus };
+    }
     const legacy = readLegacySnapshotFromBrowser();
     const payload = legacy ? fromSnapshot(legacy) : buildEmptyPayload();
-    writeLocalCache(payload);
-    return { payload, mode: 'browser' };
+    writeLocalCache({ entities: payload, updatedAt: new Date().toISOString(), cloudStatus: 'confirmed' });
+    return { payload, mode: 'browser', source: 'local-cache', cacheStatus: 'confirmed' };
   }
 
-  const [items, tasks, projects, contacts, companies, auxiliary] = await Promise.all([
-    readEntityRows<FollowUpItem>('follow_up_items', userId),
-    readEntityRows<TaskItem>('tasks', userId),
-    readEntityRows<ProjectRecord>('projects', userId),
-    readEntityRows<ContactRecord>('contacts', userId),
-    readEntityRows<CompanyRecord>('companies', userId),
-    readAuxiliaryState(userId),
-  ]);
+  let cloudPayload: PersistedPayload;
+  let cloudUpdatedAt: string | undefined;
 
-  const payload: PersistedPayload = {
-    items,
-    tasks,
-    projects,
-    contacts,
-    companies,
-    auxiliary: auxiliary ?? buildEmptyPayload().auxiliary,
-  };
+  try {
+    const [items, tasks, projects, contacts, companies, auxiliaryResult] = await Promise.all([
+      readEntityRows<FollowUpItem>('follow_up_items', userId),
+      readEntityRows<TaskItem>('tasks', userId),
+      readEntityRows<ProjectRecord>('projects', userId),
+      readEntityRows<ContactRecord>('contacts', userId),
+      readEntityRows<CompanyRecord>('companies', userId),
+      readAuxiliaryState(userId),
+    ]);
 
-  const hydrated = await migrateLegacySnapshotIfNeeded(userId, payload);
-  writeLocalCache(hydrated);
-  return { payload: hydrated, mode: 'supabase' };
+    cloudUpdatedAt = auxiliaryResult.updatedAt;
+    cloudPayload = {
+      items,
+      tasks,
+      projects,
+      contacts,
+      companies,
+      auxiliary: auxiliaryResult.auxiliary ?? buildEmptyPayload().auxiliary,
+    };
+  } catch (error) {
+    if (cache) {
+      return {
+        payload: cache.entities,
+        mode: 'supabase',
+        source: 'local-cache',
+        cacheStatus: cache.cloudStatus,
+        loadedFromFallback: true,
+        cloudReadFailed: true,
+      };
+    }
+    throw error;
+  }
+
+  const hydrated = await migrateLegacySnapshotIfNeeded(userId, cloudPayload);
+  const localNewerThanCloud = cache ? isLocalNewer(cache.updatedAt, cloudUpdatedAt) : false;
+
+  if (cache && localNewerThanCloud) {
+    return {
+      payload: cache.entities,
+      mode: 'supabase',
+      source: 'local-cache',
+      cacheStatus: cache.cloudStatus,
+      localNewerThanCloud: true,
+      loadedFromFallback: true,
+    };
+  }
+
+  const confirmedAt = cloudUpdatedAt ?? new Date().toISOString();
+  writeLocalCache({
+    entities: hydrated,
+    updatedAt: confirmedAt,
+    cloudStatus: 'confirmed',
+    lastCloudConfirmedAt: confirmedAt,
+  });
+
+  return { payload: hydrated, mode: 'supabase', source: 'supabase', cacheStatus: 'confirmed' };
 }
 
 export async function savePersistedPayload(payload: PersistedPayload): Promise<SaveResult> {
-  writeLocalCache(payload);
+  const saveAttemptAt = new Date().toISOString();
+  const existingCache = readLocalCache();
+
+  writeLocalCache({
+    entities: payload,
+    updatedAt: saveAttemptAt,
+    cloudStatus: 'pending',
+    lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
+  });
 
   const userId = await getSessionUserId();
   if (!userId) {
+    writeLocalCache({
+      entities: payload,
+      updatedAt: saveAttemptAt,
+      cloudStatus: 'confirmed',
+      lastCloudConfirmedAt: undefined,
+    });
     return { mode: 'browser' };
   }
 
@@ -332,6 +455,14 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
   await saveEntityTable('contacts', userId, payload.contacts);
   await saveEntityTable('companies', userId, payload.companies);
   await saveAuxiliaryState(userId, payload.auxiliary, true);
+
+  const cloudConfirmedAt = new Date().toISOString();
+  writeLocalCache({
+    entities: payload,
+    updatedAt: saveAttemptAt,
+    cloudStatus: 'confirmed',
+    lastCloudConfirmedAt: cloudConfirmedAt,
+  });
 
   return { mode: 'supabase' };
 }

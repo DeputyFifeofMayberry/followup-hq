@@ -1,4 +1,5 @@
 import type { PersistenceMode } from '../types';
+import type { CloudSyncStatus } from '../store/state/types';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 
@@ -9,6 +10,8 @@ export interface SyncMetaSnapshot {
   saveError: string;
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
+  cloudSyncStatus: CloudSyncStatus;
+  loadedFromLocalRecoveryCache: boolean;
   lastSyncedAt?: string;
 }
 
@@ -48,6 +51,47 @@ function describePersistenceMode(mode: PersistenceMode): Pick<SyncStatusModel, '
     modeLabel: 'Checking storage',
     modeDescription: 'SetPoint is determining the active persistence mode.',
   };
+}
+
+
+function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateLabel' | 'stateDescription' | 'tone' | 'stateTone'> | null {
+  if (meta.cloudSyncStatus === 'cloud-failed-local-preserved') {
+    return {
+      stateLabel: 'Cloud sync failed; local copy preserved',
+      stateDescription: 'SetPoint kept your latest local cache and will retry cloud confirmation on the next save.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
+  if (meta.cloudSyncStatus === 'local-recovery' || meta.loadedFromLocalRecoveryCache) {
+    return {
+      stateLabel: 'Loaded from local recovery cache',
+      stateDescription: 'Your local cache is newer than cloud data, so SetPoint restored it to avoid data loss.',
+      tone: 'warn',
+      stateTone: 'warn',
+    };
+  }
+
+  if (meta.cloudSyncStatus === 'pending-cloud') {
+    return {
+      stateLabel: 'Saved locally, cloud confirmation pending',
+      stateDescription: 'Recent changes are preserved locally and waiting for full cloud confirmation.',
+      tone: 'info',
+      stateTone: 'warn',
+    };
+  }
+
+  if (meta.cloudSyncStatus === 'cloud-confirmed') {
+    return {
+      stateLabel: 'Saved to cloud',
+      stateDescription: 'Latest updates are confirmed in cloud storage.',
+      tone: 'default',
+      stateTone: 'success',
+    };
+  }
+
+  return null;
 }
 
 export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
@@ -95,6 +139,15 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       stateDescription: pendingDescription,
       tone: 'info',
       stateTone: 'warn',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  const cloudStatus = describeCloudStatus(meta);
+  if (cloudStatus) {
+    return {
+      ...cloudStatus,
       showSpinner: false,
       ...modeDetails,
     };

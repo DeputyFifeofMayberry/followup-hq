@@ -69,6 +69,8 @@ export const initialMetaState: AppMetaState = {
   persistenceMode: 'loading',
   saveError: '',
   syncState: 'checking',
+  cloudSyncStatus: 'unknown',
+  loadedFromLocalRecoveryCache: false,
   unsavedChangeCount: 0,
   hasLocalUnsavedChanges: false,
   dirtyRecordRefs: [],

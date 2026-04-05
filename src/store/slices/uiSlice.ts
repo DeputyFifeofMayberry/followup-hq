@@ -2,8 +2,9 @@ import { createId, todayIso } from '../../lib/utils';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceSet } from './types';
+import type { QueueRequestMeta } from '../persistenceQueue';
 
-export function createUiSlice(set: SliceSet): Pick<AppStoreActions,
+export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestMeta) => void): Pick<AppStoreActions,
   'setSelectedId' | 'setSearch' | 'setProjectFilter' | 'setStatusFilter' | 'setActiveView' | 'setFollowUpFilters' | 'resetFollowUpFilters' |
   'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
   'setFollowUpColumns' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
@@ -17,23 +18,40 @@ export function createUiSlice(set: SliceSet): Pick<AppStoreActions,
     setProjectFilter: (value) => set({ projectFilter: value }),
     setStatusFilter: (value) => set({ statusFilter: value }),
     setActiveView: (value) => set({ activeView: value }),
-    setFollowUpFilters: (value) => set((state: AppStore) => ({ followUpFilters: { ...state.followUpFilters, ...value } })),
-    resetFollowUpFilters: () => set({ followUpFilters: defaultFollowUpFilters }),
+    setFollowUpFilters: (value) => {
+      set((state: AppStore) => ({ followUpFilters: { ...state.followUpFilters, ...value } }));
+      queuePersist();
+    },
+    resetFollowUpFilters: () => {
+      set({ followUpFilters: defaultFollowUpFilters });
+      queuePersist();
+    },
     toggleFollowUpSelection: (id) => set((state: AppStore) => ({
       selectedFollowUpIds: state.selectedFollowUpIds.includes(id) ? state.selectedFollowUpIds.filter((value) => value !== id) : [...state.selectedFollowUpIds, id],
       selectedId: id,
     })),
     clearFollowUpSelection: () => set({ selectedFollowUpIds: [] }),
     selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
-    saveFollowUpCustomView: (name, search) => set((state: AppStore) => ({
-      savedFollowUpViews: [{ id: createId('FUV'), name, search, activeView: state.activeView, filters: state.followUpFilters, createdAt: todayIso() }, ...state.savedFollowUpViews],
-    })),
-    applySavedFollowUpCustomView: (id) => set((state: AppStore) => {
-      const view = state.savedFollowUpViews.find((entry) => entry.id === id);
-      if (!view) return state;
-      return { search: view.search, activeView: view.activeView, followUpFilters: view.filters };
-    }),
-    setFollowUpColumns: (columns) => set({ followUpColumns: columns }),
+    saveFollowUpCustomView: (name, search) => {
+      set((state: AppStore) => ({
+        savedFollowUpViews: [{ id: createId('FUV'), name, search, activeView: state.activeView, filters: state.followUpFilters, createdAt: todayIso() }, ...state.savedFollowUpViews],
+      }));
+      queuePersist();
+    },
+    applySavedFollowUpCustomView: (id) => {
+      let applied = false;
+      set((state: AppStore) => {
+        const view = state.savedFollowUpViews.find((entry) => entry.id === id);
+        if (!view) return state;
+        applied = true;
+        return { search: view.search, activeView: view.activeView, followUpFilters: view.filters };
+      });
+      if (applied) queuePersist();
+    },
+    setFollowUpColumns: (columns) => {
+      set({ followUpColumns: columns });
+      queuePersist();
+    },
     openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
     openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
     closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),

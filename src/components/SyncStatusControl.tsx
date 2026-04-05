@@ -24,6 +24,8 @@ export function SyncStatusControl() {
     lastFailedSyncAt: s.lastFailedSyncAt,
     unsavedChangeCount: s.unsavedChangeCount,
     hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
+    cloudSyncStatus: s.cloudSyncStatus,
+    loadedFromLocalRecoveryCache: s.loadedFromLocalRecoveryCache,
     dirtyRecordRefs: s.dirtyRecordRefs,
     persistenceActivity: s.persistenceActivity,
     flushPersistenceNow: s.flushPersistenceNow,
@@ -116,7 +118,26 @@ export function SyncStatusControl() {
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Unsaved local edits</div>
                 <div className="sync-status-row-detail">{syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} pending change${syncMeta.unsavedChangeCount === 1 ? '' : 's'}` : 'No pending local edits.'}</div>
               </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Cloud confirmation status</div>
+                <div className="sync-status-row-detail">
+                  {syncMeta.cloudSyncStatus === 'cloud-confirmed'
+                    ? 'Saved to cloud'
+                    : syncMeta.cloudSyncStatus === 'pending-cloud'
+                      ? 'Saved locally, cloud confirmation pending'
+                      : syncMeta.cloudSyncStatus === 'local-recovery'
+                        ? 'Loaded from local recovery cache'
+                        : syncMeta.cloudSyncStatus === 'cloud-failed-local-preserved'
+                          ? 'Cloud sync failed; local copy preserved'
+                          : 'Cloud confirmation unavailable'}
+                </div>
+              </div>
             </div>
+            {syncMeta.loadedFromLocalRecoveryCache ? (
+              <div className="sync-status-row-detail">
+                This session is currently using the local recovery cache to prevent data loss while cloud confirmation catches up.
+              </div>
+            ) : null}
             {syncMeta.dirtyRecordRefs.length ? (
               <div className="sync-status-row-detail">
                 Dirty records in focus: {syncMeta.dirtyRecordRefs.slice(0, 3).map((ref) => `${ref.type} ${ref.id}`).join(', ')}

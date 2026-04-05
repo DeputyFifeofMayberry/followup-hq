@@ -22,18 +22,25 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
 
   return (
     <WorkspacePage>
-      <WorkspaceTopStack>
-        <WorkspaceSummaryStrip className="overview-hero-card">
-          <SectionHeader title="Follow-up execution lane" subtitle={personalMode ? 'Single-lane queue for daily follow-through.' : 'Team queue streamlined for fast follow-through.'} actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>} compact />
-          <div className="workspace-toolbar-row overview-support-row">
-            <span className="overview-inline-guidance">{followUpStats.total} visible · {followUpStats.needsNudge} need nudge · {followUpStats.atRisk} at risk · {followUpStats.readyToClose} ready to close.</span>
-            {executionIntent?.target === 'followups' ? <span className="overview-inline-guidance">{describeExecutionIntent(executionIntent)}</span> : null}
+      <WorkspaceTopStack className="followup-top-stack">
+        <WorkspaceSummaryStrip className="followup-summary-strip">
+          <SectionHeader
+            title="Follow-up execution lane"
+            subtitle={personalMode ? 'Single-lane queue for daily follow-through.' : 'Team queue streamlined for fast follow-through.'}
+            actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>}
+            compact
+          />
+          <div className="workspace-toolbar-row followup-summary-meta-row">
+            <span className="workspace-support-copy">
+              {followUpStats.total} visible · {followUpStats.needsNudge} need nudge · {followUpStats.atRisk} at risk · {followUpStats.readyToClose} ready to close
+            </span>
+            {executionIntent?.target === 'followups' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </div>
         </WorkspaceSummaryStrip>
       </WorkspaceTopStack>
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel tracker-workspace-main" surface="data">
-          <ControlBar compact />
+          <ControlBar />
           <TrackerTable personalMode={personalMode} appMode={appMode} embedded />
           <DuplicateReviewPanel />
         </AppShellCard>

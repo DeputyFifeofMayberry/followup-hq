@@ -108,10 +108,31 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  if (meta.saveError || meta.syncState === 'error') {
+  if (meta.saveError) {
     return {
       stateLabel: 'Save issue',
-      stateDescription: meta.saveError || 'Recent changes are not fully confirmed yet.',
+      stateDescription: meta.saveError,
+      tone: 'warn',
+      stateTone: 'danger',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  const cloudStatus = describeCloudStatus(meta);
+
+  if (meta.syncState === 'error') {
+    if (cloudStatus) {
+      return {
+        ...cloudStatus,
+        showSpinner: false,
+        ...modeDetails,
+      };
+    }
+
+    return {
+      stateLabel: 'Save issue',
+      stateDescription: 'Recent changes are not fully confirmed yet.',
       tone: 'warn',
       stateTone: 'danger',
       showSpinner: false,
@@ -144,7 +165,6 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  const cloudStatus = describeCloudStatus(meta);
   if (cloudStatus) {
     return {
       ...cloudStatus,

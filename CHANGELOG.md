@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Overview triage refactor: route-first cockpit + execution responsibility split
+- Replaced the execution-heavy `OverviewPage` controller with a composition-based triage surface that keeps one start strip, one compact signal-card layer, one small triage list, and one route-only inspector (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSignalCards.tsx`, `src/components/overview/OverviewTriageList.tsx`, `src/components/overview/OverviewRouteInspector.tsx`).
+- Added an Overview-specific read-mostly view model hook that reads the unified queue, computes hero stats and compact triage rows, derives routing signal cards, and exposes route helpers based on the existing execution handoff pattern (`openExecutionLane` with `source: 'overview'`) without exposing execution filters/saved views/bulk transitions (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`).
+- Removed deep execution controls from Overview (search/sort/filter/saved views, pagination, multi-select/bulk actions, structured action flows, close/snooze/nudge transitions, reassignment, linked-task creation, and closeout orchestration panel) so Follow Ups and Tasks remain the dedicated execution lanes (`src/components/OverviewPage.tsx`).
+
+## 2026-04-05
+
 ### Persistence schema bootstrap + preflight hardening for missing-table failures (`PGRST205`)
 - Added an idempotent Supabase schema hardening migration that guarantees required persistence tables (`follow_up_items`, `tasks`, `projects`, `contacts`, `companies`, `user_preferences`) and legacy compatibility table (`app_snapshots`) exist with expected columns, unique keys/indexes, and user-scoped RLS owner policies (`supabase/migrations/20260405_persistence_schema_hardening.sql`).
 - Added startup persistence schema preflight checks to detect missing-table, permission, and auth availability failures before deep entity loading, including precise failing-table/code diagnostics and connected Supabase host context for environment mismatch debugging (`src/lib/persistenceSchemaHealth.ts`, `src/lib/persistence.ts`, `src/lib/supabase.ts`).

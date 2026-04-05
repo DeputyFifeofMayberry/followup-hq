@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, LogOut, Ref
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
 import { getCloudConfirmationLabel, getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
-import { supabase } from '../lib/supabase';
+import { getSupabaseHost, supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
 function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' | 'danger'; spinning: boolean }) {
@@ -140,6 +140,9 @@ export function SyncStatusControl() {
                 Detail: {syncMeta.lastLoadFailureMessage}
               </div>
             ) : null}
+            <div className="sync-status-row-detail">
+              Connected Supabase host: {getSupabaseHost()}
+            </div>
             {syncMeta.dirtyRecordRefs.length ? (
               <div className="sync-status-row-detail">
                 Dirty records in focus: {syncMeta.dirtyRecordRefs.slice(0, 3).map((ref) => `${ref.type} ${ref.id}`).join(', ')}

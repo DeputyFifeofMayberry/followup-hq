@@ -42,6 +42,17 @@ export function describeLoadFallbackFailure(stage?: LoadFailureStage, message?: 
     ? formatPersistenceErrorMessage(normalizePersistenceError(message, { stage, operation: 'load' }))
     : undefined;
 
+  const missingSchema = normalizedMessage?.includes('Missing table:') || normalizedMessage?.includes('PGRST205');
+
+  if (missingSchema) {
+    return {
+      summary: 'Cloud persistence setup issue; local cache preserved.',
+      detail: normalizedMessage
+        ? `SetPoint loaded local cache because required cloud tables are missing. Detail: ${normalizedMessage}`
+        : 'SetPoint loaded local cache because required cloud tables are missing.',
+    };
+  }
+
   if (stage === 'auth_session') {
     return {
       summary: 'Session lookup failed; local cache preserved.',

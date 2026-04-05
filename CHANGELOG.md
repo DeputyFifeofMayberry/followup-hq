@@ -2,6 +2,12 @@
 
 ## 2026-04-05
 
+### Persistence schema bootstrap + preflight hardening for missing-table failures (`PGRST205`)
+- Added an idempotent Supabase schema hardening migration that guarantees required persistence tables (`follow_up_items`, `tasks`, `projects`, `contacts`, `companies`, `user_preferences`) and legacy compatibility table (`app_snapshots`) exist with expected columns, unique keys/indexes, and user-scoped RLS owner policies (`supabase/migrations/20260405_persistence_schema_hardening.sql`).
+- Added startup persistence schema preflight checks to detect missing-table, permission, and auth availability failures before deep entity loading, including precise failing-table/code diagnostics and connected Supabase host context for environment mismatch debugging (`src/lib/persistenceSchemaHealth.ts`, `src/lib/persistence.ts`, `src/lib/supabase.ts`).
+- Improved load-fallback messaging and trust-surface language for schema setup failures so sessions restored from local cache are clearly labeled as cloud-unhealthy (not cloud-confirmed), with explicit “missing table” diagnostics and host visibility in persistence UI surfaces (`src/lib/syncStatus.ts`, `src/store/persistenceActivity.ts`, `src/components/PersistenceBanner.tsx`, `src/components/SyncStatusControl.tsx`).
+- Expanded regression coverage for `PGRST205` missing-table fallback/no-cache behavior, wrong-project style schema mismatch diagnosis, permission-vs-schema categorization, healthy-path no-regression checks, and schema-health classifier behavior (`src/lib/__tests__/persistenceReliability.test.ts`, `src/lib/__tests__/persistenceSchemaHealth.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`).
+
 ### Persistence error diagnostics: object-safe normalization + stage-preserving hard failures
 - Fixed the root cause of `Detail: [object Object]` by introducing a shared persistence error normalizer/formatter that extracts structured fields (`message`, `error_description`, `details`, `hint`, `code`, `status`, `name`) from Supabase/PostgREST/fetch/custom thrown objects and guarantees stable fallback serialization for unknown or circular values (`src/lib/persistenceError.ts`).
 - Updated all persistence load/save surfacing paths to use shared normalization so cloud-read fallback, hard load failure (no local cache), and cloud-save failure all emit readable diagnostics with consistent structured context instead of generic stringification (`src/lib/persistence.ts`, `src/store/slices/metaSlice.ts`, `src/store/persistenceQueue.ts`, `src/store/persistenceActivity.ts`).

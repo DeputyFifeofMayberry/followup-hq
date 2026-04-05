@@ -79,6 +79,58 @@ VITE_SUPABASE_PUBLISHABLE_KEY=...
 
 Without these values, the app shows a startup warning and blocks sign-in.
 
+## Supabase persistence schema requirements
+
+SetPoint expects these **public** tables for cloud persistence:
+
+- `follow_up_items` (`user_id`, `record_id`, `record`, `updated_at`)
+- `tasks` (`user_id`, `record_id`, `record`, `updated_at`)
+- `projects` (`user_id`, `record_id`, `record`, `updated_at`)
+- `contacts` (`user_id`, `record_id`, `record`, `updated_at`)
+- `companies` (`user_id`, `record_id`, `record`, `updated_at`)
+- `user_preferences` (`user_id`, `auxiliary`, `migration_complete`, `updated_at`)
+- `app_snapshots` (legacy migration compatibility: `user_id`, `snapshot`, `updated_at`)
+
+Entity tables use `jsonb` `record` payloads and upsert on `(user_id, record_id)`. `user_preferences` is unique on `user_id`.
+
+### Required migration
+
+Apply migrations in `supabase/migrations/`, including:
+
+- `20260402_entity_persistence.sql`
+- `20260405_persistence_schema_hardening.sql`
+
+Use your normal Supabase migration workflow (for example via Supabase CLI in your deployment pipeline). If migrations are not applied to the active project, cloud reads/writes will fail.
+
+### RLS expectations
+
+Each persistence table uses authenticated user-scoped RLS:
+
+- `auth.uid() = user_id` for select/insert/update/delete.
+
+If these policies are missing or incorrect, you will see permission-denied persistence failures.
+
+### Diagnosing `PGRST205` / missing `public.follow_up_items`
+
+`PGRST205` means PostgREST could not find the table in schema cache for the connected project. Common causes:
+
+1. wrong Supabase project URL (environment mismatch),
+2. migrations not applied,
+3. table name/schema mismatch.
+
+SetPoint now runs a persistence schema preflight on startup and reports explicit diagnostics (including connected Supabase host) when required tables are missing.
+
+### If local cache works but cloud reads fail
+
+1. Confirm `VITE_SUPABASE_URL` points to the intended project.
+2. Verify migrations have been applied in that project.
+3. Confirm required tables exist under `public`.
+4. Confirm RLS owner policies exist and use `auth.uid() = user_id`.
+5. Re-open the app and check the Trust Center diagnostic:
+   - connected Supabase host,
+   - failing table,
+   - error code (for example `PGRST205`).
+
 ## Notes
 
 - The rebrand preserves core product architecture while updating language and shell identity to SetPoint.

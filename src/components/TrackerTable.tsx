@@ -6,7 +6,7 @@ import { daysUntil, formatDate, needsNudge, priorityTone, statusTone } from '../
 import { useAppStore } from '../store/useAppStore';
 import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
-import { AppShellCard, AppBadge, EmptyState } from './ui/AppPrimitives';
+import { AppShellCard, AppBadge, EmptyState, ExecutionLaneFooterMeta } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { FollowUpAttentionSignal } from '../domains/followups';
@@ -195,7 +195,12 @@ export function TrackerTable({
         </table>
         {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." /></div> : null}
       </div>
-      <div className="text-xs text-slate-500 tracker-table-foot">{selectedFollowUpIds.length > 0 ? `${selectedFollowUpIds.length} rows selected for bulk workflow.` : (modeConfig.trackerOwnerContext === 'compact' ? 'Execution view: owner details are reduced so next action and timing stay primary.' : 'Coordination view: owner and assignee context stays visible for assignment decisions.')}</div>
+      <ExecutionLaneFooterMeta
+        shownCount={filteredItems.length}
+        selectedCount={selectedFollowUpIds.length}
+        scopeSummary={modeConfig.trackerOwnerContext === 'compact' ? 'Execution view' : 'Coordination view'}
+        hint={modeConfig.trackerOwnerContext === 'compact' ? 'Next action and timing stay primary.' : 'Owner and assignee context stays visible for assignment decisions.'}
+      />
     </>
   );
 

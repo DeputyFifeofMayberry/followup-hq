@@ -34,6 +34,7 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
             key={`${row.recordType}-${row.id}`}
             type="button"
             onClick={() => onSelect(row.id)}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(row.id); } }}
             className={active ? 'overview-priority-row overview-priority-row-active overview-triage-row list-row-family list-row-family-active w-full text-left' : 'overview-priority-row overview-triage-row list-row-family w-full text-left'}
             aria-current={active ? 'true' : undefined}
             aria-selected={active}

@@ -10,6 +10,9 @@ import {
   ExecutionLaneSelectionStrip,
   ExecutionLaneSummary,
   ExecutionLaneToolbar,
+  ExecutionLaneToolbarScaffold,
+  ExecutionLaneHandoffStrip,
+  ExecutionLaneFooterMeta,
   SectionHeader,
   StatTile,
   WorkspaceInspectorSection,
@@ -27,6 +30,7 @@ import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/reco
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
+import { describeHandoffMission, getExecutionLaneNextSelection, resolveExecutionLaneSelection, toExecutionLaneHandoff } from '../domains/shared';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
@@ -116,6 +120,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [quickDueDateDraft, setQuickDueDateDraft] = useState('');
   const [quickBlockReasonDraft, setQuickBlockReasonDraft] = useState('');
   const [laneFeedback, setLaneFeedback] = useState<{ tone: 'success' | 'warn'; message: string } | null>(null);
+  const [handoffSummary, setHandoffSummary] = useState<string | null>(null);
   const [flowState, setFlowState] = useState<{ kind: 'done' | 'block' | 'unblock' | 'defer'; taskId: string } | null>(null);
   const [completionNoteDraft, setCompletionNoteDraft] = useState('');
   const [blockReasonDraft, setBlockReasonDraft] = useState('');
@@ -130,6 +135,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   useEffect(() => {
     if (executionIntent?.target !== 'tasks') return;
+    const handoff = toExecutionLaneHandoff(executionIntent);
+    setHandoffSummary(describeHandoffMission(handoff));
     if (executionIntent.recordType === 'task' && executionIntent.recordId) {
       setSelectedTaskId(executionIntent.recordId);
     }
@@ -201,13 +208,20 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     });
   }, [tasks, items, taskOwnerFilter, taskStatusFilter, searchQuery, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, tagFilter]);
 
-  const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? tasks[0] ?? null;
+  const queueTaskIds = useMemo(() => filteredTasks.map((task) => task.id), [filteredTasks]);
+  const resolvedSelectedTaskId = useMemo(() => resolveExecutionLaneSelection({ selectedId: selectedTaskId, queueIds: queueTaskIds, targetedId: executionIntent?.recordType === 'task' ? executionIntent.recordId : null }), [selectedTaskId, queueTaskIds, executionIntent]);
+  const selectedTask = filteredTasks.find((task) => task.id === resolvedSelectedTaskId) ?? tasks.find((task) => task.id === resolvedSelectedTaskId) ?? null;
   const selectedTaskDirty = selectedTask ? isRecordDirty('task', selectedTask.id) : false;
   const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
   const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
   const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks) : null;
   const parentCandidates = selectedTask ? items.filter((item) => item.project === selectedTask.project && item.status !== 'Closed') : [];
+
+  useEffect(() => {
+    if (resolvedSelectedTaskId === selectedTaskId) return;
+    setSelectedTaskId(resolvedSelectedTaskId);
+  }, [resolvedSelectedTaskId, selectedTaskId, setSelectedTaskId]);
 
   useEffect(() => {
     if (!selectedTask) {
@@ -336,14 +350,14 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       setFlowResult({ tone: 'danger', message: 'Action not applied. Resolve blockers and retry.' });
       return;
     }
-    const nextTask = (() => {
-      const currentIndex = filteredTasks.findIndex((entry) => entry.id === task.id);
-      if (currentIndex < 0) return null;
-      return [...filteredTasks.slice(currentIndex + 1), ...filteredTasks.slice(0, currentIndex)].find((entry) => entry.id !== task.id) ?? null;
-    })();
-    if (nextTask) {
-      setSelectedTaskId(nextTask.id);
+    const projectedIds = filteredTasks.filter((entry) => entry.id !== task.id || activeFlow.kind !== 'done').map((entry) => entry.id);
+    const progression = getExecutionLaneNextSelection(projectedIds, task.id, activeFlow.kind === 'done' ? [task.id] : []);
+    if (progression.nextSelectedId !== selectedTaskId) {
+      setSelectedTaskId(progression.nextSelectedId);
     }
+    const nextTask = progression.nextSelectedId
+      ? filteredTasks.find((entry) => entry.id === progression.nextSelectedId) ?? tasks.find((entry) => entry.id === progression.nextSelectedId) ?? null
+      : null;
     setFlowState(null);
     setLaneFeedback({
       tone: result.validation.warnings.length ? 'warn' : 'success',
@@ -390,30 +404,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         <ExecutionLaneQueueCard>
           <SectionHeader title="Task queue" subtitle="Fast tactical lane for personal-first execution." compact />
           <div className="workspace-control-stack task-control-stack-calm">
-            <ExecutionLaneToolbar className="execution-toolbar-row task-primary-toolbar">
-              <div className="task-mode-group" role="tablist" aria-label="Primary task modes">
+            <ExecutionLaneToolbarScaffold className="task-primary-toolbar"
+              left={<label className="field-block task-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
+              middle={<div className="task-mode-group" role="tablist" aria-label="Primary task modes">
                 {primaryModeOptions.map((option) => (
                   <button key={option.value} onClick={() => applyMode(option.value)} className={`task-mode-chip ${mode === option.value ? 'task-mode-chip-active' : ''}`} role="tab" aria-selected={mode === option.value}>{option.label}</button>
                 ))}
-              </div>
-
-              <label className="field-block task-search-block">
-                <span className="field-label">Search queue</span>
-                <div className="search-field-wrap">
-                  <Search className="search-field-icon h-4 w-4" />
-                  <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />
-                  {searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
-                </div>
-              </label>
-
-              <button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
+              </div>}
+              right={<><button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters & layout
                 {(activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount) > 0 ? <AppBadge tone="info">{activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount}</AppBadge> : null}
                 <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
               </button>
-              <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
-            </ExecutionLaneToolbar>
+              <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button></>}
+            />
 
             {activeFilterChips.length ? (
               <div className="task-filter-chip-row task-filter-chip-row-muted">
@@ -496,6 +501,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               </div>
             ) : null}
           </div>
+          {handoffSummary ? <ExecutionLaneHandoffStrip title="Lane handoff" summary={handoffSummary} /> : null}
           <ExecutionLaneSelectionStrip
             title={selectedTask?.title}
             helper={selectedTask ? `Next move: ${selectedTask.nextStep || selectedTask.recommendedAction || 'Define next move'}` : undefined}
@@ -562,6 +568,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               );
             })}
           </div>
+          <ExecutionLaneFooterMeta shownCount={filteredTasks.length} selectedCount={selectedTask ? 1 : 0} scopeSummary={`Mode: ${mode}`} hint="Execution view: next step and timing stay primary" />
         </ExecutionLaneQueueCard>
 
         {!inspectorCollapsed ? (

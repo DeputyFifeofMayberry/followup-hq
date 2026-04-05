@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppMode } from '../../types';
 import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
 import {
@@ -7,6 +7,8 @@ import {
   ExecutionLaneQueueCard,
   ExecutionLaneSelectionStrip,
   ExecutionLaneSummary,
+  ExecutionLaneHandoffStrip,
+  ExecutionLaneFooterMeta,
   SectionHeader,
   WorkspacePage,
   WorkspacePrimaryLayout,
@@ -17,13 +19,17 @@ import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 import { describeExecutionIntent } from '../../lib/executionHandoff';
+import { describeHandoffMission, toExecutionLaneHandoff } from '../../domains/shared';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
   const { followUpStats, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
   const laneContext = useFollowUpLaneContext();
+  const [handoffSummary, setHandoffSummary] = useState<string | null>(null);
 
   useEffect(() => {
     if (executionIntent?.target !== 'followups') return;
+    const handoff = toExecutionLaneHandoff(executionIntent);
+    setHandoffSummary(describeHandoffMission(handoff));
     if (executionIntent.recordType === 'followup' && executionIntent.recordId) {
       setSelectedId(executionIntent.recordId);
     }
@@ -51,6 +57,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <ExecutionLaneQueueCard className="tracker-workspace-main">
           <ControlBar />
+          {handoffSummary ? <ExecutionLaneHandoffStrip title="Lane handoff" summary={handoffSummary} /> : null}
           <ExecutionLaneSelectionStrip
             title={laneContext.selectedItem?.title}
             helper={laneContext.selectedItem ? `Next move: ${laneContext.nextMove?.label ?? laneContext.recommendedNextMove}` : undefined}
@@ -71,6 +78,12 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             selectedAttentionSignal={laneContext.attentionSignal}
           />
           <DuplicateReviewPanel />
+          <ExecutionLaneFooterMeta
+            shownCount={followUpStats.total}
+            selectedCount={laneContext.selectedItem ? 1 : 0}
+            scopeSummary={personalMode ? 'Execution view' : 'Coordination view'}
+            hint="Select → act → continue"
+          />
         </ExecutionLaneQueueCard>
         <ItemDetailPanel personalMode={personalMode} />
       </WorkspacePrimaryLayout>

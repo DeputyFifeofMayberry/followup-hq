@@ -190,6 +190,52 @@
 .scan-chip-secondary { opacity: 0.88; }
 .scan-row-action-secondary { opacity: 0.84; }
 
+.task-mode-group { display: flex; flex-wrap: wrap; gap: 0.35rem; width: 100%; }
+.task-mode-chip {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.62rem;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.task-mode-chip-active { background: #0f172a; color: #fff; border-color: #0f172a; }
+.task-secondary-mode-select { max-width: 170px; min-height: 2rem; border-radius: 999px; padding: 0.2rem 0.65rem; }
+.task-filter-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.task-filter-chip {
+  border: 1px solid #cbd9ea;
+  background: #edf5ff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.task-list-density-compact .workspace-data-row { padding: 0.5rem 0.55rem; }
+.task-list-density-compact .scan-row-primary { font-size: 0.84rem; }
+.task-list-density-compact .scan-row-secondary { font-size: 0.69rem; }
+.task-list-density-compact .scan-row-sidecar { min-width: 145px; }
+.task-inspector-tab-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.task-inspector-tab {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  border-radius: 0.6rem;
+  padding: 0.33rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.task-inspector-tab-active { background: #0f172a; color: #fff; border-color: #0f172a; }
+.workspace-primary-layout-collapsed { grid-template-columns: 1fr; }
+
 .row-action-cell { border-left: 1px solid var(--border-default); background: var(--surface-secondary); }
 .row-action-cell .action-btn { border-color: var(--border-strong); background: #ffffff; }
 .tracker-action-tools { display: grid; gap: 0.35rem; justify-items: end; min-width: 210px; }

@@ -88,6 +88,10 @@ export interface SavedFollowUpCustomView {
   createdAt: string;
 }
 
+
+export type FollowUpTableDensity = 'compact' | 'comfortable';
+export type FollowUpDuplicateModuleMode = 'auto' | 'collapsed' | 'expanded';
+
 export type PersistenceMode = 'loading' | 'supabase' | 'tauri-sqlite' | 'browser';
 
 export type OutlookFolderName = 'inbox' | 'sentitems';
@@ -1270,6 +1274,8 @@ export interface AppSnapshot {
   followUpFilters?: FollowUpAdvancedFilters;
   followUpColumns?: FollowUpColumnKey[];
   savedFollowUpViews?: SavedFollowUpCustomView[];
+  followUpTableDensity?: FollowUpTableDensity;
+  followUpDuplicateModule?: FollowUpDuplicateModuleMode;
   teamMembers?: TeamMember[];
   currentUserId?: string;
   intakeReviews?: IntakeReviewRecord[];

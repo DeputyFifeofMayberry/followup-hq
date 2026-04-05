@@ -2,7 +2,7 @@ import { ArrowUpDown } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { formatDate, fromDateInputValue, priorityTone, statusTone, toDateInputValue } from '../lib/utils';
+import { formatDate, priorityTone, statusTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,18 +10,17 @@ import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
 
-const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'linkedTaskSummary', 'nextAction', 'actionState'];
+const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
-  const { items, contacts, companies, selectedId, setSelectedId, openRecordDrawer, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, updateItem, markNudged } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
     selectedId: s.selectedId,
     setSelectedId: s.setSelectedId,
-    openRecordDrawer: s.openRecordDrawer,
     search: s.search,
     activeView: s.activeView,
     followUpFilters: s.followUpFilters,
@@ -29,8 +28,8 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
     selectedFollowUpIds: s.selectedFollowUpIds,
     toggleFollowUpSelection: s.toggleFollowUpSelection,
     selectAllVisibleFollowUps: s.selectAllVisibleFollowUps,
-    updateItem: s.updateItem,
     markNudged: s.markNudged,
+    followUpTableDensity: s.followUpTableDensity,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const modeConfig = getModeConfig(appMode);
@@ -54,17 +53,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
       id: 'linkedTaskSummary',
       accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`,
       header: 'Linked tasks',
-      cell: ({ row }) => {
-        const blocked = row.original.blockedLinkedTaskCount ?? 0;
-        const overdue = row.original.overdueLinkedTaskCount ?? 0;
-        const ready = !!row.original.allLinkedTasksDone;
-        return (
-          <div className="text-xs">
-            <div>{row.original.openLinkedTaskCount ?? 0}/{row.original.linkedTaskCount ?? 0} open</div>
-            <div className="text-slate-500">{blocked > 0 ? `Blocked by open child tasks (${blocked})` : overdue > 0 ? `Child task overdue (${overdue})` : ready ? 'All child tasks done' : 'Child work in progress'}</div>
-          </div>
-        );
-      },
+      cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open`,
     },
     nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
   }), [personalMode]);
@@ -84,30 +73,21 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
       ...dynamic,
       {
         id: 'quickActions',
-        header: 'Quick actions',
+        header: 'Quick',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="tracker-action-tools tracker-cell-inline-edit">
-            <div className="tracker-action-buttons">
-              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
-              <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); openRecordDrawer({ type: 'followup', id: row.original.id }); }}>Open</button>
-            </div>
-            <label className="tracker-action-date">
-              <span>Next touch</span>
-              <input aria-label={`Next touch date for ${row.original.title}`} className="field-input !w-[130px] !py-1 text-xs" type="date" value={toDateInputValue(row.original.nextTouchDate)} onClick={(event) => event.stopPropagation()} onChange={(event) => updateItem(row.original.id, { nextTouchDate: fromDateInputValue(event.target.value) })} />
-            </label>
-          </div>
+          <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, openRecordDrawer, updateItem, personalMode, baseColumns]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, personalMode, baseColumns]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
   const tableBody = (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse tracker-table">
+        <table className={`min-w-full border-collapse tracker-table ${followUpTableDensity === 'comfortable' ? 'tracker-table-comfortable' : 'tracker-table-compact'}`}>
           <thead className="tracker-table-head">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>

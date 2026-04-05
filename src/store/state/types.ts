@@ -25,6 +25,8 @@ import type {
   SavedFollowUpCustomView,
   FollowUpAdvancedFilters,
   FollowUpColumnKey,
+  FollowUpTableDensity,
+  FollowUpDuplicateModuleMode,
   SavedViewKey,
   TaskItem,
   TaskStatus,
@@ -112,6 +114,8 @@ export interface AppUiState {
   selectedFollowUpIds: string[];
   followUpColumns: FollowUpColumnKey[];
   savedFollowUpViews: SavedFollowUpCustomView[];
+  followUpTableDensity: FollowUpTableDensity;
+  followUpDuplicateModule: FollowUpDuplicateModuleMode;
   itemModal: ItemModalState;
   touchModalOpen: boolean;
   importModalOpen: boolean;

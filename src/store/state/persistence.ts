@@ -1,5 +1,5 @@
 import type { PersistedPayload } from '../../lib/persistence';
-import type { FollowUpAdvancedFilters, FollowUpColumnKey, SavedFollowUpCustomView, SavedExecutionView } from '../../types';
+import type { FollowUpAdvancedFilters, FollowUpColumnKey, SavedFollowUpCustomView, SavedExecutionView, FollowUpTableDensity, FollowUpDuplicateModuleMode } from '../../types';
 import type { AppBusinessState } from './types';
 
 export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'intakeReviewerFeedback'> & {
@@ -7,6 +7,8 @@ export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 
   followUpFilters: FollowUpAdvancedFilters;
   followUpColumns: FollowUpColumnKey[];
   savedFollowUpViews: SavedFollowUpCustomView[];
+  followUpTableDensity: FollowUpTableDensity;
+  followUpDuplicateModule: FollowUpDuplicateModuleMode;
 };
 
 export function buildPersistedPayload(state: PersistableAppState): PersistedPayload {
@@ -37,6 +39,8 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       followUpFilters: state.followUpFilters,
       followUpColumns: state.followUpColumns,
       savedFollowUpViews: state.savedFollowUpViews,
+      followUpTableDensity: state.followUpTableDensity,
+      followUpDuplicateModule: state.followUpDuplicateModule,
     },
   };
 }

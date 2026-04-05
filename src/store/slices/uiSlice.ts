@@ -7,7 +7,7 @@ import type { QueueRequestMeta } from '../persistenceQueue';
 export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestMeta) => void): Pick<AppStoreActions,
   'setSelectedId' | 'setSearch' | 'setProjectFilter' | 'setStatusFilter' | 'setActiveView' | 'setFollowUpFilters' | 'resetFollowUpFilters' |
   'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
-  'setFollowUpColumns' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
+  'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
   'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
   'openRecordDrawer' | 'closeRecordDrawer'

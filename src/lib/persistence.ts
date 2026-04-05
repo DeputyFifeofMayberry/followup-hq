@@ -54,6 +54,8 @@ export interface AppAuxiliaryState {
   followUpFilters?: AppSnapshot['followUpFilters'];
   followUpColumns?: AppSnapshot['followUpColumns'];
   savedFollowUpViews?: AppSnapshot['savedFollowUpViews'];
+  followUpTableDensity?: AppSnapshot['followUpTableDensity'];
+  followUpDuplicateModule?: AppSnapshot['followUpDuplicateModule'];
 }
 
 export interface PersistedPayload extends CoreEntities {
@@ -157,6 +159,8 @@ function buildFallbackSnapshot(): AppSnapshot {
     followUpFilters: undefined,
     followUpColumns: undefined,
     savedFollowUpViews: [],
+    followUpTableDensity: 'compact',
+    followUpDuplicateModule: 'auto',
   };
 }
 
@@ -188,6 +192,8 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       followUpFilters: snapshot.followUpFilters,
       followUpColumns: snapshot.followUpColumns,
       savedFollowUpViews: snapshot.savedFollowUpViews ?? [],
+      followUpTableDensity: snapshot.followUpTableDensity,
+      followUpDuplicateModule: snapshot.followUpDuplicateModule,
     },
   };
 }

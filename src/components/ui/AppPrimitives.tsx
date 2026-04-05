@@ -126,6 +126,16 @@ export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ ton
   return <span className={`app-badge app-badge-${tone}`}>{children}</span>;
 }
 
+export function AttentionPill({
+  label,
+  tone = 'default',
+}: {
+  label: string;
+  tone?: 'default' | 'info' | 'warn' | 'success' | 'danger';
+}) {
+  return <AppBadge tone={tone}>{label}</AppBadge>;
+}
+
 export function WorkspaceHeaderMetaPill({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' }>) {
   return <div className={`workspace-meta-pill workspace-meta-pill-${tone}`}>{children}</div>;
 }

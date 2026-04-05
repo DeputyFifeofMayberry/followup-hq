@@ -4,20 +4,17 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { AppShellCard, SegmentedControl } from './ui/AppPrimitives';
-import { getWorkflowWarningsForRecord } from '../lib/workflowPolicy';
+import { AppBadge, AppShellCard, SegmentedControl } from './ui/AppPrimitives';
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 import { getLinkedTasksForFollowUp, getRelatedRecordBundle } from '../lib/recordContext';
-import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
-import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
+import { useFollowUpLaneContext } from '../domains/followups';
 
 type DetailTab = 'summary' | 'execute' | 'notes' | 'more';
 
 export function ItemDetailPanel({ personalMode = false }: { personalMode?: boolean }) {
   const {
-    selectedId,
     items,
     tasks,
     projects,
@@ -36,7 +33,6 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     attemptFollowUpTransition,
     isRecordDirty,
   } = useAppStore(useShallow((s) => ({
-    selectedId: s.selectedId,
     items: s.items,
     tasks: s.tasks,
     projects: s.projects,
@@ -55,8 +51,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     attemptFollowUpTransition: s.attemptFollowUpTransition,
     isRecordDirty: s.isRecordDirty,
   })));
+  const laneContext = useFollowUpLaneContext();
+  const item = laneContext.selectedItem;
 
-  const item = items.find((entry) => entry.id === selectedId) ?? null;
   const [noteDraft, setNoteDraft] = useState('');
   const [nextActionDraft, setNextActionDraft] = useState('');
   const [assigneeDraft, setAssigneeDraft] = useState('');
@@ -86,17 +83,14 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const company = companies.find((entry) => entry.id === item.companyId);
   const linkedTasks = getLinkedTasksForFollowUp(item.id, tasks);
   const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
-  const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks);
-  const closeout = evaluateFollowUpCloseout(item, tasks);
+  const closeout = laneContext.closeoutEvaluation;
   const followUpDirty = isRecordDirty('followup', item.id);
-
-  const workflowWarnings = getWorkflowWarningsForRecord(item, { tasks });
   const unlinkedSiblingTasks = tasks.filter((task) => !task.linkedFollowUpId && task.project === item.project);
 
   const linkTaskToFollowUp = () => {
     if (!linkTaskIdDraft) return;
     updateTask(linkTaskIdDraft, { linkedFollowUpId: item.id, contextNote: `Linked from follow-up ${item.title}` });
-    setActionFeedback({ tone: 'success', message: 'Task linked to follow-up.' });
+    setActionFeedback({ tone: 'success', message: 'Linked task added. Queue and closeout readiness were refreshed.' });
     setLinkTaskIdDraft('');
   };
 
@@ -116,8 +110,14 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />Edit</button>
       </div>
 
+      <div className="followup-operational-summary">
+        {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
+        {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
+        <div className="followup-operational-next">Needs attention: {laneContext.recommendedNextMove}</div>
+      </div>
+
       {actionFeedback ? <div className={`mb-3 rounded-xl border p-2 text-xs ${actionFeedback.tone === 'danger' ? 'border-rose-200 bg-rose-50 text-rose-900' : actionFeedback.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{actionFeedback.message}</div> : null}
-      {workflowWarnings.length ? <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{workflowWarnings.map((warning) => <div key={warning}>{warning}</div>)}</div> : null}
+      {laneContext.workflowWarnings.length ? <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{laneContext.workflowWarnings.map((warning) => <div key={warning}>{warning}</div>)}</div> : null}
 
       <div className="mt-4">
         <SegmentedControl
@@ -140,20 +140,22 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact / company</div><div className="mt-1 text-sm font-semibold text-slate-900">{contact?.name ?? '—'} · {company?.name ?? '—'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due / next touch</div><div className="mt-1 text-sm font-semibold text-slate-900">{formatDate(item.dueDate)} · {formatDate(item.nextTouchDate)}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next action</div><div className="mt-1 text-sm font-semibold text-slate-900">{item.nextAction || 'No next action set'}</div></div>
-              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked task rollup</div><div className="mt-1 text-sm font-semibold text-slate-900">{childRollup.open} open · {childRollup.blocked} blocked · {childRollup.overdue} overdue · {childRollup.done} done</div></div>
+              <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked work</div><div className="mt-1 text-sm font-semibold text-slate-900">{laneContext.linkedTaskSummary?.summaryLabel ?? 'No linked work yet'}</div></div>
               <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Related records</div><div className="mt-1 text-sm font-semibold text-slate-900">{relatedBundle.counts.relationships} related · {relatedBundle.counts.timelineEvents} events</div></div>
             </div>
-            <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Closeout readiness</div>
-              <div className="mt-2">
-                <CloseoutReadinessCard
-                  evaluation={closeout}
-                  onAddCompletionNote={() => setActiveAction('close')}
-                  onOpenTask={(taskId) => { setSelectedTaskId(taskId); openRecordDrawer({ type: 'task', id: taskId }); }}
-                  onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: item.id })}
-                />
+            {closeout ? (
+              <div className="detail-card inspector-block">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Closeout readiness</div>
+                <div className="mt-2">
+                  <CloseoutReadinessCard
+                    evaluation={closeout}
+                    onAddCompletionNote={() => setActiveAction('close')}
+                    onOpenTask={(taskId) => { setSelectedTaskId(taskId); openRecordDrawer({ type: 'task', id: taskId }); }}
+                    onReviewLinkedRecords={() => openRecordDrawer({ type: 'followup', id: item.id })}
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
           </>
         ) : null}
 
@@ -162,9 +164,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             <div className="detail-card inspector-block">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Primary actions</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
-                <button onClick={() => addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate: addDaysIso(todayIso(), item.cadenceDays || 3) })} className="action-btn">Log touch</button>
-                <button onClick={() => addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() })} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create linked task</button>
+                <button onClick={() => { openDraftModal(item.id); setActionFeedback({ tone: 'success', message: 'Draft flow opened. Keep queue selection on this record to complete send/confirm.' }); }} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
+                <button onClick={() => { const nextTouchDate = addDaysIso(todayIso(), item.cadenceDays || 3); addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate }); setActionFeedback({ tone: 'success', message: `Touch logged. Next touch moved to ${formatDate(nextTouchDate)}.` }); }} className="action-btn">Log touch</button>
+                <button onClick={() => { addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() }); setActionFeedback({ tone: 'success', message: 'Linked task created. Linked-work rollup and closeout state updated.' }); }} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create linked task</button>
                 <button onClick={() => setActiveAction('close')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
                 <button onClick={() => setActiveAction('snooze')} className="action-btn">Snooze</button>
                 <button onClick={() => setActiveAction('escalate')} className="action-btn">Escalate</button>
@@ -176,9 +178,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               <textarea value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} className="field-textarea mt-2" placeholder="Enter the next move here" />
               <div className="mt-2 flex gap-2">
                 <input value={assigneeDraft} onChange={(event) => setAssigneeDraft(event.target.value)} className="field-input" placeholder="Assignee" />
-                <button onClick={() => updateItem(item.id, { assigneeDisplayName: assigneeDraft.trim() || 'Unassigned' })} className="action-btn">Update assignee</button>
+                <button onClick={() => { updateItem(item.id, { assigneeDisplayName: assigneeDraft.trim() || 'Unassigned' }); setActionFeedback({ tone: 'success', message: 'Assignee updated for selected follow-up.' }); }} className="action-btn">Update assignee</button>
               </div>
-              <div className="mt-3 flex justify-end"><button onClick={() => updateItem(item.id, { nextAction: nextActionDraft })} className="action-btn"><Save className="h-4 w-4" />Save execution details</button></div>
+              <div className="mt-3 flex justify-end"><button onClick={() => { updateItem(item.id, { nextAction: nextActionDraft }); setActionFeedback({ tone: 'success', message: 'Execution details saved. Queue row now reflects updated next action.' }); }} className="action-btn"><Save className="h-4 w-4" />Save execution details</button></div>
               {!personalMode ? <div className="mt-2 flex flex-wrap gap-2"><button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Current user', assigneeUserId: 'user-current' })} className="action-btn">Claim</button><button onClick={() => updateItem(item.id, { assigneeDisplayName: 'Unassigned', assigneeUserId: undefined })} className="action-btn">Unclaim</button></div> : null}
             </div>
           </>
@@ -188,7 +190,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           <div className="detail-card inspector-block">
             <div className="text-sm font-semibold text-slate-900">Notes</div>
             <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
-            <div className="mt-3 flex justify-end"><button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); }} className="action-btn">Add note</button></div>
+            <div className="mt-3 flex justify-end"><button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); setActionFeedback({ tone: 'success', message: 'Note saved to selected follow-up history.' }); }} className="action-btn">Add note</button></div>
             <div className="mt-4 space-y-3">
               {noteEntries.map((entry) => <div key={entry.id} className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-medium text-slate-500">{formatDateTime(entry.at)}</div><div className="mt-1 note-pre-wrap text-sm text-slate-700">{entry.text}</div></div>)}
             </div>
@@ -214,7 +216,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
                     <div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div>
                     <div className="flex gap-2">
                       <button className="action-btn" onClick={() => { setSelectedTaskId(task.id); openRecordDrawer({ type: 'task', id: task.id }); }}>Open child</button>
-                      <button className="action-btn" onClick={() => updateTask(task.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from follow-up parent' })}><Unlink2 className="h-4 w-4" />Unlink</button>
+                      <button className="action-btn" onClick={() => { updateTask(task.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from follow-up parent' }); setActionFeedback({ tone: 'warn', message: 'Task unlinked from selected follow-up.' }); }}><Unlink2 className="h-4 w-4" />Unlink</button>
                     </div>
                   </div>
                 ))}
@@ -232,7 +234,10 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         action={activeAction}
         onClose={() => setActiveAction(null)}
         followUpActions={{ attemptFollowUpTransition, deleteItem, updateItem }}
-        onCommitted={setActionFeedback}
+        onCommitted={(feedback) => {
+          setActionFeedback(feedback);
+          setActiveTab('summary');
+        }}
       />
     </AppShellCard>
   );

@@ -6,15 +6,26 @@ import { formatDate, priorityTone, statusTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
-import { AppShellCard, EmptyState } from './ui/AppPrimitives';
+import { AppShellCard, AppBadge, EmptyState } from './ui/AppPrimitives';
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
+import type { FollowUpAttentionSignal } from '../domains/followups';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
-export function TrackerTable({ personalMode = false, appMode = personalMode ? 'personal' : 'team', embedded = false }: { personalMode?: boolean; appMode?: AppMode; embedded?: boolean }) {
+export function TrackerTable({
+  personalMode = false,
+  appMode = personalMode ? 'personal' : 'team',
+  embedded = false,
+  selectedAttentionSignal,
+}: {
+  personalMode?: boolean;
+  appMode?: AppMode;
+  embedded?: boolean;
+  selectedAttentionSignal?: FollowUpAttentionSignal | null;
+}) {
   const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -37,7 +48,24 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
   const baseColumns = useMemo<Record<FollowUpColumnKey, ColumnDef<FollowUpItem>>>(() => ({
-    title: { accessorKey: 'title', header: 'Work item', cell: ({ row }) => <div className="tracker-title-cell"><div className="tracker-title-primary">{row.original.title}</div><div className="tracker-title-secondary">{personalMode ? row.original.project : row.original.id}</div></div> },
+    title: {
+      accessorKey: 'title',
+      header: 'Work item',
+      cell: ({ row }) => {
+        const active = row.original.id === selectedId;
+        return (
+          <div className="tracker-title-cell">
+            <div className="tracker-title-primary">{row.original.title}</div>
+            <div className="tracker-title-secondary">{personalMode ? row.original.project : row.original.id}</div>
+            {active && selectedAttentionSignal ? (
+              <div className="mt-1">
+                <AppBadge tone={selectedAttentionSignal.tone === 'default' ? 'info' : selectedAttentionSignal.tone}>{selectedAttentionSignal.label}</AppBadge>
+              </div>
+            ) : null}
+          </div>
+        );
+      },
+    },
     project: { accessorKey: 'project', header: 'Project' },
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
@@ -56,7 +84,7 @@ export function TrackerTable({ personalMode = false, appMode = personalMode ? 'p
       cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open`,
     },
     nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
-  }), [personalMode]);
+  }), [personalMode, selectedId, selectedAttentionSignal]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
     const effectiveColumnOrder = personalMode && followUpColumns.includes('owner') && followUpColumns.includes('assignee')

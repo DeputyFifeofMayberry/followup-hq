@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Save/sync trust overhaul phase 3: record-level persistence + explicit deletion propagation
+- Replaced coarse table-replacement persistence with operation-oriented record sync that scopes writes to changed dirty records, carries pending record operations through local cache, and prevents stale-client omission from triggering global stale-row deletes (`src/lib/persistence.ts`, `src/store/persistenceQueue.ts`).
+- Added explicit tombstone-based deletion support (`deleted_at`) to entity schema and persistence writes so records only disappear remotely through intentional persisted delete operations, not snapshot absence (`supabase/migrations/20260402_entity_persistence.sql`, `supabase/migrations/20260405_persistence_schema_hardening.sql`, `supabase/migrations/20260405_phase3_record_level_sync.sql`).
+- Updated schema preflight/read paths to validate and use record-level delete metadata while keeping hydration focused on active records only (`src/lib/persistenceSchemaHealth.ts`, `src/lib/persistence.ts`).
+- Calmed healthy-session shell wording by simplifying the sync panel title while preserving detailed diagnostics in disclosure surfaces (`src/components/SyncStatusControl.tsx`).
+- Expanded persistence reliability coverage for scoped upserts, explicit single-record tombstones, and stale-delete guard behavior under operation-oriented sync (`src/lib/__tests__/persistenceReliability.test.ts`).
+
 ### Save/sync trust overhaul phase 2: durable session trust lifecycle + explicit recovery
 - Added a stronger session-level trust layer in app meta state (degraded/recovered lifecycle, degraded reason category, degraded entry timestamp, recovery-clear marker, last successful local persistence timestamp, and last successful cloud-confirmed timestamp) while preserving existing sync metadata for backward compatibility (`src/store/state/types.ts`, `src/store/state/initialState.ts`).
 - Refactored post-save trust resolution into explicit result-kind + recovery rules so no-op saves and local-only saves cannot accidentally clear cloud-related degraded sessions, while confirmed cloud saves can explicitly restore trust (`src/store/persistenceMeta.ts`, `src/store/useAppStore.ts`).

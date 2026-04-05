@@ -4,6 +4,7 @@ create table if not exists public.follow_up_items (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -12,6 +13,7 @@ create table if not exists public.tasks (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -20,6 +22,7 @@ create table if not exists public.projects (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -28,6 +31,7 @@ create table if not exists public.contacts (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -36,6 +40,7 @@ create table if not exists public.companies (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );

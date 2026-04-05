@@ -41,6 +41,8 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   let lastSavedJson = '';
   let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
 
+  let pendingDirtyRefs = new Map<string, DirtyRecordRef>();
+
   const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' = 'auto'): Promise<void> => {
     handlers.onSaving({ reason, attempt });
     const payload = handlers.getPayload();
@@ -52,9 +54,11 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     }
 
     try {
-      const saveResult = await savePersistedPayload(payload);
+      const dirtyRecords = Array.from(pendingDirtyRefs.values());
+      const saveResult = await savePersistedPayload(payload, { dirtyRecords });
       lastMode = saveResult.mode;
       lastSavedJson = payloadJson;
+      pendingDirtyRefs = new Map();
       handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
     } catch (error) {
       const message = formatPersistenceErrorMessage(normalizePersistenceError(error, { operation: 'save' }));
@@ -73,6 +77,9 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
 
   const schedule = (meta?: QueueRequestMeta) => {
     if (timer) clearTimeout(timer);
+    meta?.dirtyRecords?.forEach((ref) => {
+      pendingDirtyRefs.set(`${ref.type}:${ref.id}`, ref);
+    });
     handlers.onQueued(meta);
     timer = setTimeout(() => {
       void flush(0, 'auto');

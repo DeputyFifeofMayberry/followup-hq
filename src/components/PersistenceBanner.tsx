@@ -30,10 +30,10 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
 
-  const StatusIcon = statusModel.stateTone === 'danger'
-    ? AlertTriangle
-    : statusModel.showSpinner || statusModel.stateTone === 'info'
-      ? LoaderCircle
+  const StatusIcon = statusModel.showSpinner || statusModel.stateTone === 'info'
+    ? LoaderCircle
+    : statusModel.stateTone === 'danger' || statusModel.stateTone === 'warn'
+      ? AlertTriangle
       : CheckCircle2;
 
   if (compact) {

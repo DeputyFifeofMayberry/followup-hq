@@ -1,4 +1,5 @@
 import { deriveSyncMetaFromLoadResult } from '../syncMetaDerivation';
+import { describeLoadFallbackFailure } from '../../persistenceActivity';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -77,10 +78,18 @@ function testLocalNewerThanCloud(): void {
   assert(meta.loadedFromLocalRecoveryCache === true, 'local newer than cloud should be marked as recovery');
 }
 
+function testFallbackCopyIsCalmAndNonJargony(): void {
+  const fallback = describeLoadFallbackFailure('user_preferences', 'relation "user_preferences" does not exist');
+  assert(fallback.summary === 'Opened using protected local data.', `unexpected fallback summary: ${fallback.summary}`);
+  assert(fallback.detail.includes('Cloud data could not be confirmed'), `expected calm fallback detail, got ${fallback.detail}`);
+  assert(!fallback.summary.toLowerCase().includes('failed'), `summary should avoid alarming failure-first wording: ${fallback.summary}`);
+}
+
 (function run() {
   testCloudConfirmedLoad();
   testBrowserLoadNotRecovery();
   testCloudReadFailureFallback();
   testCloudReadFailureWithoutFallbackDoesNotLie();
   testLocalNewerThanCloud();
+  testFallbackCopyIsCalmAndNonJargony();
 })();

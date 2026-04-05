@@ -46,29 +46,35 @@ export function describeLoadFallbackFailure(stage?: LoadFailureStage, message?: 
 
   if (missingSchema) {
     return {
-      summary: 'Cloud persistence setup issue; local cache preserved.',
+      summary: 'Opened using protected local data.',
       detail: normalizedMessage
-        ? `SetPoint loaded local cache because required cloud tables are missing. Detail: ${normalizedMessage}`
-        : 'SetPoint loaded local cache because required cloud tables are missing.',
+        ? `Cloud data could not be confirmed because required tables are missing. Technical detail: ${normalizedMessage}`
+        : 'Cloud data could not be confirmed because required tables are missing.',
     };
   }
 
   if (stage === 'auth_session') {
     return {
-      summary: 'Session lookup failed; local cache preserved.',
-      detail: normalizedMessage ? `Session lookup failed. Detail: ${normalizedMessage}` : 'Session lookup failed; local cache preserved your latest data.',
+      summary: 'Opened using protected local data.',
+      detail: normalizedMessage
+        ? `Cloud data could not be confirmed during session check. Technical detail: ${normalizedMessage}`
+        : 'Cloud data could not be confirmed during session check, so SetPoint opened your protected local copy.',
     };
   }
 
   if (stage) {
     return {
-      summary: `Cloud read failed during ${stage}; local cache preserved.`,
-      detail: normalizedMessage ? `Cloud read failed during ${stage}. Detail: ${normalizedMessage}` : `Cloud read failed during ${stage}; local cache preserved your latest data.`,
+      summary: 'Opened using protected local data.',
+      detail: normalizedMessage
+        ? `Cloud data could not be confirmed during ${stage}. Technical detail: ${normalizedMessage}`
+        : `Cloud data could not be confirmed during ${stage}, so SetPoint opened your protected local copy.`,
     };
   }
 
   return {
-    summary: 'Cloud read failed; local copy preserved.',
-    detail: normalizedMessage ? `Cloud read failed. Detail: ${normalizedMessage}` : 'Cloud read failed; local cache preserved your latest data.',
+    summary: 'Opened using protected local data.',
+    detail: normalizedMessage
+      ? `Cloud data could not be confirmed. Technical detail: ${normalizedMessage}`
+      : 'Cloud data could not be confirmed, so SetPoint opened your protected local copy.',
   };
 }

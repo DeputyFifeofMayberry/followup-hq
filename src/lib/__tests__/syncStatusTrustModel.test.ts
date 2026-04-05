@@ -20,15 +20,20 @@ function baseMeta() {
     lastLocalWriteAt: '2026-04-05T10:00:00.000Z',
     lastFallbackRestoreAt: undefined,
     lastFailedSyncAt: undefined,
+    lastLoadFailureStage: undefined,
+    lastLoadFailureMessage: undefined,
+    lastLoadRecoveredWithLocalCache: false,
   } as const;
 }
 
-function testCloudConfirmed(): void {
+function testCloudConfirmedPrimaryState(): void {
   const model = getSyncStatusModel(baseMeta());
-  assert(model.stateLabel === 'Saved to cloud', `expected cloud-confirmed label, got ${model.stateLabel}`);
+  assert(model.primaryState === 'saved', `expected saved primary state, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saved', `expected Saved label, got ${model.stateLabel}`);
+  assert(model.stateDescription === 'Your latest updates are saved.', `expected simplified saved description, got ${model.stateDescription}`);
 }
 
-function testBrowserLocalOnly(): void {
+function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
     persistenceMode: 'browser',
@@ -36,68 +41,71 @@ function testBrowserLocalOnly(): void {
     lastSyncedAt: undefined,
     lastCloudConfirmedAt: undefined,
   });
-  assert(model.stateLabel === 'Saved locally on this device', `expected local-only confirmed label, got ${model.stateLabel}`);
+  assert(model.primaryState === 'saved', `expected saved primary state in browser mode, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saved', `expected Saved label in browser mode, got ${model.stateLabel}`);
+  assert(model.stateTone === 'success', `expected success tone for local-only saved state, got ${model.stateTone}`);
+  assert(model.stateDescription === 'Your latest updates are saved on this device.', `expected local-only saved description, got ${model.stateDescription}`);
 }
 
-function testCloudReadFallback(): void {
+function testPendingCloudFeelsTransitionalNotDangerous(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
-    cloudSyncStatus: 'cloud-read-failed-local-fallback',
-    loadedFromLocalRecoveryCache: true,
+    cloudSyncStatus: 'pending-cloud',
   });
-  assert(model.stateLabel === 'Cloud read failed; local cache preserved', `expected cloud read fallback label, got ${model.stateLabel}`);
+  assert(model.primaryState === 'saved', `expected pending-cloud to remain saved, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saved', `expected Saved label for pending-cloud, got ${model.stateLabel}`);
+  assert(model.stateTone === 'info', `expected info tone for pending-cloud transition, got ${model.stateTone}`);
 }
 
-function testSchemaMissingFallback(): void {
-  const model = getSyncStatusModel({
+function testFallbackCasesMapToNeedsAttention(): void {
+  const fallbackStatuses = [
+    'local-recovery',
+    'local-newer-than-cloud',
+    'cloud-read-failed-local-fallback',
+    'cloud-save-failed-local-preserved',
+    'load-failed-no-local-copy',
+  ] as const;
+
+  fallbackStatuses.forEach((cloudSyncStatus) => {
+    const model = getSyncStatusModel({
+      ...baseMeta(),
+      cloudSyncStatus,
+      loadedFromLocalRecoveryCache: cloudSyncStatus !== 'load-failed-no-local-copy',
+    });
+    assert(model.primaryState === 'needs-attention', `expected ${cloudSyncStatus} to map to needs-attention, got ${model.primaryState}`);
+    assert(model.stateLabel === 'Needs attention', `expected Needs attention label for ${cloudSyncStatus}, got ${model.stateLabel}`);
+  });
+}
+
+function testFailureNarrativesAreCalmAndSpecific(): void {
+  const saveFailure = getSyncStatusModel({
     ...baseMeta(),
-    cloudSyncStatus: 'cloud-read-failed-local-fallback',
-    loadedFromLocalRecoveryCache: true,
-    lastLoadFailureMessage: 'Cloud persistence is not configured correctly. Missing table: public.follow_up_items (PGRST205).',
+    syncState: 'error',
+    saveError: 'network exploded',
+    cloudSyncStatus: 'cloud-save-failed-local-preserved',
   });
-  assert(model.stateLabel === 'Cloud persistence setup issue', `expected schema-missing label, got ${model.stateLabel}`);
-}
+  assert(saveFailure.reassurance === 'Your recent work was protected.', `expected reassurance-first save failure narrative, got ${saveFailure.reassurance}`);
+  assert(saveFailure.stateDescription === 'Your recent changes were kept locally. Review save status and retry.', `unexpected save failure description: ${saveFailure.stateDescription}`);
 
-function testLocalNewerThanCloud(): void {
-  const model = getSyncStatusModel({
-    ...baseMeta(),
-    cloudSyncStatus: 'local-newer-than-cloud',
-    loadedFromLocalRecoveryCache: true,
-  });
-  assert(model.stateLabel === 'Loaded from local recovery cache', `expected local newer state label, got ${model.stateLabel}`);
-}
-
-function testHardLoadFailureNoLocalCopy(): void {
-  const model = getSyncStatusModel({
+  const noLocalCopy = getSyncStatusModel({
     ...baseMeta(),
     syncState: 'error',
     saveError: 'network exploded',
     cloudSyncStatus: 'load-failed-no-local-copy',
   });
-  assert(model.stateLabel === 'Load issue', `expected hard load failure label, got ${model.stateLabel}`);
-  assert(model.stateDescription.includes('network exploded'), 'expected hard load failure to keep error details');
+  assert(noLocalCopy.stateDescription === 'SetPoint could not confirm saved data. Review technical details.', `unexpected no-local-copy description: ${noLocalCopy.stateDescription}`);
 }
 
-function testSaveFailure(): void {
-  const model = getSyncStatusModel({
-    ...baseMeta(),
-    syncState: 'error',
-    saveError: 'Failed to save to cloud.',
-    cloudSyncStatus: 'cloud-save-failed-local-preserved',
-  });
-  assert(model.stateLabel === 'Save failed; latest local changes preserved', `expected explicit save failure label, got ${model.stateLabel}`);
-}
-
-function testFailedThenEditIsPending(): void {
+function testDirtyMapsToSavingState(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
     syncState: 'dirty',
-    saveError: 'Previous failure message',
     hasLocalUnsavedChanges: true,
-    unsavedChangeCount: 1,
+    unsavedChangeCount: 2,
     cloudSyncStatus: 'pending-cloud',
   });
-  assert(model.stateLabel === 'Unsaved local edits', `expected dirty state after new edit, got ${model.stateLabel}`);
+  assert(model.primaryState === 'saving', `expected dirty to map to saving, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saving', `expected Saving label, got ${model.stateLabel}`);
 }
 
 function testSharedSnapshotSelectorConsistency(): void {
@@ -131,13 +139,11 @@ function testSharedSnapshotSelectorConsistency(): void {
 }
 
 (function run() {
-  testCloudConfirmed();
-  testBrowserLocalOnly();
-  testCloudReadFallback();
-  testSchemaMissingFallback();
-  testLocalNewerThanCloud();
-  testHardLoadFailureNoLocalCopy();
-  testSaveFailure();
-  testFailedThenEditIsPending();
+  testCloudConfirmedPrimaryState();
+  testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
+  testPendingCloudFeelsTransitionalNotDangerous();
+  testFallbackCasesMapToNeedsAttention();
+  testFailureNarrativesAreCalmAndSpecific();
+  testDirtyMapsToSavingState();
   testSharedSnapshotSelectorConsistency();
 })();

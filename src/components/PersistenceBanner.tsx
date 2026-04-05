@@ -7,12 +7,14 @@ import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
 export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
-  const { persistenceMode, saveError, hydrated, syncState, lastSyncedAt } = useAppStore(useShallow((s) => ({
+  const { persistenceMode, saveError, hydrated, syncState, lastSyncedAt, unsavedChangeCount, hasLocalUnsavedChanges } = useAppStore(useShallow((s) => ({
     persistenceMode: s.persistenceMode,
     saveError: s.saveError,
     hydrated: s.hydrated,
     syncState: s.syncState,
     lastSyncedAt: s.lastSyncedAt,
+    unsavedChangeCount: s.unsavedChangeCount,
+    hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
   })));
   const [email, setEmail] = useState<string>('');
   const [signingOut, setSigningOut] = useState(false);
@@ -39,8 +41,10 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     saveError,
     hydrated,
     syncState,
+    unsavedChangeCount,
+    hasLocalUnsavedChanges,
     lastSyncedAt,
-  }), [hydrated, syncState, persistenceMode, saveError, lastSyncedAt]);
+  }), [hydrated, syncState, persistenceMode, saveError, unsavedChangeCount, hasLocalUnsavedChanges, lastSyncedAt]);
 
   const StatusIcon = statusModel.stateTone === 'danger'
     ? AlertTriangle
@@ -49,7 +53,7 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
       : CheckCircle2;
 
   if (compact) {
-    if (!saveError && syncState !== 'saving' && syncState !== 'error') {
+    if (!saveError && syncState !== 'saving' && syncState !== 'error' && !hasLocalUnsavedChanges) {
       return null;
     }
     return (
@@ -59,6 +63,7 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           <span className="font-medium">{statusModel.stateLabel}</span>
         </div>
         <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
+        {hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{unsavedChangeCount} pending local change{unsavedChangeCount === 1 ? '' : 's'}.</div> : null}
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
             <UserRound className="h-3.5 w-3.5" />

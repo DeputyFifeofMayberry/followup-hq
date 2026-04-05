@@ -1,12 +1,14 @@
 import type { PersistenceMode } from '../types';
 
-export type SyncState = 'idle' | 'checking' | 'saving' | 'saved' | 'error';
+export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 
 export interface SyncMetaSnapshot {
   hydrated: boolean;
   persistenceMode: PersistenceMode;
   syncState: SyncState;
   saveError: string;
+  unsavedChangeCount: number;
+  hasLocalUnsavedChanges: boolean;
   lastSyncedAt?: string;
 }
 
@@ -80,6 +82,20 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       tone: 'info',
       stateTone: 'info',
       showSpinner: true,
+      ...modeDetails,
+    };
+  }
+
+  if (meta.hasLocalUnsavedChanges || meta.syncState === 'dirty') {
+    const pendingDescription = meta.unsavedChangeCount > 1
+      ? `${meta.unsavedChangeCount} local edits are waiting to sync.`
+      : 'Local edits are waiting to sync.';
+    return {
+      stateLabel: 'Unsaved local edits',
+      stateDescription: pendingDescription,
+      tone: 'info',
+      stateTone: 'warn',
+      showSpinner: false,
       ...modeDetails,
     };
   }

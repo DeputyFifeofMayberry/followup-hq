@@ -1,5 +1,6 @@
 import type { AppBusinessState, AppMetaState, AppUiState } from './state/types';
 import type { UniversalCaptureDraft } from '../lib/universalCapture';
+import type { DirtyRecordRef } from './persistenceQueue';
 import type {
   DroppedEmailImport,
   FollowUpAdvancedFilters,
@@ -46,6 +47,9 @@ export interface BatchWorkflowResult {
 
 export interface AppStoreActions {
   initializeApp: () => Promise<void>;
+  flushPersistenceNow: () => Promise<void>;
+  retryPersistenceNow: () => Promise<void>;
+  isRecordDirty: (type: DirtyRecordRef['type'], id: string) => boolean;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;
   setProjectFilter: (value: string) => void;

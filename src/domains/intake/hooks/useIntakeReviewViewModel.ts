@@ -4,14 +4,18 @@ import { useAppStore } from '../../../store/useAppStore';
 import { buildForwardedReviewQueue, buildQueueBucketCounts, buildQueueMetrics, filterReviewQueue, sortReviewQueue, type IntakeQueueFilters, type IntakeReviewBucket, type IntakeReviewSort } from '../../../lib/intakeReviewQueue';
 import { buildIntakeTuningModel } from '../../../lib/intakeTuningModel';
 import { buildIntakeTuningInsights } from '../../../lib/intakeTuningInsights';
+import { buildForwardedFieldReviews, buildReviewerActionHints, summarizeFieldReviews } from '../../../lib/intakeEvidence';
+import { evaluateForwardedImportSafety } from '../../../lib/intakeImportSafety';
+import { buildIntakeReviewPlan } from '../../../lib/intakeReviewPlan';
 
 interface IntakeReviewViewOptions {
   activeBucket: IntakeReviewBucket | 'all';
   sortKey: IntakeReviewSort;
   queueFilters: IntakeQueueFilters;
+  activeCandidateId?: string | null;
 }
 
-export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters }: IntakeReviewViewOptions) {
+export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, activeCandidateId }: IntakeReviewViewOptions) {
   const store = useAppStore(useShallow((s) => ({
     forwardedEmails: s.forwardedEmails,
     forwardedCandidates: s.forwardedCandidates,
@@ -56,12 +60,29 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters }
     feedback: store.intakeReviewerFeedback,
   }), [store.forwardedCandidates, store.forwardedRules, store.forwardedRoutingAudit, store.intakeReviewerFeedback]);
 
+  const pendingQueue = useMemo(() => filteredQueue.filter((item) => item.status === 'pending'), [filteredQueue]);
+  const selectedQueueItem = pendingQueue.find((item) => item.id === activeCandidateId) ?? pendingQueue[0] ?? null;
+  const selectedCandidate = store.forwardedCandidates.find((entry) => entry.id === selectedQueueItem?.id) ?? null;
+  const selectedFieldSummary = useMemo(() => selectedCandidate ? summarizeFieldReviews(buildForwardedFieldReviews(selectedCandidate)) : null, [selectedCandidate]);
+  const selectedSafety = useMemo(() => selectedCandidate ? evaluateForwardedImportSafety(selectedCandidate) : null, [selectedCandidate]);
+  const selectedActionHints = useMemo(() => selectedFieldSummary ? buildReviewerActionHints(selectedFieldSummary) : [], [selectedFieldSummary]);
+  const selectedReviewPlan = useMemo(() => {
+    if (!selectedQueueItem || !selectedFieldSummary || !selectedSafety) return null;
+    const tuningPressure = selectedQueueItem.alerts.some((alert) => ['tuning_review_pressure', 'tuning_due_date_guard', 'tuning_project_guard'].includes(alert.code));
+    return buildIntakeReviewPlan({
+      queueItem: selectedQueueItem,
+      fieldSummary: selectedFieldSummary,
+      safety: selectedSafety,
+      tuningPressure,
+    });
+  }, [selectedQueueItem, selectedFieldSummary, selectedSafety]);
+
   const reviewLane = {
     queue,
     filteredQueue,
     metrics,
     bucketCounts,
-    pendingQueue: filteredQueue.filter((item) => item.status === 'pending'),
+    pendingQueue,
   };
 
   const supportPanels = {
@@ -91,5 +112,14 @@ export function useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters }
     reviewLane,
     supportPanels,
     mutations,
+    selectedCandidate,
+    selectedQueueItem,
+    selectedFieldSummary,
+    selectedSafety,
+    selectedActionHints,
+    selectedReviewPlan,
+    selectedSuggestions: [],
+    selectedBestMatch: null,
+    selectedQuickFixes: selectedReviewPlan?.quickFixActions ?? [],
   };
 }

@@ -1,8 +1,8 @@
 import { Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 import type { AppMode } from '../../types';
-import { useFollowUpsViewModel } from '../../domains/followups';
-import { WorkspacePage, WorkspaceTopStack, WorkspaceSummaryStrip, SectionHeader, WorkspacePrimaryLayout, AppShellCard } from '../ui/AppPrimitives';
+import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
+import { WorkspacePage, WorkspaceTopStack, WorkspaceSummaryStrip, SectionHeader, WorkspacePrimaryLayout, AppShellCard, AppBadge } from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
@@ -11,6 +11,7 @@ import { describeExecutionIntent } from '../../lib/executionHandoff';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
   const { followUpStats, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
+  const laneContext = useFollowUpLaneContext();
 
   useEffect(() => {
     if (executionIntent?.target !== 'followups') return;
@@ -41,7 +42,31 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <AppShellCard className="workspace-list-panel tracker-workspace-main" surface="data">
           <ControlBar />
-          <TrackerTable personalMode={personalMode} appMode={appMode} embedded />
+          <div className="followup-selected-context-strip">
+            {!laneContext.selectedItem ? (
+              <div className="followup-selected-context-empty">Select a follow-up to review and act.</div>
+            ) : (
+              <>
+                <div>
+                  <div className="followup-selected-kicker">Selected follow-up</div>
+                  <div className="followup-selected-title">{laneContext.selectedItem.title}</div>
+                  <div className="followup-selected-helper">Next move: {laneContext.recommendedNextMove}</div>
+                </div>
+                <div className="followup-selected-signals">
+                  {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
+                  {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
+                  {laneContext.closeoutEvaluation?.readiness === 'ready_to_close' ? <AppBadge tone="success">Ready to close</AppBadge> : null}
+                  {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
+                </div>
+              </>
+            )}
+          </div>
+          <TrackerTable
+            personalMode={personalMode}
+            appMode={appMode}
+            embedded
+            selectedAttentionSignal={laneContext.attentionSignal}
+          />
           <DuplicateReviewPanel />
         </AppShellCard>
         <ItemDetailPanel personalMode={personalMode} />

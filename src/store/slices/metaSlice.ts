@@ -11,6 +11,7 @@ import type { FollowUpColumnKey } from '../../types';
 import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
 import { refreshDuplicates } from '../useCases/mutationEffects';
+import { createPersistenceActivityEvent } from '../persistenceActivity';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
   return {
@@ -64,10 +65,17 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           hasLocalUnsavedChanges: false,
           dirtyRecordRefs: [],
           lastSyncedAt: todayIso(),
+          lastFailedSyncAt: undefined,
+          persistenceActivity: [createPersistenceActivityEvent({
+            kind: 'saved',
+            summary: 'Workspace loaded from persisted data.',
+            detail: mode === 'supabase' ? 'Cloud-backed persistence mode active.' : 'Running in local/browser persistence mode.',
+          })],
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
         });
       } catch (error) {
+        const failureAt = todayIso();
         set({
           hydrated: true,
           persistenceMode: 'browser',
@@ -76,6 +84,13 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           unsavedChangeCount: 0,
           hasLocalUnsavedChanges: false,
           dirtyRecordRefs: [],
+          lastFailedSyncAt: failureAt,
+          persistenceActivity: [createPersistenceActivityEvent({
+            kind: 'failed',
+            at: failureAt,
+            summary: 'Failed to load persisted workspace.',
+            detail: error instanceof Error ? error.message : 'Failed to load saved data.',
+          })],
         });
       }
     },

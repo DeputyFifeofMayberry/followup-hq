@@ -20,9 +20,9 @@ export interface QueueRequestMeta {
 interface QueueHandlers {
   getPayload: () => PersistedPayload;
   onQueued: (meta?: QueueRequestMeta) => void;
-  onSaving: () => void;
-  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string) => void;
-  onError: (message: string) => void;
+  onSaving: (context: { reason: 'auto' | 'manual' | 'retry'; attempt: number }) => void;
+  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry') => void;
+  onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry') => void;
 }
 
 export interface PersistenceQueueController {
@@ -40,13 +40,13 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   let lastSavedJson = '';
   let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
 
-  const flush = async (attempt = 0): Promise<void> => {
-    handlers.onSaving();
+  const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' = 'auto'): Promise<void> => {
+    handlers.onSaving({ reason, attempt });
     const payload = handlers.getPayload();
     const payloadJson = JSON.stringify(payload);
 
     if (payloadJson === lastSavedJson) {
-      handlers.onSaved(lastMode, todayIso());
+      handlers.onSaved(lastMode, todayIso(), reason);
       return;
     }
 
@@ -54,15 +54,15 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       const { mode } = await savePersistedPayload(payload);
       lastMode = mode;
       lastSavedJson = payloadJson;
-      handlers.onSaved(mode, todayIso());
+      handlers.onSaved(mode, todayIso(), reason);
     } catch (error) {
       if (attempt < maxRetries) {
         timer = setTimeout(() => {
-          void flush(attempt + 1);
+          void flush(attempt + 1, reason);
         }, retryDelayMs * (attempt + 1));
         return;
       }
-      handlers.onError(error instanceof Error ? error.message : 'Failed to save data.');
+      handlers.onError(error instanceof Error ? error.message : 'Failed to save data.', todayIso(), reason);
     }
   };
 
@@ -70,19 +70,23 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     if (timer) clearTimeout(timer);
     handlers.onQueued(meta);
     timer = setTimeout(() => {
-      void flush();
+      void flush(0, 'auto');
     }, debounceMs);
   };
 
   const flushNow = async () => {
     if (timer) clearTimeout(timer);
-    handlers.onSaving();
-    await flush();
+    await flush(0, 'manual');
+  };
+
+  const retryNow = async () => {
+    if (timer) clearTimeout(timer);
+    await flush(0, 'retry');
   };
 
   return {
     enqueue: schedule,
     flushNow,
-    retryNow: flushNow,
+    retryNow,
   } satisfies PersistenceQueueController;
 }

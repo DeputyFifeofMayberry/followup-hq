@@ -38,6 +38,22 @@ import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
 
+export type PersistenceActivityKind =
+  | 'queued'
+  | 'saving'
+  | 'saved'
+  | 'failed'
+  | 'manual-save'
+  | 'retry';
+
+export interface PersistenceActivityEvent {
+  id: string;
+  at: string;
+  kind: PersistenceActivityKind;
+  summary: string;
+  detail?: string;
+}
+
 export interface ItemModalState {
   open: boolean;
   mode: 'create' | 'edit';
@@ -125,4 +141,6 @@ export interface AppMetaState {
   hasLocalUnsavedChanges: boolean;
   dirtyRecordRefs: DirtyRecordRef[];
   lastSyncedAt?: string;
+  lastFailedSyncAt?: string;
+  persistenceActivity: PersistenceActivityEvent[];
 }

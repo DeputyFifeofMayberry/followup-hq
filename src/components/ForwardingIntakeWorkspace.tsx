@@ -31,6 +31,7 @@ const actionLabel: Record<ForwardedRuleAction, string> = {
 };
 
 const bucketLabels: Record<IntakeReviewBucket, string> = {
+  auto_resolved: 'Auto-resolved',
   ready_to_approve: 'Ready to approve',
   needs_correction: 'Needs correction',
   link_duplicate_review: 'Link / duplicate review',
@@ -66,7 +67,24 @@ export function ForwardingIntakeWorkspace() {
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
 
   const viewModel = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, activeCandidateId });
-  const { forwardedEmails, forwardedCandidates, items, reviewLane, supportPanels, mutations, selectedCandidate, selectedQueueItem, selectedReviewPlan, selectedSafety } = viewModel;
+  const {
+    forwardedEmails,
+    forwardedCandidates,
+    items,
+    reviewLane,
+    supportPanels,
+    mutations,
+    selectedCandidate,
+    selectedQueueItem,
+    selectedReviewPlan,
+    selectedSafety,
+    selectedDecisionPolicy,
+    selectedAutomationEligibility,
+    selectedPatternRisk,
+    selectedAuditExplanation,
+    queueAutomationMetrics,
+    sourceTrustStatus,
+  } = viewModel;
   const { metrics, bucketCounts, filteredQueue, queue } = reviewLane;
   const { tuningInsights, forwardedRules, forwardedLedger, forwardedRoutingAudit } = supportPanels;
   const {
@@ -134,11 +152,11 @@ export function ForwardingIntakeWorkspace() {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Pending review</div><div className="text-lg font-semibold text-amber-700">{metrics.pendingCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Auto-resolved</div><div className="text-lg font-semibold text-emerald-700">{metrics.autoResolvedCount}</div></div>
         <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Ready now</div><div className="text-lg font-semibold text-emerald-700">{metrics.batchSafeCount}</div></div>
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Link existing</div><div className="text-lg font-semibold text-rose-700">{metrics.duplicateReviewCount}</div></div>
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Needs correction</div><div className="text-lg font-semibold text-amber-700">{metrics.weakOrConflictingCount}</div></div>
-        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Finalized</div><div className="text-lg font-semibold text-slate-900">{metrics.finalizedCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Link review</div><div className="text-lg font-semibold text-rose-700">{queueAutomationMetrics.duplicateLinkFirstCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Forced review</div><div className="text-lg font-semibold text-amber-700">{queueAutomationMetrics.forcedReviewCount}</div></div>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm"><div className="text-slate-500">Automation capture</div><div className="text-lg font-semibold text-slate-900">{Math.round(queueAutomationMetrics.automationCaptureRate * 100)}%</div></div>
       </div>
 
       <div className="rounded-xl border border-slate-200 p-3">
@@ -190,6 +208,12 @@ export function ForwardingIntakeWorkspace() {
 
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   {queueEntry.alerts.slice(0, 4).map((alert) => <Badge key={alert.code} variant={alert.tone}>{alert.label}</Badge>)}
+                  <Badge variant={queueEntry.decisionPolicy.autoActionEligible ? 'success' : 'neutral'}>
+                    {queueEntry.decisionPolicy.autoActionEligible ? `Auto action: ${queueEntry.decisionPolicy.autoActionType.replace(/_/g, ' ')}` : `Policy: ${queueEntry.decisionPolicy.decisionMode.replace(/_/g, ' ')}`}
+                  </Badge>
+                  <Badge variant={queueEntry.decisionPolicy.patternRisk === 'high' ? 'danger' : queueEntry.decisionPolicy.patternRisk === 'medium' ? 'warn' : 'success'}>
+                    Pattern risk: {queueEntry.decisionPolicy.patternRisk}
+                  </Badge>
                 </div>
 
                 <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -203,6 +227,9 @@ export function ForwardingIntakeWorkspace() {
                   <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-xs">
                     <div className="font-semibold text-slate-700">Required to approve</div>
                     <div className="mt-1 text-slate-600">{selectedReviewPlan?.requiredCorrections.length ? selectedReviewPlan.requiredCorrections.map((field) => field.label).join(' • ') : 'No required corrections.'}</div>
+                    <div className="mt-2 text-slate-600">Policy: <span className="font-semibold text-slate-800">{selectedDecisionPolicy?.decisionMode.replace(/_/g, ' ') ?? 'manual review'}</span> • Review level: <span className="font-semibold text-slate-800">{selectedDecisionPolicy?.requiredReviewLevel.replace(/_/g, ' ') ?? 'manual required'}</span></div>
+                    <div className="mt-1 text-slate-600">Source trust: <span className="font-semibold text-slate-800">{sourceTrustStatus?.readiness ?? 'watch'}</span> • Pattern risk: <span className="font-semibold text-slate-800">{selectedPatternRisk}</span></div>
+                    {selectedAuditExplanation.length ? <div className="mt-1 text-slate-500">{selectedAuditExplanation[0]}</div> : null}
                     {selectedReviewPlan?.recommendedCorrections.length ? (
                       <>
                         <div className="mt-2 font-semibold text-slate-700">Recommended improvements</div>
@@ -233,8 +260,8 @@ export function ForwardingIntakeWorkspace() {
                   <div className="rounded-lg border border-slate-200 p-2">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve into execution</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve into Tasks</button>
-                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve into Follow Ups</button>
+                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> {selectedAutomationEligibility && activeCandidateId === candidate.id ? 'Fast auto-task' : 'Approve into Tasks'}</button>
+                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> {selectedAutomationEligibility && activeCandidateId === candidate.id ? 'Fast auto-follow-up' : 'Approve into Follow Ups'}</button>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-2">

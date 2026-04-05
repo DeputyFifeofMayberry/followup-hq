@@ -26,6 +26,7 @@ import {
 import { describeFinalizedOutcome, evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeTuningInsights, toneFromReadiness } from '../lib/intakeTuningInsights';
 import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
+import { buildCandidateFieldSuggestions, buildIntakeReviewPlan } from '../lib/intakeReviewPlan';
 import type { WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { StructuredActionFlow } from './actions/StructuredActionFlow';
@@ -144,6 +145,23 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
       || (selectedSafety && (!selectedSafety.safeToCreateNew || selectedSafety.blockers.length > 0))
     ),
   );
+  const selectedSuggestions = useMemo(
+    () => selectedCandidate && selectedFieldSummary && selectedSafety
+      ? buildCandidateFieldSuggestions(selectedCandidate, selectedFieldSummary, selectedSafety)
+      : [],
+    [selectedCandidate, selectedFieldSummary, selectedSafety],
+  );
+  const selectedReviewPlan = useMemo(() => {
+    if (!selectedQueueItem || !selectedFieldSummary || !selectedSafety) return null;
+    const tuningPressure = selectedQueueItem.alerts.some((alert) => ['tuning_review_pressure', 'tuning_due_date_guard', 'tuning_project_guard'].includes(alert.code));
+    return buildIntakeReviewPlan({
+      queueItem: selectedQueueItem,
+      fieldSummary: selectedFieldSummary,
+      safety: selectedSafety,
+      suggestions: selectedSuggestions,
+      tuningPressure,
+    });
+  }, [selectedFieldSummary, selectedQueueItem, selectedSafety, selectedSuggestions]);
 
   const applyAndNext = useCallback((candidate: IntakeWorkCandidate, decision: Parameters<typeof decideIntakeWorkCandidate>[1], linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => {
     const currentIds = pendingQueueIds;
@@ -206,6 +224,14 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
   const updateCandidateField = <K extends keyof IntakeWorkCandidate>(key: K, value: IntakeWorkCandidate[K]) => {
     if (!selectedCandidate) return;
     updateIntakeWorkCandidate(selectedCandidate.id, { [key]: value } as Partial<IntakeWorkCandidate>);
+  };
+  const applySuggestion = (field: string, value: string) => {
+    if (!selectedCandidate) return;
+    if (field === 'candidateType') {
+      updateCandidateField('candidateType', value as IntakeCandidateType);
+      return;
+    }
+    updateIntakeWorkCandidate(selectedCandidate.id, { [field]: value } as Partial<IntakeWorkCandidate>);
   };
 
   const openDecisionFlow = (decision: NonNullable<typeof decisionFlow>) => {
@@ -357,8 +383,16 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
               <div className={`rounded-lg border p-2 text-xs text-slate-700 ${selectedIsReadyNow ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
                 <div className="font-semibold">Review readiness</div>
                 <div className="mt-1"><Badge variant={readinessCopy[selectedQueueItem.readiness].tone}>{readinessCopy[selectedQueueItem.readiness].title}</Badge> <span className="ml-1">{readinessCopy[selectedQueueItem.readiness].body}</span></div>
+                {selectedReviewPlan ? <div className="mt-1 text-slate-600">Suggested decision: <span className="font-semibold">{selectedReviewPlan.suggestedDecision.replaceAll('_', ' ')}</span> • {selectedReviewPlan.suggestedDecisionReason}</div> : null}
                 {selectedSafety.blockers[0] ? <div className="mt-2 rounded-md bg-rose-100 px-2 py-1 text-rose-800">{selectedSafety.blockers[0]}</div> : null}
               </div>
+
+              {selectedReviewPlan?.fastApproveEligible ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                  <div className="font-semibold">Fast-approve candidate</div>
+                  <div className="mt-1">This item is safe, batch-eligible, and has no required corrections. Use the primary approve action and move on.</div>
+                </div>
+              ) : null}
 
               <div className="rounded-xl border border-slate-200 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -377,7 +411,18 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
 
               {selectedNeedsDeepReview ? (
                 <div className="rounded-xl border border-slate-200 p-3">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Correct fields (required)</div>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Required to approve</div>
+                  {selectedReviewPlan?.requiredCorrections.length ? <div className="mb-2 text-xs text-slate-600">{selectedReviewPlan.requiredCorrections.map((field) => field.label).join(' • ')}</div> : null}
+                  {selectedReviewPlan?.quickFixActions.length ? (
+                    <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs">
+                      <div className="font-semibold text-sky-900">Suggested fixes</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedReviewPlan.quickFixActions.filter((action) => action.kind === 'apply_suggestion').map((action) => (
+                          <button key={action.id} className="action-btn" onClick={() => action.suggestion && applySuggestion(action.suggestion.field, action.suggestion.value)}>{action.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="grid gap-2 sm:grid-cols-2">
                     <label className="field-block"><span className="field-label">Type</span>
                       <select className="field-input" value={selectedCandidate.candidateType} onChange={(event) => updateCandidateField('candidateType', event.target.value as IntakeCandidateType)}>
@@ -393,6 +438,20 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:col-span-2 text-xs">
                       <div className="font-semibold text-slate-700">Existing link recommendation</div>
                       <div className="mt-1 text-slate-600">{selectedCandidate.existingRecordMatches[0] ? describeMatch(selectedCandidate.existingRecordMatches[0]) : 'No strong match detected.'}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {selectedReviewPlan?.quickFixActions.filter((action) => action.kind !== 'apply_suggestion').map((action) => (
+                          <button
+                            key={action.id}
+                            className={action.kind === 'link_best_match' ? 'primary-btn' : 'action-btn'}
+                            onClick={() => {
+                              if (action.kind === 'link_best_match' && selectedCandidate.existingRecordMatches[0]) applyAndNext(selectedCandidate, 'link', selectedCandidate.existingRecordMatches[0].id);
+                              if (action.kind === 'save_reference') applyAndNext(selectedCandidate, 'reference');
+                            }}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -400,6 +459,7 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
 
               <details className="rounded-xl border border-slate-200 p-3" open={selectedNeedsDeepReview}>
                 <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">Supporting fields</summary>
+                {selectedReviewPlan?.recommendedCorrections.length ? <div className="mt-2 text-xs text-slate-600">Recommended improvements: {selectedReviewPlan.recommendedCorrections.map((field) => field.label).join(' • ')}</div> : null}
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <label className="field-block"><span className="field-label">Priority</span>
                     <select className="field-input" value={selectedCandidate.priority} onChange={(event) => updateCandidateField('priority', event.target.value as IntakeWorkCandidate['priority'])}>

@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Intake Phase 2: guided correction, smart suggestions, and fast-review acceleration
+- Added a pure guided review-planning helper that converts queue readiness, field review summaries, and import safety outputs into an operational review model (`requiredCorrections`, `recommendedCorrections`, `suggestedDecision`, `fastApproveEligible`, `quickFixActions`, and burden scoring) for consistent decision shaping across intake lanes (`src/lib/intakeReviewPlan.ts`).
+- Added conservative field suggestion generation for common correction hotspots (project, owner, due date, title cleanup, next step, and type) so reviewers can apply explainable suggestions instead of manually re-deriving likely values from raw evidence (`src/lib/intakeReviewPlan.ts`).
+- Upgraded Universal Intake review UX with a guided correction hierarchy (`Required to approve` first, recommended improvements second), compact suggested-fix quick actions, safer duplicate/link quick actions, and clearer fast-approve summarization for low-risk candidates (`src/components/UniversalIntakeWorkspace.tsx`).
+- Extended forwarding review view-model derivations to include selected candidate context (`selectedQueueItem`, `selectedFieldSummary`, `selectedSafety`, `selectedReviewPlan`, and `selectedQuickFixes`) and used them in forwarding lane cards to surface required/recommended correction guidance and quick actions without weakening safety checks (`src/domains/intake/hooks/useIntakeReviewViewModel.ts`, `src/components/ForwardingIntakeWorkspace.tsx`).
+- Added guided-review helper coverage for fast-approve eligibility, project suggestion behavior, link recommendation under strong matches, conflicting-evidence correction requirements, quick-fix availability, required-vs-recommended classification, and duplicate-risk de-emphasis behavior (`src/lib/__tests__/intakeReviewPlan.test.ts`).
+
 ### Intake Phase 1: review-lane restructuring + admin de-emphasis
 - Reframed Intake entry around a dominant review lane with utility navigation for History, Rules, and Advanced sync so users land directly in queue execution instead of mode selection (`src/components/OutlookPanel.tsx`).
 - Restructured Universal Intake into an execution-first hierarchy (review summary, queue-first triage, candidate review lane, and contextual inspector) with clearer daily intake language and stronger fast-approve emphasis for ready-now items (`src/components/UniversalIntakeWorkspace.tsx`).

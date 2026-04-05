@@ -65,8 +65,8 @@ export function ForwardingIntakeWorkspace() {
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [guardedApproval, setGuardedApproval] = useState<{ candidateId: string; asType: 'task' | 'followup' } | null>(null);
 
-  const viewModel = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters });
-  const { forwardedEmails, forwardedCandidates, items, reviewLane, supportPanels, mutations } = viewModel;
+  const viewModel = useIntakeReviewViewModel({ activeBucket, sortKey, queueFilters, activeCandidateId });
+  const { forwardedEmails, forwardedCandidates, items, reviewLane, supportPanels, mutations, selectedCandidate, selectedQueueItem, selectedReviewPlan, selectedSafety } = viewModel;
   const { metrics, bucketCounts, filteredQueue, queue } = reviewLane;
   const { tuningInsights, forwardedRules, forwardedLedger, forwardedRoutingAudit } = supportPanels;
   const {
@@ -81,6 +81,7 @@ export function ForwardingIntakeWorkspace() {
     addManualForwardRule,
   } = mutations;
   const pendingIds = useMemo(() => reviewLane.pendingQueue.map((entry) => entry.id), [reviewLane.pendingQueue]);
+  const selectedIsFastApprove = Boolean(selectedReviewPlan?.fastApproveEligible && selectedQueueItem);
 
   useEffect(() => {
     if (!pendingIds.includes(activeCandidateId || '')) setActiveCandidateId(pendingIds[0] ?? null);
@@ -198,13 +199,42 @@ export function ForwardingIntakeWorkspace() {
                     {fieldSummary.priorityReviewFields.map((field) => <FieldReviewRow key={field.key} field={field} />)}
                   </div>
                 </div>
+                {activeCandidateId === candidate.id ? (
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                    <div className="font-semibold text-slate-700">Required to approve</div>
+                    <div className="mt-1 text-slate-600">{selectedReviewPlan?.requiredCorrections.length ? selectedReviewPlan.requiredCorrections.map((field) => field.label).join(' • ') : 'No required corrections.'}</div>
+                    {selectedReviewPlan?.recommendedCorrections.length ? (
+                      <>
+                        <div className="mt-2 font-semibold text-slate-700">Recommended improvements</div>
+                        <div className="mt-1 text-slate-600">{selectedReviewPlan.recommendedCorrections.map((field) => field.label).join(' • ')}</div>
+                      </>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {selectedReviewPlan?.quickFixActions.map((quickFix) => (
+                        <button
+                          key={quickFix.id}
+                          className={quickFix.kind === 'link_best_match' ? 'primary-btn' : 'action-btn'}
+                          onClick={() => {
+                            if (quickFix.kind === 'link_best_match' && candidateLinks[candidate.id]) {
+                              runAndNext(candidate.id, () => linkForwardedCandidateToExisting(candidate.id, candidateLinks[candidate.id]));
+                              return;
+                            }
+                            if (quickFix.kind === 'save_reference') runAndNext(candidate.id, () => saveForwardedCandidateAsReference(candidate.id));
+                          }}
+                        >
+                          {quickFix.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-3 grid gap-2 lg:grid-cols-2">
                   <div className="rounded-lg border border-slate-200 p-2">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve into execution</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve into Tasks</button>
-                      <button className="action-btn" onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve into Follow Ups</button>
+                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'task')}><CheckCircle2 className="h-4 w-4" /> Approve into Tasks</button>
+                      <button className={selectedIsFastApprove && activeCandidateId === candidate.id ? 'primary-btn' : 'action-btn'} onClick={() => requestApproval(candidate.id, 'followup')}><ChevronRight className="h-4 w-4" /> Approve into Follow Ups</button>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-2">
@@ -234,7 +264,7 @@ export function ForwardingIntakeWorkspace() {
                     linkForwardedCandidateToExisting(candidate.id, selected);
                   })}><Link2 className="h-4 w-4" /> Link existing</button>
                 </div>
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                <div className={`mt-2 rounded-lg border p-2 text-xs ${selectedIsFastApprove && activeCandidateId === candidate.id ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
                   {(() => {
                     const safety = evaluateForwardedImportSafety(candidate);
                     return (

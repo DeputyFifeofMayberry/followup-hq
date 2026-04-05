@@ -259,6 +259,11 @@
 .task-mode-chip-active { background: #0f172a; color: #fff; border-color: #0f172a; }
 .task-secondary-mode-select { max-width: 170px; min-height: 2rem; border-radius: 999px; padding: 0.2rem 0.65rem; }
 .task-filter-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.task-filter-chip-row-muted {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.38rem;
+  margin-top: 0.08rem;
+}
 .task-filter-chip {
   border: 1px solid #cbd9ea;
   background: #edf5ff;
@@ -271,6 +276,29 @@
   gap: 0.35rem;
   align-items: center;
 }
+.task-control-stack-calm {
+  border-color: var(--border-subtle);
+  background: linear-gradient(180deg, #fbfdff 0%, #f7fbff 100%);
+  gap: 0.38rem;
+}
+.task-primary-toolbar { align-items: flex-end; gap: 0.42rem; }
+.task-search-block { min-width: min(420px, 100%); flex: 1 1 340px; }
+.task-view-options-surface {
+  display: grid;
+  gap: 0.5rem;
+  border-color: var(--border-subtle);
+  background: #f7fbff;
+}
+.task-view-options-section-head { display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.task-view-options-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #607389;
+}
+.task-workspace-prefs-row { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: flex-end; }
+.task-preset-block { min-width: 185px; }
 .task-list-density-compact .workspace-data-row { padding: 0.5rem 0.55rem; }
 .task-list-density-compact .scan-row-primary { font-size: 0.84rem; }
 .task-list-density-compact .scan-row-secondary { font-size: 0.69rem; }

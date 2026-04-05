@@ -111,7 +111,7 @@ export function SyncStatusControl() {
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Unsaved local edits</div>
-                <div className="sync-status-row-detail">{syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} pending change${syncMeta.unsavedChangeCount === 1 ? '' : 's'}` : 'No pending local edits.'}</div>
+                <div className="sync-status-row-detail">{syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} record${syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits` : 'No pending local edits.'}</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Cloud confirmation status</div>

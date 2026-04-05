@@ -12,46 +12,7 @@ import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
 import { refreshDuplicates } from '../useCases/mutationEffects';
 import { createPersistenceActivityEvent } from '../persistenceActivity';
-import type { CloudSyncStatus } from '../state/types';
-import type { LoadResult } from '../../lib/persistence';
-
-interface DerivedSyncMeta {
-  syncState: 'saved';
-  cloudSyncStatus: CloudSyncStatus;
-  loadedFromLocalRecoveryCache: boolean;
-  lastCloudConfirmedAt?: string;
-  lastLocalWriteAt?: string;
-  lastFallbackRestoreAt?: string;
-  lastSyncedAt?: string;
-}
-
-export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt'>): DerivedSyncMeta {
-  const usingRecoveryCache = Boolean(load.cloudReadFailed || load.localNewerThanCloud || load.loadedFromFallback);
-  const cloudStatus: CloudSyncStatus = load.cloudReadFailed
-    ? 'cloud-read-failed-local-fallback'
-    : load.localNewerThanCloud
-      ? 'local-newer-than-cloud'
-      : load.mode === 'browser'
-        ? 'local-only-confirmed'
-        : load.cacheStatus === 'pending'
-          ? 'pending-cloud'
-          : load.source === 'local-cache' && load.loadedFromFallback
-            ? 'local-recovery'
-            : 'cloud-confirmed';
-  const lastCloudConfirmedAt = load.mode === 'supabase'
-    ? load.cloudUpdatedAt ?? load.localCacheLastCloudConfirmedAt
-    : undefined;
-
-  return {
-    syncState: 'saved',
-    cloudSyncStatus: cloudStatus,
-    loadedFromLocalRecoveryCache: usingRecoveryCache,
-    lastCloudConfirmedAt,
-    lastLocalWriteAt: load.localCacheUpdatedAt,
-    lastFallbackRestoreAt: usingRecoveryCache ? todayIso() : undefined,
-    lastSyncedAt: lastCloudConfirmedAt,
-  };
-}
+import { deriveSyncMetaFromLoadResult } from './syncMetaDerivation';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
   return {
@@ -135,22 +96,22 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           lastFailedSyncAt: undefined,
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'saved',
-            summary: cloudReadFailed
+            summary: cloudReadFailed && loadedFromFallback
               ? 'Cloud read failed; local copy preserved.'
-              : localNewerThanCloud
+              : localNewerThanCloud && loadedFromFallback
                 ? 'Loaded from local recovery cache.'
                 : mode === 'browser'
                   ? 'Workspace loaded from this device.'
                   : 'Workspace loaded from persisted data.',
-            detail: cloudReadFailed
+            detail: cloudReadFailed && loadedFromFallback
               ? 'Cloud read failed; local cache preserved your latest data.'
-              : localNewerThanCloud
+              : localNewerThanCloud && loadedFromFallback
                 ? 'Local cache is newer than cloud data and was restored.'
                 : mode === 'browser'
                   ? 'Running in browser/local-only mode.'
-                : mode === 'supabase'
-                  ? 'Cloud-backed persistence mode active.'
-                  : 'Running in local/browser persistence mode.',
+                  : mode === 'supabase'
+                    ? 'Cloud-backed persistence mode active.'
+                    : 'Running in local/browser persistence mode.',
           })],
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
@@ -162,7 +123,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           persistenceMode: 'browser',
           saveError: error instanceof Error ? error.message : 'Failed to load saved data.',
           syncState: 'error',
-          cloudSyncStatus: 'cloud-read-failed-local-fallback',
+          cloudSyncStatus: 'load-failed-no-local-copy',
           loadedFromLocalRecoveryCache: false,
           unsavedChangeCount: 0,
           hasLocalUnsavedChanges: false,

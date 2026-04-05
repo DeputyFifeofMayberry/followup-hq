@@ -1,4 +1,4 @@
-import type { PersistedPayload } from '../lib/persistence';
+import type { PersistedPayload, SaveResult } from '../lib/persistence';
 import { savePersistedPayload } from '../lib/persistence';
 import { todayIso } from '../lib/utils';
 
@@ -21,8 +21,8 @@ interface QueueHandlers {
   getPayload: () => PersistedPayload;
   onQueued: (meta?: QueueRequestMeta) => void;
   onSaving: (context: { reason: 'auto' | 'manual' | 'retry'; attempt: number }) => void;
-  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry', didPersist: boolean) => void;
-  onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry') => void;
+  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry', didPersist: boolean, diagnostics?: SaveResult['diagnostics']) => void;
+  onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry', diagnostics?: SaveResult['diagnostics']) => void;
 }
 
 export interface PersistenceQueueController {
@@ -51,18 +51,22 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     }
 
     try {
-      const { mode } = await savePersistedPayload(payload);
-      lastMode = mode;
+      const saveResult = await savePersistedPayload(payload);
+      lastMode = saveResult.mode;
       lastSavedJson = payloadJson;
-      handlers.onSaved(mode, todayIso(), reason, true);
+      handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save data.';
+      const diagnostics = typeof error === 'object' && error !== null && 'diagnostics' in error
+        ? (error as { diagnostics?: SaveResult['diagnostics'] }).diagnostics
+        : undefined;
       if (attempt < maxRetries) {
         timer = setTimeout(() => {
           void flush(attempt + 1, reason);
         }, retryDelayMs * (attempt + 1));
         return;
       }
-      handlers.onError(error instanceof Error ? error.message : 'Failed to save data.', todayIso(), reason);
+      handlers.onError(message, todayIso(), reason, diagnostics);
     }
   };
 

@@ -2,6 +2,16 @@
 
 ## 2026-04-05
 
+### Persistence reliability + trust-state hardening pass
+- Fixed false-positive fallback messaging on hard load failures by introducing a dedicated `load-failed-no-local-copy` trust status and using explicit `Load issue` wording when persisted data cannot be loaded and no local recovery cache was restored (`src/store/slices/metaSlice.ts`, `src/store/state/types.ts`, `src/lib/syncStatus.ts`).
+- Tightened load-result trust derivation so `cloud-read-failed-local-fallback` now requires a real `loadedFromFallback` local-cache restore path, avoiding contradictory states where fallback language appeared without an actual fallback (`src/store/slices/metaSlice.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`).
+- Corrected no-op save handling so no-op queue flushes preserve the existing trust posture and timestamps instead of promoting to `cloud-confirmed`/`local-only-confirmed` without a real write (`src/store/useAppStore.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+- Improved unsaved-change diagnostics by deriving `unsavedChangeCount` from deduplicated dirty record references, and updated user-facing copy to describe records with unsaved edits instead of queue request counts (`src/store/useAppStore.ts`, `src/components/PersistenceBanner.tsx`, `src/components/SyncStatusControl.tsx`, `src/lib/syncStatus.ts`).
+- Hardened sequential cloud save behavior with richer diagnostics for partial saves (completed tables, failed table hints), preserved pending local cache on failure, and added a stale-delete safety guard to reject unusually large delete waves that can signal stale-client drift (`src/lib/persistence.ts`, `src/store/persistenceQueue.ts`, `src/store/useAppStore.ts`, `src/lib/__tests__/persistenceReliability.test.ts`).
+- Wired persistence/trust regression tests into the default test command by adding a dedicated trust test script and executing it from `npm test`, so persistence state regressions are now part of normal CI/local test flow (`package.json`, `src/lib/__tests__/syncStatusTrustModel.test.ts`, `src/store/slices/__tests__/metaSlice.syncMeta.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/lib/__tests__/persistenceReliability.test.ts`).
+
+## 2026-04-05
+
 ### Save/sync trust-state reliability cleanup (overview + header alignment)
 - Fixed the misleading Overview “Save issue” behavior by unifying banner and header on a shared sync snapshot selector, so both surfaces now interpret the same full trust state instead of assembling partial/stale state independently (`src/lib/syncStatus.ts`, `src/components/PersistenceBanner.tsx`, `src/components/SyncStatusControl.tsx`).
 - Expanded trust-state modeling to explicitly separate cloud read fallback, cloud save failure, browser/local-only confirmation, and local-newer-than-cloud restoration, while preserving pending-cloud and cloud-confirmed states (`src/store/state/types.ts`, `src/store/slices/metaSlice.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).

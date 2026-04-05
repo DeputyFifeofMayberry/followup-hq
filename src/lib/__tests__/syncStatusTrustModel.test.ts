@@ -57,6 +57,17 @@ function testLocalNewerThanCloud(): void {
   assert(model.stateLabel === 'Loaded from local recovery cache', `expected local newer state label, got ${model.stateLabel}`);
 }
 
+function testHardLoadFailureNoLocalCopy(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'error',
+    saveError: 'network exploded',
+    cloudSyncStatus: 'load-failed-no-local-copy',
+  });
+  assert(model.stateLabel === 'Load issue', `expected hard load failure label, got ${model.stateLabel}`);
+  assert(model.stateDescription.includes('network exploded'), 'expected hard load failure to keep error details');
+}
+
 function testSaveFailure(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
@@ -109,6 +120,7 @@ function testSharedSnapshotSelectorConsistency(): void {
   testBrowserLocalOnly();
   testCloudReadFallback();
   testLocalNewerThanCloud();
+  testHardLoadFailureNoLocalCopy();
   testSaveFailure();
   testFailedThenEditIsPending();
   testSharedSnapshotSelectorConsistency();

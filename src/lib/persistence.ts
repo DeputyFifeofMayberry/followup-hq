@@ -13,6 +13,7 @@ import { getDefaultForwardedRules } from './intakeRules';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
+const STALE_DELETE_ABORT_THRESHOLD = 200;
 
 export interface CoreEntities {
   items: FollowUpItem[];
@@ -69,8 +70,17 @@ export interface LoadResult {
   cloudUpdatedAt?: string;
 }
 
-interface SaveResult {
+export interface SaveDiagnostics {
+  attemptedAt: string;
+  completedTables: string[];
+  failedTable?: string;
+  staleDeleteGuardTriggered?: boolean;
+  staleDeleteWarnings: string[];
+}
+
+export interface SaveResult {
   mode: PersistenceMode;
+  diagnostics?: SaveDiagnostics;
 }
 
 function buildFallbackSnapshot(): AppSnapshot {
@@ -259,9 +269,10 @@ async function readLegacySnapshotFromSupabase(userId: string): Promise<AppSnapsh
 
 /**
  * NOTE: This table-level replacement flow can still be vulnerable to stale-client deletes.
- * We preserve the current architecture here, but avoid broadening deletion scope.
+ * We preserve the current architecture here, and now add a safety guard against very large
+ * delete sets that often indicate stale-client drift.
  */
-async function saveEntityTable(table: string, userId: string, records: Array<{ id: string }>) {
+async function saveEntityTable(table: string, userId: string, records: Array<{ id: string }>): Promise<{ staleDeleteWarning?: string }> {
   const ids = new Set(records.map((record) => record.id));
   const payload = records.map((record) => ({ user_id: userId, record_id: record.id, record }));
 
@@ -277,10 +288,17 @@ async function saveEntityTable(table: string, userId: string, records: Array<{ i
     .map((row) => row.record_id as string)
     .filter((id) => !ids.has(id));
 
+  if (staleIds.length > STALE_DELETE_ABORT_THRESHOLD) {
+    throw new Error(`Delete safety guard triggered for ${table}: refusing to delete ${staleIds.length} records in one pass.`);
+  }
+
   if (staleIds.length > 0) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId).in('record_id', staleIds);
     if (error) throw error;
+    return { staleDeleteWarning: `${table}: replaced ${records.length} records and deleted ${staleIds.length} stale records.` };
   }
+
+  return {};
 }
 
 async function saveAuxiliaryState(userId: string, auxiliary: AppAuxiliaryState, migrationComplete = true) {
@@ -465,9 +483,24 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   };
 }
 
+export class PersistenceSaveError extends Error {
+  diagnostics: SaveDiagnostics;
+
+  constructor(message: string, diagnostics: SaveDiagnostics) {
+    super(message);
+    this.name = 'PersistenceSaveError';
+    this.diagnostics = diagnostics;
+  }
+}
+
 export async function savePersistedPayload(payload: PersistedPayload): Promise<SaveResult> {
   const saveAttemptAt = new Date().toISOString();
   const existingCache = readLocalCache();
+  const diagnostics: SaveDiagnostics = {
+    attemptedAt: saveAttemptAt,
+    completedTables: [],
+    staleDeleteWarnings: [],
+  };
 
   writeLocalCache({
     entities: payload,
@@ -484,15 +517,30 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
     });
-    return { mode: 'browser' };
+    return { mode: 'browser', diagnostics };
   }
 
-  await saveEntityTable('follow_up_items', userId, payload.items);
-  await saveEntityTable('tasks', userId, payload.tasks);
-  await saveEntityTable('projects', userId, payload.projects);
-  await saveEntityTable('contacts', userId, payload.contacts);
-  await saveEntityTable('companies', userId, payload.companies);
-  await saveAuxiliaryState(userId, payload.auxiliary, true);
+  const saveTable = async (table: string, records: Array<{ id: string }>) => {
+    const tableResult = await saveEntityTable(table, userId, records);
+    diagnostics.completedTables.push(table);
+    if (tableResult.staleDeleteWarning) diagnostics.staleDeleteWarnings.push(tableResult.staleDeleteWarning);
+  };
+
+  try {
+    await saveTable('follow_up_items', payload.items);
+    await saveTable('tasks', payload.tasks);
+    await saveTable('projects', payload.projects);
+    await saveTable('contacts', payload.contacts);
+    await saveTable('companies', payload.companies);
+    await saveAuxiliaryState(userId, payload.auxiliary, true);
+    diagnostics.completedTables.push('user_preferences');
+  } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : 'Cloud save failed.';
+    const failedMatch = rawMessage.match(/for ([a-z_]+):/) || rawMessage.match(/save failed:([a-z_]+)/);
+    diagnostics.failedTable = failedMatch?.[1];
+    diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
+    throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
+  }
 
   const cloudConfirmedAt = new Date().toISOString();
   writeLocalCache({
@@ -502,5 +550,5 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
     lastCloudConfirmedAt: cloudConfirmedAt,
   });
 
-  return { mode: 'supabase' };
+  return { mode: 'supabase', diagnostics };
 }

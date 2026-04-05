@@ -112,7 +112,8 @@ async function run() {
   assert(cache.cloudStatus === 'pending', 'cache should stay pending after failed cloud save');
 
   reset();
-  await savePersistedPayload(payloadFixture);
+  const successful = await savePersistedPayload(payloadFixture);
+  assert(successful.diagnostics?.completedTables.includes('user_preferences') === true, 'successful save should report completed tables');
   cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
   assert(cache.cloudStatus === 'confirmed', 'cache should be confirmed after successful cloud save');
 
@@ -144,6 +145,17 @@ async function run() {
   mock.failRead = true;
   loaded = await loadPersistedPayload();
   assert(loaded.payload.items[0].id === 'item-1', 'local payload should survive failed cloud save and refresh');
+
+  reset();
+  mock.rows.tasks = Array.from({ length: 250 }, (_, index) => ({ id: `task-${index}` } as any));
+  let staleGuardThrown = false;
+  try {
+    await savePersistedPayload({ ...payloadFixture, tasks: [] });
+  } catch (error) {
+    staleGuardThrown = error instanceof Error && error.message.includes('Delete safety guard triggered');
+  }
+  assert(staleGuardThrown, 'stale delete safety guard should reject large delete waves');
+
 }
 
 void run();

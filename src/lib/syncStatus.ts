@@ -39,13 +39,15 @@ export function getCloudConfirmationLabel(meta: Pick<SyncMetaSnapshot, 'cloudSyn
     case 'local-only-confirmed':
       return 'Saved locally on this device';
     case 'local-newer-than-cloud':
-      return 'Local cache newer than cloud; local copy restored';
+      return 'Loaded from local recovery cache';
     case 'local-recovery':
       return 'Loaded from local recovery cache';
     case 'cloud-read-failed-local-fallback':
       return 'Cloud read failed; local copy preserved';
     case 'cloud-save-failed-local-preserved':
       return 'Save failed; latest local changes preserved';
+    case 'load-failed-no-local-copy':
+      return 'Load issue';
     default:
       return 'Cloud confirmation unavailable';
   }
@@ -98,6 +100,15 @@ function describePersistenceMode(mode: PersistenceMode): Pick<SyncStatusModel, '
 }
 
 function describeCloudStatus(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateLabel' | 'stateDescription' | 'tone' | 'stateTone'> | null {
+  if (meta.cloudSyncStatus === 'load-failed-no-local-copy') {
+    return {
+      stateLabel: 'Load issue',
+      stateDescription: meta.saveError || 'SetPoint could not load persisted data. No local recovery copy was restored.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
   if (meta.cloudSyncStatus === 'cloud-save-failed-local-preserved') {
     return {
       stateLabel: 'Save failed; latest local changes preserved',
@@ -193,8 +204,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (meta.hasLocalUnsavedChanges || meta.syncState === 'dirty') {
     const pendingDescription = meta.unsavedChangeCount > 1
-      ? `${meta.unsavedChangeCount} local edits are waiting to sync.`
-      : 'Local edits are waiting to sync.';
+      ? `${meta.unsavedChangeCount} records with unsaved edits are waiting to sync.`
+      : '1 record with unsaved edits is waiting to sync.';
     return {
       stateLabel: 'Unsaved local edits',
       stateDescription: pendingDescription,

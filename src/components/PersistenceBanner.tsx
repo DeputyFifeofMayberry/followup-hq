@@ -47,7 +47,7 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           <span className="font-medium">{statusModel.stateLabel}</span>
         </div>
         <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
-        {syncMeta.hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{syncMeta.unsavedChangeCount} pending local change{syncMeta.unsavedChangeCount === 1 ? '' : 's'}.</div> : null}
+        {syncMeta.hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{syncMeta.unsavedChangeCount} record{syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits.</div> : null}
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
             <UserRound className="h-3.5 w-3.5" />

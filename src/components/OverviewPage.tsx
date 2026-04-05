@@ -43,25 +43,27 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         />
       </WorkspaceTopStack>
 
-      <WorkspacePrimaryLayout inspectorWidth="350px">
+      <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-primary-layout">
         <AppShellCard className="overview-main-panel" surface="data">
-          <SectionHeader title="Overview triage" subtitle="Compact queue for selecting what to route next." compact />
+          <SectionHeader title="Overview triage" subtitle="Primary triage queue for selecting what to route next." compact />
 
-          <OverviewSignalCards
-            cards={signalCards}
-            onRouteCard={(card) => {
-              routeToLane(card.lane, { section: card.section, intentLabel: card.intentLabel });
-              onOpenWorkspace(card.lane);
-            }}
-          />
+          <div className="overview-signal-support">
+            <OverviewSignalCards
+              cards={signalCards}
+              onRouteCard={(card) => {
+                routeToLane(card.lane, { section: card.section, intentLabel: card.intentLabel });
+                onOpenWorkspace(card.lane);
+              }}
+            />
+          </div>
 
-          <div className="mt-3">
+          <div className="overview-triage-main">
             <OverviewTriageList rows={triageRows} selectedId={selected?.id || null} onSelect={setSelectedId} />
           </div>
         </AppShellCard>
 
         <AppShellCard className="overview-inspector-shell" surface="inspector">
-          <SectionHeader title="Route inspector" subtitle="Confirm context and launch execution in the right lane." compact />
+          <SectionHeader title="Route inspector" subtitle="Context + destination for the selected item." compact />
           <OverviewRouteInspector
             selected={selected}
             onOpenFollowUps={() => {

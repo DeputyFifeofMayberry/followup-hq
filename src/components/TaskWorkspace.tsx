@@ -1,4 +1,4 @@
-import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unlink2, X } from 'lucide-react';
+import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
@@ -101,7 +101,7 @@ function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
 }
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
-  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, deleteTask, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
+  const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, openEditTaskModal, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
 
   const modeConfig = getModeConfig(appMode);
   const prefs = useMemo(() => readTaskWorkspacePrefs(), []);
@@ -130,7 +130,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
-  const [linkParentDraft, setLinkParentDraft] = useState('');
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const isRecordDirty = useAppStore((s) => s.isRecordDirty);
 
@@ -219,7 +218,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
   const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
   const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks) : null;
-  const parentCandidates = selectedTask ? items.filter((item) => item.project === selectedTask.project && item.status !== 'Closed') : [];
 
   useEffect(() => {
     if (resolvedSelectedTaskId === selectedTaskId) return;
@@ -641,35 +639,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                     <div className="mt-3 flex flex-wrap gap-2">
                       {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button> : null}
                       <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
+                      <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                     </div>
-                    <details className="task-maintenance-disclosure mt-2">
-                      <summary>Linked context maintenance</summary>
-                      <div className="task-maintenance-body">
-                        <div className="text-xs text-slate-600">Use only when link maintenance is required. Primary path remains execution actions and full edit.</div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {linkedFollowUp ? <button onClick={() => updateTask(selectedTask.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from parent follow-up' })} className="action-btn !px-2.5 !py-1.5 text-xs"><Unlink2 className="h-4 w-4" />Unlink parent</button> : null}
-                          <select value={linkParentDraft} onChange={(event) => setLinkParentDraft(event.target.value)} className="field-input !w-auto">
-                            <option value="">Link to follow-up…</option>
-                            {parentCandidates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-                          </select>
-                          <button onClick={() => { if (!linkParentDraft) return; updateTask(selectedTask.id, { linkedFollowUpId: linkParentDraft, contextNote: 'Linked from task workspace' }); setLinkParentDraft(''); }} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!linkParentDraft}>Link parent</button>
-                        </div>
-                      </div>
-                    </details>
                   </div>
-                </WorkspaceInspectorSection>
-
-                <WorkspaceInspectorSection title={editSurfacePolicy.maintenance.label} subtitle="Deep edit and destructive actions are available but de-emphasized.">
-                  <details className="task-maintenance-disclosure">
-                    <summary>Open full maintenance controls</summary>
-                    <div className="task-maintenance-body">
-                      <div className="text-xs text-slate-600">Completion note: {selectedTask.completionNote || 'None recorded'}</div>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => openEditTaskModal(selectedTask.id)} className="action-btn"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
-                        <button onClick={() => deleteTask(selectedTask.id)} className="action-btn task-action-danger">Delete task</button>
-                      </div>
-                    </div>
-                  </details>
                 </WorkspaceInspectorSection>
               </div>
             ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}

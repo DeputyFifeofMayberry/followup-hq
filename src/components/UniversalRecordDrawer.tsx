@@ -5,7 +5,7 @@ import { formatDateTime } from '../lib/utils';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { getRelatedRecordBundle, type RecordDescriptor, type RecordType } from '../lib/recordContext';
 import { useAppStore } from '../store/useAppStore';
-import { EmptyState } from './ui/AppPrimitives';
+import { EmptyState, RecordContextDrawerSection, RecordContextDrawerShell } from './ui/AppPrimitives';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
@@ -104,26 +104,29 @@ export function UniversalRecordDrawer() {
         </div>
 
         {!bundle?.selected ? <EmptyState title="Record not found" message="This record is no longer available." /> : (
-          <div className="record-drawer-body">
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Context actions</div>
+          <RecordContextDrawerShell>
+            <RecordContextDrawerSection title="Actions">
               <div className="mt-2 flex flex-wrap gap-2">
                 {recordDrawerRef.type === 'followup' ? <button onClick={() => openEditModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditFollowUp}</button> : null}
                 {recordDrawerRef.type === 'task' ? <button onClick={() => openEditTaskModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditTask}</button> : null}
               </div>
-            </section>
+            </RecordContextDrawerSection>
 
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Summary</div>
+            <RecordContextDrawerSection title="Record summary">
               <div className="detail-summary-grid">
                 {summaryRows(bundle.selected).map((row) => (
                   <div key={row.label}><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{row.value}</div></div>
                 ))}
               </div>
-            </section>
+            </RecordContextDrawerSection>
 
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Linked records</div>
+            <RecordContextDrawerSection title="What matters around this record">
+              <div className="mt-2 text-xs text-slate-600">
+                Related links: {bundle.counts.relationships} · Open child work: {bundle.counts.openChildWork} · Blocked child work: {bundle.counts.blockedChildWork} · Overdue child work: {bundle.counts.overdueChildWork}
+              </div>
+            </RecordContextDrawerSection>
+
+            <RecordContextDrawerSection title="Linked records">
               <div className="space-y-2 mt-2">
                 {bundle.related.slice(0, 12).map((related) => (
                   <button key={`${related.type}-${related.id}`} onClick={() => openRecordDrawer({ type: related.type, id: related.id })} className="record-drawer-link-row">
@@ -133,10 +136,9 @@ export function UniversalRecordDrawer() {
                 ))}
                 {bundle.related.length === 0 ? <div className="text-xs text-slate-500">No linked records found.</div> : null}
               </div>
-            </section>
+            </RecordContextDrawerSection>
 
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Relationship actions</div>
+            <RecordContextDrawerSection title="Project / relationship context">
               <div className="space-y-2 mt-2">
                 {recordDrawerRef.type === 'followup' ? (
                   <>
@@ -164,25 +166,17 @@ export function UniversalRecordDrawer() {
                   </button>
                 ) : null}
               </div>
-            </section>
+            </RecordContextDrawerSection>
 
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Timeline / history</div>
+            <RecordContextDrawerSection title="Activity / timeline">
               <div className="space-y-2 mt-2">
                 {timeline.slice(0, 20).map((event) => (
                   <div key={event.id} className="record-drawer-timeline-row"><div className="text-xs text-slate-500">{formatDateTime(event.at)}</div><div className="text-sm text-slate-700">{event.label}</div></div>
                 ))}
                 {timeline.length === 0 ? <div className="text-xs text-slate-500">No timeline available for this record.</div> : null}
               </div>
-            </section>
-
-            <section className="inspector-block">
-              <div className="workspace-inspector-section-title">Context / metadata</div>
-              <div className="mt-2 text-xs text-slate-600">
-                Related links: {bundle.counts.relationships} · Open child work: {bundle.counts.openChildWork} · Blocked child work: {bundle.counts.blockedChildWork} · Overdue child work: {bundle.counts.overdueChildWork}
-              </div>
-            </section>
-          </div>
+            </RecordContextDrawerSection>
+          </RecordContextDrawerShell>
         )}
       </aside>
     </div>

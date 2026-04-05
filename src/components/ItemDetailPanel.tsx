@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, FileEdit, Link2, Save, Send, SquareCheckBig, Trash2, Unlink2 } from 'lucide-react';
+import { CheckCircle2, FileEdit, Link2, Save, Send, SquareCheckBig } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
@@ -24,11 +24,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     updateItem,
     deleteItem,
     openEditModal,
-    addRunningNote,
     addTask,
     addTouchLog,
     openDraftModal,
-    updateTask,
     setSelectedTaskId,
     openRecordDrawer,
     attemptFollowUpTransition,
@@ -42,11 +40,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     updateItem: s.updateItem,
     deleteItem: s.deleteItem,
     openEditModal: s.openEditModal,
-    addRunningNote: s.addRunningNote,
     addTask: s.addTask,
     addTouchLog: s.addTouchLog,
     openDraftModal: s.openDraftModal,
-    updateTask: s.updateTask,
     setSelectedTaskId: s.setSelectedTaskId,
     openRecordDrawer: s.openRecordDrawer,
     attemptFollowUpTransition: s.attemptFollowUpTransition,
@@ -55,14 +51,12 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const laneContext = useFollowUpLaneContext();
   const item = laneContext.selectedItem;
 
-  const [noteDraft, setNoteDraft] = useState('');
   const [nextActionDraft, setNextActionDraft] = useState('');
   const [assigneeDraft, setAssigneeDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [activeAction, setActiveAction] = useState<FollowUpActionType | null>(null);
   const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
-  const [linkTaskIdDraft, setLinkTaskIdDraft] = useState('');
 
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, showActivity ? 50 : 8) : []), [item, showActivity]);
@@ -73,7 +67,6 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     setActiveTab('overview');
     setActiveAction(null);
     setActionFeedback(null);
-    setLinkTaskIdDraft('');
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.owner]);
 
   if (!item) {
@@ -86,15 +79,6 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const relatedBundle = getRelatedRecordBundle({ type: 'followup', id: item.id }, { items, tasks, projects, contacts, companies });
   const closeout = laneContext.closeoutEvaluation;
   const followUpDirty = isRecordDirty('followup', item.id);
-  const unlinkedSiblingTasks = tasks.filter((task) => !task.linkedFollowUpId && task.project === item.project);
-
-  const linkTaskToFollowUp = () => {
-    if (!linkTaskIdDraft) return;
-    updateTask(linkTaskIdDraft, { linkedFollowUpId: item.id, contextNote: `Linked from follow-up ${item.title}` });
-    setActionFeedback({ tone: 'success', message: 'Linked task added. Queue and closeout readiness were refreshed.' });
-    setLinkTaskIdDraft('');
-  };
-
   return (
     <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector">
       <div className="followup-detail-head">
@@ -214,44 +198,24 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         {activeTab === 'context' ? (
           <>
             <div className="detail-card inspector-block">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">Execution notes</div>
-                <div className="text-xs text-slate-500">{noteEntries.length} entries</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Context and deep edit routing</div>
+              <div className="mt-2 text-xs text-slate-600">
+                Inspectors stay execution-first. Use canonical context drawer and full editor for deeper record maintenance.
               </div>
-              <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} className="field-textarea mt-3" placeholder="Type a note, update, or phone call summary…" />
-              <div className="mt-3 flex justify-end"><button onClick={() => { if (!noteDraft.trim()) return; addRunningNote(item.id, noteDraft); setNoteDraft(''); setActionFeedback({ tone: 'success', message: 'Note saved to selected follow-up history.' }); }} className="action-btn">Add note</button></div>
-              <div className="mt-4 space-y-3">
-                {noteEntries.map((entry) => <div key={entry.id} className="rounded-2xl bg-slate-50 p-3"><div className="text-xs font-medium text-slate-500">{formatDateTime(entry.at)}</div><div className="mt-1 note-pre-wrap text-sm text-slate-700">{entry.text}</div></div>)}
-              </div>
-            </div>
-
-            <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked context</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />{editSurfaceCtas.openContext}</button>
                 <button className="action-btn" onClick={() => openEditModal(item.id)}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
               </div>
-              <details className="task-maintenance-disclosure mt-2">
-                <summary>Linked context maintenance</summary>
-                <div className="task-maintenance-body">
-                  <div className="text-xs text-slate-600">Use these only for supporting link maintenance. Primary deep editing stays in {editSurfacePolicy.full_edit.label.toLowerCase()}.</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                <select value={linkTaskIdDraft} onChange={(event) => setLinkTaskIdDraft(event.target.value)} className="field-input !w-auto">
-                  <option value="">Link existing task…</option>
-                  {unlinkedSiblingTasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
-                </select>
-                <button className="action-btn" onClick={linkTaskToFollowUp} disabled={!linkTaskIdDraft}>Link task</button>
-                    <button onClick={() => setActiveAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
-                  </div>
-                </div>
-              </details>
+            </div>
+
+            <div className="detail-card inspector-block">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked records</div>
               <div className="mt-2 space-y-2">
                 {linkedTasks.length === 0 ? <div className="text-sm text-slate-500">No linked tasks yet. Create one from Act.</div> : linkedTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2 list-row-family">
                     <div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div>
                     <div className="flex gap-2">
                       <button className="action-btn" onClick={() => { setSelectedTaskId(task.id); openRecordDrawer({ type: 'task', id: task.id }); }}>Open child</button>
-                      <button className="action-btn" onClick={() => { updateTask(task.id, { linkedFollowUpId: undefined, contextNote: 'Unlinked from follow-up parent' }); setActionFeedback({ tone: 'warn', message: 'Task unlinked from selected follow-up.' }); }}><Unlink2 className="h-4 w-4" />Unlink</button>
                     </div>
                   </div>
                 ))}

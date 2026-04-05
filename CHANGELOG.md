@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Deficiency 4 Phase 2: canonical editor + context drawer consolidation
+- Consolidated task/follow-up deep editing into a shared canonical full-editor shell and section grammar, so both record types now follow the same product-level editing rhythm (core identity, execution state, workflow context, linkage, notes/detail, maintenance) with unified header/footer treatment (`src/components/CreateWorkModal.tsx`, `src/components/ui/AppPrimitives.tsx`).
+- Consolidated context inspection into a canonical drawer section model ordered around summary, surrounding context, linked records, relationship context, activity timeline, and explicit escalation into full edit (`src/components/UniversalRecordDrawer.tsx`, `src/components/ui/AppPrimitives.tsx`).
+- Reduced overlapping deep-edit affordances in lane inspectors by slimming task/follow-up inspector maintenance and linkage editing paths, preserving execution-first controls while routing deep edits to canonical surfaces (`src/components/TaskWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`).
+- Shifted project/relationship workspaces further toward context/routing lenses by reducing broad inline edit prominence and adding stronger canonical context/full-edit entry points for linked task/follow-up records (`src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`).
+- Refined UI slice orchestration so opening canonical full-editor or context-drawer surfaces intentionally deconflicts competing surfaces (`src/store/slices/uiSlice.ts`).
+
 ### Deficiency 4 Phase 1: editing-surface hierarchy and role clarity
 - Established canonical editing hierarchy across inspectors, full-edit modals, record drawer, and workflow transitions.
 - Added a shared edit-surface policy helper to standardize role definitions (`execution`, `full_edit`, `context`, `maintenance`, `transition`) plus consistent CTA vocabulary used across inspectors and support workspaces (`src/lib/editSurfacePolicy.ts`).

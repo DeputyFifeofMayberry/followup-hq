@@ -27,6 +27,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     addIntakeDocument, updateTask, batchUpdateFollowUps, runValidatedBatchFollowUpTransition,
     openCreateFromCapture,
     openRecordDrawer,
+    openEditModal,
+    openEditTaskModal,
     setProjectFilter, setActiveView,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -44,6 +46,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
     openCreateFromCapture: s.openCreateFromCapture,
     openRecordDrawer: s.openRecordDrawer,
+    openEditModal: s.openEditModal,
+    openEditTaskModal: s.openEditTaskModal,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
   })));
@@ -270,10 +274,12 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               </div>
 
               <div className="project-subpanel inspector-block">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Take action now</div>
-                <div className="mt-2 grid gap-2 md:grid-cols-2">
-                  <input value={selectedProject.projectNextAction || ''} onChange={(e) => updateProject(selectedProject.id, { projectNextAction: e.target.value })} className="field-input" placeholder="Project-level next action" />
-                  <select value={selectedProject.status} onChange={(e) => updateProject(selectedProject.id, { status: e.target.value as typeof selectedProject.status })} className="field-input"><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Project context routing</div>
+                <div className="mt-2 text-xs text-slate-600">Use context + lane routing here. Deeper metadata editing stays in secondary maintenance flows.</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn !px-2.5 !py-1.5 text-xs">{editSurfaceCtas.openContext}</button>
+                  <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>
+                  <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn !px-2.5 !py-1.5 text-xs">Open task lane</button>
                 </div>
               </div>
 
@@ -332,7 +338,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
                       <label key={item.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-xs">Open</button></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openEditModal(item.id)} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditFollowUp}</button></div>
                       </label>
                     ))}
                   </div>
@@ -348,7 +354,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
                       <label key={task.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-xs">Open</button></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openEditTaskModal(task.id)} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditTask}</button></div>
                       </label>
                     ))}
                   </div>

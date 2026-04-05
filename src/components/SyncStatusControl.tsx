@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, LogOut, RefreshCcw, Save, Upload, UserRound } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
-import { getSyncStatusModel } from '../lib/syncStatus';
+import { getCloudConfirmationLabel, getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
@@ -16,16 +16,7 @@ function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' |
 
 export function SyncStatusControl() {
   const syncMeta = useAppStore(useShallow((s) => ({
-    hydrated: s.hydrated,
-    persistenceMode: s.persistenceMode,
-    syncState: s.syncState,
-    saveError: s.saveError,
-    lastSyncedAt: s.lastSyncedAt,
-    lastFailedSyncAt: s.lastFailedSyncAt,
-    unsavedChangeCount: s.unsavedChangeCount,
-    hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
-    cloudSyncStatus: s.cloudSyncStatus,
-    loadedFromLocalRecoveryCache: s.loadedFromLocalRecoveryCache,
+    ...selectSyncMetaSnapshot(s),
     dirtyRecordRefs: s.dirtyRecordRefs,
     persistenceActivity: s.persistenceActivity,
     flushPersistenceNow: s.flushPersistenceNow,
@@ -107,8 +98,12 @@ export function SyncStatusControl() {
             <span className="sync-status-row-label">Trust diagnostics</span>
             <div className="sync-status-diagnostics-grid">
               <div>
-                <div className="sync-status-row-detail sync-status-row-detail-strong">Last successful sync</div>
-                <div className="sync-status-row-detail">{syncMeta.lastSyncedAt ? formatDateTime(syncMeta.lastSyncedAt) : 'No successful sync recorded yet.'}</div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Last confirmed cloud save</div>
+                <div className="sync-status-row-detail">{syncMeta.lastCloudConfirmedAt ? formatDateTime(syncMeta.lastCloudConfirmedAt) : 'No confirmed cloud save recorded yet.'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Last local write</div>
+                <div className="sync-status-row-detail">{syncMeta.lastLocalWriteAt ? formatDateTime(syncMeta.lastLocalWriteAt) : 'No local writes recorded yet.'}</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Last failed sync attempt</div>
@@ -121,18 +116,15 @@ export function SyncStatusControl() {
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Cloud confirmation status</div>
                 <div className="sync-status-row-detail">
-                  {syncMeta.cloudSyncStatus === 'cloud-confirmed'
-                    ? 'Saved to cloud'
-                    : syncMeta.cloudSyncStatus === 'pending-cloud'
-                      ? 'Saved locally, cloud confirmation pending'
-                      : syncMeta.cloudSyncStatus === 'local-recovery'
-                        ? 'Loaded from local recovery cache'
-                        : syncMeta.cloudSyncStatus === 'cloud-failed-local-preserved'
-                          ? 'Cloud sync failed; local copy preserved'
-                          : 'Cloud confirmation unavailable'}
+                  {getCloudConfirmationLabel(syncMeta)}
                 </div>
               </div>
             </div>
+            {syncMeta.lastFallbackRestoreAt ? (
+              <div className="sync-status-row-detail">
+                Last fallback/local recovery restore: {formatDateTime(syncMeta.lastFallbackRestoreAt)}
+              </div>
+            ) : null}
             {syncMeta.loadedFromLocalRecoveryCache ? (
               <div className="sync-status-row-detail">
                 This session is currently using the local recovery cache to prevent data loss while cloud confirmation catches up.

@@ -2,20 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, LoaderCircle, LogOut, TriangleAlert, UserRound } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getSyncStatusModel } from '../lib/syncStatus';
+import { getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 
 export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
-  const { persistenceMode, saveError, hydrated, syncState, lastSyncedAt, unsavedChangeCount, hasLocalUnsavedChanges } = useAppStore(useShallow((s) => ({
-    persistenceMode: s.persistenceMode,
-    saveError: s.saveError,
-    hydrated: s.hydrated,
-    syncState: s.syncState,
-    lastSyncedAt: s.lastSyncedAt,
-    unsavedChangeCount: s.unsavedChangeCount,
-    hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
-  })));
+  const syncMeta = useAppStore(useShallow(selectSyncMetaSnapshot));
   const [email, setEmail] = useState<string>('');
   const [signingOut, setSigningOut] = useState(false);
 
@@ -36,24 +28,16 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
     };
   }, []);
 
-  const statusModel = useMemo(() => getSyncStatusModel({
-    persistenceMode,
-    saveError,
-    hydrated,
-    syncState,
-    unsavedChangeCount,
-    hasLocalUnsavedChanges,
-    lastSyncedAt,
-  }), [hydrated, syncState, persistenceMode, saveError, unsavedChangeCount, hasLocalUnsavedChanges, lastSyncedAt]);
+  const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
 
-  const StatusIcon = statusModel.stateTone === 'danger'
-    ? AlertTriangle
-    : statusModel.showSpinner || statusModel.stateTone === 'info'
-      ? LoaderCircle
+  const StatusIcon = statusModel.showSpinner || statusModel.stateTone === 'info'
+    ? LoaderCircle
+    : statusModel.stateTone === 'danger' || statusModel.stateTone === 'warn'
+      ? AlertTriangle
       : CheckCircle2;
 
   if (compact) {
-    if (!saveError && syncState !== 'saving' && syncState !== 'error' && !hasLocalUnsavedChanges) {
+    if (statusModel.tone === 'default' && !syncMeta.hasLocalUnsavedChanges) {
       return null;
     }
     return (
@@ -63,17 +47,17 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
           <span className="font-medium">{statusModel.stateLabel}</span>
         </div>
         <div className="mt-1 text-slate-500">{statusModel.stateDescription}</div>
-        {hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{unsavedChangeCount} pending local change{unsavedChangeCount === 1 ? '' : 's'}.</div> : null}
+        {syncMeta.hasLocalUnsavedChanges ? <div className="mt-1 text-slate-500">{syncMeta.unsavedChangeCount} pending local change{syncMeta.unsavedChangeCount === 1 ? '' : 's'}.</div> : null}
         {email ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
             <UserRound className="h-3.5 w-3.5" />
             {email}
           </div>
         ) : null}
-        {saveError ? (
+        {syncMeta.saveError ? (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700">
             <TriangleAlert className="h-3.5 w-3.5" />
-            {saveError}
+            {syncMeta.saveError}
           </div>
         ) : null}
       </div>
@@ -89,10 +73,10 @@ export function PersistenceBanner({ compact = false }: { compact?: boolean }) {
             <span className="font-medium">{statusModel.stateLabel}</span>
             <span className="text-slate-500">{statusModel.stateDescription}</span>
           </div>
-          {saveError ? (
+          {syncMeta.saveError ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
               <TriangleAlert className="h-4 w-4" />
-              {saveError}
+              {syncMeta.saveError}
             </div>
           ) : null}
         </div>

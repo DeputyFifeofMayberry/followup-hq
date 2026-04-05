@@ -27,8 +27,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     addIntakeDocument, updateTask, batchUpdateFollowUps, runValidatedBatchFollowUpTransition,
     openCreateFromCapture,
     openRecordDrawer,
-    openEditModal,
-    openEditTaskModal,
+    openRecordEditor,
     setProjectFilter, setActiveView,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -46,8 +45,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
     openCreateFromCapture: s.openCreateFromCapture,
     openRecordDrawer: s.openRecordDrawer,
-    openEditModal: s.openEditModal,
-    openEditTaskModal: s.openEditTaskModal,
+    openRecordEditor: s.openRecordEditor,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
   })));
@@ -338,7 +336,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openFollowUps.map((item) => (
                       <label key={item.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openEditModal(item.id)} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditFollowUp}</button></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedFollowUpIds.includes(item.id)} onChange={(e) => setSelectedFollowUpIds((prev) => e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id))} /><button onClick={() => onOpenItem(item.id, 'By project', selectedProject.name)} className="text-left"><div className="font-medium text-slate-900">{item.title}</div><div className="text-xs text-slate-500">Due {formatDate(item.dueDate)} • {item.status}</div></button><button onClick={() => openRecordDrawer({ type: 'followup', id: item.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditFollowUp}</button></div>
                       </label>
                     ))}
                   </div>
@@ -354,7 +352,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                   <div className="project-entity-list">
                     {selectedRow.openTasks.map((task) => (
                       <label key={task.id} className="project-entity-row">
-                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openEditTaskModal(task.id)} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditTask}</button></div>
+                        <div className="flex items-start gap-2"><input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={(e) => setSelectedTaskIds((prev) => e.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))} /><div><div className="font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} • Due {formatDate(task.dueDate)}</div></div><button onClick={() => openRecordDrawer({ type: 'task', id: task.id })} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.openContext}</button><button onClick={() => openRecordEditor({ type: 'task', id: task.id }, 'edit', 'workspace')} className="action-btn !px-2 !py-1 text-xs">{editSurfaceCtas.fullEditTask}</button></div>
                       </label>
                     ))}
                   </div>

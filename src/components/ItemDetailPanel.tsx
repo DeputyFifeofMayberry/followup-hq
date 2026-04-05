@@ -23,7 +23,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     companies,
     updateItem,
     deleteItem,
-    openEditModal,
+    openRecordEditor,
     addTask,
     addTouchLog,
     openDraftModal,
@@ -39,7 +39,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
     companies: s.companies,
     updateItem: s.updateItem,
     deleteItem: s.deleteItem,
-    openEditModal: s.openEditModal,
+    openRecordEditor: s.openRecordEditor,
     addTask: s.addTask,
     addTouchLog: s.addTouchLog,
     openDraftModal: s.openDraftModal,
@@ -92,7 +92,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             {followUpDirty ? <Badge variant="warn">Unsaved local edits</Badge> : null}
           </div>
         </div>
-        <button onClick={() => openEditModal(item.id)} className="action-btn"><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
+        <button onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')} className="action-btn"><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
       </div>
 
       <div className="followup-operational-summary">
@@ -204,7 +204,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />{editSurfaceCtas.openContext}</button>
-                <button className="action-btn" onClick={() => openEditModal(item.id)}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
+                <button className="action-btn" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
               </div>
             </div>
 

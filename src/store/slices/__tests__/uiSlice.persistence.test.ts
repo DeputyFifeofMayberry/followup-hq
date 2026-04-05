@@ -14,6 +14,10 @@ let state = {
   itemModal: { open: false, mode: 'create', itemId: null },
   taskModal: { open: false, mode: 'create', taskId: null },
   recordDrawerRef: null,
+  activeRecordSurface: 'none',
+  activeRecordRef: null,
+  activeEditorMode: null,
+  recordSurfaceSource: null,
   createWorkDraft: null,
 } as unknown as AppStore;
 
@@ -36,5 +40,10 @@ if (queueCount !== 4) throw new Error('persisted follow-up actions should queue 
 
 slice.openEditModal('FUP-1');
 if (!state.itemModal.open || state.taskModal.open || state.recordDrawerRef !== null) throw new Error('openEditModal should focus canonical full-editor modal');
+if (state.activeRecordSurface !== 'full_editor' || state.activeRecordRef?.id !== 'FUP-1') throw new Error('openEditModal should update unified record surface state');
 slice.openRecordDrawer({ type: 'followup', id: 'FUP-1' });
 if (!state.recordDrawerRef || state.itemModal.open || state.taskModal.open) throw new Error('openRecordDrawer should deconflict modal surfaces');
+if ((state as any).activeRecordSurface !== 'context_drawer') throw new Error('openRecordDrawer should set context surface');
+
+slice.openRecordEditor({ type: 'task', id: 'TSK-1' }, 'edit', 'test');
+if (!(state as any).taskModal.open || (state as any).activeRecordSurface !== 'full_editor' || (state as any).activeRecordRef?.id !== 'TSK-1') throw new Error('openRecordEditor should support task full editor handoff');

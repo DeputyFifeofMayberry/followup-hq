@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
-import { buildItemFromForm, createId, fromDateInputValue, toDateInputValue, todayIso } from '../lib/utils';
+import { createId, fromDateInputValue, toDateInputValue } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import type { FollowUpFormInput, TaskItem } from '../types';
+import type { FollowUpFormInput, TaskFormInput, TaskItem } from '../types';
 import { EntityCombobox } from './EntityCombobox';
+import { createRecordEditorSession, followUpEditorAdapter, taskEditorAdapter, updateRecordEditorDraft, type RecordEditorSession } from '../domains/editor';
 import {
   AppModal,
   AppModalBody,
@@ -71,9 +72,24 @@ export function CreateWorkModal() {
   const currentTask = useMemo(() => tasks.find((entry) => entry.id === taskModal.taskId) ?? null, [tasks, taskModal.taskId]);
 
   const [mode, setMode] = useState<WorkMode>(getRecentWorkMode());
-  const [followUpForm, setFollowUpForm] = useState<FollowUpFormInput>(buildSmartFollowUpDefaults({ projectFilter }));
-  const [taskForm, setTaskForm] = useState<TaskItem>(toTaskDraft(buildSmartTaskDefaults({ projectFilter })));
+  const [followUpSession, setFollowUpSession] = useState<RecordEditorSession<any, FollowUpFormInput, any> | null>(null);
+  const [taskSession, setTaskSession] = useState<RecordEditorSession<any, TaskFormInput, any> | null>(null);
   const [modalMode, setModalMode] = useState<'fast' | 'full'>('fast');
+
+  const followUpForm = followUpSession?.draft ?? buildSmartFollowUpDefaults({ projectFilter });
+  const taskForm = taskSession?.draft ?? buildSmartTaskDefaults({ projectFilter });
+  const setFollowUpForm = (draft: FollowUpFormInput) => {
+    setFollowUpSession((session) => {
+      if (!session) return session;
+      return updateRecordEditorDraft(session, followUpEditorAdapter, () => draft);
+    });
+  };
+  const setTaskForm = (draft: TaskFormInput) => {
+    setTaskSession((session) => {
+      if (!session) return session;
+      return updateRecordEditorDraft(session, taskEditorAdapter, () => draft);
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -85,39 +101,13 @@ export function CreateWorkModal() {
     if (!open) return;
     if (currentItem) {
       setMode('followup');
-      setFollowUpForm({
-        title: currentItem.title,
-        source: currentItem.source,
-        project: currentItem.project,
-        projectId: currentItem.projectId ?? '',
-        owner: currentItem.owner,
-        assigneeDisplayName: currentItem.assigneeDisplayName ?? currentItem.owner,
-        status: currentItem.status,
-        priority: currentItem.priority,
-        dueDate: currentItem.dueDate,
-        promisedDate: currentItem.promisedDate ?? '',
-        nextTouchDate: currentItem.nextTouchDate,
-        nextAction: currentItem.nextAction,
-        summary: currentItem.summary,
-        tags: currentItem.tags,
-        sourceRef: currentItem.sourceRef,
-        waitingOn: currentItem.waitingOn ?? '',
-        notes: currentItem.notes,
-        category: currentItem.category,
-        owesNextAction: currentItem.owesNextAction,
-        escalationLevel: currentItem.escalationLevel,
-        cadenceDays: currentItem.cadenceDays,
-        contactId: currentItem.contactId ?? '',
-        companyId: currentItem.companyId ?? '',
-        threadKey: currentItem.threadKey ?? '',
-        draftFollowUp: currentItem.draftFollowUp ?? '',
-      });
+      setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: currentItem.id }, mode: 'edit', record: currentItem }));
       setModalMode('full');
       return;
     }
     if (currentTask) {
       setMode('task');
-      setTaskForm(currentTask);
+      setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: currentTask.id }, mode: 'edit', record: currentTask }));
       setModalMode('full');
       return;
     }
@@ -129,7 +119,7 @@ export function CreateWorkModal() {
         ? projects.find((project) => project.name.toLowerCase() === createWorkDraft.project?.toLowerCase() || project.id === createWorkDraft.project)
         : undefined;
       setMode(createWorkDraft.kind);
-      setFollowUpForm({
+      const followUpDraft = {
         ...defaultFollowUp,
         title: createWorkDraft.title || defaultFollowUp.title,
         owner: createWorkDraft.owner || defaultFollowUp.owner,
@@ -142,8 +132,8 @@ export function CreateWorkModal() {
         waitingOn: createWorkDraft.waitingOn || defaultFollowUp.waitingOn,
         summary: createWorkDraft.rawText || defaultFollowUp.summary,
         priority: createWorkDraft.priority,
-      });
-      setTaskForm({
+      };
+      const taskDraft = {
         ...defaultTask,
         title: createWorkDraft.title || defaultTask.title,
         owner: createWorkDraft.owner || defaultTask.owner,
@@ -158,13 +148,19 @@ export function CreateWorkModal() {
         contextNote: createWorkDraft.contextNote || defaultTask.contextNote,
         companyId: createWorkDraft.companyId || defaultTask.companyId,
         contactId: createWorkDraft.contactId || defaultTask.contactId,
-      });
+      };
+      setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: 'new-followup' }, mode: 'create', sourceSurface: 'capture' }));
+      setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: 'new-task' }, mode: 'create', sourceSurface: 'capture' }));
+      setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => followUpDraft) : session);
+      setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => taskDraft) : session);
       setModalMode(createWorkDraft.cleanupReasons?.length ? 'full' : 'fast');
       return;
     }
     setMode(itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
-    setFollowUpForm(defaultFollowUp);
-    setTaskForm(defaultTask);
+    setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: 'new-followup' }, mode: 'create', sourceSurface: 'full_editor' }));
+    setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: 'new-task' }, mode: 'create', sourceSurface: 'full_editor' }));
+    setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => defaultFollowUp) : session);
+    setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => defaultTask) : session);
     setModalMode('fast');
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
 
@@ -180,25 +176,23 @@ export function CreateWorkModal() {
   const companyOptions = companies.map((company) => ({ id: company.id, label: company.name, meta: company.type }));
 
   const canSave = mode === 'followup'
-    ? !!followUpForm.title.trim()
-    : !!taskForm.title.trim();
+    ? Boolean(followUpSession?.validation.valid)
+    : Boolean(taskSession?.validation.valid);
 
   const save = (addAnother = false) => {
     if (!canSave) return;
     if (mode === 'followup') {
-      const normalizedForm: FollowUpFormInput = {
-        ...followUpForm,
-        nextAction: followUpForm.nextAction.trim() || followUpForm.title.trim(),
-      };
-      const built = buildItemFromForm(normalizedForm, currentItem ?? undefined);
-      rememberFollowUpDefaults(normalizedForm);
-      if (currentItem) updateItem(currentItem.id, built);
-      else addItem(built);
+      if (!followUpSession?.savePayload) return;
+      const payload = followUpSession.savePayload.payload;
+      rememberFollowUpDefaults(followUpSession.draft);
+      if (payload.action === 'update' && payload.recordId) updateItem(payload.recordId, payload.record);
+      else addItem(payload.record);
     } else {
-      const payload = { ...taskForm, nextStep: taskForm.nextStep.trim() || taskForm.title.trim(), updatedAt: todayIso() };
-      rememberTaskDefaults(payload);
-      if (currentTask) updateTask(currentTask.id, payload);
-      else addTask(payload);
+      if (!taskSession?.savePayload) return;
+      const payload = taskSession.savePayload.payload;
+      rememberTaskDefaults(taskSession.draft as TaskItem);
+      if (payload.action === 'update' && payload.recordId) updateTask(payload.recordId, payload.record);
+      else addTask({ ...payload.record, id: payload.record.id || createId('TSK') });
     }
 
     if (!addAnother || followUpEditing || taskEditing) {
@@ -206,8 +200,10 @@ export function CreateWorkModal() {
       return;
     }
 
-    setFollowUpForm(buildSmartFollowUpDefaults({ projectFilter }));
-    setTaskForm(toTaskDraft(buildSmartTaskDefaults({ projectFilter })));
+    const defaultFollowUp = buildSmartFollowUpDefaults({ projectFilter });
+    const defaultTask = toTaskDraft(buildSmartTaskDefaults({ projectFilter }));
+    setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => defaultFollowUp) : session);
+    setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => defaultTask) : session);
   };
 
   return (

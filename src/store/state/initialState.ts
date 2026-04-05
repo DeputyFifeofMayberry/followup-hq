@@ -64,6 +64,10 @@ export const initialUiState: AppUiState = {
   executionIntent: null,
   executionSelectedId: null,
   recordDrawerRef: null,
+  activeRecordSurface: 'none',
+  activeRecordRef: null,
+  activeEditorMode: null,
+  recordSurfaceSource: null,
   executionLaneSessions: {
     followups: {
       lane: 'followups',

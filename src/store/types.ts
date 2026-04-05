@@ -86,6 +86,7 @@ export interface AppStoreActions {
   openCreateFromCapture: (draft: UniversalCaptureDraft) => void;
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;
+  openRecordEditor: (ref: RecordRef, mode?: 'create' | 'edit', source?: string) => void;
   openRecordDrawer: (ref: RecordRef) => void;
   closeRecordDrawer: () => void;
   updateItem: (id: string, patch: Partial<FollowUpItem>) => void;

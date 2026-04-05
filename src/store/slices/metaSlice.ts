@@ -1,4 +1,4 @@
-import { loadPersistedPayload } from '../../lib/persistence';
+import { loadPersistedPayload, type PersistenceLoadError } from '../../lib/persistence';
 import { defaultExecutionViews } from '../../lib/unifiedQueue';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
@@ -13,6 +13,7 @@ import type { SliceSet } from './types';
 import { refreshDuplicates } from '../useCases/mutationEffects';
 import { createPersistenceActivityEvent, describeLoadFallbackFailure } from '../persistenceActivity';
 import { deriveSyncMetaFromLoadResult } from './syncMetaDerivation';
+import { formatPersistenceErrorMessage, normalizePersistenceError } from '../../lib/persistenceError';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
   return {
@@ -129,11 +130,19 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
         });
       } catch (error) {
+        const loadError = error as Partial<PersistenceLoadError>;
+        const normalized = loadError?.normalized
+          ?? normalizePersistenceError(error, {
+            stage: typeof loadError?.stage === 'string' ? loadError.stage : 'unknown',
+            operation: 'load',
+          });
+        const detail = formatPersistenceErrorMessage(normalized);
+        const stage = typeof loadError?.stage === 'string' ? loadError.stage : normalized.stage;
         const failureAt = todayIso();
         set({
           hydrated: true,
           persistenceMode: 'browser',
-          saveError: error instanceof Error ? error.message : 'Failed to load saved data.',
+          saveError: detail,
           syncState: 'error',
           cloudSyncStatus: 'load-failed-no-local-copy',
           loadedFromLocalRecoveryCache: false,
@@ -144,14 +153,14 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           lastLocalWriteAt: undefined,
           lastFallbackRestoreAt: undefined,
           lastFailedSyncAt: failureAt,
-          lastLoadFailureStage: undefined,
-          lastLoadFailureMessage: error instanceof Error ? error.message : 'Failed to load saved data.',
-          lastLoadRecoveredWithLocalCache: false,
+          lastLoadFailureStage: stage,
+          lastLoadFailureMessage: detail,
+          lastLoadRecoveredWithLocalCache: Boolean(loadError?.recoveredWithLocalCache),
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'failed',
             at: failureAt,
             summary: 'Failed to load persisted workspace.',
-            detail: error instanceof Error ? error.message : 'Failed to load saved data.',
+            detail,
           })],
         });
       }

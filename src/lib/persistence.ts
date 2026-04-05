@@ -1,5 +1,10 @@
 import { supabase } from './supabase';
 import { getDefaultOutlookSettings } from './outlookGraph';
+import {
+  formatPersistenceErrorMessage,
+  normalizePersistenceError,
+  type NormalizedPersistenceError,
+} from './persistenceError';
 import type {
   AppSnapshot,
   CompanyRecord,
@@ -94,6 +99,24 @@ export interface SaveDiagnostics {
 export interface SaveResult {
   mode: PersistenceMode;
   diagnostics?: SaveDiagnostics;
+}
+
+export class PersistenceLoadError extends Error {
+  stage?: LoadFailureStage;
+  normalized: NormalizedPersistenceError;
+  recoveredWithLocalCache: boolean;
+
+  constructor(params: {
+    stage?: LoadFailureStage;
+    normalized: NormalizedPersistenceError;
+    recoveredWithLocalCache: boolean;
+  }) {
+    super(formatPersistenceErrorMessage(params.normalized));
+    this.name = 'PersistenceLoadError';
+    this.stage = params.stage;
+    this.normalized = params.normalized;
+    this.recoveredWithLocalCache = params.recoveredWithLocalCache;
+  }
 }
 
 function buildFallbackSnapshot(): AppSnapshot {
@@ -379,12 +402,13 @@ function isLocalNewer(localUpdatedAt: string | undefined, cloudUpdatedAt: string
 
 export async function loadPersistedPayload(): Promise<LoadResult> {
   const cache = readLocalCache();
-  const toErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
   let userId: string | null;
   try {
     userId = await getSessionUserId();
   } catch (error) {
+    const normalized = normalizePersistenceError(error, { stage: 'auth_session', operation: 'load', table: 'auth_session' });
+    const loadFailureMessage = formatPersistenceErrorMessage(normalized);
     if (cache) {
       return {
         payload: cache.entities,
@@ -396,11 +420,15 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         localCacheUpdatedAt: cache.updatedAt,
         localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
         loadFailureStage: 'auth_session',
-        loadFailureMessage: toErrorMessage(error),
+        loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
       };
     }
-    throw error;
+    throw new PersistenceLoadError({
+      stage: 'auth_session',
+      normalized,
+      recoveredWithLocalCache: false,
+    });
   }
 
   if (!userId) {
@@ -429,7 +457,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   let cloudPayload: PersistedPayload;
   let cloudUpdatedAt: string | undefined;
   let loadFailureStage: LoadFailureStage | undefined;
-  let loadFailureMessage: string | undefined;
+  let loadFailureNormalized: NormalizedPersistenceError | undefined;
 
   try {
     const readAtStage = async <T>(stage: LoadFailureStage, fn: () => Promise<T>): Promise<T> => {
@@ -437,8 +465,12 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         return await fn();
       } catch (error) {
         loadFailureStage = stage;
-        loadFailureMessage = toErrorMessage(error);
-        throw error;
+        loadFailureNormalized = normalizePersistenceError(error, { stage, operation: 'load', table: stage });
+        throw new PersistenceLoadError({
+          stage,
+          normalized: loadFailureNormalized,
+          recoveredWithLocalCache: false,
+        });
       }
     };
 
@@ -459,6 +491,12 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       auxiliary: auxiliaryResult.auxiliary ?? buildEmptyPayload().auxiliary,
     };
   } catch (error) {
+    const fromLoadError = error instanceof PersistenceLoadError ? error : undefined;
+    const normalized = fromLoadError?.normalized
+      ?? loadFailureNormalized
+      ?? normalizePersistenceError(error, { stage: loadFailureStage ?? 'unknown', operation: 'load', table: loadFailureStage ?? 'unknown' });
+    const stage = fromLoadError?.stage ?? loadFailureStage ?? 'unknown';
+    const loadFailureMessage = formatPersistenceErrorMessage(normalized);
     if (cache) {
       return {
         payload: cache.entities,
@@ -469,12 +507,16 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         cloudReadFailed: true,
         localCacheUpdatedAt: cache.updatedAt,
         localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
-        loadFailureStage: loadFailureStage ?? 'unknown',
-        loadFailureMessage: loadFailureMessage ?? toErrorMessage(error),
+        loadFailureStage: stage,
+        loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
       };
     }
-    throw error;
+    throw new PersistenceLoadError({
+      stage,
+      normalized,
+      recoveredWithLocalCache: false,
+    });
   }
 
   const hydrated = await migrateLegacySnapshotIfNeeded(userId, cloudPayload);
@@ -551,7 +593,12 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
   }
 
   const saveTable = async (table: string, records: Array<{ id: string }>) => {
-    const tableResult = await saveEntityTable(table, userId, records);
+    let tableResult: { staleDeleteWarning?: string };
+    try {
+      tableResult = await saveEntityTable(table, userId, records);
+    } catch (error) {
+      throw normalizePersistenceError(error, { operation: 'save', table });
+    }
     diagnostics.completedTables.push(table);
     if (tableResult.staleDeleteWarning) diagnostics.staleDeleteWarnings.push(tableResult.staleDeleteWarning);
   };
@@ -562,12 +609,17 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
     await saveTable('projects', payload.projects);
     await saveTable('contacts', payload.contacts);
     await saveTable('companies', payload.companies);
-    await saveAuxiliaryState(userId, payload.auxiliary, true);
+    try {
+      await saveAuxiliaryState(userId, payload.auxiliary, true);
+    } catch (error) {
+      throw normalizePersistenceError(error, { operation: 'save', table: 'user_preferences' });
+    }
     diagnostics.completedTables.push('user_preferences');
   } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : 'Cloud save failed.';
-    const failedMatch = rawMessage.match(/for ([a-z_]+):/) || rawMessage.match(/save failed:([a-z_]+)/);
-    diagnostics.failedTable = failedMatch?.[1];
+    const normalized = normalizePersistenceError(error, { operation: 'save' });
+    const rawMessage = formatPersistenceErrorMessage(normalized);
+    const failedMatch = rawMessage.match(/for table ([a-z_]+)/) || rawMessage.match(/for ([a-z_]+):/) || rawMessage.match(/save failed:([a-z_]+)/);
+    diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
   }

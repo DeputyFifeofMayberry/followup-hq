@@ -1,6 +1,7 @@
 import type { PersistedPayload, SaveResult } from '../lib/persistence';
 import { savePersistedPayload } from '../lib/persistence';
 import { todayIso } from '../lib/utils';
+import { formatPersistenceErrorMessage, normalizePersistenceError } from '../lib/persistenceError';
 
 interface QueueConfig {
   debounceMs?: number;
@@ -56,7 +57,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       lastSavedJson = payloadJson;
       handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save data.';
+      const message = formatPersistenceErrorMessage(normalizePersistenceError(error, { operation: 'save' }));
       const diagnostics = typeof error === 'object' && error !== null && 'diagnostics' in error
         ? (error as { diagnostics?: SaveResult['diagnostics'] }).diagnostics
         : undefined;

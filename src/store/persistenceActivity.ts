@@ -1,6 +1,7 @@
 import { todayIso } from '../lib/utils';
 import type { LoadFailureStage } from '../lib/persistence';
 import type { PersistenceActivityEvent, PersistenceActivityKind } from './state/types';
+import { formatPersistenceErrorMessage, normalizePersistenceError } from '../lib/persistenceError';
 
 const MAX_ACTIVITY = 8;
 
@@ -37,22 +38,26 @@ export function appendPersistenceActivity(
 }
 
 export function describeLoadFallbackFailure(stage?: LoadFailureStage, message?: string): { summary: string; detail: string } {
+  const normalizedMessage = message
+    ? formatPersistenceErrorMessage(normalizePersistenceError(message, { stage, operation: 'load' }))
+    : undefined;
+
   if (stage === 'auth_session') {
     return {
       summary: 'Session lookup failed; local cache preserved.',
-      detail: message ? `Session lookup failed. Detail: ${message}` : 'Session lookup failed; local cache preserved your latest data.',
+      detail: normalizedMessage ? `Session lookup failed. Detail: ${normalizedMessage}` : 'Session lookup failed; local cache preserved your latest data.',
     };
   }
 
   if (stage) {
     return {
       summary: `Cloud read failed during ${stage}; local cache preserved.`,
-      detail: message ? `Cloud read failed during ${stage}. Detail: ${message}` : `Cloud read failed during ${stage}; local cache preserved your latest data.`,
+      detail: normalizedMessage ? `Cloud read failed during ${stage}. Detail: ${normalizedMessage}` : `Cloud read failed during ${stage}; local cache preserved your latest data.`,
     };
   }
 
   return {
     summary: 'Cloud read failed; local copy preserved.',
-    detail: message ? `Cloud read failed. Detail: ${message}` : 'Cloud read failed; local cache preserved your latest data.',
+    detail: normalizedMessage ? `Cloud read failed. Detail: ${normalizedMessage}` : 'Cloud read failed; local cache preserved your latest data.',
   };
 }

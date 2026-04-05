@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 import { EmptyState } from './ui/AppPrimitives';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
+import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
 const typeLabel: Record<RecordType, string> = {
   followup: 'Follow-up',
@@ -29,10 +30,12 @@ function summaryRows(record: RecordDescriptor) {
 }
 
 export function UniversalRecordDrawer() {
-  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
+  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, openEditModal, openEditTaskModal, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
     recordDrawerRef: s.recordDrawerRef,
     closeRecordDrawer: s.closeRecordDrawer,
     openRecordDrawer: s.openRecordDrawer,
+    openEditModal: s.openEditModal,
+    openEditTaskModal: s.openEditTaskModal,
     items: s.items,
     tasks: s.tasks,
     projects: s.projects,
@@ -93,14 +96,23 @@ export function UniversalRecordDrawer() {
       <aside className="record-drawer app-shell-card app-shell-card-inspector" onClick={(event) => event.stopPropagation()} aria-label="Universal record drawer">
         <div className="record-drawer-head">
           <div>
-            <div className="inspector-kicker">Universal record detail</div>
+            <div className="inspector-kicker">Record context drawer</div>
             <div className="inspector-title">{bundle?.selected ? `${typeLabel[bundle.selected.type]} · ${bundle.selected.title}` : 'Record unavailable'}</div>
+            <div className="text-xs text-slate-500 mt-1">{editSurfacePolicy.context.intent}</div>
           </div>
           <button onClick={closeRecordDrawer} className="action-btn"><X className="h-4 w-4" />Close</button>
         </div>
 
         {!bundle?.selected ? <EmptyState title="Record not found" message="This record is no longer available." /> : (
           <div className="record-drawer-body">
+            <section className="inspector-block">
+              <div className="workspace-inspector-section-title">Context actions</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {recordDrawerRef.type === 'followup' ? <button onClick={() => openEditModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditFollowUp}</button> : null}
+                {recordDrawerRef.type === 'task' ? <button onClick={() => openEditTaskModal(recordDrawerRef.id)} className="action-btn">{editSurfaceCtas.fullEditTask}</button> : null}
+              </div>
+            </section>
+
             <section className="inspector-block">
               <div className="workspace-inspector-section-title">Summary</div>
               <div className="detail-summary-grid">

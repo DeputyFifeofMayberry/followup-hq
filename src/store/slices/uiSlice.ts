@@ -71,6 +71,7 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       queuePersist();
     },
     openCreateModal: () => set({ itemModal: { open: true, mode: 'create', itemId: null }, taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+    // Canonical deep-edit surface: full record modal.
     openEditModal: (id) => set({ itemModal: { open: true, mode: 'edit', itemId: id }, selectedId: id }),
     closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null }),
     openTouchModal: () => set({ touchModalOpen: true }),
@@ -100,8 +101,10 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       itemModal: draft.kind === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
       taskModal: draft.kind === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
     }),
+    // Canonical deep-edit surface: full record modal.
     openEditTaskModal: (id) => set({ taskModal: { open: true, mode: 'edit', taskId: id }, selectedTaskId: id }),
     closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null }),
+    // Context-inspection surface: record drawer (not the primary full editor).
     openRecordDrawer: (ref) => set({ recordDrawerRef: ref }),
     closeRecordDrawer: () => set({ recordDrawerRef: null }),
   };

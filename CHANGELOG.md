@@ -2,6 +2,14 @@
 
 ## 2026-04-05
 
+### Deficiency 4 Phase 1: editing-surface hierarchy and role clarity
+- Established canonical editing hierarchy across inspectors, full-edit modals, record drawer, and workflow transitions.
+- Added a shared edit-surface policy helper to standardize role definitions (`execution`, `full_edit`, `context`, `maintenance`, `transition`) plus consistent CTA vocabulary used across inspectors and support workspaces (`src/lib/editSurfacePolicy.ts`).
+- Reframed task and follow-up inspectors to be execution-first while routing deep edits through explicit `Edit full ...` modal entry points, demoting linked-context maintenance into secondary disclosures, and keeping structured transitions separate (`src/components/TaskWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`).
+- Repositioned the universal record drawer as a context-first surface with explicit context framing, linked-record inspection, and predictable deep-edit handoff buttons back to full edit modals for task/follow-up records (`src/components/UniversalRecordDrawer.tsx`).
+- Reduced competing edit affordances in Projects and Relationships by keeping routing/context actions primary and moving broad metadata + destructive/admin controls under maintenance disclosures (`src/components/ProjectCommandCenter.tsx`, `src/components/RelationshipBoard.tsx`).
+- Added store-level comments in UI slice actions to codify full-edit modal vs record-drawer responsibilities in one shared policy direction (`src/store/slices/uiSlice.ts`).
+
 ### Deficiency 3 Phase 2: standardized lane interaction model
 - Standardized core lane interaction model across Overview, Follow-Ups, and Tasks.
 - Added a shared execution-lane behavior layer (handoff, selection resolution/progression, and lane contract types) to prevent per-lane interaction drift (`src/domains/shared/executionLane/types.ts`, `src/domains/shared/executionLane/helpers.ts`, `src/domains/shared/index.ts`).

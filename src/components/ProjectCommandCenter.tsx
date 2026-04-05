@@ -18,11 +18,12 @@ import { AppShellCard, SectionHeader, StatTile } from './ui/AppPrimitives';
 import { getModeConfig, type WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { BatchSummarySection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
 export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team', setWorkspace }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
     items, contacts, companies, projects, tasks, intakeDocuments,
-    addProject, updateProject, deleteProject, reassignProjectRecords,
+    addProject, updateProject, deleteProject,
     addIntakeDocument, updateTask, batchUpdateFollowUps, runValidatedBatchFollowUpTransition,
     openCreateFromCapture,
     openRecordDrawer,
@@ -37,7 +38,6 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     addProject: s.addProject,
     updateProject: s.updateProject,
     deleteProject: s.deleteProject,
-    reassignProjectRecords: s.reassignProjectRecords,
     addIntakeDocument: s.addIntakeDocument,
     updateTask: s.updateTask,
     batchUpdateFollowUps: s.batchUpdateFollowUps,
@@ -262,27 +262,20 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => openCreateFlow('followup')} className="action-btn">Create follow-up</button>
                   <button onClick={() => openCreateFlow('task')} className="action-btn">Create task</button>
-                  <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn">Open record</button>
+                  <button onClick={() => openRecordDrawer({ type: 'project', id: selectedProject.id })} className="action-btn">{editSurfaceCtas.openContext}</button>
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="action-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
                   <button onClick={() => { openExecutionLane('tasks', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project tasks' }); setWorkspace('tasks'); }} className="action-btn">Open task lane</button>
                   <button onClick={async () => { await navigator.clipboard.writeText(reportText); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }} className={modeConfig.supportActionsSecondary ? 'action-btn' : 'primary-btn'}><ClipboardCopy className="h-4 w-4" />{copied ? 'Copied' : 'Copy report'}</button>
                 </div>
               </div>
 
-              <div className="grid gap-2 md:grid-cols-2">
-                <input value={selectedProject.name} onChange={(e) => updateProject(selectedProject.id, { name: e.target.value })} className="field-input" placeholder="Project name" />
-                <input value={selectedProject.owner} onChange={(e) => updateProject(selectedProject.id, { owner: e.target.value })} className="field-input" placeholder="Project owner" />
-                <input value={selectedProject.code || ''} onChange={(e) => updateProject(selectedProject.id, { code: e.target.value })} className="field-input" placeholder="Project code" />
-                <input value={selectedProject.contractReference || ''} onChange={(e) => updateProject(selectedProject.id, { contractReference: e.target.value })} className="field-input" placeholder="Contract/reference" />
-                <input value={selectedProject.clientOrg || ''} onChange={(e) => updateProject(selectedProject.id, { clientOrg: e.target.value })} className="field-input" placeholder="Client / owner org" />
-                <input value={selectedProject.phase || ''} onChange={(e) => updateProject(selectedProject.id, { phase: e.target.value })} className="field-input" placeholder="Phase" />
-                <input type="date" value={(selectedProject.targetCompletionDate || '').slice(0, 10)} onChange={(e) => updateProject(selectedProject.id, { targetCompletionDate: e.target.value ? new Date(`${e.target.value}T12:00:00`).toISOString() : undefined })} className="field-input" />
-                <input value={selectedProject.nextMilestone || ''} onChange={(e) => updateProject(selectedProject.id, { nextMilestone: e.target.value })} className="field-input" placeholder="Next milestone" />
-                <input value={selectedProject.projectNextAction || ''} onChange={(e) => updateProject(selectedProject.id, { projectNextAction: e.target.value })} className="field-input" placeholder="Project-level next action" />
-                <select value={selectedProject.status} onChange={(e) => updateProject(selectedProject.id, { status: e.target.value as typeof selectedProject.status })} className="field-input"><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
+              <div className="project-subpanel inspector-block">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Take action now</div>
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  <input value={selectedProject.projectNextAction || ''} onChange={(e) => updateProject(selectedProject.id, { projectNextAction: e.target.value })} className="field-input" placeholder="Project-level next action" />
+                  <select value={selectedProject.status} onChange={(e) => updateProject(selectedProject.id, { status: e.target.value as typeof selectedProject.status })} className="field-input"><option>Active</option><option>On hold</option><option>Closeout</option><option>Complete</option></select>
+                </div>
               </div>
-              <textarea value={selectedProject.currentBlocker || ''} onChange={(e) => updateProject(selectedProject.id, { currentBlocker: e.target.value })} className="field-textarea mt-3" placeholder="Current blocker" />
-              <textarea value={selectedProject.notes} onChange={(e) => updateProject(selectedProject.id, { notes: e.target.value })} className="field-textarea mt-2" placeholder="Project notes" />
 
               <div className="overview-stat-grid overview-stat-grid-compact">
                 <StatTile label="Open follow-ups" value={selectedRow.health.breakdown.openFollowUps} helper="Requires project attention" />
@@ -309,6 +302,29 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
                 <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Waiting work</button>
                 <button onClick={() => openProjectScopedQueue('closeout')} className="action-btn">Closeout ready</button>
               </div>
+
+              <details className="task-maintenance-disclosure">
+                <summary>{editSurfacePolicy.maintenance.label} (project metadata + admin controls)</summary>
+                <div className="task-maintenance-body">
+                  <div className="mb-2 text-xs text-slate-600">Projects remain a context lens first. Use maintenance only for deeper metadata/admin updates.</div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <input value={selectedProject.name} onChange={(e) => updateProject(selectedProject.id, { name: e.target.value })} className="field-input" placeholder="Project name" />
+                    <input value={selectedProject.owner} onChange={(e) => updateProject(selectedProject.id, { owner: e.target.value })} className="field-input" placeholder="Project owner" />
+                    <input value={selectedProject.code || ''} onChange={(e) => updateProject(selectedProject.id, { code: e.target.value })} className="field-input" placeholder="Project code" />
+                    <input value={selectedProject.contractReference || ''} onChange={(e) => updateProject(selectedProject.id, { contractReference: e.target.value })} className="field-input" placeholder="Contract/reference" />
+                    <input value={selectedProject.clientOrg || ''} onChange={(e) => updateProject(selectedProject.id, { clientOrg: e.target.value })} className="field-input" placeholder="Client / owner org" />
+                    <input value={selectedProject.phase || ''} onChange={(e) => updateProject(selectedProject.id, { phase: e.target.value })} className="field-input" placeholder="Phase" />
+                    <input type="date" value={(selectedProject.targetCompletionDate || '').slice(0, 10)} onChange={(e) => updateProject(selectedProject.id, { targetCompletionDate: e.target.value ? new Date(`${e.target.value}T12:00:00`).toISOString() : undefined })} className="field-input" />
+                    <input value={selectedProject.nextMilestone || ''} onChange={(e) => updateProject(selectedProject.id, { nextMilestone: e.target.value })} className="field-input" placeholder="Next milestone" />
+                  </div>
+                  <textarea value={selectedProject.currentBlocker || ''} onChange={(e) => updateProject(selectedProject.id, { currentBlocker: e.target.value })} className="field-textarea mt-3" placeholder="Current blocker" />
+                  <textarea value={selectedProject.notes} onChange={(e) => updateProject(selectedProject.id, { notes: e.target.value })} className="field-textarea mt-2" placeholder="Project notes" />
+                  <div className="rounded-2xl border border-rose-200 p-4 mt-3">
+                    <div className="mb-2 text-sm font-semibold text-rose-700">Archive / delete project</div>
+                    <button onClick={() => { setDeleteFlowOpen((prev) => !prev); setDeleteTargetProjectId(projects.find((project) => project.name === 'General')?.id || ''); }} className="action-btn action-btn-danger">{deleteFlowOpen ? 'Hide delete workflow' : 'Open safe delete workflow'}</button>
+                  </div>
+                </div>
+              </details>
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="project-subpanel inspector-block">
@@ -361,11 +377,6 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
               <div className="project-subpanel inspector-block"><label className="mb-2 block text-sm font-medium text-slate-700">Project status output</label><textarea value={reportText} readOnly className="field-textarea" style={{ minHeight: 220 }} /></div>
 
-              <div className="rounded-2xl border border-rose-200 p-4">
-                <div className="mb-2 text-sm font-semibold text-rose-700">Archive / delete project</div>
-                <button onClick={() => { setDeleteFlowOpen((prev) => !prev); setDeleteTargetProjectId(projects.find((project) => project.name === 'General')?.id || ''); }} className="action-btn action-btn-danger">{deleteFlowOpen ? 'Hide delete workflow' : 'Open safe delete workflow'}</button>
-                {deleteFlowOpen ? <div className="mt-3 space-y-2 text-sm"><div>Impacted records: {selectedRow.openFollowUps.length} follow-ups, {selectedRow.openTasks.length} tasks, {selectedRow.intakeDocs.length} docs.</div><select value={deleteTargetProjectId} onChange={(e) => setDeleteTargetProjectId(e.target.value)} className="field-input">{projects.filter((project) => project.id !== selectedProject.id).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><div className="flex flex-wrap gap-2"><button onClick={() => { reassignProjectRecords(selectedProject.id, deleteTargetProjectId, ['followups', 'tasks', 'docs']); setDeleteWarnings([`Reassigned child records from ${selectedProject.name} to ${projects.find((project) => project.id === deleteTargetProjectId)?.name || 'target project'}.`]); setDeleteResult({ tone: 'success', message: 'Child records reassigned.' }); }} className="action-btn">Reassign child records</button><button onClick={() => { if (!deleteTargetProjectId) { setDeleteWarnings(['Select a reassignment target before deleting.']); return; } deleteProject(selectedProject.id, deleteTargetProjectId); setDeleteResult({ tone: 'warn', message: `Deleted ${selectedProject.name} and reassigned linked records.` }); }} className="action-btn action-btn-danger">Confirm delete</button></div></div> : null}
-              </div>
             </>
           ) : null}
         </div>

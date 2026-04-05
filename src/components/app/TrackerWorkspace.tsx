@@ -2,7 +2,16 @@ import { Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 import type { AppMode } from '../../types';
 import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
-import { WorkspacePage, WorkspaceTopStack, WorkspaceSummaryStrip, SectionHeader, WorkspacePrimaryLayout, AppShellCard, AppBadge } from '../ui/AppPrimitives';
+import {
+  AppBadge,
+  ExecutionLaneQueueCard,
+  ExecutionLaneSelectionStrip,
+  ExecutionLaneSummary,
+  SectionHeader,
+  WorkspacePage,
+  WorkspacePrimaryLayout,
+  WorkspaceTopStack,
+} from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
@@ -24,7 +33,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
   return (
     <WorkspacePage>
       <WorkspaceTopStack className="followup-top-stack">
-        <WorkspaceSummaryStrip className="followup-summary-strip">
+        <ExecutionLaneSummary className="followup-summary-strip">
           <SectionHeader
             title="Follow-up execution lane"
             subtitle={personalMode ? 'Scan queue → pick next move → act.' : 'Team queue tuned for fast assignment and follow-through.'}
@@ -37,30 +46,24 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             </span>
             {executionIntent?.target === 'followups' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </div>
-        </WorkspaceSummaryStrip>
+        </ExecutionLaneSummary>
       </WorkspaceTopStack>
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
-        <AppShellCard className="workspace-list-panel tracker-workspace-main" surface="data">
+        <ExecutionLaneQueueCard className="tracker-workspace-main">
           <ControlBar />
-          <div className="followup-selected-context-strip">
-            {!laneContext.selectedItem ? (
-              <div className="followup-selected-context-empty">Select a follow-up to review and act.</div>
-            ) : (
+          <ExecutionLaneSelectionStrip
+            title={laneContext.selectedItem?.title}
+            helper={laneContext.selectedItem ? `Next move: ${laneContext.nextMove?.label ?? laneContext.recommendedNextMove}` : undefined}
+            emptyMessage="Select a follow-up to review and act."
+            badges={laneContext.selectedItem ? (
               <>
-                <div>
-                  <div className="followup-selected-kicker">Selected follow-up</div>
-                  <div className="followup-selected-title">{laneContext.selectedItem.title}</div>
-                  <div className="followup-selected-helper">Next move: {laneContext.nextMove?.label ?? laneContext.recommendedNextMove}</div>
-                </div>
-                <div className="followup-selected-signals">
-                  {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
-                  {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
-                  {laneContext.closeoutEvaluation?.readiness === 'ready_to_close' ? <AppBadge tone="success">Ready to close</AppBadge> : null}
-                  {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
-                </div>
+                {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
+                {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
+                {laneContext.closeoutEvaluation?.readiness === 'ready_to_close' ? <AppBadge tone="success">Ready to close</AppBadge> : null}
+                {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
               </>
-            )}
-          </div>
+            ) : null}
+          />
           <TrackerTable
             personalMode={personalMode}
             appMode={appMode}
@@ -68,7 +71,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             selectedAttentionSignal={laneContext.attentionSignal}
           />
           <DuplicateReviewPanel />
-        </AppShellCard>
+        </ExecutionLaneQueueCard>
         <ItemDetailPanel personalMode={personalMode} />
       </WorkspacePrimaryLayout>
     </WorkspacePage>

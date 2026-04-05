@@ -2,7 +2,21 @@ import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, Unl
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
-import { AppShellCard, AppBadge, EmptyState, SectionHeader, StatTile, WorkspaceInspectorSection, WorkspacePage, WorkspacePrimaryLayout, WorkspaceSummaryStrip, WorkspaceToolbarRow, WorkspaceTopStack } from './ui/AppPrimitives';
+import {
+  AppBadge,
+  EmptyState,
+  ExecutionLaneInspectorCard,
+  ExecutionLaneQueueCard,
+  ExecutionLaneSelectionStrip,
+  ExecutionLaneSummary,
+  ExecutionLaneToolbar,
+  SectionHeader,
+  StatTile,
+  WorkspaceInspectorSection,
+  WorkspacePage,
+  WorkspacePrimaryLayout,
+  WorkspaceTopStack,
+} from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, FollowUpStatus, TaskItem } from '../types';
@@ -357,7 +371,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   return (
     <WorkspacePage>
       <WorkspaceTopStack>
-        <WorkspaceSummaryStrip className="overview-hero-card">
+        <ExecutionLaneSummary className="overview-hero-card">
           <SectionHeader title="Task execution lane" subtitle={modeConfig.taskSubtitle} compact />
           <div className="overview-stat-grid overview-stat-grid-compact">
             <StatTile label="Open tasks" value={summary.open} helper="In active execution" />
@@ -365,18 +379,18 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
             <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
           </div>
-          <WorkspaceToolbarRow className="followup-summary-meta-row">
+          <ExecutionLaneToolbar className="followup-summary-meta-row">
             <span className="workspace-support-copy">Task loop: scan queue → select task → execute in inspector.</span>
             {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
-          </WorkspaceToolbarRow>
-        </WorkspaceSummaryStrip>
+          </ExecutionLaneToolbar>
+        </ExecutionLaneSummary>
       </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="420px" className={inspectorCollapsed ? 'workspace-primary-layout-collapsed' : ''}>
-        <AppShellCard className="workspace-list-panel" surface="data">
+        <ExecutionLaneQueueCard>
           <SectionHeader title="Task queue" subtitle="Fast tactical lane for personal-first execution." compact />
           <div className="workspace-control-stack task-control-stack-calm">
-            <WorkspaceToolbarRow className="execution-toolbar-row task-primary-toolbar">
+            <ExecutionLaneToolbar className="execution-toolbar-row task-primary-toolbar">
               <div className="task-mode-group" role="tablist" aria-label="Primary task modes">
                 {primaryModeOptions.map((option) => (
                   <button key={option.value} onClick={() => applyMode(option.value)} className={`task-mode-chip ${mode === option.value ? 'task-mode-chip-active' : ''}`} role="tab" aria-selected={mode === option.value}>{option.label}</button>
@@ -399,7 +413,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
               </button>
               <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
-            </WorkspaceToolbarRow>
+            </ExecutionLaneToolbar>
 
             {activeFilterChips.length ? (
               <div className="task-filter-chip-row task-filter-chip-row-muted">
@@ -482,6 +496,18 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               </div>
             ) : null}
           </div>
+          <ExecutionLaneSelectionStrip
+            title={selectedTask?.title}
+            helper={selectedTask ? `Next move: ${selectedTask.nextStep || selectedTask.recommendedAction || 'Define next move'}` : undefined}
+            emptyMessage="Select a task to review and execute."
+            badges={selectedTask ? (
+              <>
+                <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
+                <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
+                {linkedFollowUp ? <AppBadge tone="info">Linked follow-up</AppBadge> : <AppBadge tone="warn">Unlinked</AppBadge>}
+              </>
+            ) : null}
+          />
 
           <div className={`workspace-list-content task-list-content ${density === 'compact' ? 'task-list-density-compact' : ''}`}>
             {laneFeedback ? <div className={`task-lane-feedback ${laneFeedback.tone === 'warn' ? 'task-lane-feedback-warn' : 'task-lane-feedback-success'}`}>{laneFeedback.message}</div> : null}
@@ -503,7 +529,13 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   ? `${isOverdue ? 'Overdue' : isDueToday ? 'Due today' : 'Due'} ${formatDate(task.dueDate)}`
                   : 'No due date';
               return (
-                <button key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`workspace-data-row task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}>
+                <button
+                  key={task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                  className={`workspace-data-row task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}
+                  aria-current={selectedTask?.id === task.id ? 'true' : undefined}
+                  aria-pressed={selectedTask?.id === task.id}
+                >
                   <div className="scan-row-layout scan-row-layout-quiet">
                     <div className="scan-row-content">
                       <div className="scan-row-primary">{task.title}</div>
@@ -530,10 +562,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               );
             })}
           </div>
-        </AppShellCard>
+        </ExecutionLaneQueueCard>
 
         {!inspectorCollapsed ? (
-          <AppShellCard className="workspace-inspector-panel task-inspector-panel premium-inspector" surface="inspector">
+          <ExecutionLaneInspectorCard className="task-inspector-panel premium-inspector">
             {selectedTask ? (
               <div className="space-y-3">
                 <WorkspaceInspectorSection title="Selected task" subtitle={`${selectedTask.project} · ${selectedTask.assigneeDisplayName || selectedTask.owner}`}>
@@ -579,7 +611,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Linked follow-up context" subtitle="Visible and actionable, but intentionally secondary.">
+                <WorkspaceInspectorSection title="Linked context" subtitle="Visible and actionable, but intentionally secondary.">
                   <div className="rounded-2xl tonal-panel task-link-context-panel">
                     <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
                     {linkedFollowUp ? <div className="tonal-micro">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
@@ -606,7 +638,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Maintenance" subtitle="Deep edit and destructive actions are available but de-emphasized.">
+                <WorkspaceInspectorSection title="Details / maintenance" subtitle="Deep edit and destructive actions are available but de-emphasized.">
                   <details className="task-maintenance-disclosure">
                     <summary>Open full maintenance controls</summary>
                     <div className="task-maintenance-body">
@@ -620,7 +652,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                 </WorkspaceInspectorSection>
               </div>
             ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
-          </AppShellCard>
+          </ExecutionLaneInspectorCard>
         ) : null}
       </WorkspacePrimaryLayout>
       <StructuredActionFlow

@@ -1,4 +1,4 @@
-import { SectionHeader, WorkspaceSummaryStrip } from '../ui/AppPrimitives';
+import { ExecutionLaneSummary, SectionHeader } from '../ui/AppPrimitives';
 import type { ExecutionQueueStats } from '../../domains/shared';
 import { OverviewSummaryStats } from './OverviewSummaryStats';
 import { OverviewRouteActions } from './OverviewRouteActions';
@@ -13,8 +13,8 @@ interface OverviewStartStripProps {
 
 export function OverviewStartStrip({ stats, onOpenIntake, onRouteFollowUps, onRouteTasks, onQuickAdd }: OverviewStartStripProps) {
   return (
-    <WorkspaceSummaryStrip className="overview-hero-card overview-start-band">
-      <SectionHeader title="Today at a glance" subtitle="Check pressure, then route work to the execution lane." compact />
+    <ExecutionLaneSummary className="overview-hero-card overview-start-band">
+      <SectionHeader title="Overview lane" subtitle="Scan pressure, select an item, and route it to the right execution lane." compact />
       <OverviewSummaryStats stats={stats} />
       <OverviewRouteActions
         onOpenIntake={onOpenIntake}
@@ -22,6 +22,6 @@ export function OverviewStartStrip({ stats, onOpenIntake, onRouteFollowUps, onRo
         onRouteTasks={onRouteTasks}
         onQuickAdd={onQuickAdd}
       />
-    </WorkspaceSummaryStrip>
+    </ExecutionLaneSummary>
   );
 }

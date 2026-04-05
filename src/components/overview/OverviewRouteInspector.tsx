@@ -42,7 +42,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
 
   return (
     <div className="overview-route-inspector">
-      <WorkspaceInspectorSection title="Selected snapshot" subtitle={`${recordTypeLabel} · ${selected.project}`}>
+      <WorkspaceInspectorSection title={recordTypeLabel === 'Task' ? 'Selected task' : 'Selected follow-up'} subtitle={`${recordTypeLabel} · ${selected.project}`}>
         <div className="text-sm font-semibold text-slate-950">{selected.title}</div>
         <div className="overview-inspector-meta-grid">
           <div><span>Status</span><strong>{selected.status}</strong></div>
@@ -51,7 +51,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
         </div>
       </WorkspaceInspectorSection>
 
-      <WorkspaceInspectorSection title="Why this surfaced now">
+      <WorkspaceInspectorSection title="What matters now">
         <p className="overview-inspector-why">{recommendation.whyNow}</p>
         {recommendation.urgencySignals.length ? (
           <ul className="overview-inspector-signals" aria-label="Urgency signals">
@@ -60,7 +60,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
         ) : null}
       </WorkspaceInspectorSection>
 
-      <WorkspaceInspectorSection title="Recommended destination" subtitle={`Recommended next stop: ${recommendation.primaryDestination === 'tasks' ? 'Tasks' : 'Follow Ups'}.`}>
+      <WorkspaceInspectorSection title="Take action now" subtitle={`Recommended next stop: ${recommendation.primaryDestination === 'tasks' ? 'Tasks' : 'Follow-Ups'}.`}>
         <p className="overview-inspector-why">{recommendation.reason}</p>
         <div className="overview-action-stack overview-action-stack-muted overview-inspector-actions">
           <button

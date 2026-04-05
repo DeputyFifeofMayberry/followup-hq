@@ -76,7 +76,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.owner]);
 
   if (!item) {
-    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Focus panel</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to review details and run actions.</p></AppShellCard>;
+    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Inspector</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to review what matters now and take the next action.</p></AppShellCard>;
   }
 
   const contact = contacts.find((entry) => entry.id === item.contactId);
@@ -134,8 +134,8 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           value={activeTab}
           onChange={(value) => setActiveTab(value as DetailTab)}
           options={[
-            { value: 'overview', label: 'Overview' },
-            { value: 'act', label: 'Act' },
+            { value: 'overview', label: 'What matters' },
+            { value: 'act', label: 'Take action' },
             { value: 'details', label: `Details (${noteEntries.length} notes)` },
           ]}
         />
@@ -154,7 +154,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             </div>
             {closeout ? (
               <div className="detail-card inspector-block">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Closeout readiness</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked context</div>
                 <div className="mt-2">
                   <CloseoutReadinessCard
                     evaluation={closeout}
@@ -171,7 +171,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         {activeTab === 'act' ? (
           <>
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Follow-through actions</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Take action now</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => { openDraftModal(item.id); setActionFeedback({ tone: 'success', message: 'Draft flow opened. Keep queue selection on this record to complete send/confirm.' }); }} className="action-btn"><Send className="h-4 w-4" />Draft follow-up</button>
                 <button onClick={() => { const nextTouchDate = addDaysIso(todayIso(), item.cadenceDays || 3); addTouchLog({ id: item.id, summary: 'Logged touch from quick action.', status: 'Waiting on external', nextTouchDate }); setActionFeedback({ tone: 'success', message: `Touch logged. Next touch moved to ${formatDate(nextTouchDate)}.` }); }} className="action-btn">Log touch</button>
@@ -185,7 +185,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
               </div>
             </div>
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Execution steering</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">What matters now</div>
               <div className="mt-2 grid gap-2">
                 <textarea value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} className="field-textarea" placeholder="Set the next move" />
                 <div className="flex gap-2">
@@ -224,7 +224,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             </div>
 
             <div className="detail-card inspector-block">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked-task management</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Linked context</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />Open record drawer</button>
                 <select value={linkTaskIdDraft} onChange={(event) => setLinkTaskIdDraft(event.target.value)} className="field-input !w-auto">
@@ -248,7 +248,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
             </div>
 
             <div className="detail-card inspector-block">
-              <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Activity history</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button></div>
+              <div className="flex items-center justify-between gap-3"><div className="text-sm font-semibold text-slate-900">Maintenance history</div><button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button></div>
               <div className="timeline-list mt-3">{activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>)}</div>
             </div>
           </>

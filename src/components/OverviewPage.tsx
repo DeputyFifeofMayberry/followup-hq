@@ -1,4 +1,4 @@
-import { AppShellCard, SectionHeader, WorkspacePage, WorkspacePrimaryLayout, WorkspaceTopStack } from './ui/AppPrimitives';
+import { ExecutionLaneInspectorCard, ExecutionLaneQueueCard, ExecutionLaneSelectionStrip, SectionHeader, WorkspacePage, WorkspacePrimaryLayout, WorkspaceTopStack } from './ui/AppPrimitives';
 import type { AppMode } from '../types';
 import { OverviewStartStrip } from './overview/OverviewStartStrip';
 import { OverviewSignalCards } from './overview/OverviewSignalCards';
@@ -44,7 +44,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
       </WorkspaceTopStack>
 
       <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-primary-layout">
-        <AppShellCard className="overview-main-panel" surface="data">
+        <ExecutionLaneQueueCard className="overview-main-panel">
           <SectionHeader title="Overview triage" subtitle="Primary triage queue for selecting what to route next." compact />
 
           <div className="overview-signal-support">
@@ -57,12 +57,18 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             />
           </div>
 
+          <ExecutionLaneSelectionStrip
+            title={selected?.title}
+            helper={selected ? `Next move: route to ${selected.recordType === 'task' ? 'Tasks' : 'Follow-Ups'} lane.` : undefined}
+            emptyMessage="Select an overview item to route it to the right lane."
+          />
+
           <div className="overview-triage-main">
             <OverviewTriageList rows={triageRows} selectedId={selected?.id || null} onSelect={setSelectedId} />
           </div>
-        </AppShellCard>
+        </ExecutionLaneQueueCard>
 
-        <AppShellCard className="overview-inspector-shell" surface="inspector">
+        <ExecutionLaneInspectorCard className="overview-inspector-shell">
           <SectionHeader title="Route inspector" subtitle="Decide where to handle the selected item next." compact />
           <OverviewRouteInspector
             selected={selected}
@@ -77,7 +83,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             onOpenDetail={openSelectedDetail}
             onOpenIntake={() => onOpenWorkspace('outlook')}
           />
-        </AppShellCard>
+        </ExecutionLaneInspectorCard>
       </WorkspacePrimaryLayout>
     </WorkspacePage>
   );

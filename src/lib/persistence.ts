@@ -64,6 +64,9 @@ export interface LoadResult {
   loadedFromFallback?: boolean;
   cloudReadFailed?: boolean;
   localNewerThanCloud?: boolean;
+  localCacheUpdatedAt?: string;
+  localCacheLastCloudConfirmedAt?: string;
+  cloudUpdatedAt?: string;
 }
 
 interface SaveResult {
@@ -351,19 +354,41 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     userId = await getSessionUserId();
   } catch (error) {
     if (cache) {
-      return { payload: cache.entities, mode: 'browser', source: 'local-cache', cacheStatus: cache.cloudStatus, loadedFromFallback: true, cloudReadFailed: true };
+      return {
+        payload: cache.entities,
+        mode: 'browser',
+        source: 'local-cache',
+        cacheStatus: cache.cloudStatus,
+        loadedFromFallback: true,
+        cloudReadFailed: true,
+        localCacheUpdatedAt: cache.updatedAt,
+        localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+      };
     }
     throw error;
   }
 
   if (!userId) {
     if (cache) {
-      return { payload: cache.entities, mode: 'browser', source: 'local-cache', cacheStatus: cache.cloudStatus };
+      return {
+        payload: cache.entities,
+        mode: 'browser',
+        source: 'local-cache',
+        cacheStatus: cache.cloudStatus,
+        localCacheUpdatedAt: cache.updatedAt,
+        localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+      };
     }
     const legacy = readLegacySnapshotFromBrowser();
     const payload = legacy ? fromSnapshot(legacy) : buildEmptyPayload();
     writeLocalCache({ entities: payload, updatedAt: new Date().toISOString(), cloudStatus: 'confirmed' });
-    return { payload, mode: 'browser', source: 'local-cache', cacheStatus: 'confirmed' };
+    return {
+      payload,
+      mode: 'browser',
+      source: 'local-cache',
+      cacheStatus: 'confirmed',
+      localCacheUpdatedAt: new Date().toISOString(),
+    };
   }
 
   let cloudPayload: PersistedPayload;
@@ -397,6 +422,8 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         cacheStatus: cache.cloudStatus,
         loadedFromFallback: true,
         cloudReadFailed: true,
+        localCacheUpdatedAt: cache.updatedAt,
+        localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
       };
     }
     throw error;
@@ -413,6 +440,9 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       cacheStatus: cache.cloudStatus,
       localNewerThanCloud: true,
       loadedFromFallback: true,
+      localCacheUpdatedAt: cache.updatedAt,
+      localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+      cloudUpdatedAt,
     };
   }
 
@@ -424,7 +454,15 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     lastCloudConfirmedAt: confirmedAt,
   });
 
-  return { payload: hydrated, mode: 'supabase', source: 'supabase', cacheStatus: 'confirmed' };
+  return {
+    payload: hydrated,
+    mode: 'supabase',
+    source: 'supabase',
+    cacheStatus: 'confirmed',
+    cloudUpdatedAt: confirmedAt,
+    localCacheUpdatedAt: confirmedAt,
+    localCacheLastCloudConfirmedAt: confirmedAt,
+  };
 }
 
 export async function savePersistedPayload(payload: PersistedPayload): Promise<SaveResult> {

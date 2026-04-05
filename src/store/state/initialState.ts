@@ -45,7 +45,7 @@ export const initialUiState: AppUiState = {
   followUpColumns: ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary'],
   savedFollowUpViews: [],
   followUpTableDensity: 'compact',
-  followUpDuplicateModule: 'auto',
+  followUpDuplicateModule: 'collapsed',
   itemModal: { open: false, mode: 'create', itemId: null },
   touchModalOpen: false,
   importModalOpen: false,

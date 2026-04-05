@@ -2,7 +2,7 @@ import { ArrowUpDown } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { formatDate, priorityTone, statusTone } from '../lib/utils';
+import { daysUntil, formatDate, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,7 +12,7 @@ import { getModeConfig } from '../lib/appModeConfig';
 import type { FollowUpAttentionSignal } from '../domains/followups';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
-const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'linkedTaskSummary', 'nextAction', 'promisedDate']);
+const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'nextAction', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({
@@ -53,12 +53,27 @@ export function TrackerTable({
       header: 'Work item',
       cell: ({ row }) => {
         const active = row.original.id === selectedId;
+        const touchDelta = daysUntil(row.original.nextTouchDate);
+        const dueDelta = daysUntil(row.original.dueDate);
+        const contextBits = [
+          row.original.project,
+          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
+          row.original.nextAction || 'No next move set',
+        ].filter(Boolean);
+        const linkedOpen = row.original.openLinkedTaskCount ?? 0;
+        const linkedTotal = row.original.linkedTaskCount ?? 0;
+        const hasLinkedRisk = linkedOpen > 0 && row.original.status !== 'Closed';
         return (
           <div className="tracker-title-cell">
             <div className="tracker-title-primary">{row.original.title}</div>
-            <div className="tracker-title-secondary">{personalMode ? row.original.project : row.original.id}</div>
+            <div className="tracker-title-secondary">{contextBits.join(' • ')}</div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {dueDelta < 0 ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
+              {needsNudge(row.original) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
+              {hasLinkedRisk ? <AppBadge tone="warn">Linked work {linkedOpen}/{linkedTotal} open</AppBadge> : null}
+            </div>
             {active && selectedAttentionSignal ? (
-              <div className="mt-1">
+              <div className="mt-1 flex flex-wrap gap-1">
                 <AppBadge tone={selectedAttentionSignal.tone === 'default' ? 'info' : selectedAttentionSignal.tone}>{selectedAttentionSignal.label}</AppBadge>
               </div>
             ) : null}
@@ -81,7 +96,16 @@ export function TrackerTable({
       id: 'linkedTaskSummary',
       accessorFn: (row) => `${row.openLinkedTaskCount ?? 0}/${row.linkedTaskCount ?? 0}`,
       header: 'Linked tasks',
-      cell: ({ row }) => `${row.original.openLinkedTaskCount ?? 0}/${row.original.linkedTaskCount ?? 0} open`,
+      cell: ({ row }) => {
+        const open = row.original.openLinkedTaskCount ?? 0;
+        const total = row.original.linkedTaskCount ?? 0;
+        return (
+          <div className="text-xs">
+            <div className="font-semibold text-slate-800">{open}/{total} open</div>
+            <div className="text-slate-500">{open > 0 ? 'Needs linked follow-through' : 'Linked work clear'}</div>
+          </div>
+        );
+      },
     },
     nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
   }), [personalMode, selectedId, selectedAttentionSignal]);
@@ -104,7 +128,7 @@ export function TrackerTable({
         header: 'Quick',
         enableSorting: false,
         cell: ({ row }) => (
-          <button type="button" className="action-btn !px-2 !py-1 text-xs" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+          <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
         ),
       },
     ];

@@ -27,7 +27,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
         <WorkspaceSummaryStrip className="followup-summary-strip">
           <SectionHeader
             title="Follow-up execution lane"
-            subtitle={personalMode ? 'Single-lane queue for daily follow-through.' : 'Team queue streamlined for fast follow-through.'}
+            subtitle={personalMode ? 'Scan queue → pick next move → act.' : 'Team queue tuned for fast assignment and follow-through.'}
             actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>}
             compact
           />
@@ -50,7 +50,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
                 <div>
                   <div className="followup-selected-kicker">Selected follow-up</div>
                   <div className="followup-selected-title">{laneContext.selectedItem.title}</div>
-                  <div className="followup-selected-helper">Next move: {laneContext.recommendedNextMove}</div>
+                  <div className="followup-selected-helper">Next move: {laneContext.nextMove?.label ?? laneContext.recommendedNextMove}</div>
                 </div>
                 <div className="followup-selected-signals">
                   {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}

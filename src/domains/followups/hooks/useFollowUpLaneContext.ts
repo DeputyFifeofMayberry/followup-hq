@@ -6,6 +6,7 @@ import { buildFollowUpChildRollup } from '../../../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../../../lib/closeoutReadiness';
 import { getWorkflowWarningsForRecord } from '../../../lib/workflowPolicy';
 import { deriveFollowUpAttentionSignal } from '../helpers/attentionSignal';
+import { deriveFollowUpNextMove } from '../helpers/nextMove';
 
 export function useFollowUpLaneContext() {
   const store = useAppStore(useShallow((s) => ({
@@ -30,6 +31,7 @@ export function useFollowUpLaneContext() {
         closeoutEvaluation: null,
         workflowWarnings: [] as string[],
         recommendedNextMove: 'Select a follow-up to review and act.',
+        nextMove: null,
         recommendedTone: 'default' as const,
         attentionSignal: null,
         relatedCounts: null,
@@ -49,6 +51,12 @@ export function useFollowUpLaneContext() {
       childRollup,
       closeout: closeoutEvaluation,
       workflowWarnings,
+    });
+    const nextMove = deriveFollowUpNextMove(selectedItem, {
+      hasDuplicateAttention,
+      linkedTaskBlocked: childRollup.blockedByChildTasks,
+      readyToClose: closeoutEvaluation.readiness === 'ready_to_close',
+      attentionSignal,
     });
 
     const laneStateTags = [
@@ -72,8 +80,9 @@ export function useFollowUpLaneContext() {
       },
       closeoutEvaluation,
       workflowWarnings,
-      recommendedNextMove: attentionSignal.helperText,
-      recommendedTone: attentionSignal.tone,
+      recommendedNextMove: nextMove.label,
+      nextMove,
+      recommendedTone: nextMove.tone,
       attentionSignal,
       relatedCounts: relatedBundle.counts,
       laneStateTags,

@@ -83,15 +83,15 @@ Without these values, the app shows a startup warning and blocks sign-in.
 
 SetPoint expects these **public** tables for cloud persistence:
 
-- `follow_up_items` (`user_id`, `record_id`, `record`, `updated_at`)
-- `tasks` (`user_id`, `record_id`, `record`, `updated_at`)
-- `projects` (`user_id`, `record_id`, `record`, `updated_at`)
-- `contacts` (`user_id`, `record_id`, `record`, `updated_at`)
-- `companies` (`user_id`, `record_id`, `record`, `updated_at`)
+- `follow_up_items` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
+- `tasks` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
+- `projects` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
+- `contacts` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
+- `companies` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
 - `user_preferences` (`user_id`, `auxiliary`, `migration_complete`, `updated_at`)
 - `app_snapshots` (legacy migration compatibility: `user_id`, `snapshot`, `updated_at`)
 
-Entity tables use `jsonb` `record` payloads and upsert on `(user_id, record_id)`. `user_preferences` is unique on `user_id`.
+Entity tables use `jsonb` `record` payloads and upsert on `(user_id, record_id)`. SetPoint now uses record-level sync operations: changed rows are upserted, and deletes are persisted explicitly as tombstones (`deleted_at`) rather than inferred from whole-table omission. `user_preferences` is unique on `user_id`.
 
 ### Required migration
 
@@ -99,6 +99,7 @@ Apply migrations in `supabase/migrations/`, including:
 
 - `20260402_entity_persistence.sql`
 - `20260405_persistence_schema_hardening.sql`
+- `20260405_phase3_record_level_sync.sql`
 
 Use your normal Supabase migration workflow (for example via Supabase CLI in your deployment pipeline). If migrations are not applied to the active project, cloud reads/writes will fail.
 

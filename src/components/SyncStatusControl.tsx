@@ -84,7 +84,7 @@ export function SyncStatusControl() {
 
       {open ? (
         <section className="sync-status-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Sync status details">
-          <div className="sync-status-panel-title">Save & sync trust center</div>
+          <div className="sync-status-panel-title">Save status</div>
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Current state</span>

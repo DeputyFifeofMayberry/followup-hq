@@ -5,6 +5,7 @@ create table if not exists public.follow_up_items (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -13,6 +14,7 @@ create table if not exists public.tasks (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -21,6 +23,7 @@ create table if not exists public.projects (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -29,6 +32,7 @@ create table if not exists public.contacts (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -37,6 +41,7 @@ create table if not exists public.companies (
   user_id uuid not null,
   record_id text not null,
   record jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   primary key (user_id, record_id)
 );
@@ -59,26 +64,31 @@ create table if not exists public.app_snapshots (
 alter table if exists public.follow_up_items add column if not exists user_id uuid;
 alter table if exists public.follow_up_items add column if not exists record_id text;
 alter table if exists public.follow_up_items add column if not exists record jsonb;
+alter table if exists public.follow_up_items add column if not exists deleted_at timestamptz;
 alter table if exists public.follow_up_items add column if not exists updated_at timestamptz not null default now();
 
 alter table if exists public.tasks add column if not exists user_id uuid;
 alter table if exists public.tasks add column if not exists record_id text;
 alter table if exists public.tasks add column if not exists record jsonb;
+alter table if exists public.tasks add column if not exists deleted_at timestamptz;
 alter table if exists public.tasks add column if not exists updated_at timestamptz not null default now();
 
 alter table if exists public.projects add column if not exists user_id uuid;
 alter table if exists public.projects add column if not exists record_id text;
 alter table if exists public.projects add column if not exists record jsonb;
+alter table if exists public.projects add column if not exists deleted_at timestamptz;
 alter table if exists public.projects add column if not exists updated_at timestamptz not null default now();
 
 alter table if exists public.contacts add column if not exists user_id uuid;
 alter table if exists public.contacts add column if not exists record_id text;
 alter table if exists public.contacts add column if not exists record jsonb;
+alter table if exists public.contacts add column if not exists deleted_at timestamptz;
 alter table if exists public.contacts add column if not exists updated_at timestamptz not null default now();
 
 alter table if exists public.companies add column if not exists user_id uuid;
 alter table if exists public.companies add column if not exists record_id text;
 alter table if exists public.companies add column if not exists record jsonb;
+alter table if exists public.companies add column if not exists deleted_at timestamptz;
 alter table if exists public.companies add column if not exists updated_at timestamptz not null default now();
 
 alter table if exists public.user_preferences add column if not exists user_id uuid;

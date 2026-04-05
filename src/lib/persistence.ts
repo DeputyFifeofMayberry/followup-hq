@@ -19,11 +19,41 @@ import type {
   ProjectRecord,
   TaskItem,
 } from '../types';
+import type { DirtyRecordRef } from '../store/persistenceQueue';
 import { getDefaultForwardedRules } from './intakeRules';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
 const STALE_DELETE_ABORT_THRESHOLD = 200;
+
+type EntityKey = 'items' | 'tasks' | 'projects' | 'contacts' | 'companies';
+type DirtyRecordType = DirtyRecordRef['type'];
+type EntityRecord = FollowUpItem | TaskItem | ProjectRecord | ContactRecord | CompanyRecord;
+type EntityRecordMap = Record<EntityKey, Array<{ id: string }>>;
+
+interface EntityConfig {
+  key: EntityKey;
+  table: string;
+  dirtyType: DirtyRecordType;
+}
+
+const ENTITY_CONFIGS: readonly EntityConfig[] = [
+  { key: 'items', table: 'follow_up_items', dirtyType: 'followup' },
+  { key: 'tasks', table: 'tasks', dirtyType: 'task' },
+  { key: 'projects', table: 'projects', dirtyType: 'project' },
+  { key: 'contacts', table: 'contacts', dirtyType: 'contact' },
+  { key: 'companies', table: 'companies', dirtyType: 'company' },
+] as const;
+
+type EntityOperationKind = 'upsert' | 'delete';
+
+interface PendingEntityOperation {
+  entity: EntityKey;
+  recordId: string;
+  operation: EntityOperationKind;
+  deletedAt?: string;
+  recordSnapshot?: { id: string };
+}
 
 export interface CoreEntities {
   items: FollowUpItem[];
@@ -67,6 +97,7 @@ export interface LocalCachePayload {
   updatedAt: string;
   cloudStatus: 'pending' | 'confirmed';
   lastCloudConfirmedAt?: string;
+  pendingOperations?: PendingEntityOperation[];
 }
 
 export interface LoadResult {
@@ -102,6 +133,7 @@ export interface SaveDiagnostics {
   failedTable?: string;
   staleDeleteGuardTriggered?: boolean;
   staleDeleteWarnings: string[];
+  operationCounts?: Record<EntityKey, { upserts: number; deletes: number }>;
 }
 
 export interface SaveResult {
@@ -210,6 +242,26 @@ function canUseBrowserStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+function normalizePendingOperation(parsed: unknown): PendingEntityOperation | null {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const asRecord = parsed as Record<string, unknown>;
+  const entity = asRecord.entity;
+  const recordId = asRecord.recordId;
+  const operation = asRecord.operation;
+  if (!['items', 'tasks', 'projects', 'contacts', 'companies'].includes(String(entity))) return null;
+  if (typeof recordId !== 'string' || !recordId) return null;
+  if (operation !== 'upsert' && operation !== 'delete') return null;
+  return {
+    entity: entity as EntityKey,
+    recordId,
+    operation,
+    deletedAt: typeof asRecord.deletedAt === 'string' ? asRecord.deletedAt : undefined,
+    recordSnapshot: asRecord.recordSnapshot && typeof asRecord.recordSnapshot === 'object'
+      ? (asRecord.recordSnapshot as { id: string })
+      : undefined,
+  };
+}
+
 function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const asRecord = parsed as Record<string, unknown>;
@@ -220,12 +272,16 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
   const cloudStatus = asRecord.cloudStatus === 'confirmed' ? 'confirmed' : 'pending';
   const updatedAt = typeof asRecord.updatedAt === 'string' ? asRecord.updatedAt : new Date().toISOString();
   const lastCloudConfirmedAt = typeof asRecord.lastCloudConfirmedAt === 'string' ? asRecord.lastCloudConfirmedAt : undefined;
+  const pendingOperations = Array.isArray(asRecord.pendingOperations)
+    ? asRecord.pendingOperations.map(normalizePendingOperation).filter((op): op is PendingEntityOperation => Boolean(op))
+    : [];
 
   return {
     entities: entities as PersistedPayload,
     updatedAt,
     cloudStatus,
     lastCloudConfirmedAt,
+    pendingOperations,
   };
 }
 
@@ -285,9 +341,11 @@ async function getSessionUserId(): Promise<string | null> {
 }
 
 async function readEntityRows<T>(table: string, userId: string): Promise<T[]> {
-  const { data, error } = await supabase.from(table).select('record').eq('user_id', userId);
+  const { data, error } = await supabase.from(table).select('record, deleted_at').eq('user_id', userId);
   if (error) throw error;
-  return ((data ?? []).map((row) => row.record) as T[]);
+  return ((data ?? [])
+    .filter((row) => !row.deleted_at)
+    .map((row) => row.record) as T[]);
 }
 
 interface AuxiliaryReadResult {
@@ -315,38 +373,158 @@ async function readLegacySnapshotFromSupabase(userId: string): Promise<AppSnapsh
   return (data?.snapshot as AppSnapshot | null) ?? null;
 }
 
-/**
- * NOTE: This table-level replacement flow can still be vulnerable to stale-client deletes.
- * We preserve the current architecture here, and now add a safety guard against very large
- * delete sets that often indicate stale-client drift.
- */
-async function saveEntityTable(table: string, userId: string, records: Array<{ id: string }>): Promise<{ staleDeleteWarning?: string }> {
-  const ids = new Set(records.map((record) => record.id));
-  const payload = records.map((record) => ({ user_id: userId, record_id: record.id, record }));
+function entityRecords(payload: PersistedPayload): EntityRecordMap {
+  return {
+    items: payload.items,
+    tasks: payload.tasks,
+    projects: payload.projects,
+    contacts: payload.contacts,
+    companies: payload.companies,
+  };
+}
 
-  if (payload.length > 0) {
-    const { error } = await supabase.from(table).upsert(payload, { onConflict: 'user_id,record_id' });
-    if (error) throw error;
+function toIndex(records: Array<{ id: string }>): Map<string, { id: string }> {
+  return new Map(records.map((record) => [record.id, record]));
+}
+
+function recordChanged(nextRecord: { id: string } | undefined, previousRecord: { id: string } | undefined): boolean {
+  if (!nextRecord && !previousRecord) return false;
+  if (!nextRecord || !previousRecord) return true;
+  return JSON.stringify(nextRecord) !== JSON.stringify(previousRecord);
+}
+
+function buildEntityDiff(
+  entity: EntityKey,
+  nextRecords: Array<{ id: string }>,
+  previousRecords: Array<{ id: string }>,
+): PendingEntityOperation[] {
+  const nextById = toIndex(nextRecords);
+  const previousById = toIndex(previousRecords);
+  const operations: PendingEntityOperation[] = [];
+
+  for (const [recordId, nextRecord] of nextById.entries()) {
+    const previousRecord = previousById.get(recordId);
+    if (recordChanged(nextRecord, previousRecord)) {
+      operations.push({ entity, recordId, operation: 'upsert', recordSnapshot: nextRecord });
+    }
   }
 
-  const { data: existingRows, error: existingError } = await supabase.from(table).select('record_id').eq('user_id', userId);
-  if (existingError) throw existingError;
-
-  const staleIds = (existingRows ?? [])
-    .map((row) => row.record_id as string)
-    .filter((id) => !ids.has(id));
-
-  if (staleIds.length > STALE_DELETE_ABORT_THRESHOLD) {
-    throw new Error(`Delete safety guard triggered for ${table}: refusing to delete ${staleIds.length} records in one pass.`);
+  for (const [recordId, previousRecord] of previousById.entries()) {
+    if (!nextById.has(recordId)) {
+      operations.push({
+        entity,
+        recordId,
+        operation: 'delete',
+        deletedAt: new Date().toISOString(),
+        recordSnapshot: previousRecord,
+      });
+    }
   }
 
-  if (staleIds.length > 0) {
-    const { error } = await supabase.from(table).delete().eq('user_id', userId).in('record_id', staleIds);
-    if (error) throw error;
-    return { staleDeleteWarning: `${table}: replaced ${records.length} records and deleted ${staleIds.length} stale records.` };
+  return operations;
+}
+
+function buildScopedEntityOps(
+  payload: PersistedPayload,
+  previousPayload: PersistedPayload,
+  dirtyRecords?: DirtyRecordRef[],
+): PendingEntityOperation[] {
+  if (!dirtyRecords?.length) {
+    return ENTITY_CONFIGS.flatMap((config) =>
+      buildEntityDiff(config.key, entityRecords(payload)[config.key], entityRecords(previousPayload)[config.key]));
   }
 
-  return {};
+  const requestedByEntity = new Map<EntityKey, Set<string>>();
+  ENTITY_CONFIGS.forEach((config) => requestedByEntity.set(config.key, new Set<string>()));
+  dirtyRecords.forEach((ref) => {
+    const config = ENTITY_CONFIGS.find((candidate) => candidate.dirtyType === ref.type);
+    if (!config) return;
+    requestedByEntity.get(config.key)?.add(ref.id);
+  });
+
+  const operations: PendingEntityOperation[] = [];
+  ENTITY_CONFIGS.forEach((config) => {
+    const requestedIds = requestedByEntity.get(config.key);
+    if (!requestedIds || requestedIds.size === 0) return;
+    const nextById = toIndex(entityRecords(payload)[config.key]);
+    const previousById = toIndex(entityRecords(previousPayload)[config.key]);
+    requestedIds.forEach((recordId) => {
+      const nextRecord = nextById.get(recordId);
+      const previousRecord = previousById.get(recordId);
+      if (nextRecord) {
+        if (recordChanged(nextRecord, previousRecord)) {
+          operations.push({ entity: config.key, recordId, operation: 'upsert', recordSnapshot: nextRecord });
+        }
+        return;
+      }
+      if (previousRecord) {
+        operations.push({
+          entity: config.key,
+          recordId,
+          operation: 'delete',
+          deletedAt: new Date().toISOString(),
+          recordSnapshot: previousRecord,
+        });
+      }
+    });
+  });
+  return operations;
+}
+
+function mergePendingOperations(existing: PendingEntityOperation[], incoming: PendingEntityOperation[]): PendingEntityOperation[] {
+  const merged = new Map<string, PendingEntityOperation>();
+  [...existing, ...incoming].forEach((operation) => {
+    merged.set(`${operation.entity}:${operation.recordId}`, operation);
+  });
+  return Array.from(merged.values());
+}
+
+function summarizeOperations(operations: PendingEntityOperation[]): Record<EntityKey, { upserts: number; deletes: number }> {
+  const counts: Record<EntityKey, { upserts: number; deletes: number }> = {
+    items: { upserts: 0, deletes: 0 },
+    tasks: { upserts: 0, deletes: 0 },
+    projects: { upserts: 0, deletes: 0 },
+    contacts: { upserts: 0, deletes: 0 },
+    companies: { upserts: 0, deletes: 0 },
+  };
+  operations.forEach((operation) => {
+    if (operation.operation === 'upsert') counts[operation.entity].upserts += 1;
+    else counts[operation.entity].deletes += 1;
+  });
+  return counts;
+}
+
+async function applyEntityUpserts(table: string, userId: string, operations: PendingEntityOperation[]): Promise<void> {
+  const upserts = operations
+    .filter((operation) => operation.operation === 'upsert')
+    .map((operation) => ({
+      user_id: userId,
+      record_id: operation.recordId,
+      record: operation.recordSnapshot ?? { id: operation.recordId },
+      deleted_at: null,
+      updated_at: new Date().toISOString(),
+    }));
+  if (!upserts.length) return;
+  const { error } = await supabase.from(table).upsert(upserts, { onConflict: 'user_id,record_id' });
+  if (error) throw error;
+}
+
+async function applyEntityDeletes(table: string, userId: string, operations: PendingEntityOperation[]): Promise<{ staleDeleteWarning?: string }> {
+  const deletes = operations.filter((operation) => operation.operation === 'delete');
+  if (!deletes.length) return {};
+  if (deletes.length > STALE_DELETE_ABORT_THRESHOLD) {
+    throw new Error(`Delete safety guard triggered for ${table}: refusing to tombstone ${deletes.length} records in one pass.`);
+  }
+  const rows = deletes.map((operation) => ({
+    user_id: userId,
+    record_id: operation.recordId,
+    record: operation.recordSnapshot ?? { id: operation.recordId },
+    deleted_at: operation.deletedAt ?? new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'user_id,record_id' });
+  if (error) throw error;
+  return { staleDeleteWarning: `${table}: applied ${deletes.length} explicit tombstone operation${deletes.length === 1 ? '' : 's'}.` };
 }
 
 async function saveAuxiliaryState(userId: string, auxiliary: AppAuxiliaryState, migrationComplete = true) {
@@ -391,11 +569,11 @@ async function migrateLegacySnapshotIfNeeded(userId: string, currentPayload: Per
   }
 
   const migrated = fromSnapshot(legacySnapshot);
-  await saveEntityTable('follow_up_items', userId, migrated.items);
-  await saveEntityTable('tasks', userId, migrated.tasks);
-  await saveEntityTable('projects', userId, migrated.projects);
-  await saveEntityTable('contacts', userId, migrated.contacts);
-  await saveEntityTable('companies', userId, migrated.companies);
+  await applyEntityUpserts('follow_up_items', userId, migrated.items.map((record) => ({ entity: 'items', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
+  await applyEntityUpserts('tasks', userId, migrated.tasks.map((record) => ({ entity: 'tasks', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
+  await applyEntityUpserts('projects', userId, migrated.projects.map((record) => ({ entity: 'projects', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
+  await applyEntityUpserts('contacts', userId, migrated.contacts.map((record) => ({ entity: 'contacts', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
+  await applyEntityUpserts('companies', userId, migrated.companies.map((record) => ({ entity: 'companies', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
   await saveAuxiliaryState(userId, migrated.auxiliary, true);
   writeLocalCache({
     entities: migrated,
@@ -664,13 +842,18 @@ export class PersistenceSaveError extends Error {
   }
 }
 
-export async function savePersistedPayload(payload: PersistedPayload): Promise<SaveResult> {
+export async function savePersistedPayload(payload: PersistedPayload, options?: { dirtyRecords?: DirtyRecordRef[] }): Promise<SaveResult> {
   const saveAttemptAt = new Date().toISOString();
   const existingCache = readLocalCache();
+  const previousPayload = existingCache?.entities ?? buildEmptyPayload();
+  const auxiliaryChanged = JSON.stringify(payload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
+  const scopedOps = buildScopedEntityOps(payload, previousPayload, options?.dirtyRecords);
+  const pendingOperations = mergePendingOperations(existingCache?.pendingOperations ?? [], scopedOps);
   const diagnostics: SaveDiagnostics = {
     attemptedAt: saveAttemptAt,
     completedTables: [],
     staleDeleteWarnings: [],
+    operationCounts: summarizeOperations(pendingOperations),
   };
 
   writeLocalCache({
@@ -678,6 +861,7 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
     updatedAt: saveAttemptAt,
     cloudStatus: 'pending',
     lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
+    pendingOperations,
   });
 
   const userId = await getSessionUserId();
@@ -687,33 +871,48 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
+      pendingOperations: [],
     });
     return { mode: 'browser', diagnostics };
   }
 
-  const saveTable = async (table: string, records: Array<{ id: string }>) => {
-    let tableResult: { staleDeleteWarning?: string };
+  if (!auxiliaryChanged && pendingOperations.length === 0) {
+    const cloudConfirmedAt = new Date().toISOString();
+    writeLocalCache({
+      entities: payload,
+      updatedAt: saveAttemptAt,
+      cloudStatus: 'confirmed',
+      lastCloudConfirmedAt: cloudConfirmedAt,
+      pendingOperations: [],
+    });
+    return { mode: 'supabase', diagnostics };
+  }
+
+  const saveTable = async (config: EntityConfig) => {
+    const tableOperations = pendingOperations.filter((operation) => operation.entity === config.key);
+    let tableResult: { staleDeleteWarning?: string } = {};
     try {
-      tableResult = await saveEntityTable(table, userId, records);
+      await applyEntityUpserts(config.table, userId, tableOperations);
+      tableResult = await applyEntityDeletes(config.table, userId, tableOperations);
     } catch (error) {
-      throw normalizePersistenceError(error, { operation: 'save', table });
+      throw normalizePersistenceError(error, { operation: 'save', table: config.table });
     }
-    diagnostics.completedTables.push(table);
+    diagnostics.completedTables.push(config.table);
     if (tableResult.staleDeleteWarning) diagnostics.staleDeleteWarnings.push(tableResult.staleDeleteWarning);
   };
 
   try {
-    await saveTable('follow_up_items', payload.items);
-    await saveTable('tasks', payload.tasks);
-    await saveTable('projects', payload.projects);
-    await saveTable('contacts', payload.contacts);
-    await saveTable('companies', payload.companies);
-    try {
-      await saveAuxiliaryState(userId, payload.auxiliary, true);
-    } catch (error) {
-      throw normalizePersistenceError(error, { operation: 'save', table: 'user_preferences' });
+    for (const config of ENTITY_CONFIGS) {
+      await saveTable(config);
     }
-    diagnostics.completedTables.push('user_preferences');
+    if (auxiliaryChanged) {
+      try {
+        await saveAuxiliaryState(userId, payload.auxiliary, true);
+      } catch (error) {
+        throw normalizePersistenceError(error, { operation: 'save', table: 'user_preferences' });
+      }
+      diagnostics.completedTables.push('user_preferences');
+    }
   } catch (error) {
     const normalized = normalizePersistenceError(error, { operation: 'save' });
     const rawMessage = formatPersistenceErrorMessage(normalized);
@@ -729,6 +928,7 @@ export async function savePersistedPayload(payload: PersistedPayload): Promise<S
     updatedAt: saveAttemptAt,
     cloudStatus: 'confirmed',
     lastCloudConfirmedAt: cloudConfirmedAt,
+    pendingOperations: [],
   });
 
   return { mode: 'supabase', diagnostics };

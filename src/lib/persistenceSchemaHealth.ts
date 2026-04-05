@@ -64,7 +64,7 @@ function classifyFailure(normalized: NormalizedPersistenceError): PersistenceSch
 async function checkTableReachability(userId: string, table: RequiredTable): Promise<{ ok: true } | { ok: false; result: PersistenceSchemaHealthResult }> {
   const query = table === 'user_preferences'
     ? supabase.from('user_preferences').select('user_id').eq('user_id', userId).limit(1)
-    : supabase.from(table).select('record_id').eq('user_id', userId).limit(1);
+    : supabase.from(table).select('record_id,deleted_at').eq('user_id', userId).limit(1);
 
   const { error } = await query;
   if (!error) return { ok: true };

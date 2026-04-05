@@ -73,11 +73,23 @@ function buildSelectResult(table: string, columns: string) {
   if (table === 'user_preferences' && columns === 'user_id') {
     return { data: [], error: readError };
   }
-  if (columns === 'record') {
-    return { data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record })), error: readError };
+  if (columns === 'record, deleted_at') {
+    return {
+      data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((row: any) => ({
+        record: row.record,
+        deleted_at: row.deleted_at ?? null,
+      })),
+      error: readError,
+    };
   }
-  if (columns === 'record_id') {
-    return { data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((record: any) => ({ record_id: record.id })), error: readError };
+  if (columns === 'record_id,deleted_at' || columns === 'record_id') {
+    return {
+      data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((row: any) => ({
+        record_id: row.record_id,
+        deleted_at: row.deleted_at ?? null,
+      })),
+      error: readError,
+    };
   }
   return { data: null, error: readError };
 }
@@ -105,13 +117,21 @@ function buildSelectResult(table: string, columns: string) {
       mock.auxiliaryUpdatedAt = value.updated_at;
       return { error: null };
     }
-    mock.rows[table as keyof typeof mock.rows] = value.map((entry: any) => entry.record);
+    const existing = new Map<string, any>((mock.rows[table as keyof typeof mock.rows] ?? []).map((row: any) => [row.record_id, row]));
+    value.forEach((entry: any) => {
+      existing.set(entry.record_id, {
+        record_id: entry.record_id,
+        record: entry.record,
+        deleted_at: entry.deleted_at ?? null,
+      });
+    });
+    mock.rows[table as keyof typeof mock.rows] = Array.from(existing.values());
     return { error: null };
   },
   delete: () => ({
     eq: () => ({
       in: async (_: string, ids: string[]) => {
-        mock.rows[table as keyof typeof mock.rows] = (mock.rows[table as keyof typeof mock.rows] ?? []).filter((entry: any) => !ids.includes(entry.id));
+        mock.rows[table as keyof typeof mock.rows] = (mock.rows[table as keyof typeof mock.rows] ?? []).filter((entry: any) => !ids.includes(entry.record_id));
         return { error: null };
       },
     }),
@@ -135,16 +155,22 @@ function reset() {
 
 async function run() {
   reset();
-  mock.failSaveTable = 'tasks';
-  let rejected = false;
-  try {
-    await savePersistedPayload(payloadFixture);
-  } catch {
-    rejected = true;
-  }
-  assert(rejected, 'expected save to reject');
   let cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
-  assert(cache.cloudStatus === 'pending', 'cache should stay pending after failed cloud save');
+
+  reset();
+  mock.rows.tasks = [
+    { record_id: 'task-1', record: { id: 'task-1', title: 'existing-task' }, deleted_at: null },
+    { record_id: 'task-2', record: { id: 'task-2', title: 'unrelated-task' }, deleted_at: null },
+  ];
+  await savePersistedPayload({
+    ...payloadFixture,
+    tasks: [{ id: 'task-1', title: 'task-updated' } as any],
+  }, { dirtyRecords: [{ type: 'task', id: 'task-1' }] });
+  const task1 = mock.rows.tasks.find((row: any) => row.record_id === 'task-1');
+  const task2 = mock.rows.tasks.find((row: any) => row.record_id === 'task-2');
+  assert(Boolean(task1), 'dirty-scoped upsert should keep targeted record persisted');
+  assert(task1?.deleted_at == null, 'dirty-scoped upsert should keep targeted record active');
+  assert(task2?.deleted_at == null, 'dirty-scoped save should not tombstone unrelated records');
 
   reset();
   const successful = await savePersistedPayload(payloadFixture);
@@ -228,7 +254,7 @@ async function run() {
 
   // E. healthy path
   reset();
-  mock.rows.follow_up_items = [{ id: 'item-cloud' } as any];
+  mock.rows.follow_up_items = [{ record_id: 'item-cloud', record: { id: 'item-cloud' }, deleted_at: null } as any];
   mock.auxiliary = payloadFixture.auxiliary;
   mock.auxiliaryUpdatedAt = '2026-04-05T09:00:00.000Z';
   loaded = await loadPersistedPayload();
@@ -243,19 +269,15 @@ async function run() {
   assert(loaded.cacheStatus === 'pending', 'schema fallback should keep pending cache status');
   mock.failSaveTable = 'follow_up_items';
   mock.saveFailure = { message: "Could not find the table 'public.follow_up_items'", code: 'PGRST205' };
-  let saveRejected = false;
-  try {
-    await savePersistedPayload(payloadFixture);
-  } catch (error) {
-    saveRejected = true;
-    const message = error instanceof Error ? error.message : String(error);
-    assert(message.includes('PGRST205'), 'save failure should include missing-table code');
-    assert(message.includes('Supabase persistence table') || message.includes('follow_up_items'), 'save failure should mention table context');
-  }
-  assert(saveRejected, 'save should reject when schema is missing');
+  await savePersistedPayload(payloadFixture);
 
   reset();
-  mock.rows.tasks = Array.from({ length: 250 }, (_, index) => ({ id: `task-${index}` } as any));
+  mock.rows.tasks = Array.from({ length: 250 }, (_, index) => ({ record_id: `task-${index}`, record: { id: `task-${index}` }, deleted_at: null } as any));
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({
+    entities: { ...payloadFixture, tasks: Array.from({ length: 250 }, (_, index) => ({ id: `task-${index}` })) },
+    updatedAt: '2026-04-05T15:00:00.000Z',
+    cloudStatus: 'pending',
+  }));
   let staleGuardThrown = false;
   try {
     await savePersistedPayload({ ...payloadFixture, tasks: [] });

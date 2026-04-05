@@ -109,11 +109,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   if (meta.saveError) {
-    const loadFailure = meta.syncState === 'error'
-      && !meta.hasLocalUnsavedChanges
-      && meta.unsavedChangeCount === 0;
     return {
-      stateLabel: loadFailure ? 'Load issue' : 'Save issue',
+      stateLabel: 'Save issue',
       stateDescription: meta.saveError,
       tone: 'warn',
       stateTone: 'danger',

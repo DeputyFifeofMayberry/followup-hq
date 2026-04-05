@@ -16,6 +16,8 @@ import { createMetaSlice } from './slices/metaSlice';
 import type { AppStore } from './types';
 import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } from './persistenceQueue';
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
+import type { SaveDiagnostics } from '../lib/persistence';
+import { resolvePostSaveMetaState } from './persistenceMeta';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -38,9 +40,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 summary: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} queued for save.` : 'Changes queued for save.',
                 detail: scopedCount > 0 ? 'SetPoint will sync these updates automatically.' : 'SetPoint will sync your latest updates automatically.',
               });
+              const pendingRecordCount = merged.size;
               return {
                 hasLocalUnsavedChanges: true,
-                unsavedChangeCount: state.unsavedChangeCount + 1,
+                unsavedChangeCount: pendingRecordCount,
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: 'dirty',
                 saveError: '',
@@ -62,32 +65,41 @@ export const useAppStore = create<AppStore>()((set, get) => {
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
           }),
-          onSaved: (mode, timestamp, reason, didPersist) => set((state) => ({
-            persistenceMode: mode,
-            syncState: 'saved',
-            saveError: '',
-            lastSyncedAt: didPersist && mode === 'supabase' ? timestamp : state.lastSyncedAt,
-            lastCloudConfirmedAt: didPersist && mode === 'supabase' ? timestamp : state.lastCloudConfirmedAt,
-            lastLocalWriteAt: didPersist ? timestamp : state.lastLocalWriteAt,
-            lastFallbackRestoreAt: state.lastFallbackRestoreAt,
-            unsavedChangeCount: 0,
-            hasLocalUnsavedChanges: false,
-            dirtyRecordRefs: [],
-            cloudSyncStatus: mode === 'supabase' ? 'cloud-confirmed' : 'local-only-confirmed',
-            loadedFromLocalRecoveryCache: false,
-            persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
-              kind: 'saved',
-              at: timestamp,
-              summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry save completed.' : 'Changes saved successfully.',
-              detail: didPersist
-                ? mode === 'supabase' ? 'Cloud-backed sync confirmed.' : 'Local persistence updated.'
-                : 'No new changes detected; persistence already up to date.',
-            })),
-          })),
-          onError: (message, timestamp, reason) => set((state) => ({
+          onSaved: (mode, timestamp, reason, didPersist, diagnostics) => set((state) => {
+            const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist);
+            const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
+              ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
+              : '';
+            return {
+              persistenceMode: mode,
+              syncState: postSave.syncState,
+              saveError: '',
+              lastSyncedAt: postSave.lastSyncedAt,
+              lastCloudConfirmedAt: postSave.lastCloudConfirmedAt,
+              lastLocalWriteAt: postSave.lastLocalWriteAt,
+              lastFallbackRestoreAt: state.lastFallbackRestoreAt,
+              unsavedChangeCount: 0,
+              hasLocalUnsavedChanges: false,
+              dirtyRecordRefs: [],
+              cloudSyncStatus: postSave.cloudSyncStatus,
+              loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
+              persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+                kind: 'saved',
+                at: timestamp,
+                summary: reason === 'manual' ? 'Manual save completed.' : reason === 'retry' ? 'Retry save completed.' : 'Changes saved successfully.',
+                detail: didPersist
+                  ? mode === 'supabase'
+                    ? `Cloud-backed sync confirmed.${staleDeleteDetail}`
+                    : `Local persistence updated.${staleDeleteDetail}`
+                  : 'No new changes detected; trust state unchanged.',
+              })),
+            };
+          }),
+          onError: (message, timestamp, reason, diagnostics) => set((state) => ({
             syncState: 'error',
             saveError: message,
             hasLocalUnsavedChanges: true,
+            unsavedChangeCount: state.dirtyRecordRefs.length,
             cloudSyncStatus: 'cloud-save-failed-local-preserved',
             loadedFromLocalRecoveryCache: false,
             lastLocalWriteAt: timestamp,
@@ -96,7 +108,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
               kind: 'failed',
               at: timestamp,
               summary: reason === 'retry' ? 'Retry failed.' : 'Save attempt failed.',
-              detail: message,
+              detail: diagnostics?.failedTable
+                ? `${message} Failed table: ${diagnostics.failedTable}. Completed tables before failure: ${diagnostics.completedTables.join(', ') || 'none'}.`
+                : message,
             })),
           })),
         },

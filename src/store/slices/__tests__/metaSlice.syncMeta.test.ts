@@ -1,4 +1,4 @@
-import { deriveSyncMetaFromLoadResult } from '../metaSlice';
+import { deriveSyncMetaFromLoadResult } from '../syncMetaDerivation';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -42,6 +42,19 @@ function testCloudReadFailureFallback(): void {
   assert(meta.loadedFromLocalRecoveryCache === true, 'cloud read fallback should be marked as recovery');
 }
 
+function testCloudReadFailureWithoutFallbackDoesNotLie(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'supabase',
+    cacheStatus: 'pending',
+    cloudReadFailed: true,
+    loadedFromFallback: false,
+  });
+
+  assert(meta.cloudSyncStatus === 'pending-cloud', 'cloud read failure without local restore must not claim preserved local fallback');
+  assert(meta.loadedFromLocalRecoveryCache === false, 'cloud read failure without local restore should not mark local recovery');
+}
+
 function testLocalNewerThanCloud(): void {
   const meta = deriveSyncMetaFromLoadResult({
     mode: 'supabase',
@@ -62,5 +75,6 @@ function testLocalNewerThanCloud(): void {
   testCloudConfirmedLoad();
   testBrowserLoadNotRecovery();
   testCloudReadFailureFallback();
+  testCloudReadFailureWithoutFallbackDoesNotLie();
   testLocalNewerThanCloud();
 })();

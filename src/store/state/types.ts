@@ -140,7 +140,8 @@ export type CloudSyncStatus =
   | 'local-recovery'
   | 'local-newer-than-cloud'
   | 'cloud-read-failed-local-fallback'
-  | 'cloud-save-failed-local-preserved';
+  | 'cloud-save-failed-local-preserved'
+  | 'load-failed-no-local-copy';
 
 export interface AppMetaState {
   hydrated: boolean;

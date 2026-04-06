@@ -2,6 +2,13 @@
 
 ## 2026-04-05
 
+### Deficiency 5 Phase 3: unified support-workspace engine
+- Unified Projects and Relationships under a shared support-workspace engine for pressure, context, routing, linked-work preview, maintenance, and session continuity.
+- Added a shared support domain (`src/domains/support/*`) with normalized support-record surface types, a shared pressure derivation engine, route-to-lane policy, selected-context builder, linked-work preview model, summary-strip metrics builder, and an explicit support lens registry.
+- Refactored `ProjectCommandCenter` and `RelationshipBoard` to consume shared support-surface/context/metrics logic as thin lens clients while preserving project-pressure and coordination-pressure intent.
+- Added shared support workspace session continuity in app UI state so support lenses remember selected context, search/sort posture, and route handoff hints (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/slices/uiSlice.ts`, `src/store/types.ts`).
+- Added focused coverage for the shared support-workspace domain helpers (`src/domains/support/supportWorkspace.test.ts`).
+
 ### Deficiency 5 Phase 2: support workspace family standardization
 - Standardized Projects and Relationships around a shared support-workspace model with consistent context, routing, linked-work preview, and secondary maintenance patterns.
 - Added thin shared support-workspace primitives (`SupportWorkspaceSummary`, `SupportWorkspaceToolbar`, `SupportWorkspacePortfolioCard`, `SupportWorkspaceSelectedContextCard`, `SupportWorkspaceRouteActions`, `SupportWorkspaceRelatedList`, `SupportWorkspaceMaintenanceTray`) so support pages reuse one page grammar instead of page-specific wrappers (`src/components/ui/AppPrimitives.tsx`).

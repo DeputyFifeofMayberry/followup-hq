@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRightLeft, Building2, Clock3, Filter, Flame, PlusCircle, Trash2, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildOwnerSummary } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -29,6 +29,7 @@ import type { WorkspaceKey } from '../lib/appModeConfig';
 import { StructuredActionFlow } from './actions/StructuredActionFlow';
 import { getCompanyLinkedRecords, getContactLinkedRecords } from '../lib/recordContext';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
+import { buildSupportSelectedContext, buildSupportSummaryStripMetrics, mapRelationshipSummaryToSupportSurface, supportLensRegistry } from '../domains/support';
 
 export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
@@ -50,6 +51,8 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     openCreateFromCapture,
     openRecordDrawer,
     openRecordEditor,
+    supportWorkspaceSession,
+    setSupportWorkspaceSession,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -69,6 +72,8 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     openCreateFromCapture: s.openCreateFromCapture,
     openRecordDrawer: s.openRecordDrawer,
     openRecordEditor: s.openRecordEditor,
+    supportWorkspaceSession: s.supportWorkspaceSession.relationships,
+    setSupportWorkspaceSession: s.setSupportWorkspaceSession,
   })));
   const { openExecutionLane } = useExecutionQueueViewModel();
 
@@ -77,10 +82,10 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
   const [contactEmail, setContactEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyType, setCompanyType] = useState<'Government' | 'Owner' | 'Vendor' | 'Subcontractor' | 'Consultant' | 'Internal' | 'Other'>('Vendor');
-  const [filters, setFilters] = useState(defaultRelationshipFilter);
-  const [sortBy, setSortBy] = useState<RelationshipSortKey>('pressure');
+  const [filters, setFilters] = useState({ ...defaultRelationshipFilter, search: supportWorkspaceSession.searchQuery });
+  const [sortBy, setSortBy] = useState<RelationshipSortKey>((supportWorkspaceSession.sortKey as RelationshipSortKey) || 'pressure');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(supportWorkspaceSession.selectedRecordId);
   const [selectedEntityType, setSelectedEntityType] = useState<'contact' | 'company'>('contact');
   const [relationshipFlow, setRelationshipFlow] = useState<null | 'watch' | 'log_touch' | 'delete_contact' | 'delete_company' | 'reassign_contact' | 'reassign_company' | 'merge_contact' | 'merge_company'>(null);
   const [relationshipTargetId, setRelationshipTargetId] = useState('');
@@ -109,6 +114,8 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
   const selectedFollowUps = useMemo(() => selectedLinkedRecords.followups.slice(0, 8), [selectedLinkedRecords.followups]);
   const selectedTasks = useMemo(() => selectedLinkedRecords.tasks.slice(0, 8), [selectedLinkedRecords.tasks]);
   const selectedProjects = useMemo(() => selectedLinkedRecords.projects, [selectedLinkedRecords.projects]);
+  const selectedSurface = useMemo(() => selected ? mapRelationshipSummaryToSupportSurface(selected, { followupIds: selectedLinkedRecords.followups.map((entry) => entry.id), taskIds: selectedLinkedRecords.tasks.map((entry) => entry.id) }) : null, [selected, selectedLinkedRecords.followups, selectedLinkedRecords.tasks]);
+  const selectedContext = useMemo(() => selectedSurface ? buildSupportSelectedContext(selectedSurface) : null, [selectedSurface]);
 
   const contactOptions = contacts.map((contact) => ({ id: contact.id, label: contact.name }));
   const companyOptions = companies.map((company) => ({ id: company.id, label: company.name }));
@@ -176,18 +183,20 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
     setRelationshipResult({ tone: 'success', message: 'Relationship operation completed.' });
   };
 
-  const coordinationSummary = useMemo(() => relationshipRows.reduce((acc, row) => {
-    acc.waiting += row.waitingFollowUps;
-    acc.overdue += row.overdueFollowUps + row.overdueTasks;
-    acc.blocked += row.blockedTasks;
-    if (row.riskTier === 'High' || row.riskTier === 'Critical') acc.highRisk += 1;
-    return acc;
-  }, { waiting: 0, overdue: 0, blocked: 0, highRisk: 0 }), [relationshipRows]);
+  const coordinationSummary = useMemo(() => buildSupportSummaryStripMetrics(relationshipRows.map((row) => mapRelationshipSummaryToSupportSurface(row, { followupIds: [], taskIds: [] }))), [relationshipRows]);
+
+  useEffect(() => {
+    setSupportWorkspaceSession('relationships', {
+      selectedRecordId: selected?.id ?? null,
+      searchQuery: filters.search,
+      sortKey: sortBy,
+    });
+  }, [filters.search, selected, setSupportWorkspaceSession, sortBy]);
 
   return (
     <AppShellCard className="workspace-inspector-panel relationship-command-surface" surface="shell">
       <SupportWorkspaceSummary
-        title="Relationship support workspace"
+        title={supportLensRegistry.relationships.title}
         subtitle={modeConfig.relationshipsSubtitle}
         supportSentence="Relationships are a coordination pressure lens: identify who is stalled, then route into follow-up or task execution lanes."
         metrics={(
@@ -195,7 +204,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
             <div className="stat-tile"><div className="stat-tile-label">Waiting pressure</div><div className="stat-tile-value">{coordinationSummary.waiting}</div><div className="stat-tile-helper">Follow-ups waiting on others</div></div>
             <div className="stat-tile stat-tile-warn"><div className="stat-tile-label">Overdue pressure</div><div className="stat-tile-value">{coordinationSummary.overdue}</div><div className="stat-tile-helper">Overdue follow-ups + tasks</div></div>
             <div className="stat-tile stat-tile-danger"><div className="stat-tile-label">Blocked tasks</div><div className="stat-tile-value">{coordinationSummary.blocked}</div><div className="stat-tile-helper">Coordination bottlenecks</div></div>
-            <div className="stat-tile"><div className="stat-tile-label">High-risk relationships</div><div className="stat-tile-value">{coordinationSummary.highRisk}</div><div className="stat-tile-helper">High + critical risk tier</div></div>
+            <div className="stat-tile"><div className="stat-tile-label">Relationships under pressure</div><div className="stat-tile-value">{coordinationSummary.underPressure}</div><div className="stat-tile-helper">High + critical pressure tier</div></div>
           </>
         )}
       />
@@ -331,7 +340,7 @@ export function RelationshipBoard({ appMode = 'team', setWorkspace }: { appMode?
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="inspector-title">Identity + why it matters</div>
-                  <div className="panel-supporting-text">{selected.name} • Risk {selected.riskTier} • Waiting {selected.waitingFollowUps} • Overdue {selected.overdueFollowUps + selected.overdueTasks}</div>
+                  <div className="panel-supporting-text">{selected.name} • {selectedContext?.whyItMattersNow || `Risk ${selected.riskTier} • Waiting ${selected.waitingFollowUps}`}</div>
                 </div>
                 <SupportWorkspaceRouteActions support="Keep routing and context actions primary; maintenance stays below.">
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProjects[0]?.name, source: 'relationships', sourceRecordId: selected.id, intentLabel: `coordinate ${selected.name}` }); setWorkspace('followups'); }} className="primary-btn !px-2.5 !py-1.5 text-xs">Open follow-up lane</button>

@@ -89,6 +89,7 @@ export interface AppStoreActions {
   openRecordEditor: (ref: RecordRef, mode?: 'create' | 'edit', source?: string) => void;
   openRecordDrawer: (ref: RecordRef) => void;
   closeRecordDrawer: () => void;
+  setSupportWorkspaceSession: (lens: 'projects' | 'relationships', patch: Partial<{ selectedRecordId: string | null; searchQuery: string; sortKey: string; lastRouteTarget: 'followups' | 'tasks' | null; lastRouteReason: string | null; lastLinkedSubset: 'followups' | 'tasks' | null }>) => void;
   updateItem: (id: string, patch: Partial<FollowUpItem>) => void;
   addItem: (item: FollowUpItem) => void;
   deleteItem: (id: string) => void;

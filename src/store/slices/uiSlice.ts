@@ -10,7 +10,7 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
   'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
-  'openRecordEditor' | 'openRecordDrawer' | 'closeRecordDrawer'
+  'openRecordEditor' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
 > {
   return {
     setSelectedId: (id) => set((state: AppStore) => ({
@@ -183,5 +183,14 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       recordSurfaceSource: 'context_open',
     }),
     closeRecordDrawer: () => set({ recordDrawerRef: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
+    setSupportWorkspaceSession: (lens, patch) => set((state: AppStore) => ({
+      supportWorkspaceSession: {
+        ...state.supportWorkspaceSession,
+        [lens]: {
+          ...state.supportWorkspaceSession[lens],
+          ...patch,
+        },
+      },
+    })),
   };
 }

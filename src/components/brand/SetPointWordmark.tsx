@@ -11,12 +11,14 @@ export interface SetPointWordmarkProps extends Omit<HTMLAttributes<HTMLDivElemen
 function BeamTGlyph() {
   return (
     <span className="setpoint-letter setpoint-letter-beam" aria-hidden="true">
-      <svg viewBox="0 0 42 64" focusable="false">
-        <rect x="2" y="4" width="38" height="10" rx="3" />
-        <rect x="16" y="10" width="10" height="46" rx="4" />
-        <rect x="6" y="50" width="30" height="10" rx="3" />
-        <line x1="7" y1="9" x2="35" y2="9" />
-        <line x1="10" y1="55" x2="32" y2="55" />
+      <svg viewBox="0 0 44 64" focusable="false">
+        <path className="beam-flange" d="M3 5.5c0-1.5 1.2-2.7 2.7-2.7h32.6c1.5 0 2.7 1.2 2.7 2.7v7.8c0 1.5-1.2 2.7-2.7 2.7H5.7A2.7 2.7 0 0 1 3 13.3V5.5Z" />
+        <path className="beam-web" d="M17.8 14.8c0-1 .8-1.8 1.8-1.8h4.8c1 0 1.8.8 1.8 1.8v35.8c0 1-.8 1.8-1.8 1.8h-4.8c-1 0-1.8-.8-1.8-1.8V14.8Z" />
+        <path className="beam-flange" d="M8 49.8c0-1.5 1.2-2.8 2.8-2.8h22.4c1.5 0 2.8 1.3 2.8 2.8v8c0 1.6-1.3 2.9-2.8 2.9H10.8A2.8 2.8 0 0 1 8 57.8v-8Z" />
+        <path className="beam-edge" d="M6.8 8.6h30.4" />
+        <path className="beam-edge" d="M10.8 53.6h22.4" />
+        <path className="beam-web-line" d="M19.6 16.9v33.6" />
+        <path className="beam-web-line" d="M24.4 16.9v33.6" />
       </svg>
     </span>
   );
@@ -26,13 +28,25 @@ function CraneTGlyph() {
   return (
     <span className="setpoint-letter setpoint-letter-crane" aria-hidden="true">
       <svg viewBox="0 0 46 64" focusable="false">
-        <rect x="19" y="4" width="10" height="52" rx="4" />
-        <path d="M6 16h34" />
-        <path d="M19 16H6l6 8" />
-        <path d="M29 16h11l-6 6" />
-        <path d="M34 16v18" />
-        <path d="M34 34h6" />
-        <circle cx="40" cy="34" r="2.2" />
+        <path className="crane-mast" d="M19.4 4.8c0-1 .8-1.8 1.8-1.8h3.6c1 0 1.8.8 1.8 1.8v49.1c0 1-.8 1.8-1.8 1.8h-3.6c-1 0-1.8-.8-1.8-1.8V4.8Z" />
+        <path className="crane-mast-brace" d="M20.2 12.2h6" />
+        <path className="crane-mast-brace" d="M20.2 18.8h6" />
+        <path className="crane-mast-brace" d="M20.2 25.4h6" />
+        <path className="crane-mast-brace" d="M20.2 32h6" />
+        <path className="crane-mast-brace" d="M20.2 38.6h6" />
+        <path className="crane-mast-brace" d="M20.2 45.2h6" />
+
+        <path className="crane-jib" d="M23 15.6H42" />
+        <path className="crane-jib" d="M6 15.6h17" />
+        <path className="crane-truss" d="M23 15.6l4.7 4.8" />
+        <path className="crane-truss" d="M23 15.6l7.9 4.8" />
+        <path className="crane-truss" d="M23 15.6l11.3 4.8" />
+        <path className="crane-truss" d="M23 15.6l14.2 4.8" />
+        <path className="crane-truss" d="M23 15.6l-4.8 4.8" />
+        <path className="crane-truss" d="M23 15.6l-8 4.8" />
+        <path className="crane-hook-cable" d="M34.2 15.6v14.2" />
+        <path className="crane-hook" d="M34.2 29.8h3.6c0 2.3-1.4 3.8-3.6 3.8" />
+        <path className="crane-base" d="M17 55.8h12" />
       </svg>
     </span>
   );

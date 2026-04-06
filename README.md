@@ -89,6 +89,7 @@ SetPoint expects these **public** tables for cloud persistence:
 - `contacts` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
 - `companies` (`user_id`, `record_id`, `record`, `deleted_at`, `updated_at`)
 - `user_preferences` (`user_id`, `auxiliary`, `migration_complete`, `updated_at`)
+- `save_batches` (`id`, `batch_id`, `user_id`, `device_id`, `session_id`, `status`, `schema_version`, `client_payload_hash`, `server_payload_hash`, `operation_count`, `result_summary`, `error_summary`, `created_at`, `received_at`, `committed_at`, `updated_at`)
 - `app_snapshots` (legacy migration compatibility: `user_id`, `snapshot`, `updated_at`)
 
 Entity tables use `jsonb` `record` payloads and upsert on `(user_id, record_id)`. SetPoint now uses record-level sync operations: changed rows are upserted, and deletes are persisted explicitly as tombstones (`deleted_at`) rather than inferred from whole-table omission. `user_preferences` is unique on `user_id`.
@@ -100,6 +101,7 @@ Apply migrations in `supabase/migrations/`, including:
 - `20260402_entity_persistence.sql`
 - `20260405_persistence_schema_hardening.sql`
 - `20260405_phase3_record_level_sync.sql`
+- `20260406_phase1_authoritative_save_batches.sql`
 
 Use your normal Supabase migration workflow (for example via Supabase CLI in your deployment pipeline). If migrations are not applied to the active project, cloud reads/writes will fail.
 
@@ -110,6 +112,34 @@ Each persistence table uses authenticated user-scoped RLS:
 - `auth.uid() = user_id` for select/insert/update/delete.
 
 If these policies are missing or incorrect, you will see permission-denied persistence failures.
+
+## Authoritative save pipeline (Phase 1)
+
+SetPoint now uses a **single server-authoritative save batch RPC** for cloud commits:
+
+1. Client computes record-level pending operations + local fallback cache.
+2. Client builds one save batch envelope (`batchId`, operation counts, deterministic payload hash, device/session ids).
+3. Client calls `supabase.rpc('apply_save_batch', { batch })`.
+4. PostgreSQL applies all entity + auxiliary writes atomically and returns a durable receipt.
+5. UI marks cloud confirmation only when receipt status is `committed`.
+
+### Receipt semantics
+
+- `batchId`: unique id for one authoritative save attempt/replay.
+- `status`: `committed` / `rejected`.
+- `committedAt`: server commit timestamp used for cloud-confirmed timeline.
+- `operationCount` + per-entity counts: what the server applied.
+- `touchedTables`: exact persisted tables in the atomic transaction.
+- `clientPayloadHash` + `serverPayloadHash`: deterministic hash comparison between client envelope and server-normalized payload.
+- `hashMatch`: `true` when hashes match exactly for the committed payload.
+
+### Out of scope in this phase
+
+The Phase 1 overhaul intentionally does **not** include:
+
+- manual verification workflows,
+- cloud/local diff & recovery center,
+- conflict resolution UX or merge tooling.
 
 ### Diagnosing `PGRST205` / missing `public.follow_up_items`
 

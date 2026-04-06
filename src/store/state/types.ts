@@ -39,6 +39,7 @@ import type {
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
+import type { SaveBatchEntityCounts } from '../../lib/persistenceTypes';
 import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 import type { SupportWorkspaceSessionState } from '../../domains/support';
 
@@ -194,5 +195,14 @@ export interface AppMetaState {
   sessionTrustRecoveredAt?: string;
   lastSuccessfulPersistAt?: string;
   lastSuccessfulCloudPersistAt?: string;
+  lastConfirmedBatchId?: string;
+  lastConfirmedBatchCommittedAt?: string;
+  lastReceiptStatus?: 'committed' | 'rejected';
+  lastReceiptHashMatch?: boolean;
+  lastReceiptSchemaVersion?: number;
+  lastReceiptTouchedTables?: string[];
+  lastReceiptOperationCount?: number;
+  lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
+  lastFailedBatchId?: string;
   persistenceActivity: PersistenceActivityEvent[];
 }

@@ -1,6 +1,7 @@
 import type { PersistenceMode } from '../types';
 import type { AppStore } from '../store/types';
 import type { CloudSyncStatus, SessionDegradedReason, SessionTrustState } from '../store/state/types';
+import type { SaveBatchEntityCounts } from './persistenceTypes';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 export type SyncPrimaryState = 'checking' | 'saving' | 'saved' | 'needs-attention';
@@ -30,6 +31,15 @@ export interface SyncMetaSnapshot {
   sessionTrustRecoveredAt?: string;
   lastSuccessfulPersistAt?: string;
   lastSuccessfulCloudPersistAt?: string;
+  lastConfirmedBatchId?: string;
+  lastConfirmedBatchCommittedAt?: string;
+  lastReceiptStatus?: 'committed' | 'rejected';
+  lastReceiptHashMatch?: boolean;
+  lastReceiptSchemaVersion?: number;
+  lastReceiptTouchedTables?: string[];
+  lastReceiptOperationCount?: number;
+  lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
+  lastFailedBatchId?: string;
 }
 
 export interface SyncStatusModel {
@@ -96,6 +106,15 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     sessionTrustRecoveredAt: state.sessionTrustRecoveredAt,
     lastSuccessfulPersistAt: state.lastSuccessfulPersistAt,
     lastSuccessfulCloudPersistAt: state.lastSuccessfulCloudPersistAt,
+    lastConfirmedBatchId: state.lastConfirmedBatchId,
+    lastConfirmedBatchCommittedAt: state.lastConfirmedBatchCommittedAt,
+    lastReceiptStatus: state.lastReceiptStatus,
+    lastReceiptHashMatch: state.lastReceiptHashMatch,
+    lastReceiptSchemaVersion: state.lastReceiptSchemaVersion,
+    lastReceiptTouchedTables: state.lastReceiptTouchedTables,
+    lastReceiptOperationCount: state.lastReceiptOperationCount,
+    lastReceiptOperationCountsByEntity: state.lastReceiptOperationCountsByEntity,
+    lastFailedBatchId: state.lastFailedBatchId,
   };
 }
 

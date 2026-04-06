@@ -10,6 +10,14 @@ import {
   type PersistenceSchemaHealthResult,
 } from './persistenceSchemaHealth';
 import { getSupabaseHost } from './supabase';
+import { computeDeterministicHash } from './persistenceHash';
+import { getSessionScopedId, getStableDeviceId } from './persistenceIdentity';
+import type {
+  SaveBatchEntityCounts,
+  SaveBatchEnvelope,
+  SaveBatchOperation,
+  SaveBatchReceipt,
+} from './persistenceTypes';
 import type {
   AppSnapshot,
   CompanyRecord,
@@ -25,6 +33,7 @@ import { getDefaultForwardedRules } from './intakeRules';
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
 const STALE_DELETE_ABORT_THRESHOLD = 200;
+const SAVE_BATCH_SCHEMA_VERSION = 1;
 
 type EntityKey = 'items' | 'tasks' | 'projects' | 'contacts' | 'companies';
 type DirtyRecordType = DirtyRecordRef['type'];
@@ -45,14 +54,9 @@ const ENTITY_CONFIGS: readonly EntityConfig[] = [
   { key: 'companies', table: 'companies', dirtyType: 'company' },
 ] as const;
 
-type EntityOperationKind = 'upsert' | 'delete';
-
-interface PendingEntityOperation {
+interface PendingEntityOperation extends SaveBatchOperation {
   entity: EntityKey;
-  recordId: string;
-  operation: EntityOperationKind;
-  deletedAt?: string;
-  recordSnapshot?: { id: string };
+  recordSnapshot?: unknown;
 }
 
 export interface CoreEntities {
@@ -98,6 +102,8 @@ export interface LocalCachePayload {
   cloudStatus: 'pending' | 'confirmed';
   lastCloudConfirmedAt?: string;
   pendingOperations?: PendingEntityOperation[];
+  lastSaveReceipt?: SaveBatchReceipt;
+  lastFailedBatchId?: string;
 }
 
 export interface LoadResult {
@@ -133,7 +139,16 @@ export interface SaveDiagnostics {
   failedTable?: string;
   staleDeleteGuardTriggered?: boolean;
   staleDeleteWarnings: string[];
-  operationCounts?: Record<EntityKey, { upserts: number; deletes: number }>;
+  operationCounts?: SaveBatchEntityCounts;
+  batchId?: string;
+  failedBatchId?: string;
+  committedAt?: string;
+  receiptStatus?: SaveBatchReceipt['status'];
+  hashMatch?: boolean;
+  schemaVersion?: number;
+  touchedTables?: string[];
+  operationCount?: number;
+  operationCountsByEntity?: SaveBatchEntityCounts;
 }
 
 export interface SaveResult {
@@ -275,6 +290,10 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
   const pendingOperations = Array.isArray(asRecord.pendingOperations)
     ? asRecord.pendingOperations.map(normalizePendingOperation).filter((op): op is PendingEntityOperation => Boolean(op))
     : [];
+  const lastSaveReceipt = asRecord.lastSaveReceipt && typeof asRecord.lastSaveReceipt === 'object'
+    ? asRecord.lastSaveReceipt as SaveBatchReceipt
+    : undefined;
+  const lastFailedBatchId = typeof asRecord.lastFailedBatchId === 'string' ? asRecord.lastFailedBatchId : undefined;
 
   return {
     entities: entities as PersistedPayload,
@@ -282,6 +301,8 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     cloudStatus,
     lastCloudConfirmedAt,
     pendingOperations,
+    lastSaveReceipt,
+    lastFailedBatchId,
   };
 }
 
@@ -479,8 +500,8 @@ function mergePendingOperations(existing: PendingEntityOperation[], incoming: Pe
   return Array.from(merged.values());
 }
 
-function summarizeOperations(operations: PendingEntityOperation[]): Record<EntityKey, { upserts: number; deletes: number }> {
-  const counts: Record<EntityKey, { upserts: number; deletes: number }> = {
+export function summarizeOperations(operations: PendingEntityOperation[]): SaveBatchEntityCounts {
+  const counts: SaveBatchEntityCounts = {
     items: { upserts: 0, deletes: 0 },
     tasks: { upserts: 0, deletes: 0 },
     projects: { upserts: 0, deletes: 0 },
@@ -492,6 +513,77 @@ function summarizeOperations(operations: PendingEntityOperation[]): Record<Entit
     else counts[operation.entity].deletes += 1;
   });
   return counts;
+}
+
+function buildHashInput(batch: Pick<SaveBatchEnvelope, 'schemaVersion' | 'operations' | 'auxiliary' | 'operationCount' | 'operationCountsByEntity'>): Record<string, unknown> {
+  return {
+    schemaVersion: batch.schemaVersion,
+    operations: batch.operations,
+    auxiliary: batch.auxiliary ?? null,
+    operationCount: batch.operationCount,
+    operationCountsByEntity: batch.operationCountsByEntity,
+  };
+}
+
+function createBatchId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `batch-${Math.random().toString(36).slice(2, 11)}-${Date.now().toString(36)}`;
+}
+
+export async function buildSaveBatchEnvelope(input: {
+  payload: PersistedPayload;
+  operations: PendingEntityOperation[];
+  clientGeneratedAt?: string;
+}): Promise<SaveBatchEnvelope> {
+  const clientGeneratedAt = input.clientGeneratedAt ?? new Date().toISOString();
+  const operationCountsByEntity = summarizeOperations(input.operations);
+  const operationCount = input.operations.length;
+  const envelopeBase: Omit<SaveBatchEnvelope, 'clientPayloadHash'> = {
+    batchId: createBatchId(),
+    schemaVersion: SAVE_BATCH_SCHEMA_VERSION,
+    deviceId: getStableDeviceId(),
+    sessionId: getSessionScopedId(),
+    clientGeneratedAt,
+    operations: input.operations,
+    operationCount,
+    operationCountsByEntity,
+    auxiliary: input.payload.auxiliary as unknown as Record<string, unknown>,
+  };
+  const clientPayloadHash = await computeDeterministicHash(buildHashInput(envelopeBase));
+  return { ...envelopeBase, clientPayloadHash };
+}
+
+function normalizeSaveBatchReceipt(payload: unknown): SaveBatchReceipt {
+  const receipt = (payload ?? {}) as Record<string, unknown>;
+  const operationCountsByEntity = (receipt.operationCountsByEntity ?? receipt.operation_counts_by_entity ?? {
+    items: { upserts: 0, deletes: 0 },
+    tasks: { upserts: 0, deletes: 0 },
+    projects: { upserts: 0, deletes: 0 },
+    contacts: { upserts: 0, deletes: 0 },
+    companies: { upserts: 0, deletes: 0 },
+  }) as SaveBatchEntityCounts;
+  const status = receipt.status === 'rejected' || receipt.status === 'received' ? receipt.status : 'committed';
+  return {
+    batchId: String(receipt.batchId ?? receipt.batch_id ?? ''),
+    userId: String(receipt.userId ?? receipt.user_id ?? ''),
+    status,
+    committedAt: typeof receipt.committedAt === 'string' ? receipt.committedAt : typeof receipt.committed_at === 'string' ? receipt.committed_at : undefined,
+    schemaVersion: Number(receipt.schemaVersion ?? receipt.schema_version ?? SAVE_BATCH_SCHEMA_VERSION),
+    operationCount: Number(receipt.operationCount ?? receipt.operation_count ?? 0),
+    operationCountsByEntity,
+    touchedTables: Array.isArray(receipt.touchedTables) ? receipt.touchedTables.map(String) : [],
+    clientPayloadHash: typeof receipt.clientPayloadHash === 'string' ? receipt.clientPayloadHash : undefined,
+    serverPayloadHash: String(receipt.serverPayloadHash ?? receipt.server_payload_hash ?? ''),
+    hashMatch: Boolean(receipt.hashMatch),
+  };
+}
+
+async function commitSaveBatch(batch: SaveBatchEnvelope): Promise<SaveBatchReceipt> {
+  const { data, error } = await supabase.rpc('apply_save_batch', { batch });
+  if (error) throw error;
+  return normalizeSaveBatchReceipt(data);
 }
 
 async function applyEntityUpserts(table: string, userId: string, operations: PendingEntityOperation[]): Promise<void> {
@@ -834,11 +926,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
 
 export class PersistenceSaveError extends Error {
   diagnostics: SaveDiagnostics;
+  batchId?: string;
 
   constructor(message: string, diagnostics: SaveDiagnostics) {
     super(message);
     this.name = 'PersistenceSaveError';
     this.diagnostics = diagnostics;
+    this.batchId = diagnostics.batchId ?? diagnostics.failedBatchId;
   }
 }
 
@@ -862,6 +956,8 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     cloudStatus: 'pending',
     lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
     pendingOperations,
+    lastSaveReceipt: existingCache?.lastSaveReceipt,
+    lastFailedBatchId: existingCache?.lastFailedBatchId,
   });
 
   const userId = await getSessionUserId();
@@ -872,64 +968,69 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
       pendingOperations: [],
+      lastSaveReceipt: existingCache?.lastSaveReceipt,
+      lastFailedBatchId: undefined,
     });
     return { mode: 'browser', diagnostics };
   }
 
   if (!auxiliaryChanged && pendingOperations.length === 0) {
-    const cloudConfirmedAt = new Date().toISOString();
+    return { mode: 'supabase', diagnostics };
+  }
+  const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
+  if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
+    diagnostics.staleDeleteGuardTriggered = true;
+    throw new PersistenceSaveError(
+      `Cloud save did not fully complete. Delete safety guard triggered: refusing to process ${excessiveDeletes} tombstones in one batch.`,
+      diagnostics,
+    );
+  }
+
+  const envelope = await buildSaveBatchEnvelope({ payload, operations: pendingOperations, clientGeneratedAt: saveAttemptAt });
+  diagnostics.batchId = envelope.batchId;
+  try {
+    const receipt = await commitSaveBatch(envelope);
+    diagnostics.receiptStatus = receipt.status;
+    diagnostics.committedAt = receipt.committedAt;
+    diagnostics.hashMatch = receipt.hashMatch;
+    diagnostics.schemaVersion = receipt.schemaVersion;
+    diagnostics.touchedTables = receipt.touchedTables;
+    diagnostics.operationCount = receipt.operationCount;
+    diagnostics.operationCountsByEntity = receipt.operationCountsByEntity;
+    diagnostics.completedTables = receipt.touchedTables;
+    if (receipt.status !== 'committed') {
+      throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
+        ...diagnostics,
+        failedBatchId: envelope.batchId,
+      });
+    }
+
     writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
-      lastCloudConfirmedAt: cloudConfirmedAt,
+      lastCloudConfirmedAt: receipt.committedAt ?? saveAttemptAt,
       pendingOperations: [],
+      lastSaveReceipt: receipt,
+      lastFailedBatchId: undefined,
     });
     return { mode: 'supabase', diagnostics };
-  }
-
-  const saveTable = async (config: EntityConfig) => {
-    const tableOperations = pendingOperations.filter((operation) => operation.entity === config.key);
-    let tableResult: { staleDeleteWarning?: string } = {};
-    try {
-      await applyEntityUpserts(config.table, userId, tableOperations);
-      tableResult = await applyEntityDeletes(config.table, userId, tableOperations);
-    } catch (error) {
-      throw normalizePersistenceError(error, { operation: 'save', table: config.table });
-    }
-    diagnostics.completedTables.push(config.table);
-    if (tableResult.staleDeleteWarning) diagnostics.staleDeleteWarnings.push(tableResult.staleDeleteWarning);
-  };
-
-  try {
-    for (const config of ENTITY_CONFIGS) {
-      await saveTable(config);
-    }
-    if (auxiliaryChanged) {
-      try {
-        await saveAuxiliaryState(userId, payload.auxiliary, true);
-      } catch (error) {
-        throw normalizePersistenceError(error, { operation: 'save', table: 'user_preferences' });
-      }
-      diagnostics.completedTables.push('user_preferences');
-    }
   } catch (error) {
     const normalized = normalizePersistenceError(error, { operation: 'save' });
     const rawMessage = formatPersistenceErrorMessage(normalized);
     const failedMatch = rawMessage.match(/for table ([a-z_]+)/) || rawMessage.match(/for ([a-z_]+):/) || rawMessage.match(/save failed:([a-z_]+)/);
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
+    diagnostics.failedBatchId = envelope.batchId;
+    writeLocalCache({
+      entities: payload,
+      updatedAt: saveAttemptAt,
+      cloudStatus: 'pending',
+      lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
+      pendingOperations,
+      lastSaveReceipt: existingCache?.lastSaveReceipt,
+      lastFailedBatchId: envelope.batchId,
+    });
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
   }
-
-  const cloudConfirmedAt = new Date().toISOString();
-  writeLocalCache({
-    entities: payload,
-    updatedAt: saveAttemptAt,
-    cloudStatus: 'confirmed',
-    lastCloudConfirmedAt: cloudConfirmedAt,
-    pendingOperations: [],
-  });
-
-  return { mode: 'supabase', diagnostics };
 }

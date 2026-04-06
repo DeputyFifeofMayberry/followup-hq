@@ -2,6 +2,12 @@
 
 ## 2026-04-06
 
+### Save-system overhaul Phase 1: authoritative RPC batching + receipt-backed confirmation
+- Replaced the live cloud save commit path from client-side multi-table writes to one authoritative `apply_save_batch` RPC that applies entity + auxiliary operations atomically and returns a durable save receipt (`src/lib/persistence.ts`, `src/lib/persistenceTypes.ts`, `src/lib/persistenceHash.ts`, `src/lib/persistenceIdentity.ts`, `supabase/migrations/20260406_phase1_authoritative_save_batches.sql`).
+- Added `save_batches` schema + idempotent server receipt tracking with deterministic payload hashing, status transitions (`received`/`committed`/`rejected`), and structured failure summaries so cloud confirmation is receipt-backed rather than inferred from per-table client writes (`supabase/migrations/20260406_phase1_authoritative_save_batches.sql`).
+- Extended persistence diagnostics, trust/meta state, and sync technical details to surface batch id, commit timestamp, receipt status, hash-match status, schema version, touched tables, operation counts, and failed batch ids while preserving calm summary UX copy (`src/lib/persistence.ts`, `src/store/state/types.ts`, `src/store/persistenceMeta.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`, `src/components/SyncStatusControl.tsx`).
+- Expanded regression coverage for save batch envelope generation/hash stability, RPC-first save behavior, no-op behavior (no fake receipt), and receipt technical-details rendering (`src/lib/__tests__/saveBatchEnvelope.test.ts`, `src/lib/__tests__/persistenceReliability.test.ts`, `src/components/__tests__/syncStatusControl.receiptDetails.test.ts`, `package.json`).
+
 ### Workflow-confidence hardening pass
 - Workflow-confidence hardening pass: added deterministic browser-level coverage for the personal daily-use loop, including routing, execution, editing, drawer escalation, and save/reload behavior.
 - Added Playwright e2e scaffolding, deterministic local-cache seeding harness, and workflow-focused smoke/full-path specs covering shell boot, overview routing, follow-up/task execution actions, quick add routing, full edit, drawer escalation, support workspace lane handoff, and reload confidence (`playwright.config.ts`, `e2e/**/*`, `src/lib/e2eMode.ts`, `src/App.tsx`, `package.json`).

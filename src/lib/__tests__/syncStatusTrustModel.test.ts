@@ -31,6 +31,15 @@ function baseMeta() {
     sessionTrustRecoveredAt: undefined,
     lastSuccessfulPersistAt: '2026-04-05T10:00:00.000Z',
     lastSuccessfulCloudPersistAt: '2026-04-05T10:00:00.000Z',
+    lastConfirmedBatchId: undefined,
+    lastConfirmedBatchCommittedAt: undefined,
+    lastReceiptStatus: undefined,
+    lastReceiptHashMatch: undefined,
+    lastReceiptSchemaVersion: undefined,
+    lastReceiptTouchedTables: undefined,
+    lastReceiptOperationCount: undefined,
+    lastReceiptOperationCountsByEntity: undefined,
+    lastFailedBatchId: undefined,
   } as const;
 }
 
@@ -146,6 +155,21 @@ function testSharedSnapshotSelectorConsistency(): void {
     sessionTrustRecoveredAt: undefined,
     lastSuccessfulPersistAt: '2026-04-05T09:00:00.000Z',
     lastSuccessfulCloudPersistAt: '2026-04-05T09:00:00.000Z',
+    lastConfirmedBatchId: 'batch-123',
+    lastConfirmedBatchCommittedAt: '2026-04-05T09:00:00.000Z',
+    lastReceiptStatus: 'committed',
+    lastReceiptHashMatch: true,
+    lastReceiptSchemaVersion: 1,
+    lastReceiptTouchedTables: ['follow_up_items'],
+    lastReceiptOperationCount: 3,
+    lastReceiptOperationCountsByEntity: {
+      items: { upserts: 3, deletes: 0 },
+      tasks: { upserts: 0, deletes: 0 },
+      projects: { upserts: 0, deletes: 0 },
+      contacts: { upserts: 0, deletes: 0 },
+      companies: { upserts: 0, deletes: 0 },
+    },
+    lastFailedBatchId: undefined,
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);
@@ -156,6 +180,8 @@ function testSharedSnapshotSelectorConsistency(): void {
   assert(bannerModel.stateLabel === headerModel.stateLabel, 'header and banner should agree on status label');
   assert(snapshotForBanner.lastLoadFailureStage === 'user_preferences', 'sync snapshot should include fallback failure stage');
   assert(snapshotForHeader.lastLoadFailureMessage === 'relation "user_preferences" does not exist', 'sync snapshot should include fallback failure message');
+  assert(snapshotForBanner.lastConfirmedBatchId === 'batch-123', 'sync snapshot should include last confirmed batch id');
+  assert(snapshotForHeader.lastReceiptHashMatch === true, 'sync snapshot should include hash match status');
 }
 
 (function run() {

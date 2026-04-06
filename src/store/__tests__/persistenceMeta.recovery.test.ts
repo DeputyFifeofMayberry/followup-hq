@@ -21,6 +21,15 @@ const degradedState = {
   sessionTrustRecoveredAt: undefined,
   lastSuccessfulPersistAt: '2026-04-05T09:00:00.000Z',
   lastSuccessfulCloudPersistAt: '2026-04-05T08:00:00.000Z',
+  lastConfirmedBatchId: undefined,
+  lastConfirmedBatchCommittedAt: undefined,
+  lastReceiptStatus: undefined,
+  lastReceiptHashMatch: undefined,
+  lastReceiptSchemaVersion: undefined,
+  lastReceiptTouchedTables: undefined,
+  lastReceiptOperationCount: undefined,
+  lastReceiptOperationCountsByEntity: undefined,
+  lastFailedBatchId: undefined,
 } as const;
 
 function testNoOpDoesNotRecoverSession(): void {

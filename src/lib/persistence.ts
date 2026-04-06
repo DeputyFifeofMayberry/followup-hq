@@ -157,8 +157,10 @@ export interface SaveDiagnostics {
   touchedTables?: string[];
   operationCount?: number;
   operationCountsByEntity?: SaveBatchEntityCounts;
+  appliedOperationCount?: number;
   conflictedOperationCount?: number;
   conflictIds?: string[];
+  outboxSafeToClear?: boolean;
 }
 
 export interface SaveResult {

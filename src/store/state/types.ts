@@ -41,7 +41,11 @@ import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
 import type { SaveBatchEntityCounts } from '../../lib/persistenceTypes';
 import type { SaveBatchStatus } from '../../lib/persistenceTypes';
-import type { VerificationResult, VerificationSummary } from '../../lib/persistenceVerification';
+import type {
+  VerificationMismatch,
+  VerificationResult,
+  VerificationSummary,
+} from '../../lib/persistenceVerification';
 import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 import type { SupportWorkspaceSessionState } from '../../domains/support';
 import type { OutboxStatus } from '../../lib/persistenceOutbox';
@@ -174,6 +178,17 @@ export type SessionDegradedReason =
 
 export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
 export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
+export type OperationCountsByEntity = SaveBatchEntityCounts;
+export type ReceiptStatus = SaveBatchStatus;
+export type VerificationState = VerificationLifecycleState;
+export type OutboxState = OutboxLifecycleState;
+export type ConflictQueueItem = PersistenceConflictItem;
+export interface ConflictQueueSummary {
+  byEntity: Record<string, number>;
+  byType: Record<string, number>;
+}
+export type VerificationMismatchItem = VerificationMismatch;
+export type { VerificationMismatch, VerificationResult, VerificationSummary };
 
 export interface PersistenceConflictItem {
   id: string;
@@ -226,15 +241,15 @@ export interface AppMetaState {
   lastSuccessfulCloudPersistAt?: string;
   lastConfirmedBatchId?: string;
   lastConfirmedBatchCommittedAt?: string;
-  lastReceiptStatus?: SaveBatchStatus;
+  lastReceiptStatus?: ReceiptStatus;
   lastReceiptHashMatch?: boolean;
   lastReceiptSchemaVersion?: number;
   lastReceiptTouchedTables?: string[];
   lastReceiptOperationCount?: number;
-  lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
+  lastReceiptOperationCountsByEntity?: OperationCountsByEntity;
   lastFailedBatchId?: string;
 
-  verificationState: VerificationLifecycleState;
+  verificationState: VerificationState;
   lastVerificationRunId?: string;
   lastVerificationStartedAt?: string;
   lastVerificationCompletedAt?: string;
@@ -246,7 +261,7 @@ export interface AppMetaState {
   reviewedMismatchIds: string[];
   verificationSummary?: VerificationSummary;
   latestVerificationResult?: VerificationResult;
-  outboxState: OutboxLifecycleState;
+  outboxState: OutboxState;
   unresolvedOutboxCount: number;
   lastOutboxFlushAt?: string;
   lastOutboxFailureAt?: string;
@@ -254,12 +269,8 @@ export interface AppMetaState {
   openConflictCount: number;
   lastConflictDetectedAt?: string;
   lastConflictBatchId?: string;
-  conflictQueueSummary?: {
-    byEntity: Record<string, number>;
-    byType: Record<string, number>;
-  };
+  conflictQueueSummary?: ConflictQueueSummary;
   lastConflictFailureMessage?: string;
-  conflictQueue: PersistenceConflictItem[];
-
-    persistenceActivity: PersistenceActivityEvent[];
+  conflictQueue: ConflictQueueItem[];
+  persistenceActivity: PersistenceActivityEvent[];
 }

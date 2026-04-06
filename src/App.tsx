@@ -12,6 +12,7 @@ import { TouchLogModal } from './components/TouchLogModal';
 import { UniversalCapture } from './components/UniversalCapture';
 import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
+import { SetPointMark, SetPointMonogram, SetPointWordmark } from './components/brand';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { performSignOut, type SignOutLocalPolicy } from './lib/auth/signOut';
@@ -27,68 +28,6 @@ import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
 
 type WorkspaceKey = ModeWorkspaceKey;
-
-function SetPointMark() {
-  return (
-    <svg viewBox="0 0 720 520" role="img" aria-label="SetPoint execution workspace mark" className="login-hero-mark">
-      <defs>
-        <linearGradient id="heroSteel" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stopColor="#f8fafc" />
-          <stop offset="100%" stopColor="#94a3b8" />
-        </linearGradient>
-        <linearGradient id="heroAccent" x1="0%" x2="100%" y1="0%" y2="0%">
-          <stop offset="0%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#0ea5e9" />
-        </linearGradient>
-        <linearGradient id="heroDark" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stopColor="#111827" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </linearGradient>
-      </defs>
-
-      <rect x="52" y="58" width="616" height="404" rx="36" fill="rgba(15,23,42,0.16)" />
-      <rect x="38" y="44" width="616" height="404" rx="36" fill="url(#heroDark)" stroke="rgba(248,250,252,0.12)" />
-
-      <g opacity="0.2">
-        <path d="M84 366 210 246l72 68 122-132 64 57 85-81" fill="none" stroke="#14b8a6" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M86 396h520" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
-        <path d="M120 154h122" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
-        <path d="M120 182h86" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
-      </g>
-
-      <g transform="translate(80 88)">
-        <rect x="0" y="54" width="188" height="222" rx="28" fill="#111827" stroke="rgba(255,255,255,0.08)" />
-        <rect x="22" y="78" width="144" height="18" rx="9" fill="#1f2937" />
-        <rect x="22" y="112" width="110" height="14" rx="7" fill="#334155" />
-        <rect x="22" y="144" width="144" height="14" rx="7" fill="#334155" />
-        <rect x="22" y="176" width="90" height="14" rx="7" fill="#334155" />
-        <rect x="22" y="210" width="126" height="32" rx="16" fill="#0ea5e9" opacity="0.85" />
-
-        <path d="M58 42c6-40 36-64 81-64 45 0 74 24 81 64" fill="#0f766e" />
-        <path d="M44 42h174" stroke="#14b8a6" strokeWidth="13" strokeLinecap="round" />
-        <path d="M79 42v38M137 42v38M194 42v38" stroke="#5eead4" strokeWidth="10" strokeLinecap="round" />
-        <path d="M158 35c18 8 27 25 29 53" fill="none" stroke="#6b7280" strokeWidth="7" strokeLinecap="round" />
-        <rect x="178" y="85" width="26" height="82" rx="13" fill="url(#heroSteel)" transform="rotate(17 178 85)" />
-      </g>
-
-      <g transform="translate(308 150)">
-        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">Se</text>
-        <text x="178" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">Point</text>
-
-        <g transform="translate(112 30)">
-          <path d="M0 14h108" stroke="url(#heroSteel)" strokeWidth="14" strokeLinecap="round" />
-          <path d="M54 14v100" stroke="url(#heroSteel)" strokeWidth="14" strokeLinecap="round" />
-          <path d="M10 114h88" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-          <path d="M64 132h64" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-          <circle cx="132" cy="132" r="18" fill="#14b8a6" />
-        </g>
-
-        <text x="2" y="206" fontSize="44" fontWeight="700" fill="url(#heroAccent)" letterSpacing="2">FROM INTAKE TO CLOSEOUT</text>
-        <path d="M2 228h420" stroke="#2dd4bf" strokeWidth="10" strokeLinecap="round" />
-      </g>
-    </svg>
-  );
-}
 
 
 function MissingSupabaseConfigScreen() {
@@ -178,7 +117,7 @@ function LoginScreen() {
         <section className="login-card-wrap">
           <div className="login-card">
             <div className="login-card-topbar">
-              <div className="login-chip">SetPoint</div>
+              <SetPointWordmark variant="compact" className="login-chip login-chip-brand" decorative />
               <div className="login-chip login-chip-muted">Secure sign-in</div>
             </div>
 
@@ -461,7 +400,7 @@ function MainApp({ session }: { session: Session }) {
         <aside id="primary-workspace-nav" className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''} ${mobileNavOpen ? 'app-nav-rail-mobile-open' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
-            <div className="app-brand-title">SetPoint</div>
+            <SetPointWordmark variant="shell" className="app-brand-title" decorative />
             <div className="app-brand-subline">From intake to closeout.</div>
           </div>
           <div className="nav-section-stack">
@@ -520,6 +459,10 @@ function MainApp({ session }: { session: Session }) {
                 {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
                 Workspace menu
               </button>
+              <div className="app-compact-shell-brand">
+                <SetPointMonogram decorative className="app-compact-shell-monogram" />
+                <SetPointWordmark variant="compact" decorative />
+              </div>
               <div className="app-compact-shell-current">
                 <span>{modeConfig.displayName}</span>
                 <strong>{currentMeta.shellTitle}</strong>

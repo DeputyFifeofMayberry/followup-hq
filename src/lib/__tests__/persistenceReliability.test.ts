@@ -26,7 +26,8 @@ function createMemoryStorage(): MemoryStorage {
 }
 
 const storage = createMemoryStorage();
-(globalThis as any).window = { localStorage: storage };
+const sessionStorage = createMemoryStorage();
+(globalThis as any).window = { localStorage: storage, sessionStorage };
 
 const payloadFixture: PersistedPayload = {
   items: [{ id: 'item-1' } as any],
@@ -54,6 +55,9 @@ const mock = {
   auxiliaryUpdatedAt: undefined as string | undefined,
   rows: { follow_up_items: [] as any[], tasks: [] as any[], projects: [] as any[], contacts: [] as any[], companies: [] as any[] },
   auxiliary: null as PersistedPayload['auxiliary'] | null,
+  rpcFailure: null as any,
+  rpcCallCount: 0,
+  receiptReplayCountByBatchId: new Map<string, number>(),
 };
 
 (supabase.auth as any).getSession = async () => {
@@ -138,8 +142,34 @@ function buildSelectResult(table: string, columns: string) {
   }),
 });
 
+(supabase as any).rpc = async (fn: string, args: any) => {
+  if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
+  mock.rpcCallCount += 1;
+  if (mock.rpcFailure) return { data: null, error: mock.rpcFailure };
+  const batch = args.batch;
+  const previous = mock.receiptReplayCountByBatchId.get(batch.batchId) ?? 0;
+  mock.receiptReplayCountByBatchId.set(batch.batchId, previous + 1);
+  return {
+    data: {
+      batchId: batch.batchId,
+      userId: mock.sessionUserId ?? 'user-1',
+      status: 'committed',
+      committedAt: '2026-04-06T10:00:00.000Z',
+      schemaVersion: batch.schemaVersion,
+      operationCount: batch.operationCount,
+      operationCountsByEntity: batch.operationCountsByEntity,
+      touchedTables: ['follow_up_items', 'tasks', 'projects', 'contacts', 'companies', 'user_preferences'],
+      clientPayloadHash: batch.clientPayloadHash,
+      serverPayloadHash: batch.clientPayloadHash,
+      hashMatch: true,
+    },
+    error: null,
+  };
+};
+
 function reset() {
   storage.clear();
+  sessionStorage.clear();
   resetPersistenceSchemaHealthCache();
   mock.sessionUserId = 'user-1';
   mock.failSessionLookup = false;
@@ -151,6 +181,9 @@ function reset() {
   mock.auxiliaryUpdatedAt = undefined;
   mock.auxiliary = null;
   mock.rows = { follow_up_items: [], tasks: [], projects: [], contacts: [], companies: [] };
+  mock.rpcFailure = null;
+  mock.rpcCallCount = 0;
+  mock.receiptReplayCountByBatchId = new Map<string, number>();
 }
 
 async function run() {
@@ -171,12 +204,15 @@ async function run() {
   assert(Boolean(task1), 'dirty-scoped upsert should keep targeted record persisted');
   assert(task1?.deleted_at == null, 'dirty-scoped upsert should keep targeted record active');
   assert(task2?.deleted_at == null, 'dirty-scoped save should not tombstone unrelated records');
+  assert(mock.rpcCallCount === 1, 'dirty-scoped save should commit via one RPC batch');
 
   reset();
   const successful = await savePersistedPayload(payloadFixture);
-  assert(successful.diagnostics?.completedTables.includes('user_preferences') === true, 'successful save should report completed tables');
+  assert(successful.diagnostics?.completedTables.includes('user_preferences') === true, 'successful save should report touched tables from receipt');
+  assert(successful.diagnostics?.receiptStatus === 'committed', 'successful save should include committed receipt status');
   cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
   assert(cache.cloudStatus === 'confirmed', 'cache should be confirmed after successful cloud save');
+  assert(Boolean(cache.lastSaveReceipt?.batchId), 'successful save should persist receipt metadata');
 
   reset();
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending' }));
@@ -269,6 +305,7 @@ async function run() {
   assert(loaded.cacheStatus === 'pending', 'schema fallback should keep pending cache status');
   mock.failSaveTable = 'follow_up_items';
   mock.saveFailure = { message: "Could not find the table 'public.follow_up_items'", code: 'PGRST205' };
+  mock.rpcFailure = mock.saveFailure;
   await savePersistedPayload(payloadFixture);
 
   reset();
@@ -285,6 +322,23 @@ async function run() {
     staleGuardThrown = error instanceof Error && error.message.includes('Delete safety guard triggered');
   }
   assert(staleGuardThrown, 'stale delete safety guard should reject large delete waves');
+
+  reset();
+  await savePersistedPayload(payloadFixture);
+  mock.rpcCallCount = 0;
+  const noOp = await savePersistedPayload(payloadFixture);
+  assert(noOp.mode === 'supabase', 'no-op should keep supabase mode');
+  assert(mock.rpcCallCount === 0, 'no-op should not call rpc');
+
+  reset();
+  mock.rpcFailure = { message: 'rpc unavailable', code: 'PGRST301' };
+  let failureHasBatch = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch (error: any) {
+    failureHasBatch = Boolean(error?.diagnostics?.failedBatchId);
+  }
+  assert(failureHasBatch, 'rpc failure should preserve failed batch id in diagnostics');
 }
 
 void run();

@@ -179,7 +179,43 @@ export function SyncStatusControl() {
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Connected Supabase host</div>
                 <div className="sync-status-row-detail">{getSupabaseHost()}</div>
               </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Last confirmed batch ID</div>
+                <div className="sync-status-row-detail">{syncMeta.lastConfirmedBatchId ?? 'No committed batch yet.'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Receipt status</div>
+                <div className="sync-status-row-detail">{syncMeta.lastReceiptStatus ?? 'No receipt recorded yet.'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Payload hash match</div>
+                <div className="sync-status-row-detail">{syncMeta.lastReceiptHashMatch == null ? 'Not available yet.' : syncMeta.lastReceiptHashMatch ? 'Yes' : 'No'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Schema version</div>
+                <div className="sync-status-row-detail">{syncMeta.lastReceiptSchemaVersion ?? 'Not available yet.'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Operation count</div>
+                <div className="sync-status-row-detail">{syncMeta.lastReceiptOperationCount ?? 'Not available yet.'}</div>
+              </div>
             </div>
+            {syncMeta.lastConfirmedBatchCommittedAt ? (
+              <div className="sync-status-row-detail">Last committed cloud save time: {formatDateTime(syncMeta.lastConfirmedBatchCommittedAt)}</div>
+            ) : null}
+            {syncMeta.lastReceiptTouchedTables?.length ? (
+              <div className="sync-status-row-detail">Touched tables: {syncMeta.lastReceiptTouchedTables.join(', ')}</div>
+            ) : null}
+            {syncMeta.lastReceiptOperationCountsByEntity ? (
+              <div className="sync-status-row-detail">
+                Per-entity counts: {Object.entries(syncMeta.lastReceiptOperationCountsByEntity)
+                  .map(([entity, counts]) => `${entity} (upserts ${counts.upserts}, deletes ${counts.deletes})`)
+                  .join('; ')}
+              </div>
+            ) : null}
+            {syncMeta.lastFailedBatchId ? (
+              <div className="sync-status-row-detail">Failed batch ID: {syncMeta.lastFailedBatchId}</div>
+            ) : null}
             {syncMeta.lastFallbackRestoreAt ? <div className="sync-status-row-detail">Last fallback restore: {formatDateTime(syncMeta.lastFallbackRestoreAt)}</div> : null}
             {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? <div className="sync-status-row-detail">Fallback reason: {syncMeta.lastLoadFailureStage}</div> : null}
             {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? <div className="sync-status-row-detail">Load detail: {syncMeta.lastLoadFailureMessage}</div> : null}

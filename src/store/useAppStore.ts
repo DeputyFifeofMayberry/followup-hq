@@ -68,7 +68,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
             };
           }),
           onSaved: (mode, timestamp, reason, didPersist, diagnostics) => set((state) => {
-            const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist);
+            const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
             const saveKind = getSaveResultKind(mode, didPersist);
             const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
               ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
@@ -84,7 +84,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   ? 'Changes saved locally.'
                   : 'No new changes to save.';
             const saveDetail = saveKind === 'cloud-confirmed'
-              ? `Your latest updates are confirmed in cloud storage.${staleDeleteDetail}`
+              ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
               : saveKind === 'local-only'
                 ? `Your latest updates are saved on this device.${staleDeleteDetail}`
                 : 'No new changes were detected.';
@@ -105,6 +105,15 @@ export const useAppStore = create<AppStore>()((set, get) => {
               lastLocalWriteAt: postSave.lastLocalWriteAt,
               lastSuccessfulPersistAt: postSave.lastSuccessfulPersistAt,
               lastSuccessfulCloudPersistAt: postSave.lastSuccessfulCloudPersistAt,
+              lastConfirmedBatchId: postSave.lastConfirmedBatchId,
+              lastConfirmedBatchCommittedAt: postSave.lastConfirmedBatchCommittedAt,
+              lastReceiptStatus: postSave.lastReceiptStatus,
+              lastReceiptHashMatch: postSave.lastReceiptHashMatch,
+              lastReceiptSchemaVersion: postSave.lastReceiptSchemaVersion,
+              lastReceiptTouchedTables: postSave.lastReceiptTouchedTables,
+              lastReceiptOperationCount: postSave.lastReceiptOperationCount,
+              lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
+              lastFailedBatchId: postSave.lastFailedBatchId,
               lastFallbackRestoreAt: state.lastFallbackRestoreAt,
               unsavedChangeCount: 0,
               hasLocalUnsavedChanges: false,
@@ -142,13 +151,16 @@ export const useAppStore = create<AppStore>()((set, get) => {
             sessionDegradedReason: 'cloud-save-failed',
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
+            lastFailedBatchId: diagnostics?.failedBatchId,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
               summary: reason === 'retry' ? 'Retry failed. Protected local copy retained.' : 'Save failed. Protected local copy retained.',
-              detail: diagnostics?.failedTable
-                ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
-                : message,
+              detail: diagnostics?.failedBatchId
+                ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
+                : diagnostics?.failedTable
+                  ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
+                  : message,
             })),
           })),
         },

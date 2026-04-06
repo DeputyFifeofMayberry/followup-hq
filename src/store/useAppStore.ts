@@ -73,78 +73,79 @@ export const useAppStore = create<AppStore>()((set, get) => {
           }),
           onSaved: (mode, timestamp, reason, didPersist, diagnostics) => {
             set((state) => {
-            const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
-            const saveKind = getSaveResultKind(mode, didPersist);
-            const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
-              ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
-              : '';
-            const recoveredByCloudSave = state.sessionDegraded && !postSave.sessionDegraded && postSave.sessionDegradedClearedByCloudSave;
-            const saveSummary = reason === 'retry'
-              ? recoveredByCloudSave
-                ? 'Retry completed and trust restored.'
-                : 'Retry completed.'
-              : saveKind === 'cloud-confirmed'
-                ? 'Changes confirmed to cloud.'
+              const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
+              const saveKind = getSaveResultKind(mode, didPersist);
+              const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
+                ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
+                : '';
+              const recoveredByCloudSave = state.sessionDegraded && !postSave.sessionDegraded && postSave.sessionDegradedClearedByCloudSave;
+              const saveSummary = reason === 'retry'
+                ? recoveredByCloudSave
+                  ? 'Retry completed and trust restored.'
+                  : 'Retry completed.'
+                : saveKind === 'cloud-confirmed'
+                  ? 'Changes confirmed to cloud.'
+                  : saveKind === 'local-only'
+                    ? 'Changes saved locally.'
+                    : 'No new changes to save.';
+              const saveDetail = saveKind === 'cloud-confirmed'
+                ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
                 : saveKind === 'local-only'
-                  ? 'Changes saved locally.'
-                  : 'No new changes to save.';
-            const saveDetail = saveKind === 'cloud-confirmed'
-              ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
-              : saveKind === 'local-only'
-                ? `Your latest updates are saved on this device.${staleDeleteDetail}`
-                : 'No new changes were detected.';
-            const recoveredEvent = recoveredByCloudSave
-              ? createPersistenceActivityEvent({
-                kind: 'saved',
-                at: timestamp,
-                summary: 'Cloud-backed trust restored for this session.',
-                detail: 'SetPoint confirmed a cloud-backed save and cleared the session trust warning.',
-              })
-              : null;
+                  ? `Your latest updates are saved on this device.${staleDeleteDetail}`
+                  : 'No new changes were detected.';
+              const recoveredEvent = recoveredByCloudSave
+                ? createPersistenceActivityEvent({
+                  kind: 'saved',
+                  at: timestamp,
+                  summary: 'Cloud-backed trust restored for this session.',
+                  detail: 'SetPoint confirmed a cloud-backed save and cleared the session trust warning.',
+                })
+                : null;
               return {
-              persistenceMode: mode,
-              syncState: postSave.syncState,
-              saveError: '',
-              lastSyncedAt: postSave.lastSyncedAt,
-              lastCloudConfirmedAt: postSave.lastCloudConfirmedAt,
-              lastLocalWriteAt: postSave.lastLocalWriteAt,
-              lastSuccessfulPersistAt: postSave.lastSuccessfulPersistAt,
-              lastSuccessfulCloudPersistAt: postSave.lastSuccessfulCloudPersistAt,
-              lastConfirmedBatchId: postSave.lastConfirmedBatchId,
-              lastConfirmedBatchCommittedAt: postSave.lastConfirmedBatchCommittedAt,
-              lastReceiptStatus: postSave.lastReceiptStatus,
-              lastReceiptHashMatch: postSave.lastReceiptHashMatch,
-              lastReceiptSchemaVersion: postSave.lastReceiptSchemaVersion,
-              lastReceiptTouchedTables: postSave.lastReceiptTouchedTables,
-              lastReceiptOperationCount: postSave.lastReceiptOperationCount,
-              lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
-              lastFailedBatchId: postSave.lastFailedBatchId,
-              outboxState: 'idle',
-              unresolvedOutboxCount: listUnresolvedOutboxEntries(clearCommittedOutboxEntries()).length,
-              lastOutboxFlushAt: timestamp,
-              lastFallbackRestoreAt: state.lastFallbackRestoreAt,
-              unsavedChangeCount: 0,
-              hasLocalUnsavedChanges: false,
-              dirtyRecordRefs: [],
-              cloudSyncStatus: postSave.cloudSyncStatus,
-              loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
-              sessionTrustState: postSave.sessionTrustState,
-              sessionDegraded: postSave.sessionDegraded,
-              sessionDegradedReason: postSave.sessionDegradedReason,
-              sessionDegradedAt: postSave.sessionDegradedAt,
-              sessionDegradedClearedByCloudSave: postSave.sessionDegradedClearedByCloudSave,
-              sessionTrustRecoveredAt: postSave.sessionTrustRecoveredAt,
-              persistenceActivity: appendPersistenceActivity(
-                recoveredEvent ? appendPersistenceActivity(state.persistenceActivity, recoveredEvent) : state.persistenceActivity,
-                createPersistenceActivityEvent({
-                kind: 'saved',
-                at: timestamp,
-                summary: saveSummary,
-                detail: saveDetail,
-                }),
-              ),
-            };
-          }),
+                persistenceMode: mode,
+                syncState: postSave.syncState,
+                saveError: '',
+                lastSyncedAt: postSave.lastSyncedAt,
+                lastCloudConfirmedAt: postSave.lastCloudConfirmedAt,
+                lastLocalWriteAt: postSave.lastLocalWriteAt,
+                lastSuccessfulPersistAt: postSave.lastSuccessfulPersistAt,
+                lastSuccessfulCloudPersistAt: postSave.lastSuccessfulCloudPersistAt,
+                lastConfirmedBatchId: postSave.lastConfirmedBatchId,
+                lastConfirmedBatchCommittedAt: postSave.lastConfirmedBatchCommittedAt,
+                lastReceiptStatus: postSave.lastReceiptStatus,
+                lastReceiptHashMatch: postSave.lastReceiptHashMatch,
+                lastReceiptSchemaVersion: postSave.lastReceiptSchemaVersion,
+                lastReceiptTouchedTables: postSave.lastReceiptTouchedTables,
+                lastReceiptOperationCount: postSave.lastReceiptOperationCount,
+                lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
+                lastFailedBatchId: postSave.lastFailedBatchId,
+                outboxState: 'idle',
+                unresolvedOutboxCount: listUnresolvedOutboxEntries(clearCommittedOutboxEntries()).length,
+                lastOutboxFlushAt: timestamp,
+                lastFallbackRestoreAt: state.lastFallbackRestoreAt,
+                unsavedChangeCount: 0,
+                hasLocalUnsavedChanges: false,
+                dirtyRecordRefs: [],
+                cloudSyncStatus: postSave.cloudSyncStatus,
+                loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
+                sessionTrustState: postSave.sessionTrustState,
+                sessionDegraded: postSave.sessionDegraded,
+                sessionDegradedReason: postSave.sessionDegradedReason,
+                sessionDegradedAt: postSave.sessionDegradedAt,
+                sessionDegradedClearedByCloudSave: postSave.sessionDegradedClearedByCloudSave,
+                sessionTrustRecoveredAt: postSave.sessionTrustRecoveredAt,
+                persistenceActivity: appendPersistenceActivity(
+                  recoveredEvent ? appendPersistenceActivity(state.persistenceActivity, recoveredEvent) : state.persistenceActivity,
+                  createPersistenceActivityEvent({
+                    kind: 'saved',
+                    at: timestamp,
+                    summary: saveSummary,
+                    detail: saveDetail,
+                  }),
+                ),
+              };
+            });
+          },
           onError: (message, timestamp, reason, diagnostics) => set((state) => ({
             conflictQueue: diagnostics?.receiptStatus === 'conflict'
               ? [

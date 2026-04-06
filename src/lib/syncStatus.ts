@@ -1,7 +1,15 @@
 import type { PersistenceMode } from '../types';
 import type { AppStore } from '../store/types';
-import type { CloudSyncStatus, SessionDegradedReason, SessionTrustState } from '../store/state/types';
-import type { SaveBatchEntityCounts } from './persistenceTypes';
+import type {
+  CloudSyncStatus,
+  OperationCountsByEntity,
+  ReceiptStatus,
+  SessionDegradedReason,
+  SessionTrustState,
+  VerificationResult,
+  VerificationState,
+  VerificationSummary,
+} from '../store/state/types';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 export type SyncPrimaryState = 'checking' | 'saving' | 'saved' | 'needs-attention';
@@ -33,14 +41,14 @@ export interface SyncMetaSnapshot {
   lastSuccessfulCloudPersistAt?: string;
   lastConfirmedBatchId?: string;
   lastConfirmedBatchCommittedAt?: string;
-  lastReceiptStatus?: 'committed' | 'rejected' | 'received' | 'conflict';
+  lastReceiptStatus?: ReceiptStatus;
   lastReceiptHashMatch?: boolean;
   lastReceiptSchemaVersion?: number;
   lastReceiptTouchedTables?: string[];
   lastReceiptOperationCount?: number;
-  lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
+  lastReceiptOperationCountsByEntity?: OperationCountsByEntity;
   lastFailedBatchId?: string;
-  verificationState: 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
+  verificationState: VerificationState;
   lastVerificationRunId?: string;
   lastVerificationStartedAt?: string;
   lastVerificationCompletedAt?: string;
@@ -49,14 +57,8 @@ export interface SyncMetaSnapshot {
   lastVerificationBasedOnBatchId?: string;
   lastVerificationFailureMessage?: string;
   recoveryReviewNeeded: boolean;
-  verificationSummary?: {
-    verified: boolean;
-    mismatchCount: number;
-    basedOnBatchId?: string;
-    mismatchCountsByCategory: Record<string, number>;
-    mismatchCountsByEntity: Record<string, number>;
-  };
-  latestVerificationResult?: any;
+  verificationSummary?: VerificationSummary;
+  latestVerificationResult?: VerificationResult;
   reviewedMismatchIds: readonly string[];
   outboxState: 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
   unresolvedOutboxCount: number;

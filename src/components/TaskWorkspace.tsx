@@ -31,6 +31,7 @@ import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { buildExecutionSelectedContext, deriveTaskRecommendedAction, describeHandoffMission, executionLaneRegistry, resolveExecutionLaneSelection, resolvePostActionSelection, toExecutionLaneHandoff } from '../domains/shared';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
+import { isExecutionReady } from '../domains/records/integrity';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
@@ -154,10 +155,14 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const projectOptions = useMemo(() => ['All', ...projects.map((project) => project.name)], [projects]);
   const allTags = useMemo(() => Array.from(new Set(tasks.flatMap((task) => task.tags))).sort(), [tasks]);
 
+  const reviewRequiredTasks = useMemo(() => tasks.filter((task) => !isExecutionReady(task)), [tasks]);
+  const executionTasks = useMemo(() => tasks.filter((task) => isExecutionReady(task)), [tasks]);
+
   const filteredTasks = useMemo(() => {
     const now = Date.now();
     const weekEnd = now + 7 * 86400000;
-    const modeMatched = tasks.filter((task) => {
+    const sourceTasks = mode === 'cleanup' ? tasks : executionTasks;
+    const modeMatched = sourceTasks.filter((task) => {
       const parent = getLinkedFollowUpForTask(task, items) ?? undefined;
       switch (mode) {
         case 'dueNow':
@@ -206,7 +211,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [tasks, items, taskOwnerFilter, taskStatusFilter, searchQuery, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, tagFilter]);
+  }, [tasks, executionTasks, items, taskOwnerFilter, taskStatusFilter, searchQuery, sortBy, mode, projectFilter, assigneeFilter, linkedFilter, parentStatusFilter, tagFilter]);
 
   const queueTaskIds = useMemo(() => filteredTasks.map((task) => task.id), [filteredTasks]);
   const resolvedSelectedTaskId = useMemo(() => resolveExecutionLaneSelection({ selectedId: selectedTaskId, queueIds: queueTaskIds, targetedId: executionIntent?.recordType === 'task' ? executionIntent.recordId : null }), [selectedTaskId, queueTaskIds, executionIntent]);
@@ -238,11 +243,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [selectedTask?.id, selectedTask?.nextStep, selectedTask?.dueDate, selectedTask?.blockReason]);
 
   const summary = useMemo(() => ({
-    open: tasks.filter((task) => task.status !== 'Done').length,
-    dueSoon: tasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 2 * 86400000).length,
-    blocked: tasks.filter((task) => task.status === 'Blocked').length,
-    unlinked: tasks.filter((task) => !task.linkedFollowUpId && task.status !== 'Done').length,
-  }), [tasks]);
+    open: executionTasks.filter((task) => task.status !== 'Done').length,
+    dueSoon: executionTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 2 * 86400000).length,
+    blocked: executionTasks.filter((task) => task.status === 'Blocked').length,
+    unlinked: executionTasks.filter((task) => !task.linkedFollowUpId && task.status !== 'Done').length,
+    reviewRequired: reviewRequiredTasks.length,
+  }), [executionTasks, reviewRequiredTasks.length]);
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
@@ -405,7 +411,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         <ExecutionLaneSummary className="overview-hero-card">
           <SectionHeader title="Task execution lane" subtitle={modeConfig.taskSubtitle} compact />
           <ExecutionLaneToolbar className="followup-summary-meta-row">
-            <span className="workspace-support-copy">Open {summary.open} · due soon {summary.dueSoon} · blocked {summary.blocked} · unlinked {summary.unlinked}</span>
+            <span className="workspace-support-copy">Open {summary.open} · due soon {summary.dueSoon} · blocked {summary.blocked} · unlinked {summary.unlinked} · review required {summary.reviewRequired}</span>
             <span className="workspace-support-copy">Task loop: scan → select → act → continue.</span>
             <span className="workspace-support-copy">Shared metrics: due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · ready to close {executionMetrics.readyToClose}</span>
             {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}

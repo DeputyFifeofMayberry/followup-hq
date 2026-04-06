@@ -195,8 +195,15 @@ export type CaptureConfidenceTier = 'high' | 'medium' | 'low';
 export type RecordLifecycleState = 'draft' | 'review_required' | 'ready' | 'active';
 export type RecordIntegrityReason =
   | 'missing_project_link'
+  | 'ambiguous_project_link'
   | 'placeholder_project'
+  | 'missing_accountable_owner'
   | 'missing_owner'
+  | 'missing_assignee_for_live_task'
+  | 'missing_due_context'
+  | 'weak_execution_provenance'
+  | 'duplicate_resolution_required'
+  | 'legacy_record_requires_cleanup'
   | 'placeholder_owner'
   | 'missing_provenance'
   | 'archived_project'

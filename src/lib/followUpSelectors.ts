@@ -52,7 +52,10 @@ function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem
 
 export function selectFollowUpRows(input: FollowUpSelectorInput): FollowUpItem[] {
   const { items, contacts, companies, search, filters, activeView } = input;
-  const byView = applySavedView(items.filter((item) => isExecutionReady(item) || item.needsCleanup), activeView);
+  const scopedItems = filters.cleanupOnly
+    ? items.filter((item) => !isExecutionReady(item) || item.needsCleanup)
+    : items.filter((item) => isExecutionReady(item));
+  const byView = applySavedView(scopedItems, activeView);
   const term = search.trim().toLowerCase();
   return byView.filter((item) => {
     const contact = contacts.find((entry) => entry.id === item.contactId)?.name ?? '';

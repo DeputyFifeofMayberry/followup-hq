@@ -7,3 +7,4 @@ export * from './actions';
 export * from './route';
 export * from './progression';
 export * from './context';
+export * from './recommendedAction';

@@ -14,7 +14,6 @@ import {
   ExecutionLaneHandoffStrip,
   ExecutionLaneFooterMeta,
   SectionHeader,
-  StatTile,
   WorkspaceInspectorSection,
   WorkspacePage,
   WorkspacePrimaryLayout,
@@ -30,7 +29,7 @@ import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/reco
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
-import { buildExecutionSelectedContext, describeHandoffMission, getExecutionLaneNextSelection, resolveExecutionLaneSelection, toExecutionLaneHandoff } from '../domains/shared';
+import { buildExecutionSelectedContext, deriveTaskRecommendedAction, describeHandoffMission, executionLaneRegistry, resolveExecutionLaneSelection, resolvePostActionSelection, toExecutionLaneHandoff } from '../domains/shared';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
@@ -219,6 +218,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
   const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
   const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks) : null;
+  const recommendedAction = selectedTask ? deriveTaskRecommendedAction(selectedTask) : null;
 
   useEffect(() => {
     if (resolvedSelectedTaskId === selectedTaskId) return;
@@ -352,13 +352,19 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       setFlowResult({ tone: 'danger', message: 'Action not applied. Resolve blockers and retry.' });
       return;
     }
-    const projectedIds = filteredTasks.filter((entry) => entry.id !== task.id || activeFlow.kind !== 'done').map((entry) => entry.id);
-    const progression = getExecutionLaneNextSelection(projectedIds, task.id, activeFlow.kind === 'done' ? [task.id] : []);
-    if (progression.nextSelectedId !== selectedTaskId) {
-      setSelectedTaskId(progression.nextSelectedId);
+    const removedIds = activeFlow.kind === 'done' ? [task.id] : [];
+    const projectedIds = filteredTasks.filter((entry) => !removedIds.includes(entry.id)).map((entry) => entry.id);
+    const nextSelectedId = resolvePostActionSelection(
+      executionLaneRegistry.tasks,
+      projectedIds,
+      task.id,
+      { actionGroup: activeFlow.kind === 'done' ? 'close_complete' : activeFlow.kind === 'defer' ? 'defer_snooze' : undefined, removedIds },
+    );
+    if (nextSelectedId !== selectedTaskId) {
+      setSelectedTaskId(nextSelectedId);
     }
-    const nextTask = progression.nextSelectedId
-      ? filteredTasks.find((entry) => entry.id === progression.nextSelectedId) ?? tasks.find((entry) => entry.id === progression.nextSelectedId) ?? null
+    const nextTask = nextSelectedId
+      ? filteredTasks.find((entry) => entry.id === nextSelectedId) ?? tasks.find((entry) => entry.id === nextSelectedId) ?? null
       : null;
     setFlowState(null);
     setLaneFeedback({
@@ -384,19 +390,23 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     setLaneFeedback({ tone: 'success', message: 'Quick execution update saved.' });
   };
 
+  const runRecommendedTaskAction = () => {
+    if (!selectedTask || !recommendedAction) return;
+    if (recommendedAction.id === 'complete') return openTaskFlow(selectedTask, 'done');
+    if (recommendedAction.id === 'defer') return openTaskFlow(selectedTask, 'defer');
+    if (recommendedAction.id === 'block') return openTaskFlow(selectedTask, 'block');
+    if (recommendedAction.id === 'unblock') return openTaskFlow(selectedTask, 'unblock');
+    setLaneFeedback({ tone: 'warn', message: 'Capture the next step before changing status.' });
+  };
+
   return (
     <WorkspacePage>
       <WorkspaceTopStack>
         <ExecutionLaneSummary className="overview-hero-card">
           <SectionHeader title="Task execution lane" subtitle={modeConfig.taskSubtitle} compact />
-          <div className="overview-stat-grid overview-stat-grid-compact">
-            <StatTile label="Open tasks" value={summary.open} helper="In active execution" />
-            <StatTile label="Due soon" value={summary.dueSoon} helper="Within 2 days" tone={summary.dueSoon ? 'warn' : 'default'} />
-            <StatTile label="Blocked" value={summary.blocked} helper="Need unblock decision" tone={summary.blocked ? 'warn' : 'default'} />
-            <StatTile label="Unlinked" value={summary.unlinked} helper="Need follow-up alignment" />
-          </div>
           <ExecutionLaneToolbar className="followup-summary-meta-row">
-            <span className="workspace-support-copy">Task loop: scan queue → select task → execute in inspector.</span>
+            <span className="workspace-support-copy">Open {summary.open} · due soon {summary.dueSoon} · blocked {summary.blocked} · unlinked {summary.unlinked}</span>
+            <span className="workspace-support-copy">Task loop: scan → select → act → continue.</span>
             <span className="workspace-support-copy">Shared metrics: due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · ready to close {executionMetrics.readyToClose}</span>
             {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </ExecutionLaneToolbar>
@@ -549,18 +559,15 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                   <div className="scan-row-layout scan-row-layout-quiet">
                     <div className="scan-row-content">
                       <div className="scan-row-primary">{task.title}</div>
-                      <div className="scan-row-secondary">{dueLabel} • {(task.assigneeDisplayName || task.owner)} • Next: {nextMove}</div>
-                      <div className="scan-row-meta">{task.project}{task.summary ? ` • ${task.summary}` : ''}</div>
+                      <div className="scan-row-secondary">{dueLabel} • Next: {nextMove}</div>
+                      <div className="scan-row-meta">{(task.assigneeDisplayName || task.owner)} • {task.project}{task.summary ? ` • ${task.summary}` : ''}</div>
                     </div>
                     <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                       <div className="scan-row-badge-cluster">
                         <Badge variant={task.status === 'Blocked' ? 'warn' : task.status === 'Done' ? 'success' : 'neutral'}>{task.status}</Badge>
                         <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
-                        {isOverdue ? <Badge variant="danger">Overdue</Badge> : null}
-                        {!isOverdue && isDueToday ? <Badge variant="warn">Due today</Badge> : null}
-                        {!isOverdue && !isDueToday && isDueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
-                        {task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : null}
-                        {parent ? <Badge variant="neutral">Linked</Badge> : <Badge variant="neutral">Unlinked</Badge>}
+                        {isOverdue ? <Badge variant="danger">Overdue</Badge> : !isOverdue && isDueToday ? <Badge variant="warn">Due today</Badge> : !isOverdue && !isDueToday && isDueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
+                        {!parent ? <Badge variant="neutral">Unlinked</Badge> : null}
                       </div>
                       <div className="scan-row-action-cluster">
                         {task.status !== 'Done' ? <button onClick={() => openTaskFlow(task, 'done')} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
@@ -602,32 +609,44 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                     <div className="tonal-micro">Next step: <strong>{selectedTask.nextStep || 'Define next step'}</strong></div>
                     {selectedTask.status === 'Blocked' ? <div className="tonal-micro">Blocker: <strong>{selectedTask.blockReason || 'No blocker reason captured yet'}</strong></div> : null}
                     {selectedTask.status !== 'Blocked' && selectedTask.blockReason ? <div className="tonal-micro">Previous blocker: <strong>{selectedTask.blockReason}</strong></div> : null}
+                    <div className="mt-1"><AppBadge tone={recommendedAction?.tone === 'default' ? 'info' : (recommendedAction?.tone ?? 'info')}>Recommended: {recommendedAction?.label ?? 'Update next step'}</AppBadge></div>
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title={editSurfacePolicy.execution.label} subtitle="Primary actions are optimized for rapid throughput.">
+                <WorkspaceInspectorSection title={editSurfacePolicy.execution.label} subtitle={recommendedAction?.reason ?? 'Primary actions are optimized for rapid throughput.'}>
                   <div className="task-inspector-actions">
-                    <button onClick={() => openTaskFlow(selectedTask, 'done')} className="primary-btn">Mark done</button>
+                    <button onClick={runRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
+                    <button onClick={() => openTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
                     <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
                     <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
-                    <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'lane')} className="action-btn task-action-secondary">{editSurfaceCtas.fullEditTask}</button>
                   </div>
                   <div className="task-quick-edit-grid">
-                    <label className="field-block"><span className="field-label">Quick next step</span><textarea value={quickNextStepDraft} onChange={(event) => setQuickNextStepDraft(event.target.value)} className="field-textarea" /></label>
+                    <label className="field-block"><span className="field-label">Next step</span><input value={quickNextStepDraft} onChange={(event) => setQuickNextStepDraft(event.target.value)} className="field-input" /></label>
                     <label className="field-block"><span className="field-label">Due date</span><input type="date" value={quickDueDateDraft} onChange={(event) => setQuickDueDateDraft(event.target.value)} className="field-input" /></label>
-                    <label className="field-block"><span className="field-label">Block reason (if blocked)</span><input value={quickBlockReasonDraft} onChange={(event) => setQuickBlockReasonDraft(event.target.value)} className="field-input" /></label>
+                    {selectedTask.status === 'Blocked' ? <label className="field-block"><span className="field-label">Block reason</span><input value={quickBlockReasonDraft} onChange={(event) => setQuickBlockReasonDraft(event.target.value)} className="field-input" /></label> : null}
                     <div className="task-quick-edit-actions">
                       <button onClick={saveQuickExecutionUpdate} className="action-btn">Save quick update</button>
                     </div>
                   </div>
                 </WorkspaceInspectorSection>
 
-                <WorkspaceInspectorSection title="Linked context" subtitle="Context inspection and routing stay secondary to execution.">
-                  <div className="rounded-2xl tonal-panel task-link-context-panel">
+                <details className="detail-card inspector-block">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-900">Linked context</summary>
+                  <div className="mt-3 rounded-2xl tonal-panel task-link-context-panel">
                     <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
                     {linkedFollowUp ? <div className="tonal-micro">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
-                    {linkedFollowUp ? <div className="tonal-micro">Impact rule: <strong>{selectedTask.completionImpact || 'advance_parent'}</strong></div> : null}
-                    {linkedFollowUp && linkedParentRollup?.explanations?.length ? <div className="mt-2 space-y-1 text-xs text-slate-600">{linkedParentRollup.explanations.map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
+                    {linkedFollowUp && linkedParentRollup?.explanations?.length ? <div className="mt-2 space-y-1 text-xs text-slate-600">{linkedParentRollup.explanations.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button> : null}
+                      <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
+                    </div>
+                  </div>
+                </details>
+
+                <details className="detail-card inspector-block">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-900">Maintenance & deep edit</summary>
+                  <div className="rounded-2xl tonal-panel task-link-context-panel">
+                    <div className="tonal-micro">Use canonical surfaces for deep edits and full history.</div>
                     {linkedParentCloseout ? (
                       <div className="mt-2">
                         <CloseoutReadinessCard
@@ -638,12 +657,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
                       </div>
                     ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open parent lane</button> : null}
-                      <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
                       <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'lane')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
                     </div>
                   </div>
-                </WorkspaceInspectorSection>
+                </details>
               </div>
             ) : (<EmptyState title="No task selected" message="Select a task to review details and actions." />)}
           </ExecutionLaneInspectorCard>

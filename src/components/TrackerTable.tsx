@@ -56,9 +56,9 @@ export function TrackerTable({
         const touchDelta = daysUntil(row.original.nextTouchDate);
         const dueDelta = daysUntil(row.original.dueDate);
         const contextBits = [
-          row.original.project,
-          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
           row.original.nextAction || 'No next move set',
+          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
+          row.original.project,
         ].filter(Boolean);
         const linkedOpen = row.original.openLinkedTaskCount ?? 0;
         const linkedTotal = row.original.linkedTaskCount ?? 0;
@@ -70,7 +70,7 @@ export function TrackerTable({
             <div className="mt-1 flex flex-wrap gap-1">
               {dueDelta < 0 ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
               {needsNudge(row.original) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
-              {hasLinkedRisk ? <AppBadge tone="warn">Linked work {linkedOpen}/{linkedTotal} open</AppBadge> : null}
+              {hasLinkedRisk ? <AppBadge tone="warn">Linked {linkedOpen}/{linkedTotal} open</AppBadge> : null}
             </div>
             {active && selectedAttentionSignal ? (
               <div className="mt-1 flex flex-wrap gap-1">

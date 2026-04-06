@@ -89,6 +89,24 @@ export const initialUiState: AppUiState = {
     },
   },
   lastExecutionRoute: null,
+  supportWorkspaceSession: {
+    projects: {
+      selectedRecordId: null,
+      searchQuery: '',
+      sortKey: 'health',
+      lastRouteTarget: null,
+      lastRouteReason: null,
+      lastLinkedSubset: null,
+    },
+    relationships: {
+      selectedRecordId: null,
+      searchQuery: '',
+      sortKey: 'pressure',
+      lastRouteTarget: null,
+      lastRouteReason: null,
+      lastLinkedSubset: null,
+    },
+  },
 };
 
 export const initialMetaState: AppMetaState = {

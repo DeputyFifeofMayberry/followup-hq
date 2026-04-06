@@ -29,6 +29,7 @@ import { getModeConfig, type WorkspaceKey } from '../lib/appModeConfig';
 import { useExecutionQueueViewModel } from '../domains/shared';
 import { BatchSummarySection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
+import { buildSupportSelectedContext, buildSupportSummaryStripMetrics, mapProjectRowToSupportSurface, supportLensRegistry } from '../domains/support';
 
 export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'team', setWorkspace }: { onFocusTracker: (view: SavedViewKey, project?: string) => void; onOpenItem: (itemId: string, view?: SavedViewKey, project?: string) => void; appMode?: AppMode; setWorkspace: (workspace: WorkspaceKey) => void }) {
   const {
@@ -39,6 +40,8 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     openRecordDrawer,
     openRecordEditor,
     setProjectFilter, setActiveView,
+    supportWorkspaceSession,
+    setSupportWorkspaceSession,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -58,14 +61,16 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     openRecordEditor: s.openRecordEditor,
     setProjectFilter: s.setProjectFilter,
     setActiveView: s.setActiveView,
+    supportWorkspaceSession: s.supportWorkspaceSession.projects,
+    setSupportWorkspaceSession: s.setSupportWorkspaceSession,
   })));
   const { openExecutionLane } = useExecutionQueueViewModel();
 
   const modeConfig = getModeConfig(appMode);
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '');
+  const [selectedProjectId, setSelectedProjectId] = useState(supportWorkspaceSession.selectedRecordId || projects[0]?.id || '');
   const [copied, setCopied] = useState(false);
   const [displayMode, setDisplayMode] = useState<ProjectCardDisplayMode>('expanded');
-  const [sortKey, setSortKey] = useState<ProjectSortKey>('health');
+  const [sortKey, setSortKey] = useState<ProjectSortKey>((supportWorkspaceSession.sortKey as ProjectSortKey) || 'health');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [savedView, setSavedView] = useState<ProjectSavedViewKey>('All projects');
   const [filters, setFilters] = useState<ProjectFilterState>(defaultProjectFilters);
@@ -86,6 +91,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   const [newProjectOwner, setNewProjectOwner] = useState('Jared');
 
   const allRows = useMemo(() => buildProjectDerivedRecords(projects, items, tasks, intakeDocuments, contacts, companies), [projects, items, tasks, intakeDocuments, contacts, companies]);
+  const supportSurfaces = useMemo(() => allRows.map(mapProjectRowToSupportSurface), [allRows]);
   const filteredRows = useMemo(() => applyProjectFilters(allRows, filters), [allRows, filters]);
   const sortedRows = useMemo(() => applyProjectSort(filteredRows, sortKey, sortDirection), [filteredRows, sortKey, sortDirection]);
 
@@ -98,16 +104,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
 
   const selectedRow = sortedRows.find((row) => row.project.id === selectedProjectId) || null;
   const selectedProject = selectedRow?.project || null;
-  const pressureSummary = useMemo(() => {
-    const totals = allRows.reduce((acc, row) => {
-      acc.overdue += row.overdueFollowUpCount + row.overdueTaskCount;
-      acc.blocked += row.blockedTaskCount;
-      acc.closeout += row.health.breakdown.readyToCloseSignals > 0 ? 1 : 0;
-      acc.critical += row.health.tier === 'Critical' || row.health.tier === 'High' ? 1 : 0;
-      return acc;
-    }, { overdue: 0, blocked: 0, closeout: 0, critical: 0 });
-    return totals;
-  }, [allRows]);
+  const pressureSummary = useMemo(() => buildSupportSummaryStripMetrics(supportSurfaces), [supportSurfaces]);
 
   useEffect(() => {
     setSelectedFollowUpIds([]);
@@ -115,6 +112,16 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   }, [selectedProjectId]);
 
   const reportText = useMemo(() => (selectedRow ? buildProjectStatusReport(selectedRow) : ''), [selectedRow]);
+  const selectedSurface = useMemo(() => selectedRow ? mapProjectRowToSupportSurface(selectedRow) : null, [selectedRow]);
+  const selectedContext = useMemo(() => selectedSurface ? buildSupportSelectedContext(selectedSurface) : null, [selectedSurface]);
+
+  useEffect(() => {
+    setSupportWorkspaceSession('projects', {
+      selectedRecordId: selectedProjectId || null,
+      searchQuery: filters.query,
+      sortKey,
+    });
+  }, [filters.query, selectedProjectId, setSupportWorkspaceSession, sortKey]);
 
   const createProject = () => {
     if (!newProjectName.trim()) return;
@@ -140,6 +147,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
     if (kind === 'blocked') setActiveView('Blocked by child tasks');
     if (kind === 'closeout') setActiveView('Ready to close');
     openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, section: kind === 'closeout' ? 'ready_to_close' : kind === 'blocked' ? 'blocked' : kind === 'waiting' ? 'triage' : 'quick_route', intentLabel: `${kind} project queue` });
+    setSupportWorkspaceSession('projects', { lastRouteTarget: 'followups', lastRouteReason: `${kind} project queue` });
     onFocusTracker('By project', selectedProject.name);
   };
 
@@ -222,15 +230,15 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
   return (
     <AppShellCard className="project-command-surface" surface="shell">
       <SupportWorkspaceSummary
-        title="Project support workspace"
+        title={supportLensRegistry.projects.title}
         subtitle={modeConfig.projectsSubtitle}
         supportSentence="Projects are a context-and-routing lens: read pressure quickly, select the target project, then route into execution lanes."
         metrics={(
           <>
-            <StatTile label="Projects under pressure" value={pressureSummary.critical} helper="High + critical health signals" tone={pressureSummary.critical > 0 ? 'warn' : 'default'} />
+            <StatTile label="Projects under pressure" value={pressureSummary.underPressure} helper="High + critical pressure signals" tone={pressureSummary.underPressure > 0 ? 'warn' : 'default'} />
             <StatTile label="Overdue work" value={pressureSummary.overdue} helper="Follow-ups + tasks overdue" tone={pressureSummary.overdue > 0 ? 'warn' : 'default'} />
             <StatTile label="Blocked tasks" value={pressureSummary.blocked} helper="Execution blockers to route" tone={pressureSummary.blocked > 0 ? 'danger' : 'default'} />
-            <StatTile label="Closeout candidates" value={pressureSummary.closeout} helper="Projects showing closeout signals" />
+            <StatTile label="Waiting pressure" value={pressureSummary.waiting} helper="Follow-ups waiting on others" />
           </>
         )}
       />
@@ -299,7 +307,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               <div className="project-detail-top !p-0 !bg-transparent !border-0">
                 <div>
                   <h3 className="inspector-title">Identity + why it matters</h3>
-                  <p className="inspector-meta">{selectedProject.name} • {selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}</p>
+                  <p className="inspector-meta">{selectedProject.name} • {selectedContext?.whyItMattersNow || selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}</p>
                 </div>
                 <SupportWorkspaceRouteActions support="Route actions stay primary; maintenance stays secondary below.">
                   <button onClick={() => { openExecutionLane('followups', { project: selectedProject.name, source: 'projects', sourceRecordId: selectedProject.id, intentLabel: 'review project commitments' }); setWorkspace('followups'); }} className="primary-btn"><RefreshCcw className="h-4 w-4" />Open follow-up lane</button>
@@ -345,7 +353,7 @@ export function ProjectCommandCenter({ onFocusTracker, onOpenItem, appMode = 'te
               <div className="project-action-groups">
                 <div className="w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Next best routing move</div>
                 <div className="rounded-xl tonal-micro text-xs text-slate-700">
-                  Main pressure: {selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}
+                  Main pressure: {selectedContext?.whyItMattersNow || selectedRow.health.reasons[0] || 'No immediate pressure signal; review open commitments.'}
                 </div>
                 <button onClick={() => openProjectScopedQueue('waiting')} className="action-btn"><Timer className="h-4 w-4" />Open waiting work</button>
                 <button onClick={createProjectDoc} className="action-btn !px-2.5 !py-1.5 text-xs"><FolderOpen className="h-4 w-4" />Add project-scoped doc</button>

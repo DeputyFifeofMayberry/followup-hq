@@ -225,43 +225,45 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         <button onClick={() => setExpanded((v) => !v)} className="action-btn !px-2.5 !py-1.5 text-xs">Capture details <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} /></button>
       </div>
 
-      <p className="mt-1 text-xs text-slate-600">Quick Add is part of the Intake review loop: high-confidence captures import now, and uncertain captures go to Review so corrections and overrides can improve future tuning.</p>
+      <p className="mt-1 text-xs text-slate-600">Quick Add is the fast lane: import now when confidence is high, or send to Review when confidence is uncertain.</p>
 
       <div className="mt-2 flex gap-2">
         <input ref={inputRef} value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
           if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
           if (event.key === 'Enter') { event.preventDefault(); saveDraft(false); }
         }} placeholder={`Capture a follow-up or task${contextProject ? ` for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
-        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Approve & import now' : 'Send to Review'}</button>
+        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Import now' : 'Send to review'}</button>
       </div>
 
       {expanded && text.trim() ? (
         <div className="mt-3 form-section">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Parse preview</span>
+            <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Quick Add decision</span>
             <span className={`confidence-chip ${confidence === 'high' ? 'confidence-chip-high' : confidence === 'medium' ? 'confidence-chip-medium' : 'confidence-chip-low'}`}>{confidence} confidence</span>
           </div>
           <div className={`mb-2 rounded-xl border px-3 py-2 text-xs ${canDirectImport ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-            {canDirectImport
-              ? 'Direct import ready: title + type + ownership/project evidence are strong.'
-              : tuningReviewPressure
-                ? 'Review recommended: Quick Add source is under elevated review pressure from recent corrections.'
-                : tuningDueDateGuard
-                  ? 'Review recommended: due date evidence guard is active after frequent due-date corrections.'
-                  : tuningProjectGuard
-                    ? 'Review recommended: project mapping guard is active after recent project corrections.'
-                    : 'Review recommended: parser found uncertainty, context fallback, or conflicting signals.'}
+            {canDirectImport ? 'Ready to import now.' : 'Review recommended before import.'}
           </div>
-          <div className="mb-2 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-700">
-            <div className="font-semibold">Quick Add trust posture: {tuningModel.trustPosture} • automation: {tuningModel.automationHealth}</div>
-            <div className="mt-1">{quickCaptureReadiness?.reason || 'Using baseline readiness policy for Quick Add.'}</div>
+
+          <div className="mb-2 grid gap-2 md:grid-cols-2">
+            <button onClick={() => saveDraft(false)} disabled={!text.trim()} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Import now' : 'Send to review'}</button>
+            <button className="action-btn" onClick={() => openCreateFromCapture(parsed)}>Open full create editor</button>
           </div>
-          <div className="grid gap-2 text-xs md:grid-cols-2">
-            {parseReasons.map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">{reason}</div>)}
-          </div>
-          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Field trust summary</div>
-            <div className="grid gap-1 sm:grid-cols-2">
+
+          <details className="rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-700">
+            <summary className="cursor-pointer font-semibold">Quick confidence summary</summary>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {parseReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">{reason}</div>)}
+            </div>
+          </details>
+
+          <details className="mt-2 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-700">
+            <summary className="cursor-pointer font-semibold">Trust & parser evidence</summary>
+            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+              <div className="font-semibold">Trust posture: {tuningModel.trustPosture} • automation: {tuningModel.automationHealth}</div>
+              <div className="mt-1">{quickCaptureReadiness?.reason || 'Using baseline readiness policy for Quick Add.'}</div>
+            </div>
+            <div className="mt-2 grid gap-1 sm:grid-cols-2">
               {fieldReviewSummary.priorityReviewFields.map((field) => (
                 <div key={field.key} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 text-xs">
                   <span className="text-slate-700">{field.label}: <span className="font-medium text-slate-900">{field.value || 'Missing'}</span></span>
@@ -269,19 +271,14 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
                 </div>
               ))}
             </div>
-          </div>
-          <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-600">
-            <div className="font-semibold text-slate-700">Parser evidence</div>
-            <div className="mt-1 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               {(['project', 'owner', 'dueDate', 'kind'] as const).map((key) => (
-                <span key={key} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
-                  {key}: {fieldEvidence?.[key]?.status ?? 'missing'}
-                </span>
+                <span key={key} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">{key}: {fieldEvidence?.[key]?.status ?? 'missing'}</span>
               ))}
             </div>
-          </div>
+          </details>
+
           {needsCleanup ? <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-700">{parsed.cleanupReasons.map((reason) => <span key={reason} className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5">{cleanupLabel[reason]}</span>)}</div> : null}
-          <div className="mt-2 flex gap-2"><button onClick={() => saveDraft(true)} disabled={!text.trim()} className="action-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Approve & import now + open' : 'Send to Review + open later'}</button><button className="text-xs font-medium text-sky-700" onClick={() => openCreateFromCapture(parsed)}>Open structured form</button></div>
         </div>
       ) : null}
 

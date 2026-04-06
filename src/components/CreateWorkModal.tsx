@@ -6,22 +6,127 @@ import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskFormInput, TaskItem } from '../types';
 import { EntityCombobox } from './EntityCombobox';
 import { createRecordEditorSession, followUpEditorAdapter, taskEditorAdapter, updateRecordEditorDraft, type RecordEditorSession } from '../domains/editor';
-import {
-  AppModal,
-  AppModalBody,
-  AppModalFooter,
-  AppModalHeader,
-  RecordEditorFooter,
-  RecordEditorHeader,
-  RecordEditorMetaGrid,
-  RecordEditorSection,
-  RecordEditorShell,
-} from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFooter, RecordEditorHeader, RecordEditorMetaGrid, RecordEditorSection, RecordEditorShell } from './ui/AppPrimitives';
 
 type WorkMode = 'followup' | 'task';
 
+type EntityOptions = {
+  projectOptions: Array<{ id: string; label: string; meta?: string }>;
+  contactOptions: Array<{ id: string; label: string; meta?: string }>;
+  companyOptions: Array<{ id: string; label: string; meta?: string }>;
+};
+
 function toTaskDraft(base: TaskItem): TaskItem {
   return { ...base, id: base.id || createId('TSK') };
+}
+
+function buildCreateSessions(projectFilter?: string) {
+  const followUpDefaults = buildSmartFollowUpDefaults({ projectFilter });
+  const taskDefaults = toTaskDraft(buildSmartTaskDefaults({ projectFilter }));
+
+  const followUpSession = updateRecordEditorDraft(
+    createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: 'new-followup' }, mode: 'create', sourceSurface: 'full_editor' }),
+    followUpEditorAdapter,
+    () => followUpDefaults,
+  );
+  const taskSession = updateRecordEditorDraft(
+    createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: 'new-task' }, mode: 'create', sourceSurface: 'full_editor' }),
+    taskEditorAdapter,
+    () => taskDefaults,
+  );
+
+  return { followUpSession, taskSession, followUpDefaults, taskDefaults };
+}
+
+function FollowUpEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany, showFullFields }: {
+  form: FollowUpFormInput;
+  setForm: (next: FollowUpFormInput) => void;
+  entityOptions: EntityOptions;
+  addProject: (input: { name: string; owner: string; status: 'Active'; notes: string; tags: string[] }) => string;
+  addContact: (input: { name: string; role: string; notes: string; tags: string[] }) => string;
+  addCompany: (input: { name: string; type: 'Other'; notes: string; tags: string[] }) => string;
+  showFullFields: boolean;
+}) {
+  return (
+    <>
+      <RecordEditorSection title="Core fields">
+        <RecordEditorMetaGrid>
+          <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} /></div>
+          <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} className="field-textarea" /></div>
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
+
+      {showFullFields ? (
+        <>
+          <RecordEditorSection title="Execution and detail">
+            <RecordEditorMetaGrid>
+              <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
+              <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+              <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(form.nextTouchDate)} onChange={(e) => setForm({ ...form, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
+            </RecordEditorMetaGrid>
+          </RecordEditorSection>
+
+          <RecordEditorSection title="Relationship / linkage">
+            <RecordEditorMetaGrid>
+              <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
+              <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
+            </RecordEditorMetaGrid>
+          </RecordEditorSection>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function TaskEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany, showFullFields }: {
+  form: TaskFormInput;
+  setForm: (next: TaskFormInput) => void;
+  entityOptions: EntityOptions;
+  addProject: (input: { name: string; owner: string; status: 'Active'; notes: string; tags: string[] }) => string;
+  addContact: (input: { name: string; role: string; notes: string; tags: string[] }) => string;
+  addCompany: (input: { name: string; type: 'Other'; notes: string; tags: string[] }) => string;
+  showFullFields: boolean;
+}) {
+  return (
+    <>
+      <RecordEditorSection title="Core fields">
+        <RecordEditorMetaGrid>
+          <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} /></div>
+          <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={form.nextStep} onChange={(e) => setForm({ ...form, nextStep: e.target.value })} className="field-textarea" /></div>
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
+
+      {showFullFields ? (
+        <>
+          <RecordEditorSection title="Execution and detail">
+            <RecordEditorMetaGrid>
+              <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
+              <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+              <div className="field-block"><label className="field-label">Deferred until</label><input type="date" value={toDateInputValue(form.deferredUntil)} onChange={(e) => setForm({ ...form, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+              <div className="field-block"><label className="field-label">Block reason</label><input value={form.blockReason || ''} onChange={(e) => setForm({ ...form, blockReason: e.target.value })} className="field-input" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
+              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
+            </RecordEditorMetaGrid>
+          </RecordEditorSection>
+
+          <RecordEditorSection title="Relationship / linkage">
+            <RecordEditorMetaGrid>
+              <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
+              <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
+            </RecordEditorMetaGrid>
+          </RecordEditorSection>
+        </>
+      ) : null}
+    </>
+  );
 }
 
 export function CreateWorkModal() {
@@ -74,22 +179,13 @@ export function CreateWorkModal() {
   const [mode, setMode] = useState<WorkMode>(getRecentWorkMode());
   const [followUpSession, setFollowUpSession] = useState<RecordEditorSession<any, FollowUpFormInput, any> | null>(null);
   const [taskSession, setTaskSession] = useState<RecordEditorSession<any, TaskFormInput, any> | null>(null);
-  const [modalMode, setModalMode] = useState<'fast' | 'full'>('fast');
+  const [showFullFields, setShowFullFields] = useState(false);
 
   const followUpForm = followUpSession?.draft ?? buildSmartFollowUpDefaults({ projectFilter });
   const taskForm = taskSession?.draft ?? buildSmartTaskDefaults({ projectFilter });
-  const setFollowUpForm = (draft: FollowUpFormInput) => {
-    setFollowUpSession((session) => {
-      if (!session) return session;
-      return updateRecordEditorDraft(session, followUpEditorAdapter, () => draft);
-    });
-  };
-  const setTaskForm = (draft: TaskFormInput) => {
-    setTaskSession((session) => {
-      if (!session) return session;
-      return updateRecordEditorDraft(session, taskEditorAdapter, () => draft);
-    });
-  };
+
+  const setFollowUpForm = (draft: FollowUpFormInput) => setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => draft) : session);
+  const setTaskForm = (draft: TaskFormInput) => setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => draft) : session);
 
   useEffect(() => {
     if (!open) return;
@@ -99,69 +195,69 @@ export function CreateWorkModal() {
 
   useEffect(() => {
     if (!open) return;
+
     if (currentItem) {
       setMode('followup');
       setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: currentItem.id }, mode: 'edit', record: currentItem }));
-      setModalMode('full');
-      return;
-    }
-    if (currentTask) {
-      setMode('task');
-      setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: currentTask.id }, mode: 'edit', record: currentTask }));
-      setModalMode('full');
+      setShowFullFields(true);
       return;
     }
 
-    const defaultFollowUp = buildSmartFollowUpDefaults({ projectFilter });
-    const defaultTask = toTaskDraft(buildSmartTaskDefaults({ projectFilter }));
+    if (currentTask) {
+      setMode('task');
+      setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: currentTask.id }, mode: 'edit', record: currentTask }));
+      setShowFullFields(true);
+      return;
+    }
+
+    const { followUpSession: freshFollowUpSession, taskSession: freshTaskSession, followUpDefaults, taskDefaults } = buildCreateSessions(projectFilter);
+
     if (createWorkDraft) {
       const projectMatch = createWorkDraft.project
         ? projects.find((project) => project.name.toLowerCase() === createWorkDraft.project?.toLowerCase() || project.id === createWorkDraft.project)
         : undefined;
+
       setMode(createWorkDraft.kind);
+
       const followUpDraft = {
-        ...defaultFollowUp,
-        title: createWorkDraft.title || defaultFollowUp.title,
-        owner: createWorkDraft.owner || defaultFollowUp.owner,
-        assigneeDisplayName: createWorkDraft.owner || defaultFollowUp.owner,
-        project: projectMatch?.name ?? createWorkDraft.project ?? defaultFollowUp.project,
-        projectId: projectMatch?.id ?? defaultFollowUp.projectId,
-        dueDate: createWorkDraft.dueDate || defaultFollowUp.dueDate,
-        nextTouchDate: createWorkDraft.dueDate || defaultFollowUp.nextTouchDate,
-        nextAction: createWorkDraft.nextAction || createWorkDraft.waitingOn || defaultFollowUp.nextAction,
-        waitingOn: createWorkDraft.waitingOn || defaultFollowUp.waitingOn,
-        summary: createWorkDraft.rawText || defaultFollowUp.summary,
+        ...followUpDefaults,
+        title: createWorkDraft.title || followUpDefaults.title,
+        owner: createWorkDraft.owner || followUpDefaults.owner,
+        assigneeDisplayName: createWorkDraft.owner || followUpDefaults.owner,
+        project: projectMatch?.name ?? createWorkDraft.project ?? followUpDefaults.project,
+        projectId: projectMatch?.id ?? followUpDefaults.projectId,
+        dueDate: createWorkDraft.dueDate || followUpDefaults.dueDate,
+        nextTouchDate: createWorkDraft.dueDate || followUpDefaults.nextTouchDate,
+        nextAction: createWorkDraft.nextAction || createWorkDraft.waitingOn || followUpDefaults.nextAction,
+        waitingOn: createWorkDraft.waitingOn || followUpDefaults.waitingOn,
+        summary: createWorkDraft.rawText || followUpDefaults.summary,
         priority: createWorkDraft.priority,
       };
+
       const taskDraft = {
-        ...defaultTask,
-        title: createWorkDraft.title || defaultTask.title,
-        owner: createWorkDraft.owner || defaultTask.owner,
-        assigneeDisplayName: createWorkDraft.assigneeDisplayName || createWorkDraft.owner || defaultTask.assigneeDisplayName,
-        project: projectMatch?.name ?? createWorkDraft.project ?? defaultTask.project,
-        projectId: projectMatch?.id ?? createWorkDraft.projectId ?? defaultTask.projectId,
-        dueDate: createWorkDraft.dueDate || defaultTask.dueDate,
-        nextStep: createWorkDraft.nextStep || createWorkDraft.title || defaultTask.nextStep,
+        ...taskDefaults,
+        title: createWorkDraft.title || taskDefaults.title,
+        owner: createWorkDraft.owner || taskDefaults.owner,
+        assigneeDisplayName: createWorkDraft.assigneeDisplayName || createWorkDraft.owner || taskDefaults.assigneeDisplayName,
+        project: projectMatch?.name ?? createWorkDraft.project ?? taskDefaults.project,
+        projectId: projectMatch?.id ?? createWorkDraft.projectId ?? taskDefaults.projectId,
+        dueDate: createWorkDraft.dueDate || taskDefaults.dueDate,
+        nextStep: createWorkDraft.nextStep || createWorkDraft.title || taskDefaults.nextStep,
         summary: createWorkDraft.rawText,
         priority: createWorkDraft.priority,
-        linkedFollowUpId: createWorkDraft.linkedFollowUpId || defaultTask.linkedFollowUpId,
-        contextNote: createWorkDraft.contextNote || defaultTask.contextNote,
-        companyId: createWorkDraft.companyId || defaultTask.companyId,
-        contactId: createWorkDraft.contactId || defaultTask.contactId,
+        linkedFollowUpId: createWorkDraft.linkedFollowUpId || taskDefaults.linkedFollowUpId,
       };
-      setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: 'new-followup' }, mode: 'create', sourceSurface: 'capture' }));
-      setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: 'new-task' }, mode: 'create', sourceSurface: 'capture' }));
-      setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => followUpDraft) : session);
-      setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => taskDraft) : session);
-      setModalMode(createWorkDraft.cleanupReasons?.length ? 'full' : 'fast');
+
+      setFollowUpSession(updateRecordEditorDraft(freshFollowUpSession, followUpEditorAdapter, () => followUpDraft));
+      setTaskSession(updateRecordEditorDraft(freshTaskSession, taskEditorAdapter, () => taskDraft));
+      setShowFullFields(Boolean(createWorkDraft.cleanupReasons?.length));
       return;
     }
+
     setMode(itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
-    setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: 'new-followup' }, mode: 'create', sourceSurface: 'full_editor' }));
-    setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: 'new-task' }, mode: 'create', sourceSurface: 'full_editor' }));
-    setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => defaultFollowUp) : session);
-    setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => defaultTask) : session);
-    setModalMode('fast');
+    setFollowUpSession(freshFollowUpSession);
+    setTaskSession(freshTaskSession);
+    setShowFullFields(false);
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
 
   if (!open) return null;
@@ -171,16 +267,17 @@ export function CreateWorkModal() {
     closeTaskModal();
   };
 
-  const projectOptions = projects.map((project) => ({ id: project.id, label: project.name, meta: project.owner }));
-  const contactOptions = contacts.map((contact) => ({ id: contact.id, label: contact.name, meta: contact.role || contact.email }));
-  const companyOptions = companies.map((company) => ({ id: company.id, label: company.name, meta: company.type }));
+  const entityOptions: EntityOptions = {
+    projectOptions: projects.map((project) => ({ id: project.id, label: project.name, meta: project.owner })),
+    contactOptions: contacts.map((contact) => ({ id: contact.id, label: contact.name, meta: contact.role || contact.email })),
+    companyOptions: companies.map((company) => ({ id: company.id, label: company.name, meta: company.type })),
+  };
 
-  const canSave = mode === 'followup'
-    ? Boolean(followUpSession?.validation.valid)
-    : Boolean(taskSession?.validation.valid);
+  const canSave = mode === 'followup' ? Boolean(followUpSession?.validation.valid) : Boolean(taskSession?.validation.valid);
 
   const save = (addAnother = false) => {
     if (!canSave) return;
+
     if (mode === 'followup') {
       if (!followUpSession?.savePayload) return;
       const payload = followUpSession.savePayload.payload;
@@ -200,10 +297,10 @@ export function CreateWorkModal() {
       return;
     }
 
-    const defaultFollowUp = buildSmartFollowUpDefaults({ projectFilter });
-    const defaultTask = toTaskDraft(buildSmartTaskDefaults({ projectFilter }));
-    setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => defaultFollowUp) : session);
-    setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => defaultTask) : session);
+    const { followUpDefaults, taskDefaults } = buildCreateSessions(projectFilter);
+    setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => followUpDefaults) : session);
+    setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => taskDefaults) : session);
+    setShowFullFields(false);
   };
 
   return (
@@ -215,117 +312,46 @@ export function CreateWorkModal() {
         }
       }}>
         <AppModalHeader
-          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create work'}
-          subtitle={followUpEditing || taskEditing ? 'Canonical full-record editor for deep editing.' : 'Fast mode for speed, full mode for cleanup/editing.'}
+          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create record'}
+          subtitle={followUpEditing || taskEditing ? 'Full edit is the deep destination for broad record changes.' : 'Start with quick create fields. Open full editor fields only if needed.'}
           onClose={close}
         />
         <AppModalBody>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
             <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
-            <button onClick={() => setModalMode('fast')} className={modalMode === 'fast' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Fast mode</button>
-            <button onClick={() => setModalMode('full')} className={modalMode === 'full' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Full mode</button>
+            <button onClick={() => setShowFullFields((value) => !value)} className={showFullFields ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
+              {showFullFields ? 'Hide full fields' : 'Open full editor fields'}
+            </button>
           </div>
 
           <RecordEditorShell>
             <RecordEditorHeader
-              title={mode === 'followup' ? 'Follow-up record editor' : 'Task record editor'}
-              subtitle="Shared grammar: core identity, execution state, workflow context, relationship linkage, notes/detail, maintenance."
+              title={mode === 'followup' ? 'Follow-up editor' : 'Task editor'}
+              subtitle={showFullFields ? 'Deep edit fields are visible.' : 'Quick create/edit fields only: title, due date, ownership, and next move.'}
             />
 
             {mode === 'followup' ? (
-              <>
-                <RecordEditorSection title="1. Core identity">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block"><label className="field-label">Title</label><input autoFocus value={followUpForm.title} onChange={(e) => setFollowUpForm({ ...followUpForm, title: e.target.value })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={followUpForm.projectId} valueLabel={followUpForm.project} options={projectOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: followUpForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, project: label, projectId: id }); }} /></div>
-                    <div className="field-block"><label className="field-label">Internal owner</label><input value={followUpForm.owner} onChange={(e) => setFollowUpForm({ ...followUpForm, owner: e.target.value })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Assignee</label><input value={followUpForm.assigneeDisplayName || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, assigneeDisplayName: e.target.value })} className="field-input" /></div>
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="2. Execution state">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block"><label className="field-label">Status</label><select value={followUpForm.status} onChange={(e) => setFollowUpForm({ ...followUpForm, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
-                    <div className="field-block"><label className="field-label">Priority</label><select value={followUpForm.priority} onChange={(e) => setFollowUpForm({ ...followUpForm, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-                    <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(followUpForm.dueDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="3. Workflow context">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={followUpForm.nextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, nextAction: e.target.value })} className="field-textarea" /></div>
-                    {modalMode === 'full' ? <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={followUpForm.summary} onChange={(e) => setFollowUpForm({ ...followUpForm, summary: e.target.value })} className="field-textarea" /></div> : null}
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="4. Relationship / linkage">
-                  <RecordEditorMetaGrid>
-                    <EntityCombobox label="External contact" valueId={followUpForm.contactId} valueLabel={contacts.find((contact) => contact.id === followUpForm.contactId)?.name} options={contactOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, contactId: id }); }} />
-                    <EntityCombobox label="Company" valueId={followUpForm.companyId} valueLabel={companies.find((company) => company.id === followUpForm.companyId)?.name} options={companyOptions} onSelect={(option) => setFollowUpForm({ ...followUpForm, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setFollowUpForm({ ...followUpForm, companyId: id }); }} />
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                {modalMode === 'full' ? (
-                  <RecordEditorSection title="5. Notes / detail">
-                    <RecordEditorMetaGrid>
-                      <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={followUpForm.notes} onChange={(e) => setFollowUpForm({ ...followUpForm, notes: e.target.value })} className="field-textarea" /></div>
-                    </RecordEditorMetaGrid>
-                  </RecordEditorSection>
-                ) : null}
-              </>
+              <FollowUpEditorBody
+                form={followUpForm}
+                setForm={setFollowUpForm}
+                entityOptions={entityOptions}
+                addProject={addProject}
+                addContact={addContact}
+                addCompany={addCompany}
+                showFullFields={showFullFields}
+              />
             ) : (
-              <>
-                <RecordEditorSection title="1. Core identity">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block"><label className="field-label">Title</label><input autoFocus value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={taskForm.projectId} valueLabel={taskForm.project} options={projectOptions} onSelect={(option) => setTaskForm({ ...taskForm, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: taskForm.owner || 'Unassigned', status: 'Active', notes: '', tags: [] }); setTaskForm({ ...taskForm, project: label, projectId: id }); }} /></div>
-                    <div className="field-block"><label className="field-label">Internal owner</label><input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Assignee</label><input value={taskForm.assigneeDisplayName || ''} onChange={(e) => setTaskForm({ ...taskForm, assigneeDisplayName: e.target.value })} className="field-input" /></div>
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="2. Execution state">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block"><label className="field-label">Status</label><select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
-                    <div className="field-block"><label className="field-label">Priority</label><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-                    <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(taskForm.dueDate)} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Deferred / snooze until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="3. Workflow context">
-                  <RecordEditorMetaGrid>
-                    <div className="field-block"><label className="field-label">Block reason</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" /></div>
-                    <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={taskForm.nextStep} onChange={(e) => setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" /></div>
-                    {modalMode === 'full' ? <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={taskForm.summary} onChange={(e) => setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div> : null}
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                <RecordEditorSection title="4. Relationship / linkage">
-                  <RecordEditorMetaGrid>
-                    <EntityCombobox label="External contact" valueId={taskForm.contactId} valueLabel={contacts.find((contact) => contact.id === taskForm.contactId)?.name} options={contactOptions} onSelect={(option) => setTaskForm({ ...taskForm, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setTaskForm({ ...taskForm, contactId: id }); }} />
-                    <EntityCombobox label="Company" valueId={taskForm.companyId} valueLabel={companies.find((company) => company.id === taskForm.companyId)?.name} options={companyOptions} onSelect={(option) => setTaskForm({ ...taskForm, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setTaskForm({ ...taskForm, companyId: id }); }} />
-                    <div className="field-block"><label className="field-label">Linked follow-up ID</label><input value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })} className="field-input" /></div>
-                    <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'advance_parent'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskItem['completionImpact'] })} className="field-input"><option value="none">none</option><option value="advance_parent">advance_parent</option><option value="close_parent">close_parent</option></select></div>
-                  </RecordEditorMetaGrid>
-                </RecordEditorSection>
-
-                {modalMode === 'full' ? (
-                  <RecordEditorSection title="5. Notes / detail">
-                    <RecordEditorMetaGrid>
-                      <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={taskForm.notes} onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
-                      <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={taskForm.completionNote || ''} onChange={(e) => setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" /></div>
-                    </RecordEditorMetaGrid>
-                  </RecordEditorSection>
-                ) : null}
-              </>
+              <TaskEditorBody
+                form={taskForm}
+                setForm={setTaskForm}
+                entityOptions={entityOptions}
+                addProject={addProject}
+                addContact={addContact}
+                addCompany={addCompany}
+                showFullFields={showFullFields}
+              />
             )}
-
-            <RecordEditorSection title="6. Maintenance" subtitle="Destructive/admin workflows are intentionally secondary.">
-              <div className="text-xs text-slate-600">Use structured transition or dedicated maintenance flows for high-risk changes.</div>
-            </RecordEditorSection>
           </RecordEditorShell>
         </AppModalBody>
         <AppModalFooter>
@@ -333,7 +359,7 @@ export function CreateWorkModal() {
             <button onClick={close} className="action-btn">Cancel</button>
             {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and add another</button> : null}
             <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
-              {followUpEditing || taskEditing ? 'Save changes' : 'Save work'}
+              {followUpEditing || taskEditing ? 'Save changes' : 'Save record'}
             </button>
           </RecordEditorFooter>
         </AppModalFooter>

@@ -22,6 +22,7 @@ import { buildCommandPaletteConfig, buildGlobalRecordSearchIndex, filterCommands
 import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 import { SyncStatusControl } from './components/SyncStatusControl';
+import { isE2EMode } from './lib/e2eMode';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -546,10 +547,17 @@ function MainApp() {
 }
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loadingSession, setLoadingSession] = useState(true);
+  const e2eMode = isE2EMode();
+  const [session, setSession] = useState<Session | null>(e2eMode ? ({ user: { id: 'e2e-user' } } as Session) : null);
+  const [loadingSession, setLoadingSession] = useState(!e2eMode);
 
   useEffect(() => {
+    if (e2eMode) {
+      setSession({ user: { id: 'e2e-user' } } as Session);
+      setLoadingSession(false);
+      return;
+    }
+
     if (supabaseConfigError) {
       setLoadingSession(false);
       return;
@@ -579,9 +587,9 @@ export default function App() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [e2eMode]);
 
-  if (supabaseConfigError) {
+  if (supabaseConfigError && !e2eMode) {
     return <MissingSupabaseConfigScreen />;
   }
 

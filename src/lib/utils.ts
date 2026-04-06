@@ -222,11 +222,11 @@ export function normalizeItem(item: FollowUpItem): FollowUpItem {
   const cadenceDays = item.cadenceDays && item.cadenceDays > 0 ? item.cadenceDays : 3;
   return {
     ...item,
-    project: normalizeText(item.project || 'General') || 'General',
+    project: normalizeText(item.project || ''),
     projectId: item.projectId || undefined,
-    owner: normalizeText(item.owner || 'Unassigned') || 'Unassigned',
+    owner: normalizeText(item.owner || ''),
     assigneeUserId: item.assigneeUserId || undefined,
-    assigneeDisplayName: normalizeText(item.assigneeDisplayName || item.owner || 'Unassigned') || 'Unassigned',
+    assigneeDisplayName: normalizeText(item.assigneeDisplayName || item.owner || '') || '',
     createdByUserId: item.createdByUserId || 'user-seed',
     createdByDisplayName: item.createdByDisplayName || 'System',
     updatedByUserId: item.updatedByUserId || item.createdByUserId || 'user-seed',
@@ -263,6 +263,11 @@ export function normalizeItem(item: FollowUpItem): FollowUpItem {
     recommendedAction: item.recommendedAction || (item.needsCleanup ? 'Review cleanup' : undefined),
     lastCompletedAction: item.lastCompletedAction || undefined,
     lastActionAt: item.lastActionAt || undefined,
+    lifecycleState: item.lifecycleState || 'draft',
+    reviewReasons: item.reviewReasons || [],
+    invalidReason: item.invalidReason || undefined,
+    dataQuality: item.dataQuality || 'draft',
+    provenance: item.provenance,
   };
 }
 
@@ -280,10 +285,10 @@ export function buildItemFromForm(input: FollowUpFormInput, existing?: FollowUpI
     id: existing?.id ?? createId(),
     title: input.title.trim(),
     source: input.source,
-    project: input.project.trim() || 'General',
+    project: input.project.trim(),
     projectId: input.projectId || undefined,
-    owner: input.owner.trim() || 'Unassigned',
-    assigneeDisplayName: input.assigneeDisplayName?.trim() || existing?.assigneeDisplayName || input.owner.trim() || 'Unassigned',
+    owner: input.owner.trim(),
+    assigneeDisplayName: input.assigneeDisplayName?.trim() || existing?.assigneeDisplayName || input.owner.trim(),
     assigneeUserId: existing?.assigneeUserId,
     status: input.status,
     priority: input.priority,

@@ -8,6 +8,7 @@ import type {
   UnifiedQueueSort,
 } from '../types';
 import { daysSince, isOverdue, isTaskDeferred, isTaskDueWithin, isTaskOverdue, needsNudge, taskWorkflowState } from './utils';
+import { isExecutionReady } from '../domains/records/integrity';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const priorityScore: Record<UnifiedQueueItem['priority'], number> = { Low: 1, Medium: 2, High: 3, Critical: 5 };
@@ -245,8 +246,10 @@ export function sortUnifiedQueue(queue: UnifiedQueueItem[], sortBy: UnifiedQueue
 }
 
 export function buildUnifiedQueue(items: FollowUpItem[], tasks: TaskItem[]): UnifiedQueueItem[] {
-  const followRows = items.filter((item) => item.status !== 'Closed').map((item) => computeFollowUpRow(item, tasks));
-  const taskRows = tasks.filter((task) => task.status !== 'Done').map((task) => computeTaskRow(task, items));
+  const liveFollowups = items.filter((item) => isExecutionReady(item));
+  const liveTasks = tasks.filter((task) => isExecutionReady(task));
+  const followRows = liveFollowups.filter((item) => item.status !== 'Closed').map((item) => computeFollowUpRow(item, liveTasks));
+  const taskRows = liveTasks.filter((task) => task.status !== 'Done').map((task) => computeTaskRow(task, liveFollowups));
   return sortUnifiedQueue([...followRows, ...taskRows], 'queue_score');
 }
 

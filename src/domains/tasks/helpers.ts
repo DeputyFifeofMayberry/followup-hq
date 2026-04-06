@@ -8,10 +8,10 @@ export function normalizeTask(task: TaskItem): TaskItem {
   const updatedAt = todayIso();
   return {
     ...task,
-    project: (task.project || 'General').trim() || 'General',
-    owner: (task.owner || 'Unassigned').trim() || 'Unassigned',
+    project: (task.project || '').trim(),
+    owner: (task.owner || '').trim(),
     assigneeUserId: task.assigneeUserId || undefined,
-    assigneeDisplayName: (task.assigneeDisplayName || task.owner || 'Unassigned').trim() || 'Unassigned',
+    assigneeDisplayName: (task.assigneeDisplayName || task.owner || '').trim() || '',
     title: task.title.trim(),
     summary: (task.summary || '').trim(),
     nextStep: (task.nextStep || '').trim(),
@@ -47,6 +47,11 @@ export function normalizeTask(task: TaskItem): TaskItem {
     teamId: task.teamId || 'team-default',
     watchers: task.watchers || [],
     auditHistory: task.auditHistory || [],
+    lifecycleState: task.lifecycleState || 'draft',
+    reviewReasons: task.reviewReasons || [],
+    invalidReason: task.invalidReason || undefined,
+    dataQuality: task.dataQuality || 'draft',
+    provenance: task.provenance,
   };
 }
 

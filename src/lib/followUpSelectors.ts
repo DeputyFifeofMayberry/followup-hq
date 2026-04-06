@@ -1,5 +1,6 @@
 import type { CompanyRecord, ContactRecord, FollowUpAdvancedFilters, FollowUpItem, SavedViewKey } from '../types';
 import { daysUntil, isOverdue, needsNudge } from './utils';
+import { isExecutionReady } from '../domains/records/integrity';
 
 interface FollowUpSelectorInput {
   items: FollowUpItem[];
@@ -51,7 +52,7 @@ function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem
 
 export function selectFollowUpRows(input: FollowUpSelectorInput): FollowUpItem[] {
   const { items, contacts, companies, search, filters, activeView } = input;
-  const byView = applySavedView(items, activeView);
+  const byView = applySavedView(items.filter((item) => isExecutionReady(item) || item.needsCleanup), activeView);
   const term = search.trim().toLowerCase();
   return byView.filter((item) => {
     const contact = contacts.find((entry) => entry.id === item.contactId)?.name ?? '';

@@ -1,5 +1,6 @@
 import { addDaysIso, buildTouchEvent, createId, normalizeItem, resolveProjectName, todayIso } from '../../lib/utils';
 import type { FollowUpItem, ForwardedEmailRecord, ImportPreviewRow, OutlookMessage, ProjectRecord } from '../../types';
+import { enforceFollowUpIntegrity } from '../records/integrity';
 
 function projectCanonicalKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -13,7 +14,7 @@ export function attachProjects(items: FollowUpItem[], projects: ProjectRecord[])
   return normalizeItems(items.map((item) => {
     const name = resolveProjectName(item.projectId, item.project, projects);
     const project = item.projectId ? projects.find((entry) => entry.id === item.projectId) : projects.find((entry) => projectCanonicalKey(entry.name) === projectCanonicalKey(name));
-    return normalizeItem({ ...item, projectId: project?.id ?? item.projectId, project: project?.name ?? name });
+    return enforceFollowUpIntegrity(normalizeItem({ ...item, projectId: project?.id ?? item.projectId, project: project?.name ?? name }), projects);
   }));
 }
 
@@ -34,7 +35,7 @@ export function withItemUpdate(items: FollowUpItem[], id: string, updater: (item
   return normalizeItems(items.map((item) => (item.id === id ? updater(item) : item)));
 }
 
-export function buildFollowUpFromForwarded(record: ForwardedEmailRecord, owner = 'Jared', project = 'General', projectId?: string): FollowUpItem {
+export function buildFollowUpFromForwarded(record: ForwardedEmailRecord, owner = '', project = '', projectId?: string): FollowUpItem {
   return normalizeItem({
     id: createId(),
     title: record.originalSubject || '(no subject)',

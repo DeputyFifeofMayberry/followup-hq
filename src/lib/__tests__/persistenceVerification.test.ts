@@ -1,0 +1,121 @@
+import {
+  compareEntityCollections,
+  exportVerificationIncident,
+  verifyPersistedState,
+  type VerificationSourceSnapshot,
+} from '../persistenceVerification';
+import type { PersistedPayload } from '../persistence';
+
+function assert(condition: boolean, message: string): void {
+  if (!condition) throw new Error(message);
+}
+
+function payload(): PersistedPayload {
+  return {
+    items: [{ id: 'i1', title: 'Item', status: 'Needs action', updatedAt: '2026-04-06T10:00:00.000Z' } as any],
+    tasks: [{ id: 't1', title: 'Task', status: 'Todo', updatedAt: '2026-04-06T10:00:00.000Z' } as any],
+    projects: [{ id: 'p1', name: 'Proj', updatedAt: '2026-04-06T10:00:00.000Z' } as any],
+    contacts: [{ id: 'c1', name: 'Contact', updatedAt: '2026-04-06T10:00:00.000Z' } as any],
+    companies: [{ id: 'co1', name: 'Company', updatedAt: '2026-04-06T10:00:00.000Z' } as any],
+    auxiliary: { intakeSignals: [], intakeDocuments: [], dismissedDuplicatePairs: [], droppedEmailImports: [], outlookConnection: { settings: {}, mailboxLinked: false, syncStatus: 'idle', syncCursorByFolder: { inbox: {}, sentitems: {} } }, outlookMessages: [], forwardedEmails: [], forwardedRules: [], forwardedCandidates: [], forwardedLedger: [], forwardedRoutingAudit: [], intakeCandidates: [], intakeAssets: [], intakeBatches: [], intakeWorkCandidates: [], intakeReviewerFeedback: [], savedExecutionViews: [] } as any,
+  };
+}
+
+function cloudSnapshotFromPayload(local: PersistedPayload): VerificationSourceSnapshot {
+  const mapFrom = (records: any[]) => new Map(records.map((record) => [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: JSON.stringify(record), normalizedRecord: record }]));
+  return {
+    fetchedAt: '2026-04-06T10:00:00.000Z',
+    schemaVersionCloud: 1,
+    readSucceeded: true,
+    entities: {
+      items: mapFrom(local.items),
+      tasks: mapFrom(local.tasks),
+      projects: mapFrom(local.projects),
+      contacts: mapFrom(local.contacts),
+      companies: mapFrom(local.companies),
+    },
+    auxiliary: local.auxiliary,
+  };
+}
+
+async function testVerificationSuccess(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  const result = await verifyPersistedState({
+    target: { payload: local, schemaVersionClient: 1 },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'matching snapshots should verify');
+  assert(result.summary.mismatchCount === 0, 'matching snapshots should have zero mismatches');
+}
+
+async function testMissingCloudRecord(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.items.delete('i1');
+  const result = await verifyPersistedState({ target: { payload: local }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloud });
+  assert(result.mismatches.some((m) => m.category === 'missing_in_cloud' && m.entity === 'items'), 'missing cloud record should be categorized');
+}
+
+async function testMissingLocalRecord(): Promise<void> {
+  const local = payload();
+  local.tasks = [];
+  const cloud = cloudSnapshotFromPayload(payload());
+  const result = await verifyPersistedState({ target: { payload: local }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloud });
+  assert(result.mismatches.some((m) => m.category === 'deleted_locally_but_active_in_cloud' && m.entity === 'tasks'), 'missing local record should be categorized');
+}
+
+async function testContentMismatchAndTombstoneMismatch(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, normalizedRecord: { id: 'p1', name: 'Changed' }, digest: 'changed-digest' });
+  cloud.entities.contacts.set('c1', { ...cloud.entities.contacts.get('c1')!, deletedAt: '2026-04-06T09:59:00.000Z' });
+  const result = await verifyPersistedState({ target: { payload: local }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloud });
+  assert(result.mismatches.some((m) => m.category === 'content_mismatch' && m.entity === 'projects'), 'content mismatch should be detected');
+  assert(result.mismatches.some((m) => m.category === 'tombstoned_in_cloud_but_active_locally' && m.entity === 'contacts'), 'tombstone mismatch should be detected');
+}
+
+async function testAuxAndSchemaMismatchAndReadFailure(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.auxiliary = { ...local.auxiliary, followUpTableDensity: 'comfortable' } as any;
+  cloud.schemaVersionCloud = 3;
+  const result = await verifyPersistedState({ target: { payload: local, schemaVersionClient: 1 }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloud });
+  assert(result.mismatches.some((m) => m.category === 'auxiliary_mismatch'), 'auxiliary mismatch should be detected');
+  assert(result.mismatches.some((m) => m.category === 'schema_version_mismatch'), 'schema mismatch should be detected');
+
+  const readFailed = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => ({ ...cloud, readSucceeded: false, readFailureMessage: 'network down' }),
+  });
+  assert(readFailed.summary.verified === false, 'failed reads cannot verify');
+  assert(readFailed.mismatches.some((m) => m.category === 'verification_read_failed'), 'failed reads should produce verification_read_failed mismatch');
+}
+
+async function testExportReportHasSummaryAndNoSecrets(): Promise<void> {
+  const local = payload();
+  const result = await verifyPersistedState({ target: { payload: local }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloudSnapshotFromPayload(local) });
+  const report = exportVerificationIncident({ verificationResult: result, cloudConfirmationStatus: 'cloud-confirmed', sessionTrustState: 'healthy' });
+  assert(Boolean(report.verificationSummary.runId), 'report should include verification summary');
+  assert(Array.isArray(report.mismatchList), 'report should include mismatch list');
+  assert(!JSON.stringify(report).toLowerCase().includes('token'), 'report should not include token-like fields');
+}
+
+function testCompareEntityCollectionsHelper(): void {
+  const local = new Map([['x', { id: 'x', digest: 'a', normalizedRecord: { id: 'x' } } as any]]);
+  const cloud = new Map<string, any>();
+  const mismatches = compareEntityCollections({ entity: 'items', local: local as any, cloud: cloud as any, includePreviews: true, maxMismatchPreviewCount: 5 });
+  assert(mismatches[0]?.category === 'missing_in_cloud', 'helper should detect missing_in_cloud');
+}
+
+(async function run() {
+  await testVerificationSuccess();
+  await testMissingCloudRecord();
+  await testMissingLocalRecord();
+  await testContentMismatchAndTombstoneMismatch();
+  await testAuxAndSchemaMismatchAndReadFailure();
+  await testExportReportHasSummaryAndNoSecrets();
+  testCompareEntityCollectionsHelper();
+})();

@@ -52,6 +52,10 @@ export interface AppStoreActions {
   initializeApp: () => Promise<void>;
   flushPersistenceNow: () => Promise<void>;
   retryPersistenceNow: () => Promise<void>;
+
+  verifyNow: (mode?: 'manual' | 'post-save' | 'startup-review') => Promise<void>;
+  markVerificationMismatchReviewed: (mismatchId: string) => void;
+  clearReviewedVerificationMismatches: () => void;
   isRecordDirty: (type: DirtyRecordRef['type'], id: string) => boolean;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;

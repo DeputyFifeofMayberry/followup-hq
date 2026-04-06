@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, LogOut, RefreshCcw, Save, Upload, UserRound } from 'lucide-react';
+import { RecoveryCenter } from './RecoveryCenter';
+import { downloadVerificationIncidentReport, exportVerificationIncident } from '../lib/persistenceVerification';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
 import { getCloudConfirmationLabel, getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
@@ -21,12 +23,16 @@ export function SyncStatusControl() {
     persistenceActivity: s.persistenceActivity,
     flushPersistenceNow: s.flushPersistenceNow,
     retryPersistenceNow: s.retryPersistenceNow,
+    verifyNow: s.verifyNow,
+    markVerificationMismatchReviewed: s.markVerificationMismatchReviewed,
+    clearReviewedVerificationMismatches: s.clearReviewedVerificationMismatches,
   })));
   const [open, setOpen] = useState(false);
   const [runningManualSave, setRunningManualSave] = useState(false);
   const [runningRetry, setRunningRetry] = useState(false);
   const [email, setEmail] = useState<string>('');
   const [signingOut, setSigningOut] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
@@ -84,7 +90,7 @@ export function SyncStatusControl() {
 
       {open ? (
         <section className="sync-status-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Sync status details">
-          <div className="sync-status-panel-title">Save status</div>
+          <div className="sync-status-panel-title">Save & sync trust center</div>
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Current state</span>
@@ -102,6 +108,7 @@ export function SyncStatusControl() {
               <span>{statusModel.modeLabel}</span>
             </div>
             <div className="sync-status-row-detail">{statusModel.modeDescription}</div>
+            <div className="sync-status-row-detail">Local/browser mode: {syncMeta.persistenceMode === "supabase" ? "Cloud-backed" : "Local/browser mode"}</div>
           </div>
 
           <div className="sync-status-row">
@@ -160,6 +167,28 @@ export function SyncStatusControl() {
             </div>
           ) : null}
 
+
+          <div className="sync-status-actions">
+            <button
+              type="button"
+              className="action-btn"
+              disabled={syncMeta.verificationState === 'running'}
+              onClick={() => {
+                void syncMeta.verifyNow('manual');
+              }}
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              {syncMeta.verificationState === 'running' ? 'Verifying…' : 'Verify now'}
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={() => setRecoveryOpen(true)}
+            >
+              Open Recovery Center
+            </button>
+          </div>
+
           <details className="sync-status-row">
             <summary className="sync-status-row-label">Technical details</summary>
             <div className="sync-status-diagnostics-grid">
@@ -168,12 +197,21 @@ export function SyncStatusControl() {
                 <div className="sync-status-row-detail">{getCloudConfirmationLabel(syncMeta)}</div>
               </div>
               <div>
-                <div className="sync-status-row-detail sync-status-row-detail-strong">Last failed save</div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Last failed sync attempt</div>
                 <div className="sync-status-row-detail">{syncMeta.lastFailedSyncAt ? formatDateTime(syncMeta.lastFailedSyncAt) : 'No failed save attempts recorded.'}</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Unsaved local edits</div>
                 <div className="sync-status-row-detail">{syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} record${syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits` : 'No pending local edits.'}</div>
+              </div>
+
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Verification status</div>
+                <div className="sync-status-row-detail">{syncMeta.verificationState}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Last verification</div>
+                <div className="sync-status-row-detail">{syncMeta.lastVerificationCompletedAt ? formatDateTime(syncMeta.lastVerificationCompletedAt) : 'No verification run yet.'}</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Connected Supabase host</div>
@@ -227,7 +265,37 @@ export function SyncStatusControl() {
               </div>
             ) : null}
 
-            <div className="sync-status-row-detail sync-status-row-detail-strong" style={{ marginTop: 8 }}>Activity log</div>
+
+            {syncMeta.verificationSummary ? (
+              <>
+                <div className="sync-status-row-detail">Verification result: {syncMeta.verificationSummary.verified ? 'matched current cloud state' : `found ${syncMeta.verificationSummary.mismatchCount} mismatches`}.</div>
+                <div className="sync-status-row-detail">Mismatch counts by category: {Object.entries(syncMeta.verificationSummary.mismatchCountsByCategory).filter(([, count]) => count > 0).map(([category, count]) => `${category} (${count})`).join('; ') || 'none'}</div>
+                <div className="sync-status-row-detail">Mismatch counts by entity: {Object.entries(syncMeta.verificationSummary.mismatchCountsByEntity).map(([entity, count]) => `${entity} (${count})`).join('; ') || 'none'}</div>
+                <div className="sync-status-row-detail">Verification based on batch: {syncMeta.verificationSummary.basedOnBatchId ?? 'not tied to a committed batch'}</div>
+                <button type="button" className="action-btn" onClick={() => {
+                  if (!syncMeta.latestVerificationResult) return;
+                  const report = exportVerificationIncident({
+                    verificationResult: syncMeta.latestVerificationResult,
+                    appVersion: typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_APP_VERSION : undefined,
+                    lastConfirmedBatchId: syncMeta.lastConfirmedBatchId,
+                    lastConfirmedCommittedAt: syncMeta.lastConfirmedBatchCommittedAt,
+                    lastLocalWriteAt: syncMeta.lastLocalWriteAt,
+                    cloudConfirmationStatus: syncMeta.cloudSyncStatus,
+                    sessionTrustState: syncMeta.sessionTrustState,
+                    degradedReason: syncMeta.sessionDegradedReason,
+                    receiptMetadata: {
+                      status: syncMeta.lastReceiptStatus,
+                      hashMatch: syncMeta.lastReceiptHashMatch,
+                      touchedTables: syncMeta.lastReceiptTouchedTables,
+                      operationCount: syncMeta.lastReceiptOperationCount,
+                    },
+                  });
+                  downloadVerificationIncidentReport(report);
+                }}>Export report</button>
+              </>
+            ) : null}
+
+            <div className="sync-status-row-detail sync-status-row-detail-strong" style={{ marginTop: 8 }}>Recent sync activity</div>
             {syncMeta.persistenceActivity.length ? (
               <ul className="sync-status-activity-list" aria-label="Persistence activity log">
                 {syncMeta.persistenceActivity.map((entry) => (
@@ -244,6 +312,38 @@ export function SyncStatusControl() {
               <div className="sync-status-row-detail">No sync activity recorded yet.</div>
             )}
           </details>
+
+
+          <RecoveryCenter
+            open={recoveryOpen}
+            onClose={() => setRecoveryOpen(false)}
+            verificationState={syncMeta.verificationState}
+            lastVerificationCompletedAt={syncMeta.lastVerificationCompletedAt}
+            lastConfirmedBatchId={syncMeta.lastConfirmedBatchId}
+            lastLocalWriteAt={syncMeta.lastLocalWriteAt}
+            mismatchList={syncMeta.latestVerificationResult?.mismatches ?? []}
+            mismatchCountsByCategory={syncMeta.verificationSummary?.mismatchCountsByCategory ?? {}}
+            mismatchCountsByEntity={syncMeta.verificationSummary?.mismatchCountsByEntity ?? {}}
+            localSnapshotSummary={syncMeta.latestVerificationResult?.localSnapshotSummary}
+            cloudSnapshotSummary={syncMeta.latestVerificationResult?.cloudSnapshotSummary}
+            reviewedMismatchIds={syncMeta.reviewedMismatchIds}
+            onVerifyNow={() => { void syncMeta.verifyNow('manual'); }}
+            onReRunCloudRead={() => { void syncMeta.verifyNow('manual'); }}
+            onMarkReviewed={(mismatchId) => syncMeta.markVerificationMismatchReviewed(mismatchId)}
+            onExportReport={() => {
+              if (!syncMeta.latestVerificationResult) return;
+              const report = exportVerificationIncident({
+                verificationResult: syncMeta.latestVerificationResult,
+                lastConfirmedBatchId: syncMeta.lastConfirmedBatchId,
+                lastConfirmedCommittedAt: syncMeta.lastConfirmedBatchCommittedAt,
+                lastLocalWriteAt: syncMeta.lastLocalWriteAt,
+                cloudConfirmationStatus: syncMeta.cloudSyncStatus,
+                sessionTrustState: syncMeta.sessionTrustState,
+                degradedReason: syncMeta.sessionDegradedReason,
+              });
+              downloadVerificationIncidentReport(report);
+            }}
+          />
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Session</span>

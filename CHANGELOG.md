@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-06
+
+### Execution-lane momentum pass
+- Execution-lane momentum pass: made Follow-Ups and Tasks more action-first, reduced inspector friction, and improved next-item throughput for personal daily driving.
+- Tightened Follow-Ups and Tasks lane headers so queues appear earlier, collapsed lower-frequency controls behind calmer disclosures, and reduced top-of-lane management overhead.
+- Reworked follow-up and task inspectors into command-surface rhythm with one clearly recommended action, compact quick update patches, and lower-default emphasis on history/maintenance sections.
+- Standardized post-action progression behavior to keep momentum through queue items after complete/close/defer style actions with local lane feedback near queue/inspector boundaries.
+
 ## 2026-04-05
 
 ### Deficiency 5 Phase 3: unified support-workspace engine

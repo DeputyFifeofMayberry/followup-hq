@@ -52,6 +52,7 @@ export interface AppStoreActions {
   initializeApp: () => Promise<void>;
   flushPersistenceNow: () => Promise<void>;
   retryPersistenceNow: () => Promise<void>;
+  resetForLogout: () => void;
 
   verifyNow: (mode?: 'manual' | 'post-save' | 'startup-review') => Promise<void>;
   markVerificationMismatchReviewed: (mismatchId: string) => void;

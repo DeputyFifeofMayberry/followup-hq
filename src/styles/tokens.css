@@ -14,6 +14,10 @@
   --surface-secondary: #f3f7fc;
   --surface-muted: #edf3f9;
   --surface-inspector: #eef4fb;
+  --surface-shell-elevated: rgba(14, 25, 41, 0.88);
+  --surface-shell-rail: rgba(11, 20, 34, 0.94);
+  --surface-shell-pane: rgba(243, 249, 255, 0.94);
+  --surface-shell-hero: linear-gradient(180deg, rgba(250, 253, 255, 0.97), rgba(238, 246, 253, 0.96));
   --surface-hero: linear-gradient(180deg, #fbfdff 0%, #f2f7fc 100%);
   --surface-command: #f7fbff;
   --surface-row: #f8fbff;
@@ -33,6 +37,8 @@
   --text-inverse: #f8fbff;
 
   --accent: #0f766e;
+  --accent-soft: rgba(15, 118, 110, 0.18);
+  --accent-strong: #0b5f59;
   --accent-hover: #115e59;
   --success: #047857;
   --warning: #b45309;

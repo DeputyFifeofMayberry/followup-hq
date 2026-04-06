@@ -9,10 +9,14 @@ export function OverviewSignalCards({ cards, onRouteCard }: OverviewSignalCardsP
   return (
     <div className="overview-signal-grid" aria-label="Routing signals">
       {cards.map((card) => (
-        <div key={card.key} className="overview-signal-card">
+        <div key={card.key} className={`overview-signal-card overview-signal-card-${card.key}`}>
+          <div className="overview-signal-topline">
+            <span className="overview-signal-label">{card.label}</span>
+            <span className="overview-signal-lane">{card.lane === 'tasks' ? 'Tasks lane' : 'Follow Ups lane'}</span>
+          </div>
           <strong className="overview-signal-count">{card.count}</strong>
-          <span className="overview-signal-label">{card.label}</span>
-          <button onClick={() => onRouteCard(card)} className="action-btn overview-signal-cta !px-2 !py-0.5 text-[11px]">
+          <p className="overview-signal-intent">{card.intentLabel}</p>
+          <button onClick={() => onRouteCard(card)} className="action-btn overview-signal-cta">
             {card.ctaLabel}
           </button>
         </div>

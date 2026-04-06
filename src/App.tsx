@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, LogOut, Mail, Search, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, LogOut, Mail, Menu, Search, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react';
 
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
@@ -276,6 +276,7 @@ function MainApp({ session }: { session: Session }) {
   const [showCommand, setShowCommand] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutInProgress, setSignOutInProgress] = useState(false);
   const [saveAndSignOutInProgress, setSaveAndSignOutInProgress] = useState(false);
@@ -319,6 +320,17 @@ function MainApp({ session }: { session: Session }) {
     }
     commandSearchRef.current?.focus();
   }, [showCommand]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const closeOnDesktop = () => {
+      if (window.innerWidth >= 1200) {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener('resize', closeOnDesktop);
+    return () => window.removeEventListener('resize', closeOnDesktop);
+  }, []);
 
   const openTrackerView = useCallback((view: SavedViewKey, project = 'All') => {
     setActiveView(view);
@@ -441,7 +453,7 @@ function MainApp({ session }: { session: Session }) {
   return (
     <div className={`app-shell text-slate-900 ${currentMeta.category === 'support' ? 'app-shell-support-workspace' : 'app-shell-primary-workspace'}`}>
       <div className="app-shell-layout">
-        <aside className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''}`} aria-label="Primary workspace navigation">
+        <aside id="primary-workspace-nav" className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''} ${mobileNavOpen ? 'app-nav-rail-mobile-open' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
             <div className="app-brand-title">SetPoint</div>
@@ -463,7 +475,10 @@ function MainApp({ session }: { session: Session }) {
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setWorkspace(key)}
+                        onClick={() => {
+                          setWorkspace(key);
+                          setMobileNavOpen(false);
+                        }}
                         className={[
                           'nav-card',
                           active ? 'nav-card-active' : '',
@@ -492,8 +507,19 @@ function MainApp({ session }: { session: Session }) {
           </div>
           <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open SetPoint command palette</button></div>
         </aside>
+        {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 
           <main className="app-main-pane">
+            <div className="app-compact-shell-bar">
+              <button type="button" className="app-compact-shell-btn" onClick={() => setMobileNavOpen((value) => !value)} aria-expanded={mobileNavOpen} aria-controls="primary-workspace-nav">
+                {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+                Workspace menu
+              </button>
+              <div className="app-compact-shell-current">
+                <span>{modeConfig.displayName}</span>
+                <strong>{currentMeta.shellTitle}</strong>
+              </div>
+            </div>
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
               <div className="workspace-header-main">
                 <div className="workspace-label">{modeConfig.displayName}</div>

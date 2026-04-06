@@ -14,7 +14,10 @@ interface OverviewStartStripProps {
 export function OverviewStartStrip({ stats, onOpenIntake, onRouteFollowUps, onRouteTasks, onQuickAdd }: OverviewStartStripProps) {
   return (
     <ExecutionLaneSummary className="overview-hero-card overview-start-band">
-      <SectionHeader title="Overview lane" subtitle="Scan pressure, select an item, and route it to the right execution lane." compact />
+      <div className="overview-command-head">
+        <SectionHeader title="Operational command deck" subtitle="Scan pressure, prioritize what matters now, and route work into the right lane." compact />
+        <p className="overview-command-caption">Use this surface to make fast routing decisions across tasks, follow-ups, and intake cleanup.</p>
+      </div>
       <OverviewSummaryStats stats={stats} />
       <OverviewRouteActions
         onOpenIntake={onOpenIntake}

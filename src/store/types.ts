@@ -56,6 +56,8 @@ export interface AppStoreActions {
   verifyNow: (mode?: 'manual' | 'post-save' | 'startup-review') => Promise<void>;
   markVerificationMismatchReviewed: (mismatchId: string) => void;
   clearReviewedVerificationMismatches: () => void;
+  markConflictReviewed: (conflictId: string) => void;
+  dismissConflict: (conflictId: string) => void;
   isRecordDirty: (type: DirtyRecordRef['type'], id: string) => boolean;
   setSelectedId: (id: string) => void;
   setSearch: (value: string) => void;

@@ -52,6 +52,15 @@ function baseMeta() {
     verificationSummary: undefined,
     latestVerificationResult: undefined,
     reviewedMismatchIds: [],
+    outboxState: 'idle',
+    unresolvedOutboxCount: 0,
+    lastOutboxFlushAt: undefined,
+    lastOutboxFailureAt: undefined,
+    conflictReviewNeeded: false,
+    openConflictCount: 0,
+    lastConflictDetectedAt: undefined,
+    lastConflictBatchId: undefined,
+    lastConflictFailureMessage: undefined,
   } as const;
 }
 
@@ -194,6 +203,15 @@ function testSharedSnapshotSelectorConsistency(): void {
     verificationSummary: undefined,
     latestVerificationResult: undefined,
     reviewedMismatchIds: [],
+    outboxState: 'idle',
+    unresolvedOutboxCount: 0,
+    lastOutboxFlushAt: undefined,
+    lastOutboxFailureAt: undefined,
+    conflictReviewNeeded: false,
+    openConflictCount: 0,
+    lastConflictDetectedAt: undefined,
+    lastConflictBatchId: undefined,
+    lastConflictFailureMessage: undefined,
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);
@@ -235,6 +253,14 @@ function testVerifiedMatchAndRecoveryProjection(): void {
     },
   } as any);
   assert(recoveryModel.primaryState === 'needs-attention', `expected mismatch review to require attention, got ${recoveryModel.primaryState}`);
+
+  const conflictModel = getSyncStatusModel({
+    ...baseMeta(),
+    outboxState: 'conflict',
+    conflictReviewNeeded: true,
+    openConflictCount: 2,
+  } as any);
+  assert(conflictModel.stateLabel === 'Conflict review needed', `expected conflict-specific status label, got ${conflictModel.stateLabel}`);
 }
 
 (function run() {

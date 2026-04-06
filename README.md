@@ -206,3 +206,29 @@ SetPoint can export a structured verification incident JSON report for debugging
 - multi-device merge decision UX,
 - broad automatic repair,
 - broad batch rollback tooling.
+
+## Save trust model (Phase 3)
+
+SetPoint now treats save durability and divergence explicitly:
+
+- **Save receipt proves commit**: a save is not considered cloud-committed until the authoritative batch receipt returns `status=committed`.
+- **Verification proves match at a moment in time**: verification still checks local/cloud alignment after commit.
+- **Conflict means overwrite was blocked**: stale/concurrent divergence now returns explicit `status=conflict`; SetPoint does not silently last-writer-wins these operations.
+- **Durable outbox protects intent**: pending writes are held in a restart-safe local outbox and are not discarded without a safe authoritative receipt.
+
+### What “conflict review needed” means
+
+When SetPoint detects stale writes, concurrent edits, edit-vs-delete, or delete-vs-edit divergence, save processing is blocked for that batch and the conflict queue is populated. Your local changes remain protected, and you can review conflict details before continuing.
+
+### Deletes, undo, and restore safety
+
+- Deletes remain tombstoned (soft delete) and revision-aware.
+- Delete operations include explicit intent and expected base revision metadata.
+- Snapshot omission is never treated as a delete.
+- Bulk destructive paths rely on explicit delete guards and conflict-aware processing.
+
+### Out of scope after Phase 3
+
+- Fully automatic merge resolution.
+- Complex collaborative multi-user editing.
+- Advanced semantic merge tooling.

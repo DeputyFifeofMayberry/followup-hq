@@ -14,6 +14,8 @@ import { refreshDuplicates } from '../useCases/mutationEffects';
 import { createPersistenceActivityEvent, describeLoadFallbackFailure } from '../persistenceActivity';
 import { deriveSyncMetaFromLoadResult } from './syncMetaDerivation';
 import { formatPersistenceErrorMessage, normalizePersistenceError } from '../../lib/persistenceError';
+import { listUnresolvedOutboxEntries, loadOutboxState } from '../../lib/persistenceOutbox';
+import { incrementMetric } from '../../lib/persistenceMetrics';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
   return {
@@ -51,6 +53,8 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
         const fallbackFailure = cloudReadFailed && loadedFromFallback
           ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage)
           : undefined;
+        const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState());
+        if (unresolvedOutbox.length > 0) incrementMetric('outboxRestoresOnStartup', unresolvedOutbox.length);
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);
         const companies = (payload.companies ?? []).map(normalizeCompany);
@@ -138,6 +142,17 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           reviewedMismatchIds: [],
           verificationSummary: undefined,
           latestVerificationResult: undefined,
+          outboxState: unresolvedOutbox.length ? 'queued' : 'idle',
+          unresolvedOutboxCount: unresolvedOutbox.length,
+          lastOutboxFlushAt: undefined,
+          lastOutboxFailureAt: undefined,
+          conflictReviewNeeded: false,
+          openConflictCount: 0,
+          lastConflictDetectedAt: undefined,
+          lastConflictBatchId: undefined,
+          conflictQueueSummary: undefined,
+          lastConflictFailureMessage: undefined,
+          conflictQueue: [],
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'saved',
             summary: fallbackFailure
@@ -216,6 +231,17 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           reviewedMismatchIds: [],
           verificationSummary: undefined,
           latestVerificationResult: undefined,
+          outboxState: 'idle',
+          unresolvedOutboxCount: 0,
+          lastOutboxFlushAt: undefined,
+          lastOutboxFailureAt: undefined,
+          conflictReviewNeeded: false,
+          openConflictCount: 0,
+          lastConflictDetectedAt: undefined,
+          lastConflictBatchId: undefined,
+          conflictQueueSummary: undefined,
+          lastConflictFailureMessage: undefined,
+          conflictQueue: [],
           persistenceActivity: [createPersistenceActivityEvent({
             kind: 'failed',
             at: failureAt,

@@ -33,7 +33,7 @@ export interface SyncMetaSnapshot {
   lastSuccessfulCloudPersistAt?: string;
   lastConfirmedBatchId?: string;
   lastConfirmedBatchCommittedAt?: string;
-  lastReceiptStatus?: 'committed' | 'rejected';
+  lastReceiptStatus?: 'committed' | 'rejected' | 'received' | 'conflict';
   lastReceiptHashMatch?: boolean;
   lastReceiptSchemaVersion?: number;
   lastReceiptTouchedTables?: string[];
@@ -58,6 +58,15 @@ export interface SyncMetaSnapshot {
   };
   latestVerificationResult?: any;
   reviewedMismatchIds: readonly string[];
+  outboxState: 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
+  unresolvedOutboxCount: number;
+  lastOutboxFlushAt?: string;
+  lastOutboxFailureAt?: string;
+  conflictReviewNeeded: boolean;
+  openConflictCount: number;
+  lastConflictDetectedAt?: string;
+  lastConflictBatchId?: string;
+  lastConflictFailureMessage?: string;
 }
 
 export interface SyncStatusModel {
@@ -145,6 +154,15 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     verificationSummary: state.verificationSummary,
     latestVerificationResult: state.latestVerificationResult,
     reviewedMismatchIds: state.reviewedMismatchIds,
+    outboxState: state.outboxState,
+    unresolvedOutboxCount: state.unresolvedOutboxCount,
+    lastOutboxFlushAt: state.lastOutboxFlushAt,
+    lastOutboxFailureAt: state.lastOutboxFailureAt,
+    conflictReviewNeeded: state.conflictReviewNeeded,
+    openConflictCount: state.openConflictCount,
+    lastConflictDetectedAt: state.lastConflictDetectedAt,
+    lastConflictBatchId: state.lastConflictBatchId,
+    lastConflictFailureMessage: state.lastConflictFailureMessage,
   };
 }
 
@@ -305,7 +323,11 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   const needsAttention =
-    meta.recoveryReviewNeeded
+    meta.conflictReviewNeeded
+    || meta.openConflictCount > 0
+    || meta.outboxState === 'conflict'
+    || meta.outboxState === 'failed'
+    || meta.recoveryReviewNeeded
     || meta.verificationState === 'failed'
     || meta.sessionDegraded
     || meta.syncState === 'error'
@@ -318,6 +340,30 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     || Boolean(meta.loadedFromLocalRecoveryCache);
 
   if (needsAttention) {
+    if (meta.conflictReviewNeeded || meta.openConflictCount > 0 || meta.outboxState === 'conflict') {
+      return {
+        primaryState: 'needs-attention',
+        stateLabel: 'Conflict review needed',
+        stateDescription: 'Conflict review needed before cloud save can continue.',
+        reassurance: 'Protected local copy retained. Conflict review required.',
+        tone: 'warn',
+        stateTone: 'danger',
+        showSpinner: false,
+        ...modeDetails,
+      };
+    }
+    if (meta.outboxState === 'failed') {
+      return {
+        primaryState: 'needs-attention',
+        stateLabel: 'Pending save review',
+        stateDescription: 'Queued changes still need cloud confirmation.',
+        reassurance: 'Pending save review.',
+        tone: 'warn',
+        stateTone: 'warn',
+        showSpinner: false,
+        ...modeDetails,
+      };
+    }
     const attention = meta.recoveryReviewNeeded
       ? { reassurance: 'Recovery review needed.', stateDescription: 'Last verification found mismatches between local intended state and cloud state.', tone: 'warn' as const, stateTone: 'warn' as const }
       : meta.verificationState === 'failed'

@@ -8,6 +8,9 @@ export interface SaveBatchOperation {
   operation: SaveBatchOperationType;
   recordSnapshot?: unknown;
   deletedAt?: string;
+  expectedRecordVersion?: number | null;
+  expectedDeletedAt?: string | null;
+  expectedLastBatchId?: string | null;
 }
 
 export interface SaveBatchEntityCounts {
@@ -31,23 +34,31 @@ export interface SaveBatchEnvelope {
   clientPayloadHash: string;
 }
 
+export type SaveBatchStatus = 'committed' | 'rejected' | 'received' | 'conflict';
+
 export interface SaveBatchReceipt {
   batchId: string;
   userId: string;
-  status: 'committed' | 'rejected' | 'received';
+  status: SaveBatchStatus;
   committedAt?: string;
   schemaVersion: number;
   operationCount: number;
+  appliedOperationCount?: number;
+  conflictedOperationCount?: number;
   operationCountsByEntity: SaveBatchEntityCounts;
   touchedTables: string[];
   clientPayloadHash?: string;
   serverPayloadHash: string;
   hashMatch: boolean;
+  conflictIds?: string[];
+  conflictCountByEntity?: Record<string, number>;
+  conflictCountByType?: Record<string, number>;
+  outboxSafeToClear?: boolean;
 }
 
 export interface SaveBatchFailureSummary {
   batchId?: string;
-  status?: 'rejected' | 'received';
+  status?: SaveBatchStatus;
   errorCode?: string;
   errorMessage: string;
   details?: Record<string, unknown>;

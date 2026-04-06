@@ -2,6 +2,10 @@
 
 ## 2026-04-06
 
+### Workflow-confidence hardening pass
+- Workflow-confidence hardening pass: added deterministic browser-level coverage for the personal daily-use loop, including routing, execution, editing, drawer escalation, and save/reload behavior.
+- Added Playwright e2e scaffolding, deterministic local-cache seeding harness, and workflow-focused smoke/full-path specs covering shell boot, overview routing, follow-up/task execution actions, quick add routing, full edit, drawer escalation, support workspace lane handoff, and reload confidence (`playwright.config.ts`, `e2e/**/*`, `src/lib/e2eMode.ts`, `src/App.tsx`, `package.json`).
+
 ### High-frequency create/edit simplification pass
 - High-frequency create/edit simplification pass: clarified Quick Add vs Quick Edit vs Full Edit vs Record Context, reduced correction friction, and decomposed the canonical editor for personal daily-driving.
 - Simplified Quick Add hierarchy around a dominant import-vs-review decision, moved parser diagnostics/trust posture into optional disclosures, and kept structured full-create escalation explicit but secondary (`src/components/UniversalCapture.tsx`).

@@ -40,6 +40,18 @@ function baseMeta() {
     lastReceiptOperationCount: undefined,
     lastReceiptOperationCountsByEntity: undefined,
     lastFailedBatchId: undefined,
+    verificationState: 'idle',
+    lastVerificationRunId: undefined,
+    lastVerificationStartedAt: undefined,
+    lastVerificationCompletedAt: undefined,
+    lastVerificationMatched: undefined,
+    lastVerificationMismatchCount: undefined,
+    lastVerificationBasedOnBatchId: undefined,
+    lastVerificationFailureMessage: undefined,
+    recoveryReviewNeeded: false,
+    verificationSummary: undefined,
+    latestVerificationResult: undefined,
+    reviewedMismatchIds: [],
   } as const;
 }
 
@@ -170,6 +182,18 @@ function testSharedSnapshotSelectorConsistency(): void {
       companies: { upserts: 0, deletes: 0 },
     },
     lastFailedBatchId: undefined,
+    verificationState: 'idle',
+    lastVerificationRunId: undefined,
+    lastVerificationStartedAt: undefined,
+    lastVerificationCompletedAt: undefined,
+    lastVerificationMatched: undefined,
+    lastVerificationMismatchCount: undefined,
+    lastVerificationBasedOnBatchId: undefined,
+    lastVerificationFailureMessage: undefined,
+    recoveryReviewNeeded: false,
+    verificationSummary: undefined,
+    latestVerificationResult: undefined,
+    reviewedMismatchIds: [],
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);
@@ -184,6 +208,35 @@ function testSharedSnapshotSelectorConsistency(): void {
   assert(snapshotForHeader.lastReceiptHashMatch === true, 'sync snapshot should include hash match status');
 }
 
+
+function testVerifiedMatchAndRecoveryProjection(): void {
+  const verifiedModel = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'verified-match',
+    lastVerificationCompletedAt: '2026-04-06T12:00:00.000Z',
+    verificationSummary: {
+      verified: true,
+      mismatchCount: 0,
+      mismatchCountsByCategory: {},
+      mismatchCountsByEntity: {},
+    },
+  } as any);
+  assert(verifiedModel.stateDescription === 'Verified match with current cloud data.', `expected verified message, got ${verifiedModel.stateDescription}`);
+
+  const recoveryModel = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'mismatch-found',
+    recoveryReviewNeeded: true,
+    verificationSummary: {
+      verified: false,
+      mismatchCount: 2,
+      mismatchCountsByCategory: { content_mismatch: 2 },
+      mismatchCountsByEntity: { tasks: 2 },
+    },
+  } as any);
+  assert(recoveryModel.primaryState === 'needs-attention', `expected mismatch review to require attention, got ${recoveryModel.primaryState}`);
+}
+
 (function run() {
   testCloudConfirmedPrimaryState();
   testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
@@ -191,5 +244,6 @@ function testSharedSnapshotSelectorConsistency(): void {
   testFallbackCasesMapToNeedsAttention();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
+  testVerifiedMatchAndRecoveryProjection();
   testSharedSnapshotSelectorConsistency();
 })();

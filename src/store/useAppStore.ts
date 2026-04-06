@@ -17,6 +17,7 @@ import type { AppStore } from './types';
 import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } from './persistenceQueue';
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
+import { verifyPersistedState } from '../lib/persistenceVerification';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -67,7 +68,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
           }),
-          onSaved: (mode, timestamp, reason, didPersist, diagnostics) => set((state) => {
+          onSaved: (mode, timestamp, reason, didPersist, diagnostics) => {
+            set((state) => {
             const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
             const saveKind = getSaveResultKind(mode, didPersist);
             const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
@@ -192,6 +194,75 @@ export const useAppStore = create<AppStore>()((set, get) => {
       if (!persistenceQueue) return;
       await persistenceQueue.retryNow();
     },
+
+    verifyNow: async (mode = 'manual') => {
+      const startedAt = new Date().toISOString();
+      set((state) => ({
+        verificationState: 'running',
+        lastVerificationStartedAt: startedAt,
+        lastVerificationFailureMessage: undefined,
+      }));
+
+      try {
+        const current = get();
+        const result = await verifyPersistedState({
+          target: {
+            payload: buildPersistedPayload(current),
+            schemaVersionClient: current.lastReceiptSchemaVersion,
+            lastLocalWriteAt: current.lastLocalWriteAt,
+          },
+          context: {
+            mode,
+            basedOnBatchId: current.lastConfirmedBatchId,
+            basedOnCommittedAt: current.lastConfirmedBatchCommittedAt,
+            includePreviews: true,
+            maxMismatchPreviewCount: 50,
+          },
+        });
+
+        set((state) => ({
+          verificationState: result.summary.verified ? 'verified-match' : 'mismatch-found',
+          lastVerificationRunId: result.summary.runId,
+          lastVerificationStartedAt: result.summary.startedAt,
+          lastVerificationCompletedAt: result.summary.completedAt,
+          lastVerificationMatched: result.summary.verified,
+          lastVerificationMismatchCount: result.summary.mismatchCount,
+          lastVerificationBasedOnBatchId: result.summary.basedOnBatchId,
+          lastVerificationFailureMessage: result.summary.cloudReadSucceeded ? undefined : result.mismatches[0]?.technicalDetail,
+          verificationSummary: result.summary,
+          latestVerificationResult: result,
+          recoveryReviewNeeded: !result.summary.verified,
+          reviewedMismatchIds: !result.summary.verified ? state.reviewedMismatchIds : [],
+          persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+            kind: 'saved',
+            summary: result.summary.verified ? 'Verified match with cloud state.' : 'Recovery review needed.',
+            detail: result.summary.verified
+              ? 'Last verification matched current cloud state.'
+              : `Last verification found ${result.summary.mismatchCount} mismatch${result.summary.mismatchCount === 1 ? '' : 'es'}.`,
+          })),
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Verification failed.';
+        set((state) => ({
+          verificationState: 'failed',
+          lastVerificationCompletedAt: new Date().toISOString(),
+          lastVerificationMatched: false,
+          lastVerificationFailureMessage: message,
+          recoveryReviewNeeded: state.recoveryReviewNeeded,
+          persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+            kind: 'failed',
+            summary: 'Could not verify current cloud match.',
+            detail: message,
+          })),
+        }));
+      }
+    },
+    markVerificationMismatchReviewed: (mismatchId) => set((state) => (
+      state.reviewedMismatchIds.includes(mismatchId)
+        ? state
+        : { reviewedMismatchIds: [...state.reviewedMismatchIds, mismatchId] }
+    )),
+    clearReviewedVerificationMismatches: () => set({ reviewedMismatchIds: [] }),
     isRecordDirty: (type, id) => get().dirtyRecordRefs.some((ref) => ref.type === type && ref.id === id),
   };
 });

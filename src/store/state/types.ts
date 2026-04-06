@@ -40,6 +40,7 @@ import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
 import type { SaveBatchEntityCounts } from '../../lib/persistenceTypes';
+import type { VerificationResult, VerificationSummary } from '../../lib/persistenceVerification';
 import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 import type { SupportWorkspaceSessionState } from '../../domains/support';
 
@@ -169,6 +170,8 @@ export type SessionDegradedReason =
   | 'local-recovery-fallback'
   | 'load-failed-no-local-copy';
 
+export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
+
 export interface AppMetaState {
   hydrated: boolean;
   persistenceMode: PersistenceMode;
@@ -204,5 +207,19 @@ export interface AppMetaState {
   lastReceiptOperationCount?: number;
   lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
   lastFailedBatchId?: string;
-  persistenceActivity: PersistenceActivityEvent[];
+
+  verificationState: VerificationLifecycleState;
+  lastVerificationRunId?: string;
+  lastVerificationStartedAt?: string;
+  lastVerificationCompletedAt?: string;
+  lastVerificationMatched?: boolean;
+  lastVerificationMismatchCount?: number;
+  lastVerificationBasedOnBatchId?: string;
+  lastVerificationFailureMessage?: string;
+  recoveryReviewNeeded: boolean;
+  reviewedMismatchIds: string[];
+  verificationSummary?: VerificationSummary;
+  latestVerificationResult?: VerificationResult;
+
+    persistenceActivity: PersistenceActivityEvent[];
 }

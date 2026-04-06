@@ -2,6 +2,13 @@
 
 ## 2026-04-06
 
+### Save-system overhaul Phase 2: verification + recovery center
+- Added a deterministic persistence verification engine that performs fresh cloud reads, normalizes local/cloud snapshots, compares per entity record id, detects categorized mismatches (including tombstone/auxiliary/schema/read-failure cases), and builds rich verification summaries (`src/lib/persistenceVerification.ts`, `src/lib/persistence.ts`).
+- Added explicit verification lifecycle/store state separate from receipt-backed save confirmation, including mismatch review flags, reviewed mismatch tracking, latest verification result retention, and post-save verification hook points for manual/retry saves (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
+- Added Recovery Center UI with summary, snapshot state, filterable mismatch queue, record detail panel, Verify now, mark-reviewed, re-run cloud read, and export report actions (`src/components/RecoveryCenter.tsx`, `src/components/SyncStatusControl.tsx`).
+- Added structured verification incident export JSON helper for support/debug/user self-review without secrets/tokens (`src/lib/persistenceVerification.ts`, `src/components/SyncStatusControl.tsx`).
+- Expanded verification/recovery regression coverage for verification success, mismatch categorization, auxiliary/schema/read-failure behavior, status projection, and export content (`src/lib/__tests__/persistenceVerification.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`, `package.json`).
+
 ### Save-system overhaul Phase 1: authoritative RPC batching + receipt-backed confirmation
 - Replaced the live cloud save commit path from client-side multi-table writes to one authoritative `apply_save_batch` RPC that applies entity + auxiliary operations atomically and returns a durable save receipt (`src/lib/persistence.ts`, `src/lib/persistenceTypes.ts`, `src/lib/persistenceHash.ts`, `src/lib/persistenceIdentity.ts`, `supabase/migrations/20260406_phase1_authoritative_save_batches.sql`).
 - Added `save_batches` schema + idempotent server receipt tracking with deterministic payload hashing, status transitions (`received`/`committed`/`rejected`), and structured failure summaries so cloud confirmation is receipt-backed rather than inferred from per-table client writes (`supabase/migrations/20260406_phase1_authoritative_save_batches.sql`).

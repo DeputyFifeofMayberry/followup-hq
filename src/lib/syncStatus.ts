@@ -40,6 +40,24 @@ export interface SyncMetaSnapshot {
   lastReceiptOperationCount?: number;
   lastReceiptOperationCountsByEntity?: SaveBatchEntityCounts;
   lastFailedBatchId?: string;
+  verificationState: 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
+  lastVerificationRunId?: string;
+  lastVerificationStartedAt?: string;
+  lastVerificationCompletedAt?: string;
+  lastVerificationMatched?: boolean;
+  lastVerificationMismatchCount?: number;
+  lastVerificationBasedOnBatchId?: string;
+  lastVerificationFailureMessage?: string;
+  recoveryReviewNeeded: boolean;
+  verificationSummary?: {
+    verified: boolean;
+    mismatchCount: number;
+    basedOnBatchId?: string;
+    mismatchCountsByCategory: Record<string, number>;
+    mismatchCountsByEntity: Record<string, number>;
+  };
+  latestVerificationResult?: any;
+  reviewedMismatchIds: readonly string[];
 }
 
 export interface SyncStatusModel {
@@ -115,6 +133,18 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     lastReceiptOperationCount: state.lastReceiptOperationCount,
     lastReceiptOperationCountsByEntity: state.lastReceiptOperationCountsByEntity,
     lastFailedBatchId: state.lastFailedBatchId,
+    verificationState: state.verificationState,
+    lastVerificationRunId: state.lastVerificationRunId,
+    lastVerificationStartedAt: state.lastVerificationStartedAt,
+    lastVerificationCompletedAt: state.lastVerificationCompletedAt,
+    lastVerificationMatched: state.lastVerificationMatched,
+    lastVerificationMismatchCount: state.lastVerificationMismatchCount,
+    lastVerificationBasedOnBatchId: state.lastVerificationBasedOnBatchId,
+    lastVerificationFailureMessage: state.lastVerificationFailureMessage,
+    recoveryReviewNeeded: state.recoveryReviewNeeded,
+    verificationSummary: state.verificationSummary,
+    latestVerificationResult: state.latestVerificationResult,
+    reviewedMismatchIds: state.reviewedMismatchIds,
   };
 }
 
@@ -275,7 +305,9 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   const needsAttention =
-    meta.sessionDegraded
+    meta.recoveryReviewNeeded
+    || meta.verificationState === 'failed'
+    || meta.sessionDegraded
     || meta.syncState === 'error'
     || Boolean(meta.saveError)
     || meta.cloudSyncStatus === 'local-newer-than-cloud'
@@ -286,7 +318,11 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     || Boolean(meta.loadedFromLocalRecoveryCache);
 
   if (needsAttention) {
-    const attention = getAttentionNarrative(meta);
+    const attention = meta.recoveryReviewNeeded
+      ? { reassurance: 'Recovery review needed.', stateDescription: 'Last verification found mismatches between local intended state and cloud state.', tone: 'warn' as const, stateTone: 'warn' as const }
+      : meta.verificationState === 'failed'
+        ? { reassurance: 'Could not verify current cloud match.', stateDescription: meta.lastVerificationFailureMessage ?? 'Verification could not confirm current cloud state.', tone: 'warn' as const, stateTone: 'danger' as const }
+        : getAttentionNarrative(meta);
     return {
       primaryState: 'needs-attention',
       stateLabel: 'Needs attention',
@@ -294,6 +330,35 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       trustLabel: 'Session trust needs review',
       trustDescription: attention.stateDescription,
       showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+
+  if (meta.verificationState === 'running') {
+    return {
+      primaryState: 'checking',
+      stateLabel: 'Verifying',
+      stateDescription: 'Comparing local intended state with current cloud data.',
+      reassurance: 'SetPoint is running a fresh verification read.',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: true,
+      ...modeDetails,
+    };
+  }
+
+  if (meta.verificationState === 'verified-match' && !needsAttention) {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved',
+      stateDescription: 'Verified match with current cloud data.',
+      reassurance: 'Changes are confirmed to cloud and the latest verification matched.',
+      tone: 'default',
+      stateTone: 'success',
+      showSpinner: false,
+      trustLabel: 'Verified match',
+      trustDescription: 'Last verification matched current cloud state.',
       ...modeDetails,
     };
   }

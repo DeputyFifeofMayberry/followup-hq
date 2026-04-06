@@ -166,3 +166,43 @@ SetPoint now runs a persistence schema preflight on startup and reports explicit
 
 - The rebrand preserves core product architecture while updating language and shell identity to SetPoint.
 - Internal data model names such as `FollowUp` remain in code where they are stable implementation details.
+
+
+## Save confirmation vs verification (Phase 2)
+
+SetPoint now models save reliability in three distinct layers:
+
+1. **Save confirmation** — a committed save receipt proves the server accepted a batch.
+2. **Verification** — a verification run proves whether current cloud state matches current local intended state at verification time.
+3. **Recovery review** — if verification finds mismatches, Recovery Center exposes exactly what differs and why.
+
+### Verify now
+
+Use **Verify now** from the Save status control (or Recovery Center) to trigger a fresh cloud read and deterministic comparison against the current local intended state.
+
+- Verify now is read-only: it does **not** mutate data.
+- Successful match: UI can show **Verified match with current cloud data**.
+- Mismatch found: UI shows **Recovery review needed** with entity/category counts and record-level details.
+- Read failure: UI shows **Could not verify current cloud match** and preserves the prior successful verification result.
+
+### Recovery Center
+
+Recovery Center is the dedicated review workspace for verification incidents.
+
+It includes:
+- top-level verification status and timestamps,
+- local/cloud snapshot summaries,
+- mismatch queue grouped/filterable by entity/category,
+- mismatch detail panel with timestamps, digests, and optional previews,
+- controlled actions: Verify now, re-run cloud read, mark reviewed (session), export report.
+
+### Verification report export
+
+SetPoint can export a structured verification incident JSON report for debugging/support/self-review. Exports include mismatch details, counts, schema info, trust posture, and receipt metadata, while excluding secrets/tokens.
+
+### Still out of scope after Phase 2
+
+- full conflict resolution,
+- multi-device merge decision UX,
+- broad automatic repair,
+- broad batch rollback tooling.

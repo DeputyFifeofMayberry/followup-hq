@@ -15,9 +15,9 @@
 
 .setpoint-letter {
   display: inline-flex;
-  width: 0.72em;
+  width: 0.74em;
   height: 1.04em;
-  margin: 0 -0.01em;
+  margin: 0 -0.012em;
   transform: translateY(0.03em);
 }
 
@@ -27,18 +27,83 @@
 }
 
 .setpoint-letter-beam svg {
-  fill: color-mix(in srgb, var(--brand-steel) 72%, white 28%);
-  stroke: var(--brand-steel-soft);
-  stroke-width: 1.5;
-  stroke-linecap: round;
+  overflow: visible;
 }
 
-.setpoint-letter-crane svg {
-  fill: color-mix(in srgb, var(--brand-crane) 76%, white 24%);
-  stroke: var(--brand-crane-soft);
-  stroke-width: 2.4;
+.setpoint-letter-beam .beam-flange {
+  fill: color-mix(in srgb, var(--brand-steel) 80%, white 20%);
+  stroke: color-mix(in srgb, var(--brand-steel-soft) 72%, #3a4b63);
+  stroke-width: 1;
+}
+
+.setpoint-letter-beam .beam-web {
+  fill: color-mix(in srgb, var(--brand-steel) 70%, #9db0c8 30%);
+  stroke: color-mix(in srgb, var(--brand-steel-soft) 65%, #3a4b63);
+  stroke-width: 0.8;
+}
+
+.setpoint-letter-beam .beam-edge {
+  stroke: color-mix(in srgb, var(--brand-steel-soft) 86%, #42556f);
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.95;
+}
+
+.setpoint-letter-beam .beam-web-line {
+  stroke: color-mix(in srgb, var(--brand-steel-soft) 75%, #526884);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.setpoint-letter-crane .crane-mast {
+  fill: color-mix(in srgb, var(--brand-crane) 80%, #dffaf6 20%);
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 75%, #228a80);
+  stroke-width: 0.9;
+}
+
+.setpoint-letter-crane .crane-mast-brace,
+.setpoint-letter-crane .crane-jib,
+.setpoint-letter-crane .crane-truss,
+.setpoint-letter-crane .crane-hook-cable,
+.setpoint-letter-crane .crane-hook,
+.setpoint-letter-crane .crane-base {
+  fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.setpoint-letter-crane .crane-mast-brace {
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 70%, #1e6f68);
+  stroke-width: 0.9;
+  opacity: 0.9;
+}
+
+.setpoint-letter-crane .crane-jib {
+  stroke: color-mix(in srgb, var(--brand-crane) 72%, #dffaf6 28%);
+  stroke-width: 2.2;
+}
+
+.setpoint-letter-crane .crane-truss {
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 76%, #1f847a);
+  stroke-width: 1.1;
+  opacity: 0.95;
+}
+
+.setpoint-letter-crane .crane-hook-cable {
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 80%, #1f7f76);
+  stroke-width: 1;
+}
+
+.setpoint-letter-crane .crane-hook {
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 82%, #1f7f76);
+  stroke-width: 1.1;
+}
+
+.setpoint-letter-crane .crane-base {
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 68%, #2b7b74);
+  stroke-width: 1.2;
+  opacity: 0.88;
 }
 
 .setpoint-wordmark-tagline {
@@ -104,33 +169,35 @@
 }
 
 .setpoint-monogram {
-  width: 1.52rem;
+  width: 1.58rem;
   aspect-ratio: 1;
   border-radius: 0.4rem;
   border: 1px solid color-mix(in srgb, var(--brand-steel-soft) 46%, transparent);
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.45), rgba(15, 23, 42, 0.6));
   display: grid;
   place-content: center;
-  gap: 0.11rem;
-  padding: 0.2rem;
+  padding: 0.16rem;
 }
 
-.setpoint-monogram-beam,
-.setpoint-monogram-crane {
-  display: block;
-  height: 0.22rem;
-  border-radius: 999px;
+.setpoint-monogram-glyph {
+  width: 100%;
+  height: 100%;
 }
 
-.setpoint-monogram-beam {
-  width: 0.88rem;
-  background: linear-gradient(90deg, var(--brand-steel-soft), var(--brand-steel));
+.setpoint-monogram-beam path {
+  fill: color-mix(in srgb, var(--brand-steel) 78%, #f8fbff 22%);
 }
 
-.setpoint-monogram-crane {
-  width: 0.72rem;
-  justify-self: end;
-  background: linear-gradient(90deg, var(--brand-crane-soft), var(--brand-crane));
+.setpoint-monogram-crane path:first-child {
+  fill: color-mix(in srgb, var(--brand-crane) 76%, #ddfaf6 24%);
+}
+
+.setpoint-monogram-crane path:not(:first-child) {
+  fill: none;
+  stroke: color-mix(in srgb, var(--brand-crane-soft) 86%, #2f8880);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 @media (max-width: 640px) {

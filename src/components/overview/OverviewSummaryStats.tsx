@@ -6,12 +6,20 @@ interface OverviewSummaryStatsProps {
 }
 
 export function OverviewSummaryStats({ stats }: OverviewSummaryStatsProps) {
+  const totalPressure = stats.due + stats.blocked + stats.cleanup;
+
   return (
-    <div className="overview-stat-grid overview-stat-grid-compact">
-      <StatTile label="Due now" value={stats.due} tone={stats.due ? 'danger' : 'default'} helper="Pressure" />
-      <StatTile label="Blocked" value={stats.blocked} tone={stats.blocked ? 'warn' : 'default'} />
-      <StatTile label="Cleanup" value={stats.cleanup} tone={stats.cleanup ? 'warn' : 'default'} />
-      <StatTile label="Ready to close" value={stats.closeable} tone={stats.closeable ? 'info' : 'default'} />
-    </div>
+    <section className="overview-command-stats" aria-label="Current pressure summary">
+      <div className="overview-pressure-chip">
+        <span className="overview-pressure-chip-label">Pressure now</span>
+        <strong className="overview-pressure-chip-value">{totalPressure}</strong>
+      </div>
+      <div className="overview-stat-grid overview-stat-grid-compact">
+        <StatTile label="Due now" value={stats.due} tone={stats.due ? 'danger' : 'default'} helper="Requires same-day move" />
+        <StatTile label="Blocked" value={stats.blocked} tone={stats.blocked ? 'warn' : 'default'} helper="Need unblock decision" />
+        <StatTile label="Cleanup" value={stats.cleanup} tone={stats.cleanup ? 'warn' : 'default'} helper="Needs review before routing" />
+        <StatTile label="Ready to close" value={stats.closeable} tone={stats.closeable ? 'info' : 'default'} helper="Can close with verification" />
+      </div>
+    </section>
   );
 }

@@ -49,11 +49,11 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
       <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-primary-layout">
         <ExecutionLaneQueueCard className="overview-main-panel">
-          <SectionHeader title="Overview triage" subtitle="Primary triage queue for selecting what to route next." compact />
+          <SectionHeader title="Priority queue" subtitle="Select the next operational decision and route it with intent." compact />
           <ExecutionLaneToolbarScaffold
             className="overview-primary-toolbar"
             left={<label className="field-block followup-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title, project, owner" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
-            middle={<span className="workspace-support-copy">Focus: Route triage items into execution lanes.</span>}
+            middle={<span className="workspace-support-copy">Command intent: route triage items into the correct execution lane.</span>}
             right={<span className="workspace-support-copy">Visible {sharedMetrics.visible} · Due now {sharedMetrics.dueNow} · Blocked/at risk {sharedMetrics.blockedOrAtRisk}</span>}
           />
 
@@ -69,7 +69,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
           <ExecutionLaneSelectionStrip
             title={selected?.title}
-            helper={selected ? `Next move: route to ${selected.recordType === 'task' ? 'Tasks' : 'Follow-Ups'} lane.` : undefined}
+            helper={selected ? `Recommended next lane: ${selected.recordType === 'task' ? 'Tasks' : 'Follow-Ups'}.` : undefined}
             emptyMessage="Select an overview item to route it to the right lane."
           />
 

@@ -16,6 +16,13 @@ function urgencyLabel(row: UnifiedQueueItem) {
   return { label: 'Needs attention', variant: 'neutral' as const };
 }
 
+function rowStateClass(row: UnifiedQueueItem) {
+  if (row.queueFlags.overdue) return 'overview-triage-row-overdue';
+  if (row.queueFlags.blocked || row.queueFlags.parentAtRisk) return 'overview-triage-row-blocked';
+  if (row.queueFlags.cleanupRequired) return 'overview-triage-row-cleanup';
+  return 'overview-triage-row-neutral';
+}
+
 export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriageListProps) {
   if (!rows.length) {
     return <EmptyState title="No items to triage" message="Overview is clear. Route into a lane when new work arrives." />;
@@ -35,14 +42,27 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
             type="button"
             onClick={() => onSelect(row.id)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(row.id); } }}
-            className={active ? 'overview-priority-row overview-priority-row-active overview-triage-row list-row-family list-row-family-active w-full text-left' : 'overview-priority-row overview-triage-row list-row-family w-full text-left'}
+            className={[
+              'overview-priority-row',
+              'overview-triage-row',
+              'list-row-family',
+              'w-full',
+              'text-left',
+              rowStateClass(row),
+              active ? 'overview-priority-row-active list-row-family-active' : '',
+            ].join(' ')}
             aria-current={active ? 'true' : undefined}
             aria-selected={active}
           >
             <div className="overview-triage-row-layout">
               <div className="overview-triage-row-content">
                 <div className="scan-row-primary">{row.title}</div>
-                <div className="scan-row-secondary">{row.project} • {row.recordType === 'task' ? 'Task' : 'Follow-up'} • {ownerLabel} • {dueLabel}</div>
+                <div className="scan-row-secondary">
+                  <span>{row.project}</span>
+                  <span>{row.recordType === 'task' ? 'Task' : 'Follow-up'}</span>
+                  <span>Owner: {ownerLabel}</span>
+                  <span>{dueLabel}</span>
+                </div>
                 <div className="scan-row-meta">{row.queueReasons[0] || row.whyInQueue}</div>
               </div>
               <div className="overview-triage-row-sidecar">

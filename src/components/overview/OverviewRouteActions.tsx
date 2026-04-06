@@ -9,12 +9,16 @@ interface OverviewRouteActionsProps {
 
 export function OverviewRouteActions({ onOpenIntake, onRouteFollowUps, onRouteTasks, onQuickAdd }: OverviewRouteActionsProps) {
   return (
-    <WorkspaceToolbarRow className="overview-triage-actions">
-      <span className="overview-triage-label">Route-first:</span>
-      <button onClick={onRouteTasks} className="action-btn !px-2.5 !py-1 text-xs">Open Tasks</button>
-      <button onClick={onRouteFollowUps} className="action-btn !px-2.5 !py-1 text-xs">Open Follow Ups</button>
-      <button onClick={onOpenIntake} className="action-btn !px-2.5 !py-1 text-xs">Open Intake</button>
-      <button onClick={onQuickAdd} className="action-btn !px-2.5 !py-1 text-xs">Quick Add</button>
-    </WorkspaceToolbarRow>
+    <div className="overview-command-actions" role="group" aria-label="Overview routing actions">
+      <button onClick={onRouteTasks} className="primary-btn overview-command-primary">
+        Route into Tasks
+      </button>
+      <WorkspaceToolbarRow className="overview-triage-actions">
+        <span className="overview-triage-label">Quick routes:</span>
+        <button onClick={onRouteFollowUps} className="action-btn overview-command-secondary">Open Follow Ups</button>
+        <button onClick={onOpenIntake} className="action-btn overview-command-secondary">Open Intake</button>
+        <button onClick={onQuickAdd} className="action-btn overview-command-secondary">Quick capture</button>
+      </WorkspaceToolbarRow>
+    </div>
   );
 }

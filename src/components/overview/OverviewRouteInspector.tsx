@@ -43,7 +43,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
   return (
     <div className="overview-route-inspector">
       <WorkspaceInspectorSection title={recordTypeLabel === 'Task' ? 'Selected task' : 'Selected follow-up'} subtitle={`${recordTypeLabel} · ${selected.project}`}>
-        <div className="text-sm font-semibold text-slate-950">{selected.title}</div>
+        <div className="overview-inspector-selected-title">{selected.title}</div>
         <div className="overview-inspector-meta-grid">
           <div><span>Status</span><strong>{selected.status}</strong></div>
           <div><span>Project</span><strong>{selected.project}</strong></div>
@@ -51,7 +51,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
         </div>
       </WorkspaceInspectorSection>
 
-      <WorkspaceInspectorSection title="What matters now">
+      <WorkspaceInspectorSection title="What matters now" subtitle="Reason this item surfaced in Overview.">
         <p className="overview-inspector-why">{recommendation.whyNow}</p>
         {recommendation.urgencySignals.length ? (
           <ul className="overview-inspector-signals" aria-label="Urgency signals">
@@ -60,8 +60,11 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
         ) : null}
       </WorkspaceInspectorSection>
 
-      <WorkspaceInspectorSection title="Take action now" subtitle={`Recommended next stop: ${recommendation.primaryDestination === 'tasks' ? 'Tasks' : 'Follow-Ups'}.`}>
-        <p className="overview-inspector-why">{recommendation.reason}</p>
+      <WorkspaceInspectorSection title="Take action now" subtitle={`Recommended lane: ${recommendation.primaryDestination === 'tasks' ? 'Tasks' : 'Follow-Ups'}.`}>
+        <div className="overview-inspector-recommendation-card">
+          <div className="overview-inspector-recommendation-kicker">Recommended route</div>
+          <p className="overview-inspector-why">{recommendation.reason}</p>
+        </div>
         <div className="overview-action-stack overview-action-stack-muted overview-inspector-actions">
           <button
             onClick={() => onRouteDestination(recommendation.primaryDestination)}

@@ -72,14 +72,19 @@ function SetPointMark() {
       </g>
 
       <g transform="translate(308 150)">
-        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">SetPoint</text>
+        <text x="0" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">Se</text>
+        <text x="178" y="110" fontSize="92" fontWeight="800" fill="#f8fafc" letterSpacing="-3">Point</text>
+
+        <g transform="translate(112 30)">
+          <path d="M0 14h108" stroke="url(#heroSteel)" strokeWidth="14" strokeLinecap="round" />
+          <path d="M54 14v100" stroke="url(#heroSteel)" strokeWidth="14" strokeLinecap="round" />
+          <path d="M10 114h88" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+          <path d="M64 132h64" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
+          <circle cx="132" cy="132" r="18" fill="#14b8a6" />
+        </g>
+
         <text x="2" y="206" fontSize="44" fontWeight="700" fill="url(#heroAccent)" letterSpacing="2">FROM INTAKE TO CLOSEOUT</text>
         <path d="M2 228h420" stroke="#2dd4bf" strokeWidth="10" strokeLinecap="round" />
-        <path d="M284 42h104" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-        <path d="M336 42v96" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-        <path d="M292 138h88" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-        <path d="M352 154h72" stroke="#94a3b8" strokeWidth="14" strokeLinecap="round" />
-        <circle cx="426" cy="154" r="18" fill="#14b8a6" />
       </g>
     </svg>
   );

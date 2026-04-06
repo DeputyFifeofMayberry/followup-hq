@@ -244,6 +244,32 @@
 .sync-status-diagnostics-grid { display: grid; gap: 0.5rem; }
 .sync-status-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .sync-status-signout { justify-self: flex-start; margin-top: 0.1rem; }
+.account-pill-shell { position: relative; }
+.account-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: #ffffff;
+  color: var(--text-primary);
+  padding: 0.34rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 620;
+}
+.account-pill-btn:hover { border-color: #7b96b5; }
+.account-pill-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 240px;
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+  z-index: 30;
+}
+.account-pill-email { font-size: 0.75rem; color: var(--text-secondary); padding: 0.2rem 0.15rem; word-break: break-word; }
+.account-pill-signout { width: 100%; justify-content: center; }
 .sync-status-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
 .sync-status-activity-item { border: 1px solid var(--border-default); border-radius: 0.65rem; background: var(--surface-muted); padding: 0.4rem 0.48rem; display: grid; gap: 0.12rem; }
 .sync-status-activity-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }

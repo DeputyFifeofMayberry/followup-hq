@@ -24,6 +24,13 @@ const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
 let persistenceQueue: PersistenceQueueController | null = null;
 
+export function resetPersistenceQueueController(): void {
+  if (!persistenceQueue) return;
+  persistenceQueue.cancelPending();
+  persistenceQueue.resetInternalState();
+  persistenceQueue = null;
+}
+
 export const useAppStore = create<AppStore>()((set, get) => {
   const queuePersist = (meta?: QueueRequestMeta) => {
     if (!persistenceQueue) {
@@ -226,6 +233,14 @@ export const useAppStore = create<AppStore>()((set, get) => {
     retryPersistenceNow: async () => {
       if (!persistenceQueue) return;
       await persistenceQueue.retryNow();
+    },
+    resetForLogout: () => {
+      resetPersistenceQueueController();
+      set(() => ({
+        ...initialBusinessState,
+        ...initialUiState,
+        ...initialMetaState,
+      }));
     },
 
     verifyNow: async (mode = 'manual') => {

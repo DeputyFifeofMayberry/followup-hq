@@ -30,6 +30,8 @@ export interface PersistenceQueueController {
   enqueue: (meta?: QueueRequestMeta) => void;
   flushNow: () => Promise<void>;
   retryNow: () => Promise<void>;
+  cancelPending: () => void;
+  resetInternalState: () => void;
 }
 
 export function createPersistenceQueue(handlers: QueueHandlers, config: QueueConfig = {}) {
@@ -96,9 +98,23 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     await flush(0, 'retry');
   };
 
+  const cancelPending = () => {
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+  };
+
+  const resetInternalState = () => {
+    cancelPending();
+    pendingDirtyRefs = new Map();
+    lastSavedJson = '';
+    lastMode = 'browser';
+  };
+
   return {
     enqueue: schedule,
     flushNow,
     retryNow,
+    cancelPending,
+    resetInternalState,
   } satisfies PersistenceQueueController;
 }

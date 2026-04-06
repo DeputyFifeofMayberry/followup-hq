@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Building2, CheckCircle2, Command, HardHat, LockKeyhole, Mail, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, LogOut, Mail, Search, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
@@ -14,6 +14,8 @@ import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
+import { performSignOut, type SignOutLocalPolicy } from './lib/auth/signOut';
+import { setPersistenceScopeUserId } from './lib/persistenceIdentity';
 import { useAppStore } from './store/useAppStore';
 import type { SavedViewKey } from './types';
 import type { AppMode } from './types';
@@ -233,7 +235,7 @@ function LoginScreen() {
   );
 }
 
-function MainApp() {
+function MainApp({ session }: { session: Session }) {
   const initializeApp = useAppStore((s) => s.initializeApp);
   const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
     useShallow((s) => ({
@@ -242,7 +244,7 @@ function MainApp() {
       setSelectedId: s.setSelectedId,
     })),
   );
-  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId } = useAppStore(
+  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
@@ -255,6 +257,12 @@ function MainApp() {
       companies: s.companies,
       selectedId: s.selectedId,
       selectedTaskId: s.selectedTaskId,
+      hasLocalUnsavedChanges: s.hasLocalUnsavedChanges,
+      unsavedChangeCount: s.unsavedChangeCount,
+      outboxState: s.outboxState,
+      unresolvedOutboxCount: s.unresolvedOutboxCount,
+      syncState: s.syncState,
+      flushPersistenceNow: s.flushPersistenceNow,
     })),
   );
 
@@ -267,6 +275,11 @@ function MainApp() {
   const modeConfig = getModeConfig(appMode);
   const [showCommand, setShowCommand] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [signOutInProgress, setSignOutInProgress] = useState(false);
+  const [saveAndSignOutInProgress, setSaveAndSignOutInProgress] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const commandSearchRef = useRef<HTMLInputElement | null>(null);
   const commandOpenTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -393,6 +406,37 @@ function MainApp() {
   const currentMeta = modeConfig.workspaceMeta[workspace];
   const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });
   const showUniversalCapture = currentMeta.showUniversalCapture;
+  const outboxRequiresAttention = ['queued', 'flushing', 'failed', 'conflict'].includes(outboxState);
+  const hasSignOutRisk = hasLocalUnsavedChanges
+    || unsavedChangeCount > 0
+    || outboxRequiresAttention
+    || unresolvedOutboxCount > 0
+    || syncState === 'saving';
+  const accountLabel = session.user.email ?? 'Account';
+
+  const executeSignOut = useCallback(async (localPolicy: SignOutLocalPolicy) => {
+    if (signOutInProgress) return;
+    setSignOutInProgress(true);
+    setSignOutError(null);
+    try {
+      await performSignOut({ session, localPolicy });
+      setShowSignOutModal(false);
+      setShowAccountMenu(false);
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : 'Sign out could not be completed.');
+    } finally {
+      setSignOutInProgress(false);
+    }
+  }, [session, signOutInProgress]);
+
+  const handleStartSignOut = useCallback(() => {
+    if (signOutInProgress) return;
+    if (!hasSignOutRisk) {
+      void executeSignOut('clear-scoped-persistence');
+      return;
+    }
+    setShowSignOutModal(true);
+  }, [executeSignOut, hasSignOutRisk, signOutInProgress]);
 
   return (
     <div className={`app-shell text-slate-900 ${currentMeta.category === 'support' ? 'app-shell-support-workspace' : 'app-shell-primary-workspace'}`}>
@@ -462,6 +506,27 @@ function MainApp() {
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
                   <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
                   <SyncStatusControl />
+                  <div className="account-pill-shell">
+                    <button
+                      type="button"
+                      className="account-pill-btn"
+                      onClick={() => setShowAccountMenu((value) => !value)}
+                      aria-haspopup="menu"
+                      aria-expanded={showAccountMenu}
+                    >
+                      <UserRound className="h-4 w-4" />
+                      <span>{accountLabel}</span>
+                    </button>
+                    {showAccountMenu ? (
+                      <div className="account-pill-menu app-shell-card app-shell-card-inspector" role="menu" aria-label="Account menu">
+                        <div className="account-pill-email">{accountLabel}</div>
+                        <button type="button" className="action-btn account-pill-signout" onClick={handleStartSignOut} disabled={signOutInProgress}>
+                          {signOutInProgress ? <LoaderCircle className="h-4 w-4 state-spin" /> : <LogOut className="h-4 w-4" />}
+                          {signOutInProgress ? 'Signing out…' : 'Sign out'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="workspace-header-actions">
                   {currentMeta.primaryAction ? (
@@ -536,6 +601,82 @@ function MainApp() {
         </div>
       ) : null}
 
+      {showSignOutModal ? (
+        <AppModal size="standard" onBackdropClick={() => {
+          if (signOutInProgress || saveAndSignOutInProgress) return;
+          setShowSignOutModal(false);
+          setSignOutError(null);
+        }}
+        >
+          <div role="dialog" aria-modal="true" aria-label="Confirm sign out" onClick={(e) => e.stopPropagation()}>
+            <AppModalHeader title="Sign out with local recovery safety" onClose={() => {
+              if (signOutInProgress || saveAndSignOutInProgress) return;
+              setShowSignOutModal(false);
+              setSignOutError(null);
+            }}
+            />
+            <AppModalBody>
+              <p className="text-sm text-slate-600">
+                You have pending local changes or recovery items. Choose how you want SetPoint to handle this account before signing out.
+              </p>
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                <div>Unsaved local changes: {hasLocalUnsavedChanges || unsavedChangeCount > 0 ? `${Math.max(unsavedChangeCount, 1)} pending` : 'none'}</div>
+                <div>Outbox status: {outboxState}</div>
+                <div>Unresolved outbox entries: {unresolvedOutboxCount}</div>
+                <div>Current sync state: {syncState}</div>
+              </div>
+              {signOutError ? <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{signOutError}</div> : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="primary-btn"
+                  disabled={signOutInProgress || saveAndSignOutInProgress}
+                  onClick={() => {
+                    setSaveAndSignOutInProgress(true);
+                    setSignOutError(null);
+                    void flushPersistenceNow()
+                      .then(async () => {
+                        const next = useAppStore.getState();
+                        const stillRisky = next.hasLocalUnsavedChanges
+                          || next.unsavedChangeCount > 0
+                          || ['queued', 'flushing', 'failed', 'conflict'].includes(next.outboxState)
+                          || next.unresolvedOutboxCount > 0
+                          || next.syncState === 'saving';
+                        if (stillRisky) {
+                          setSignOutError('Save did not fully complete yet. You can keep protected local recovery for this account and sign out.');
+                          return;
+                        }
+                        await executeSignOut('clear-scoped-persistence');
+                      })
+                      .catch((error) => {
+                        setSignOutError(error instanceof Error ? error.message : 'Save attempt failed.');
+                      })
+                      .finally(() => setSaveAndSignOutInProgress(false));
+                  }}
+                >
+                  {saveAndSignOutInProgress ? <LoaderCircle className="h-4 w-4 state-spin" /> : null}
+                  {saveAndSignOutInProgress ? 'Saving before sign out…' : 'Save and sign out'}
+                </button>
+                <button
+                  type="button"
+                  className="action-btn"
+                  disabled={signOutInProgress || saveAndSignOutInProgress}
+                  onClick={() => { void executeSignOut('keep-protected-recovery'); }}
+                >
+                  {signOutInProgress ? <LoaderCircle className="h-4 w-4 state-spin" /> : null}
+                  Sign out and keep protected local recovery for this account
+                </button>
+                <button type="button" className="action-btn" disabled={signOutInProgress || saveAndSignOutInProgress} onClick={() => {
+                  setShowSignOutModal(false);
+                  setSignOutError(null);
+                }}
+                >Cancel</button>
+              </div>
+            </AppModalBody>
+          </div>
+        </AppModal>
+      ) : null}
+
       <CreateWorkModal />
       <TouchLogModal />
       <ImportWizardModal />
@@ -589,6 +730,10 @@ export default function App() {
     };
   }, [e2eMode]);
 
+  useEffect(() => {
+    setPersistenceScopeUserId(session?.user?.id ?? null);
+  }, [session?.user?.id]);
+
   if (supabaseConfigError && !e2eMode) {
     return <MissingSupabaseConfigScreen />;
   }
@@ -607,5 +752,5 @@ export default function App() {
     return <LoginScreen />;
   }
 
-  return <MainApp />;
+  return <MainApp session={session} />;
 }

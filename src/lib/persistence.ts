@@ -11,9 +11,10 @@ import {
 } from './persistenceSchemaHealth';
 import { getSupabaseHost } from './supabase';
 import { computeDeterministicHash } from './persistenceHash';
-import { getSessionScopedId, getStableDeviceId } from './persistenceIdentity';
+import { getPersistenceScopeUserId, getSessionScopedId, getStableDeviceId } from './persistenceIdentity';
 import {
   clearCommittedOutboxEntries,
+  clearOutboxForUser,
   enqueueOutboxEntry,
   listUnresolvedOutboxEntries,
   loadOutboxState,
@@ -39,7 +40,8 @@ import type { DirtyRecordRef } from '../store/persistenceQueue';
 import { getDefaultForwardedRules } from './intakeRules';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
-const LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
+const LOCAL_CACHE_KEY_PREFIX = 'followup_hq_entities_cache_v2';
+const LEGACY_LOCAL_CACHE_KEY = 'followup_hq_entities_cache_v2';
 const STALE_DELETE_ABORT_THRESHOLD = 200;
 const SAVE_BATCH_SCHEMA_VERSION = 1;
 
@@ -108,6 +110,7 @@ export interface LocalCachePayload {
   entities: PersistedPayload;
   updatedAt: string;
   cloudStatus: 'pending' | 'confirmed';
+  userId?: string;
   lastCloudConfirmedAt?: string;
   pendingOperations?: PendingEntityOperation[];
   lastSaveReceipt?: SaveBatchReceipt;
@@ -269,6 +272,29 @@ function canUseBrowserStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+export function buildLocalCacheKey(userId: string | null): string {
+  if (!userId) return `${LOCAL_CACHE_KEY_PREFIX}:anonymous`;
+  return `${LOCAL_CACHE_KEY_PREFIX}:user:${userId}`;
+}
+
+export function buildLegacyLocalCacheKey(): string {
+  return LEGACY_LOCAL_CACHE_KEY;
+}
+
+export function clearLocalCacheForUser(userId: string): void {
+  if (!canUseBrowserStorage()) return;
+  try {
+    window.localStorage.removeItem(buildLocalCacheKey(userId));
+  } catch {
+    // ignore local cache errors
+  }
+}
+
+export function clearScopedPersistenceForUser(userId: string): void {
+  clearLocalCacheForUser(userId);
+  clearOutboxForUser(userId);
+}
+
 function normalizePendingOperation(parsed: unknown): PendingEntityOperation | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const asRecord = parsed as Record<string, unknown>;
@@ -298,6 +324,7 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
 
   const cloudStatus = asRecord.cloudStatus === 'confirmed' ? 'confirmed' : 'pending';
   const updatedAt = typeof asRecord.updatedAt === 'string' ? asRecord.updatedAt : new Date().toISOString();
+  const userId = typeof asRecord.userId === 'string' ? asRecord.userId : undefined;
   const lastCloudConfirmedAt = typeof asRecord.lastCloudConfirmedAt === 'string' ? asRecord.lastCloudConfirmedAt : undefined;
   const pendingOperations = Array.isArray(asRecord.pendingOperations)
     ? asRecord.pendingOperations.map(normalizePendingOperation).filter((op): op is PendingEntityOperation => Boolean(op))
@@ -311,6 +338,7 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     entities: entities as PersistedPayload,
     updatedAt,
     cloudStatus,
+    userId,
     lastCloudConfirmedAt,
     pendingOperations,
     lastSaveReceipt,
@@ -318,10 +346,38 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
   };
 }
 
-function readLocalCache(): LocalCachePayload | null {
-  if (!canUseBrowserStorage()) return null;
+function resolveLocalCacheKey(userId?: string | null): string {
+  return buildLocalCacheKey(userId ?? getPersistenceScopeUserId());
+}
+
+function migrateLegacyLocalCacheIfNeeded(userId?: string | null): void {
+  if (!canUseBrowserStorage()) return;
+  const scopeUserId = userId ?? getPersistenceScopeUserId();
+  if (!scopeUserId) return;
+  const scopedKey = buildLocalCacheKey(scopeUserId);
+  if (window.localStorage.getItem(scopedKey)) return;
+  const legacyRaw = window.localStorage.getItem(buildLegacyLocalCacheKey());
+  if (!legacyRaw) return;
+  let normalized: LocalCachePayload | null = null;
   try {
-    const raw = window.localStorage.getItem(LOCAL_CACHE_KEY);
+    normalized = normalizeLocalCache(JSON.parse(legacyRaw) as unknown);
+  } catch {
+    normalized = null;
+  }
+  if (!normalized) return;
+  try {
+    window.localStorage.setItem(scopedKey, JSON.stringify({ ...normalized, userId: scopeUserId }));
+    window.localStorage.removeItem(buildLegacyLocalCacheKey());
+  } catch {
+    // ignore
+  }
+}
+
+function readLocalCache(userId?: string | null): LocalCachePayload | null {
+  if (!canUseBrowserStorage()) return null;
+  migrateLegacyLocalCacheIfNeeded(userId);
+  try {
+    const raw = window.localStorage.getItem(resolveLocalCacheKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     const normalized = normalizeLocalCache(parsed);
@@ -342,10 +398,13 @@ function readLocalCache(): LocalCachePayload | null {
   }
 }
 
-function writeLocalCache(cache: LocalCachePayload): void {
+function writeLocalCache(cache: LocalCachePayload, userId?: string | null): void {
   if (!canUseBrowserStorage()) return;
   try {
-    window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cache));
+    window.localStorage.setItem(resolveLocalCacheKey(userId), JSON.stringify(cache));
+    if (userId) {
+      window.localStorage.removeItem(buildLegacyLocalCacheKey());
+    }
     window.localStorage.removeItem(LEGACY_BROWSER_SNAPSHOT_KEY);
   } catch {
     // ignore local cache errors
@@ -756,12 +815,11 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
 }
 
 export async function loadPersistedPayload(): Promise<LoadResult> {
-  const cache = readLocalCache();
-
   let userId: string | null;
   try {
     userId = await getSessionUserId();
   } catch (error) {
+    const cache = readLocalCache();
     const normalized = normalizePersistenceError(error, { stage: 'auth_session', operation: 'load', table: 'auth_session' });
     const loadFailureMessage = formatPersistenceErrorMessage(normalized);
     if (cache) {
@@ -787,27 +845,16 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   }
 
   if (!userId) {
-    if (cache) {
-      return {
-        payload: cache.entities,
-        mode: 'browser',
-        source: 'local-cache',
-        cacheStatus: cache.cloudStatus,
-        localCacheUpdatedAt: cache.updatedAt,
-        localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
-      };
-    }
-    const legacy = readLegacySnapshotFromBrowser();
-    const payload = legacy ? fromSnapshot(legacy) : buildEmptyPayload();
-    writeLocalCache({ entities: payload, updatedAt: new Date().toISOString(), cloudStatus: 'confirmed' });
+    const payload = buildEmptyPayload();
     return {
       payload,
       mode: 'browser',
       source: 'local-cache',
       cacheStatus: 'confirmed',
-      localCacheUpdatedAt: new Date().toISOString(),
+      localCacheUpdatedAt: undefined,
     };
   }
+  const cache = readLocalCache(userId);
 
   let cloudPayload: PersistedPayload;
   let cloudUpdatedAt: string | undefined;
@@ -954,7 +1001,8 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     updatedAt: confirmedAt,
     cloudStatus: 'confirmed',
     lastCloudConfirmedAt: confirmedAt,
-  });
+    userId,
+  }, userId);
 
   return {
     payload: hydrated,
@@ -980,13 +1028,15 @@ export class PersistenceSaveError extends Error {
 }
 
 export async function savePersistedPayload(payload: PersistedPayload, options?: { dirtyRecords?: DirtyRecordRef[] }): Promise<SaveResult> {
+  const scopedUserId = getPersistenceScopeUserId();
+  const currentUserId = scopedUserId ?? await getSessionUserId();
   const saveAttemptAt = new Date().toISOString();
   incrementMetric('saveBatchAttempts');
-  const existingCache = readLocalCache();
+  const existingCache = readLocalCache(currentUserId);
   const previousPayload = existingCache?.entities ?? buildEmptyPayload();
   const auxiliaryChanged = JSON.stringify(payload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
   const scopedOps = buildScopedEntityOps(payload, previousPayload, options?.dirtyRecords);
-  const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState());
+  const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState(currentUserId));
   const unresolvedOps = unresolvedOutbox.flatMap((entry) => entry.operations as PendingEntityOperation[]);
   const pendingOperations = mergePendingOperations([...((existingCache?.pendingOperations ?? []) as PendingEntityOperation[]), ...unresolvedOps], scopedOps);
   const diagnostics: SaveDiagnostics = {
@@ -1000,23 +1050,24 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     entities: payload,
     updatedAt: saveAttemptAt,
     cloudStatus: 'pending',
+    userId: currentUserId ?? undefined,
     lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
     pendingOperations,
     lastSaveReceipt: existingCache?.lastSaveReceipt,
     lastFailedBatchId: existingCache?.lastFailedBatchId,
-  });
+  }, currentUserId);
 
-  const userId = await getSessionUserId();
-  if (!userId) {
+  if (!currentUserId) {
     writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
+      userId: undefined,
       pendingOperations: [],
       lastSaveReceipt: existingCache?.lastSaveReceipt,
       lastFailedBatchId: undefined,
-    });
+    }, currentUserId);
     return { mode: 'browser', diagnostics };
   }
 
@@ -1033,7 +1084,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     operationCount: pendingOperations.length,
     payloadHash: 'pending-hash',
     retryCount: 0,
-  });
+  }, currentUserId);
   const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
   if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
     diagnostics.staleDeleteGuardTriggered = true;
@@ -1049,7 +1100,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     batchId: envelope.batchId,
     payloadHash: envelope.clientPayloadHash,
     status: 'flushing',
-  });
+  }, currentUserId);
   try {
     const receipt = await commitSaveBatch(envelope);
     diagnostics.receiptStatus = receipt.status;
@@ -1070,7 +1121,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
         blockedReason: receipt.status,
         lastError: `Batch ${receipt.batchId} returned ${receipt.status}`,
         retryCount: provisionalEntry.retryCount + 1,
-      });
+      }, currentUserId);
       throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
         ...diagnostics,
         failedBatchId: envelope.batchId,
@@ -1081,18 +1132,19 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       status: 'committed',
       blockedReason: undefined,
       lastError: undefined,
-    });
-    clearCommittedOutboxEntries();
+    }, currentUserId);
+    clearCommittedOutboxEntries(currentUserId);
 
     writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
+      userId: currentUserId,
       lastCloudConfirmedAt: receipt.committedAt ?? saveAttemptAt,
       pendingOperations: [],
       lastSaveReceipt: receipt,
       lastFailedBatchId: undefined,
-    });
+    }, currentUserId);
     return { mode: 'supabase', diagnostics };
   } catch (error) {
     const normalized = normalizePersistenceError(error, { operation: 'save' });
@@ -1105,17 +1157,18 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       status: diagnostics.receiptStatus === 'conflict' ? 'conflict' : 'failed',
       lastError: rawMessage,
       retryCount: provisionalEntry.retryCount + 1,
-    });
+    }, currentUserId);
     incrementMetric('outboxRetries');
     writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'pending',
+      userId: currentUserId,
       lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
       pendingOperations,
       lastSaveReceipt: existingCache?.lastSaveReceipt,
       lastFailedBatchId: envelope.batchId,
-    });
+    }, currentUserId);
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
   }
 }

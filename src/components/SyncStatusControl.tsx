@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, LogOut, RefreshCcw, Save, Upload, UserRound } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, RefreshCcw, Save, Upload } from 'lucide-react';
 import { RecoveryCenter } from './RecoveryCenter';
 import { ConflictQueueCenter } from './ConflictQueueCenter';
 import { downloadVerificationIncidentReport, exportVerificationIncident } from '../lib/persistenceVerification';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
 import { getCloudConfirmationLabel, getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
-import { getSupabaseHost, supabase } from '../lib/supabase';
-import { signOut } from '../lib/auth';
+import { getSupabaseHost } from '../lib/supabase';
 
 function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' | 'danger'; spinning: boolean }) {
   if (spinning || tone === 'info') return <LoaderCircle className={spinning ? 'h-3.5 w-3.5 state-spin' : 'h-3.5 w-3.5'} />;
@@ -34,8 +33,6 @@ export function SyncStatusControl() {
   const [open, setOpen] = useState(false);
   const [runningManualSave, setRunningManualSave] = useState(false);
   const [runningRetry, setRunningRetry] = useState(false);
-  const [email, setEmail] = useState<string>('');
-  const [signingOut, setSigningOut] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -51,24 +48,6 @@ export function SyncStatusControl() {
     : syncMeta.lastLocalWriteAt
       ? `Last saved locally: ${formatDateTime(syncMeta.lastLocalWriteAt)}`
       : 'No save timestamp recorded yet.';
-
-  useEffect(() => {
-    let active = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!active) return;
-      setEmail(data.user?.email ?? '');
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEmail(session?.user?.email ?? '');
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -365,25 +344,6 @@ export function SyncStatusControl() {
             onReverify={() => { void syncMeta.verifyNow('manual'); }}
           />
 
-          <div className="sync-status-row">
-            <span className="sync-status-row-label">Session</span>
-            <div className="sync-status-row-value">
-              <UserRound className="h-3.5 w-3.5" />
-              <span>{email ? `Signed in as ${email}` : 'Signed-in account unavailable.'}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSigningOut(true);
-                void signOut().finally(() => setSigningOut(false));
-              }}
-              className="action-btn sync-status-signout"
-              disabled={signingOut}
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              {signingOut ? 'Signing out…' : 'Sign out'}
-            </button>
-          </div>
         </section>
       ) : null}
     </div>

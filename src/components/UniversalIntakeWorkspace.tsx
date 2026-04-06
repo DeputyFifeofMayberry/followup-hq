@@ -389,6 +389,12 @@ export function UniversalIntakeWorkspace({ setWorkspace }: { setWorkspace: (work
                 <div className="mt-1"><Badge variant={readinessCopy[selectedQueueItem.readiness].tone}>{readinessCopy[selectedQueueItem.readiness].title}</Badge> <span className="ml-1">{readinessCopy[selectedQueueItem.readiness].body}</span></div>
                 {selectedReviewPlan ? <div className="mt-1 text-slate-600">Suggested decision: <span className="font-semibold">{selectedReviewPlan.suggestedDecision.replaceAll('_', ' ')}</span> • {selectedReviewPlan.suggestedDecisionReason}</div> : null}
                 {selectedSafety.blockers[0] ? <div className="mt-2 rounded-md bg-rose-100 px-2 py-1 text-rose-800">{selectedSafety.blockers[0]}</div> : null}
+                {selectedCandidate.warnings.length ? (
+                  <div className="mt-2 rounded-md bg-amber-100 px-2 py-1 text-amber-900">
+                    <div className="font-semibold">Blocked from live approval until repaired:</div>
+                    <div className="mt-1">{selectedCandidate.warnings.slice(0, 3).join(' • ')}</div>
+                  </div>
+                ) : null}
               </div>
 
               {selectedReviewPlan?.fastApproveEligible ? (

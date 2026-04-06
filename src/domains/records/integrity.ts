@@ -42,13 +42,13 @@ function projectReasons(project: ProjectRecord | undefined, rawProjectName?: str
 
 function ownerReasons(owner?: string): RecordIntegrityReason[] {
   const normalized = normalizeIdentity(owner);
-  if (!normalized) return ['missing_owner'];
+  if (!normalized) return ['missing_owner', 'missing_accountable_owner'];
   if (PLACEHOLDER_OWNERS.has(normalized)) return ['placeholder_owner'];
   return [];
 }
 
 function provenanceReasons(sourceRef?: string): RecordIntegrityReason[] {
-  return sourceRef?.trim() ? [] : ['missing_provenance'];
+  return sourceRef?.trim() ? [] : ['missing_provenance', 'weak_execution_provenance'];
 }
 
 function toIntegrityResult(reasons: RecordIntegrityReason[]): IntegrityResult {
@@ -107,4 +107,24 @@ export function enforceTaskIntegrity(task: TaskItem, projects: ProjectRecord[]):
 
 export function isExecutionReady(record: Pick<FollowUpItem | TaskItem, 'lifecycleState'>): boolean {
   return record.lifecycleState === 'ready' || record.lifecycleState === 'active';
+}
+
+export function getIntegrityReasonLabel(reason: RecordIntegrityReason): string {
+  const labels: Record<RecordIntegrityReason, string> = {
+    missing_project_link: 'Select a real project before this can enter a live execution lane.',
+    ambiguous_project_link: 'Project match is ambiguous. Resolve the canonical project before live approval.',
+    placeholder_project: 'Placeholder project values cannot be used for live execution.',
+    missing_accountable_owner: 'Set an accountable owner before this can be live.',
+    missing_owner: 'Owner is required for execution.',
+    missing_assignee_for_live_task: 'Assign this task before sending it to the live task lane.',
+    missing_due_context: 'Add due context before this can be treated as live execution work.',
+    weak_execution_provenance: 'Execution provenance is weak; review the source before live approval.',
+    duplicate_resolution_required: 'Possible duplicate detected. Resolve link/update decision first.',
+    legacy_record_requires_cleanup: 'Legacy record requires cleanup before live execution.',
+    placeholder_owner: 'Placeholder owners cannot be used for live execution.',
+    missing_provenance: 'Source provenance is missing.',
+    archived_project: 'Linked project is archived; review before live execution.',
+    deleted_project: 'Linked project was deleted; resolve project link before live execution.',
+  };
+  return labels[reason];
 }

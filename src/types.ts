@@ -192,6 +192,33 @@ export interface ActionReceipt {
 
 export type CaptureConfidenceTier = 'high' | 'medium' | 'low';
 
+export type RecordLifecycleState = 'draft' | 'review_required' | 'ready' | 'active';
+export type RecordIntegrityReason =
+  | 'missing_project_link'
+  | 'placeholder_project'
+  | 'missing_owner'
+  | 'placeholder_owner'
+  | 'missing_provenance'
+  | 'archived_project'
+  | 'deleted_project';
+export type RecordDataQuality = 'valid_live' | 'review_required' | 'draft';
+export type RecordProvenanceType =
+  | 'manual'
+  | 'quick_capture'
+  | 'intake'
+  | 'import'
+  | 'forwarded_email'
+  | 'outlook'
+  | 'email_drop'
+  | 'migration';
+
+export interface RecordProvenance {
+  sourceType: RecordProvenanceType;
+  sourceRef?: string;
+  capturedAt: string;
+  sourceBatchId?: string;
+}
+
 export interface IntakeCandidate {
   id: string;
   rawText: string;
@@ -723,6 +750,11 @@ export interface FollowUpItem {
   lastOperationAt?: string;
   deletedAt?: string | null;
   conflictMarker?: boolean;
+  lifecycleState?: RecordLifecycleState;
+  reviewReasons?: RecordIntegrityReason[];
+  invalidReason?: string;
+  dataQuality?: RecordDataQuality;
+  provenance?: RecordProvenance;
 }
 
 
@@ -783,6 +815,11 @@ export interface TaskItem {
   lastOperationAt?: string;
   deletedAt?: string | null;
   conflictMarker?: boolean;
+  lifecycleState?: RecordLifecycleState;
+  reviewReasons?: RecordIntegrityReason[];
+  invalidReason?: string;
+  dataQuality?: RecordDataQuality;
+  provenance?: RecordProvenance;
 }
 
 export interface TaskFormInput {

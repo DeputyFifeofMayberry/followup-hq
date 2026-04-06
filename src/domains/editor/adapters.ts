@@ -2,6 +2,7 @@ import { buildSmartFollowUpDefaults, buildSmartTaskDefaults } from '../../lib/da
 import { buildItemFromForm, todayIso } from '../../lib/utils';
 import type { FollowUpFormInput, FollowUpItem, TaskFormInput, TaskItem } from '../../types';
 import type { RecordTypeEditorAdapter } from './types';
+import { normalizeIdentity } from '../../lib/entities';
 
 export type FollowUpSavePayload = { action: 'create' | 'update'; record: FollowUpItem; recordId?: string };
 export type TaskSavePayload = { action: 'create' | 'update'; record: TaskItem; recordId?: string };
@@ -63,8 +64,10 @@ export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, Follow
   validateDraft: (draft) => {
     const issues = [] as Array<{ field: keyof FollowUpFormInput; message: string }>;
     if (!draft.title.trim()) issues.push({ field: 'title', message: 'Title is required.' });
-    if (!draft.project.trim()) issues.push({ field: 'project', message: 'Project is required.' });
+    if (!draft.projectId) issues.push({ field: 'project', message: 'Select a canonical project from the project picker.' });
+    if (normalizeIdentity(draft.project) === 'general') issues.push({ field: 'project', message: 'General cannot be used for live execution records.' });
     if (!draft.owner.trim()) issues.push({ field: 'owner', message: 'Owner is required.' });
+    if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });
     if (!draft.nextAction.trim()) issues.push({ field: 'nextAction', message: 'Next action is required.' });
     return { valid: issues.length === 0, issues };
   },
@@ -121,8 +124,10 @@ export const taskEditorAdapter: RecordTypeEditorAdapter<TaskItem, TaskFormInput,
   validateDraft: (draft) => {
     const issues = [] as Array<{ field: keyof TaskFormInput; message: string }>;
     if (!draft.title.trim()) issues.push({ field: 'title', message: 'Title is required.' });
-    if (!draft.project.trim()) issues.push({ field: 'project', message: 'Project is required.' });
+    if (!draft.projectId) issues.push({ field: 'project', message: 'Select a canonical project from the project picker.' });
+    if (normalizeIdentity(draft.project) === 'general') issues.push({ field: 'project', message: 'General cannot be used for live execution records.' });
     if (!draft.owner.trim()) issues.push({ field: 'owner', message: 'Owner is required.' });
+    if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });
     if (!draft.nextStep.trim()) issues.push({ field: 'nextStep', message: 'Next step is required.' });
     if (draft.status === 'Blocked' && !draft.blockReason?.trim()) issues.push({ field: 'blockReason', message: 'Blocked tasks need a block reason.' });
     return { valid: issues.length === 0, issues };

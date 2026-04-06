@@ -1,6 +1,7 @@
 import { isTauriRuntime } from '../../lib/persistence';
 import { buildFollowUpFromOutlookImport, normalizeItems } from '../../domains/followups/helpers';
 import { todayIso } from '../../lib/utils';
+import { enforceFollowUpIntegrity } from '../../domains/records/integrity';
 import type { OutlookConnectionState } from '../../types';
 import type { AppStoreActions, AppStore } from '../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
@@ -27,7 +28,7 @@ export function createOutlookSlice(set: SliceSet, get: SliceGet, { queuePersist 
       const deduped = workingMessages.reduce<any[]>((acc, message) => { if (acc.some((entry) => entry.id === message.id)) return acc; acc.push(message); return acc; }, []).sort((a, b) => new Date(b.receivedDateTime ?? b.sentDateTime ?? 0).getTime() - new Date(a.receivedDateTime ?? a.sentDateTime ?? 0).getTime());
       set({ outlookConnection: { ...connection, syncStatus: 'connected', mailboxLinked: true, lastSyncAt: todayIso(), lastError: undefined, syncCursorByFolder: nextCursor, lastSyncMode: usedDelta ? 'delta' : 'initial' }, outlookMessages: deduped }); queuePersist();
     } catch (error) { set((state: AppStore) => ({ outlookConnection: { ...state.outlookConnection, syncStatus: 'error', lastError: error instanceof Error ? error.message : 'Mailbox sync failed.' } })); queuePersist(); } },
-    importOutlookMessage: (messageId) => { const message = get().outlookMessages.find((entry) => entry.id === messageId); if (!message) return; const state = get(); const openConflict = state.items.some((item) => item.status !== 'Closed' && item.threadKey && message.conversationId && item.threadKey === message.conversationId); if (openConflict) return; const item = buildFollowUpFromOutlookImport(message, 'Jared', 'General'); set((inner: AppStore) => { const items = normalizeItems([item, ...inner.items]); return { items, selectedId: item.id, duplicateReviews: refreshDuplicates(items, inner.dismissedDuplicatePairs) }; }); queuePersist(); },
+    importOutlookMessage: (messageId) => { const message = get().outlookMessages.find((entry) => entry.id === messageId); if (!message) return; const state = get(); const openConflict = state.items.some((item) => item.status !== 'Closed' && item.threadKey && message.conversationId && item.threadKey === message.conversationId); if (openConflict) return; const item = enforceFollowUpIntegrity(buildFollowUpFromOutlookImport(message, 'Jared', ''), state.projects); set((inner: AppStore) => { const items = normalizeItems([item, ...inner.items]); return { items, selectedId: item.id, duplicateReviews: refreshDuplicates(items, inner.dismissedDuplicatePairs) }; }); queuePersist(); },
     disconnectOutlook: () => { if (isTauriRuntime()) import('@tauri-apps/api/core').then((api) => api.invoke('clear_outlook_loopback_callback')).catch(() => undefined); set({ outlookConnection: defaultOutlookConnection, outlookMessages: [] }); queuePersist(); },
     clearOutlookError: () => set((state: AppStore) => ({ outlookConnection: { ...state.outlookConnection, lastError: undefined, syncStatus: state.outlookConnection.mailboxLinked ? 'connected' : 'idle' } })),
   };

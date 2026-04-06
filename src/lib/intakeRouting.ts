@@ -178,7 +178,7 @@ export function buildForwardingAudit(record: ForwardedEmailRecord, result: Forwa
   };
 }
 
-export function buildTaskFromForwarded(record: ForwardedEmailRecord, owner = 'Jared', project = 'General'): TaskItem {
+export function buildTaskFromForwarded(record: ForwardedEmailRecord, owner = '', project = ''): TaskItem {
   return {
     id: createId('TSK'),
     title: record.originalSubject,

@@ -7,6 +7,7 @@ import { normalizeContact, normalizeCompany } from '../../domains/relationships/
 import { deriveProjects, projectCanonicalKey } from '../../domains/projects/helpers';
 import { normalizeItems, attachProjects } from '../../domains/followups/helpers';
 import { applyTaskRollupsToItems, normalizeTasks } from '../../domains/tasks/helpers';
+import { enforceFollowUpIntegrity, enforceTaskIntegrity } from '../../domains/records/integrity';
 import type { FollowUpColumnKey } from '../../types';
 import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
@@ -60,11 +61,12 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
         const companies = (payload.companies ?? []).map(normalizeCompany);
         const preProjects = deriveProjects(baseItems, payload.projects ?? [], payload.tasks ?? []);
         const projects = preProjects;
-        const items = attachProjects(applyTaskRollupsToItems(baseItems, payload.tasks ?? []), projects);
+        const migratedBaseItems = baseItems.map((item) => enforceFollowUpIntegrity(item, projects));
+        const items = attachProjects(applyTaskRollupsToItems(migratedBaseItems, payload.tasks ?? []), projects);
         const tasks = normalizeTasks((payload.tasks ?? []).map((task) => {
           const projectName = resolveProjectName(task.projectId, task.project, projects);
           const linkedProject = projects.find((project) => projectCanonicalKey(project.name) === projectCanonicalKey(projectName));
-          return { ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId };
+          return enforceTaskIntegrity({ ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId }, projects);
         }));
         const dismissedDuplicatePairs = payload.auxiliary.dismissedDuplicatePairs ?? [];
         set({

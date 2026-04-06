@@ -1,0 +1,150 @@
+.setpoint-wordmark {
+  display: inline-grid;
+  gap: 0.24em;
+  color: var(--brand-wordmark-light);
+}
+
+.setpoint-wordmark-line {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.setpoint-letter {
+  display: inline-flex;
+  width: 0.72em;
+  height: 1.04em;
+  margin: 0 -0.01em;
+  transform: translateY(0.03em);
+}
+
+.setpoint-letter svg {
+  width: 100%;
+  height: 100%;
+}
+
+.setpoint-letter-beam svg {
+  fill: color-mix(in srgb, var(--brand-steel) 72%, white 28%);
+  stroke: var(--brand-steel-soft);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.setpoint-letter-crane svg {
+  fill: color-mix(in srgb, var(--brand-crane) 76%, white 24%);
+  stroke: var(--brand-crane-soft);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.setpoint-wordmark-tagline {
+  color: var(--brand-accent);
+  font-size: 0.26em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.setpoint-wordmark-hero {
+  font-size: clamp(2rem, 5.5vw, 4.3rem);
+}
+
+.setpoint-wordmark-shell {
+  font-size: 1.44rem;
+}
+
+.setpoint-wordmark-compact {
+  font-size: clamp(1rem, 2.8vw, 1.18rem);
+}
+
+.setpoint-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--brand-steel-soft) 46%, transparent);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(140deg, rgba(9, 17, 31, 0.94), rgba(15, 23, 42, 0.86)),
+    repeating-linear-gradient(90deg, transparent 0 40px, rgba(148, 163, 184, 0.06) 40px 41px);
+  min-height: clamp(220px, 26vw, 300px);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  overflow: hidden;
+}
+
+.setpoint-mark::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 16%;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--brand-accent), transparent);
+  opacity: 0.9;
+}
+
+.setpoint-mark-frame {
+  position: absolute;
+  inset: 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  pointer-events: none;
+}
+
+.setpoint-mark .setpoint-wordmark {
+  justify-items: center;
+  color: var(--brand-wordmark-light);
+  text-shadow: 0 14px 24px rgba(2, 6, 23, 0.4);
+  position: relative;
+  z-index: 1;
+}
+
+.setpoint-monogram {
+  width: 1.52rem;
+  aspect-ratio: 1;
+  border-radius: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--brand-steel-soft) 46%, transparent);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.45), rgba(15, 23, 42, 0.6));
+  display: grid;
+  place-content: center;
+  gap: 0.11rem;
+  padding: 0.2rem;
+}
+
+.setpoint-monogram-beam,
+.setpoint-monogram-crane {
+  display: block;
+  height: 0.22rem;
+  border-radius: 999px;
+}
+
+.setpoint-monogram-beam {
+  width: 0.88rem;
+  background: linear-gradient(90deg, var(--brand-steel-soft), var(--brand-steel));
+}
+
+.setpoint-monogram-crane {
+  width: 0.72rem;
+  justify-self: end;
+  background: linear-gradient(90deg, var(--brand-crane-soft), var(--brand-crane));
+}
+
+@media (max-width: 640px) {
+  .setpoint-mark {
+    min-height: 195px;
+    padding: 0.85rem;
+  }
+
+  .setpoint-wordmark-hero {
+    font-size: clamp(1.48rem, 10vw, 2.1rem);
+  }
+
+  .setpoint-wordmark-hero .setpoint-wordmark-tagline {
+    font-size: 0.3em;
+    letter-spacing: 0.14em;
+  }
+}

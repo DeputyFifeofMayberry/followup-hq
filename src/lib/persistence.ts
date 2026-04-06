@@ -12,6 +12,14 @@ import {
 import { getSupabaseHost } from './supabase';
 import { computeDeterministicHash } from './persistenceHash';
 import { getSessionScopedId, getStableDeviceId } from './persistenceIdentity';
+import {
+  clearCommittedOutboxEntries,
+  enqueueOutboxEntry,
+  listUnresolvedOutboxEntries,
+  loadOutboxState,
+  updateOutboxEntry,
+} from './persistenceOutbox';
+import { incrementMetric } from './persistenceMetrics';
 import type {
   SaveBatchEntityCounts,
   SaveBatchEnvelope,
@@ -149,6 +157,8 @@ export interface SaveDiagnostics {
   touchedTables?: string[];
   operationCount?: number;
   operationCountsByEntity?: SaveBatchEntityCounts;
+  conflictedOperationCount?: number;
+  conflictIds?: string[];
 }
 
 export interface SaveResult {
@@ -362,11 +372,19 @@ async function getSessionUserId(): Promise<string | null> {
 }
 
 async function readEntityRows<T>(table: string, userId: string): Promise<T[]> {
-  const { data, error } = await supabase.from(table).select('record, deleted_at').eq('user_id', userId);
+  const { data, error } = await supabase.from(table).select('record, deleted_at, record_version, updated_by_device, last_batch_id, last_operation_at, conflict_marker').eq('user_id', userId);
   if (error) throw error;
   return ((data ?? [])
     .filter((row) => !row.deleted_at)
-    .map((row) => row.record) as T[]);
+    .map((row) => ({
+      ...(row.record ?? {}),
+      deletedAt: row.deleted_at ?? null,
+      recordVersion: row.record_version ?? 1,
+      updatedByDevice: row.updated_by_device ?? undefined,
+      lastBatchId: row.last_batch_id ?? undefined,
+      lastOperationAt: row.last_operation_at ?? undefined,
+      conflictMarker: Boolean(row.conflict_marker),
+    })) as T[]);
 }
 
 interface AuxiliaryReadResult {
@@ -426,7 +444,15 @@ function buildEntityDiff(
   for (const [recordId, nextRecord] of nextById.entries()) {
     const previousRecord = previousById.get(recordId);
     if (recordChanged(nextRecord, previousRecord)) {
-      operations.push({ entity, recordId, operation: 'upsert', recordSnapshot: nextRecord });
+      operations.push({
+        entity,
+        recordId,
+        operation: 'upsert',
+        recordSnapshot: nextRecord,
+        expectedRecordVersion: Number((previousRecord as any)?.recordVersion ?? 1),
+        expectedDeletedAt: (previousRecord as any)?.deletedAt ?? null,
+        expectedLastBatchId: (previousRecord as any)?.lastBatchId ?? null,
+      });
     }
   }
 
@@ -438,6 +464,9 @@ function buildEntityDiff(
         operation: 'delete',
         deletedAt: new Date().toISOString(),
         recordSnapshot: previousRecord,
+        expectedRecordVersion: Number((previousRecord as any)?.recordVersion ?? 1),
+        expectedDeletedAt: (previousRecord as any)?.deletedAt ?? null,
+        expectedLastBatchId: (previousRecord as any)?.lastBatchId ?? null,
       });
     }
   }
@@ -475,6 +504,9 @@ function buildScopedEntityOps(
       if (nextRecord) {
         if (recordChanged(nextRecord, previousRecord)) {
           operations.push({ entity: config.key, recordId, operation: 'upsert', recordSnapshot: nextRecord });
+          operations[operations.length - 1].expectedRecordVersion = Number((previousRecord as any)?.recordVersion ?? 1);
+          operations[operations.length - 1].expectedDeletedAt = (previousRecord as any)?.deletedAt ?? null;
+          operations[operations.length - 1].expectedLastBatchId = (previousRecord as any)?.lastBatchId ?? null;
         }
         return;
       }
@@ -485,6 +517,9 @@ function buildScopedEntityOps(
           operation: 'delete',
           deletedAt: new Date().toISOString(),
           recordSnapshot: previousRecord,
+          expectedRecordVersion: Number((previousRecord as any)?.recordVersion ?? 1),
+          expectedDeletedAt: (previousRecord as any)?.deletedAt ?? null,
+          expectedLastBatchId: (previousRecord as any)?.lastBatchId ?? null,
         });
       }
     });
@@ -564,7 +599,7 @@ function normalizeSaveBatchReceipt(payload: unknown): SaveBatchReceipt {
     contacts: { upserts: 0, deletes: 0 },
     companies: { upserts: 0, deletes: 0 },
   }) as SaveBatchEntityCounts;
-  const status = receipt.status === 'rejected' || receipt.status === 'received' ? receipt.status : 'committed';
+  const status = receipt.status === 'rejected' || receipt.status === 'received' || receipt.status === 'conflict' ? receipt.status : 'committed';
   return {
     batchId: String(receipt.batchId ?? receipt.batch_id ?? ''),
     userId: String(receipt.userId ?? receipt.user_id ?? ''),
@@ -572,11 +607,17 @@ function normalizeSaveBatchReceipt(payload: unknown): SaveBatchReceipt {
     committedAt: typeof receipt.committedAt === 'string' ? receipt.committedAt : typeof receipt.committed_at === 'string' ? receipt.committed_at : undefined,
     schemaVersion: Number(receipt.schemaVersion ?? receipt.schema_version ?? SAVE_BATCH_SCHEMA_VERSION),
     operationCount: Number(receipt.operationCount ?? receipt.operation_count ?? 0),
+    appliedOperationCount: Number(receipt.appliedOperationCount ?? receipt.applied_operation_count ?? receipt.operationCount ?? receipt.operation_count ?? 0),
+    conflictedOperationCount: Number(receipt.conflictedOperationCount ?? receipt.conflicted_operation_count ?? 0),
     operationCountsByEntity,
     touchedTables: Array.isArray(receipt.touchedTables) ? receipt.touchedTables.map(String) : [],
     clientPayloadHash: typeof receipt.clientPayloadHash === 'string' ? receipt.clientPayloadHash : undefined,
     serverPayloadHash: String(receipt.serverPayloadHash ?? receipt.server_payload_hash ?? ''),
     hashMatch: Boolean(receipt.hashMatch),
+    conflictIds: Array.isArray(receipt.conflictIds) ? receipt.conflictIds.map(String) : undefined,
+    conflictCountByEntity: typeof receipt.conflictCountByEntity === 'object' && receipt.conflictCountByEntity ? receipt.conflictCountByEntity as Record<string, number> : undefined,
+    conflictCountByType: typeof receipt.conflictCountByType === 'object' && receipt.conflictCountByType ? receipt.conflictCountByType as Record<string, number> : undefined,
+    outboxSafeToClear: receipt.outboxSafeToClear === undefined ? status === 'committed' : Boolean(receipt.outboxSafeToClear),
   };
 }
 
@@ -938,11 +979,14 @@ export class PersistenceSaveError extends Error {
 
 export async function savePersistedPayload(payload: PersistedPayload, options?: { dirtyRecords?: DirtyRecordRef[] }): Promise<SaveResult> {
   const saveAttemptAt = new Date().toISOString();
+  incrementMetric('saveBatchAttempts');
   const existingCache = readLocalCache();
   const previousPayload = existingCache?.entities ?? buildEmptyPayload();
   const auxiliaryChanged = JSON.stringify(payload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
   const scopedOps = buildScopedEntityOps(payload, previousPayload, options?.dirtyRecords);
-  const pendingOperations = mergePendingOperations(existingCache?.pendingOperations ?? [], scopedOps);
+  const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState());
+  const unresolvedOps = unresolvedOutbox.flatMap((entry) => entry.operations as PendingEntityOperation[]);
+  const pendingOperations = mergePendingOperations([...((existingCache?.pendingOperations ?? []) as PendingEntityOperation[]), ...unresolvedOps], scopedOps);
   const diagnostics: SaveDiagnostics = {
     attemptedAt: saveAttemptAt,
     completedTables: [],
@@ -977,6 +1021,17 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
   if (!auxiliaryChanged && pendingOperations.length === 0) {
     return { mode: 'supabase', diagnostics };
   }
+
+  const provisionalEntry = enqueueOutboxEntry({
+    batchId: diagnostics.batchId ?? `pending-${Date.now().toString(36)}`,
+    deviceId: getStableDeviceId(),
+    sessionId: getSessionScopedId(),
+    status: 'queued',
+    operations: pendingOperations,
+    operationCount: pendingOperations.length,
+    payloadHash: 'pending-hash',
+    retryCount: 0,
+  });
   const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
   if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
     diagnostics.staleDeleteGuardTriggered = true;
@@ -988,6 +1043,11 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
 
   const envelope = await buildSaveBatchEnvelope({ payload, operations: pendingOperations, clientGeneratedAt: saveAttemptAt });
   diagnostics.batchId = envelope.batchId;
+  updateOutboxEntry(provisionalEntry.outboxEntryId, {
+    batchId: envelope.batchId,
+    payloadHash: envelope.clientPayloadHash,
+    status: 'flushing',
+  });
   try {
     const receipt = await commitSaveBatch(envelope);
     diagnostics.receiptStatus = receipt.status;
@@ -998,12 +1058,29 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     diagnostics.operationCount = receipt.operationCount;
     diagnostics.operationCountsByEntity = receipt.operationCountsByEntity;
     diagnostics.completedTables = receipt.touchedTables;
+    diagnostics.conflictedOperationCount = receipt.conflictedOperationCount;
+    diagnostics.conflictIds = receipt.conflictIds;
     if (receipt.status !== 'committed') {
+      if (receipt.status === 'conflict') incrementMetric('saveConflicts');
+      else incrementMetric('saveBatchRejects');
+      updateOutboxEntry(provisionalEntry.outboxEntryId, {
+        status: receipt.status === 'conflict' ? 'conflict' : 'failed',
+        blockedReason: receipt.status,
+        lastError: `Batch ${receipt.batchId} returned ${receipt.status}`,
+        retryCount: provisionalEntry.retryCount + 1,
+      });
       throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
         ...diagnostics,
         failedBatchId: envelope.batchId,
       });
     }
+    incrementMetric('saveBatchCommits');
+    updateOutboxEntry(provisionalEntry.outboxEntryId, {
+      status: 'committed',
+      blockedReason: undefined,
+      lastError: undefined,
+    });
+    clearCommittedOutboxEntries();
 
     writeLocalCache({
       entities: payload,
@@ -1022,6 +1099,12 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     diagnostics.failedBatchId = envelope.batchId;
+    updateOutboxEntry(provisionalEntry.outboxEntryId, {
+      status: diagnostics.receiptStatus === 'conflict' ? 'conflict' : 'failed',
+      lastError: rawMessage,
+      retryCount: provisionalEntry.retryCount + 1,
+    });
+    incrementMetric('outboxRetries');
     writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,

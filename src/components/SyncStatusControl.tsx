@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { AlertTriangle, CheckCircle2, Cloud, Database, LoaderCircle, LogOut, RefreshCcw, Save, Upload, UserRound } from 'lucide-react';
 import { RecoveryCenter } from './RecoveryCenter';
+import { ConflictQueueCenter } from './ConflictQueueCenter';
 import { downloadVerificationIncidentReport, exportVerificationIncident } from '../lib/persistenceVerification';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
@@ -26,6 +27,9 @@ export function SyncStatusControl() {
     verifyNow: s.verifyNow,
     markVerificationMismatchReviewed: s.markVerificationMismatchReviewed,
     clearReviewedVerificationMismatches: s.clearReviewedVerificationMismatches,
+    markConflictReviewed: s.markConflictReviewed,
+    dismissConflict: s.dismissConflict,
+    conflictQueue: s.conflictQueue,
   })));
   const [open, setOpen] = useState(false);
   const [runningManualSave, setRunningManualSave] = useState(false);
@@ -33,6 +37,7 @@ export function SyncStatusControl() {
   const [email, setEmail] = useState<string>('');
   const [signingOut, setSigningOut] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [conflictOpen, setConflictOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
@@ -186,6 +191,13 @@ export function SyncStatusControl() {
               onClick={() => setRecoveryOpen(true)}
             >
               Open Recovery Center
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={() => setConflictOpen(true)}
+            >
+              Open Conflict Queue
             </button>
           </div>
 
@@ -343,6 +355,14 @@ export function SyncStatusControl() {
               });
               downloadVerificationIncidentReport(report);
             }}
+          />
+          <ConflictQueueCenter
+            open={conflictOpen}
+            onClose={() => setConflictOpen(false)}
+            conflicts={syncMeta.conflictQueue}
+            onMarkReviewed={(id) => syncMeta.markConflictReviewed(id)}
+            onDismiss={(id) => syncMeta.dismissConflict(id)}
+            onReverify={() => { void syncMeta.verifyNow('manual'); }}
           />
 
           <div className="sync-status-row">

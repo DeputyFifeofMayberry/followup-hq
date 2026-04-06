@@ -18,6 +18,7 @@ import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } fro
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 import { verifyPersistedState } from '../lib/persistenceVerification';
+import { clearCommittedOutboxEntries, listUnresolvedOutboxEntries, loadOutboxState } from '../lib/persistenceOutbox';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -46,6 +47,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 unsavedChangeCount: pendingRecordCount,
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: 'dirty',
+                outboxState: 'queued',
                 saveError: '',
                 cloudSyncStatus: state.sessionDegraded
                   ? state.cloudSyncStatus
@@ -64,6 +66,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 : 'Saving latest changes.';
             return {
               syncState: 'saving',
+              outboxState: 'flushing',
               saveError: '',
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
@@ -98,7 +101,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 detail: 'SetPoint confirmed a cloud-backed save and cleared the session trust warning.',
               })
               : null;
-            return {
+              return {
               persistenceMode: mode,
               syncState: postSave.syncState,
               saveError: '',
@@ -116,6 +119,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
               lastReceiptOperationCount: postSave.lastReceiptOperationCount,
               lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
               lastFailedBatchId: postSave.lastFailedBatchId,
+              outboxState: 'idle',
+              unresolvedOutboxCount: listUnresolvedOutboxEntries(clearCommittedOutboxEntries()).length,
+              lastOutboxFlushAt: timestamp,
               lastFallbackRestoreAt: state.lastFallbackRestoreAt,
               unsavedChangeCount: 0,
               hasLocalUnsavedChanges: false,
@@ -140,7 +146,26 @@ export const useAppStore = create<AppStore>()((set, get) => {
             };
           }),
           onError: (message, timestamp, reason, diagnostics) => set((state) => ({
+            conflictQueue: diagnostics?.receiptStatus === 'conflict'
+              ? [
+                ...state.conflictQueue,
+                ...(diagnostics.conflictIds ?? [`${diagnostics.failedBatchId ?? 'batch'}-conflict`]).map((id) => ({
+                  id,
+                  entity: 'unknown',
+                  recordId: 'unknown',
+                  conflictType: 'revision_mismatch',
+                  summary: 'Cloud save blocked due to stale or concurrent state.',
+                  technicalDetail: message,
+                  localBatchId: diagnostics.batchId ?? diagnostics.failedBatchId,
+                  status: 'open' as const,
+                  createdAt: timestamp,
+                })),
+              ]
+              : state.conflictQueue,
             syncState: 'error',
+            outboxState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
+            unresolvedOutboxCount: listUnresolvedOutboxEntries(loadOutboxState()).length,
+            lastOutboxFailureAt: timestamp,
             saveError: message,
             hasLocalUnsavedChanges: true,
             unsavedChangeCount: state.dirtyRecordRefs.length,
@@ -154,6 +179,13 @@ export const useAppStore = create<AppStore>()((set, get) => {
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
             lastFailedBatchId: diagnostics?.failedBatchId,
+            conflictReviewNeeded: diagnostics?.receiptStatus === 'conflict' || state.conflictReviewNeeded,
+            openConflictCount: (diagnostics?.receiptStatus === 'conflict'
+              ? (state.openConflictCount + (diagnostics?.conflictedOperationCount ?? 1))
+              : state.openConflictCount),
+            lastConflictDetectedAt: diagnostics?.receiptStatus === 'conflict' ? timestamp : state.lastConflictDetectedAt,
+            lastConflictBatchId: diagnostics?.receiptStatus === 'conflict' ? (diagnostics?.batchId ?? diagnostics?.failedBatchId) : state.lastConflictBatchId,
+            lastConflictFailureMessage: diagnostics?.receiptStatus === 'conflict' ? message : state.lastConflictFailureMessage,
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
@@ -263,6 +295,22 @@ export const useAppStore = create<AppStore>()((set, get) => {
         : { reviewedMismatchIds: [...state.reviewedMismatchIds, mismatchId] }
     )),
     clearReviewedVerificationMismatches: () => set({ reviewedMismatchIds: [] }),
+    markConflictReviewed: (conflictId) => set((state) => ({
+      conflictQueue: state.conflictQueue.map((conflict) => (
+        conflict.id === conflictId ? { ...conflict, status: 'reviewed', updatedAt: new Date().toISOString() } : conflict
+      )),
+    })),
+    dismissConflict: (conflictId) => set((state) => {
+      const nextQueue = state.conflictQueue.map((conflict) => (
+        conflict.id === conflictId ? { ...conflict, status: 'dismissed', updatedAt: new Date().toISOString() } : conflict
+      ));
+      const openCount = nextQueue.filter((entry) => entry.status === 'open').length;
+      return {
+        conflictQueue: nextQueue,
+        openConflictCount: openCount,
+        conflictReviewNeeded: openCount > 0,
+      };
+    }),
     isRecordDirty: (type, id) => get().dirtyRecordRefs.some((ref) => ref.type === type && ref.id === id),
   };
 });

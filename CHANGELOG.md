@@ -397,3 +397,13 @@
 - Refined capture and intake polish by upgrading confidence chips, confirmation states, and intake review tray readability to better support quick decision-making (`src/components/UniversalCapture.tsx`, `src/index.css`).
 - Improved Relationship workspace hierarchy and scanability with cleaner portfolio row styling, stronger active states, and clearer empty-state guidance (`src/components/RelationshipBoard.tsx`, `src/index.css`).
 - Improved secondary workspace cohesion by tightening Outlook intake tab framing and aligning inspector card treatment in detail flows (`src/components/OutlookPanel.tsx`, `src/components/ItemDetailPanel.tsx`).
+
+## Phase 3 — Conflict-aware durability and trust hardening (2026-04-06)
+
+- Added per-record revision metadata (`record_version`, `updated_by_device`, `last_batch_id`, `last_operation_at`, `conflict_marker`) across persisted entity tables.
+- Refactored `apply_save_batch` into strict all-or-nothing conflict detection: stale/concurrent/delete conflicts are logged in `persistence_conflicts` and returned with `status=conflict` receipts.
+- Added durable client outbox state with restart-safe recovery and explicit unresolved tracking.
+- Added conflict queue state and review UX (mark reviewed/dismiss + re-verify).
+- Extended sync trust model to distinguish queued/failed outbox and conflict review required states.
+- Added local reliability metrics for attempts, commits, rejects, conflicts, retries, and startup outbox restores.
+- Expanded persistence reliability tests for conflict receipt/outbox durability behavior.

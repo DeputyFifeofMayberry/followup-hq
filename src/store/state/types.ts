@@ -40,9 +40,11 @@ import type { UniversalCaptureDraft } from '../../lib/universalCapture';
 import type { RecordRef } from '../../lib/recordContext';
 import type { DirtyRecordRef } from '../persistenceQueue';
 import type { SaveBatchEntityCounts } from '../../lib/persistenceTypes';
+import type { SaveBatchStatus } from '../../lib/persistenceTypes';
 import type { VerificationResult, VerificationSummary } from '../../lib/persistenceVerification';
 import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 import type { SupportWorkspaceSessionState } from '../../domains/support';
+import type { OutboxStatus } from '../../lib/persistenceOutbox';
 
 export type PersistenceActivityKind =
   | 'queued'
@@ -171,6 +173,30 @@ export type SessionDegradedReason =
   | 'load-failed-no-local-copy';
 
 export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
+export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
+
+export interface PersistenceConflictItem {
+  id: string;
+  entity: string;
+  recordId: string;
+  conflictType: string;
+  summary: string;
+  technicalDetail?: string;
+  localBatchId?: string;
+  cloudBatchId?: string;
+  localDeviceId?: string;
+  cloudDeviceId?: string;
+  localRecordVersion?: number;
+  cloudRecordVersion?: number;
+  localSnapshot?: unknown;
+  cloudSnapshot?: unknown;
+  localDeletedAt?: string | null;
+  cloudDeletedAt?: string | null;
+  status: 'open' | 'reviewed' | 'resolved' | 'dismissed';
+  createdAt: string;
+  updatedAt?: string;
+  fromOutboxStatus?: OutboxStatus;
+}
 
 export interface AppMetaState {
   hydrated: boolean;
@@ -200,7 +226,7 @@ export interface AppMetaState {
   lastSuccessfulCloudPersistAt?: string;
   lastConfirmedBatchId?: string;
   lastConfirmedBatchCommittedAt?: string;
-  lastReceiptStatus?: 'committed' | 'rejected';
+  lastReceiptStatus?: SaveBatchStatus;
   lastReceiptHashMatch?: boolean;
   lastReceiptSchemaVersion?: number;
   lastReceiptTouchedTables?: string[];
@@ -220,6 +246,20 @@ export interface AppMetaState {
   reviewedMismatchIds: string[];
   verificationSummary?: VerificationSummary;
   latestVerificationResult?: VerificationResult;
+  outboxState: OutboxLifecycleState;
+  unresolvedOutboxCount: number;
+  lastOutboxFlushAt?: string;
+  lastOutboxFailureAt?: string;
+  conflictReviewNeeded: boolean;
+  openConflictCount: number;
+  lastConflictDetectedAt?: string;
+  lastConflictBatchId?: string;
+  conflictQueueSummary?: {
+    byEntity: Record<string, number>;
+    byType: Record<string, number>;
+  };
+  lastConflictFailureMessage?: string;
+  conflictQueue: PersistenceConflictItem[];
 
     persistenceActivity: PersistenceActivityEvent[];
 }

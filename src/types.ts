@@ -620,6 +620,12 @@ export interface ProjectRecord {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  recordVersion?: number;
+  updatedByDevice?: string;
+  lastBatchId?: string;
+  lastOperationAt?: string;
+  deletedAt?: string | null;
+  conflictMarker?: boolean;
 }
 
 export interface ProjectHealthBreakdown {
@@ -711,6 +717,12 @@ export interface FollowUpItem {
   doneLinkedTaskCount?: number;
   allLinkedTasksDone?: boolean;
   childWorkflowSignal?: 'on_track' | 'blocked' | 'overdue' | 'ready_to_close';
+  recordVersion?: number;
+  updatedByDevice?: string;
+  lastBatchId?: string;
+  lastOperationAt?: string;
+  deletedAt?: string | null;
+  conflictMarker?: boolean;
 }
 
 
@@ -765,6 +777,12 @@ export interface TaskItem {
   doneLinkedTaskCount?: number;
   allLinkedTasksDone?: boolean;
   childWorkflowSignal?: 'on_track' | 'blocked' | 'overdue' | 'ready_to_close';
+  recordVersion?: number;
+  updatedByDevice?: string;
+  lastBatchId?: string;
+  lastOperationAt?: string;
+  deletedAt?: string | null;
+  conflictMarker?: boolean;
 }
 
 export interface TaskFormInput {
@@ -956,6 +974,12 @@ export interface ContactRecord {
   notes: string;
   completionNote?: string;
   tags: string[];
+  recordVersion?: number;
+  updatedByDevice?: string;
+  lastBatchId?: string;
+  lastOperationAt?: string;
+  deletedAt?: string | null;
+  conflictMarker?: boolean;
 }
 
 export interface CompanyRecord {
@@ -975,6 +999,12 @@ export interface CompanyRecord {
   notes: string;
   completionNote?: string;
   tags: string[];
+  recordVersion?: number;
+  updatedByDevice?: string;
+  lastBatchId?: string;
+  lastOperationAt?: string;
+  deletedAt?: string | null;
+  conflictMarker?: boolean;
 }
 
 export interface OutlookScopesPreset {

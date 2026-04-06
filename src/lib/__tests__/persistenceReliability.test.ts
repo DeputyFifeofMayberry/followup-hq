@@ -77,11 +77,16 @@ function buildSelectResult(table: string, columns: string) {
   if (table === 'user_preferences' && columns === 'user_id') {
     return { data: [], error: readError };
   }
-  if (columns === 'record, deleted_at') {
+  if (columns.startsWith('record, deleted_at')) {
     return {
       data: (mock.rows[table as keyof typeof mock.rows] ?? []).map((row: any) => ({
         record: row.record,
         deleted_at: row.deleted_at ?? null,
+        record_version: row.record_version ?? 1,
+        updated_by_device: row.updated_by_device ?? null,
+        last_batch_id: row.last_batch_id ?? null,
+        last_operation_at: row.last_operation_at ?? null,
+        conflict_marker: row.conflict_marker ?? false,
       })),
       error: readError,
     };
@@ -339,6 +344,40 @@ async function run() {
     failureHasBatch = Boolean(error?.diagnostics?.failedBatchId);
   }
   assert(failureHasBatch, 'rpc failure should preserve failed batch id in diagnostics');
+
+  // G. conflict receipt should preserve unresolved outbox entries
+  reset();
+  (supabase as any).rpc = async (fn: string, args: any) => {
+    if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
+    return {
+      data: {
+        batchId: args.batch.batchId,
+        userId: mock.sessionUserId ?? 'user-1',
+        status: 'conflict',
+        schemaVersion: args.batch.schemaVersion,
+        operationCount: args.batch.operationCount,
+        appliedOperationCount: 0,
+        conflictedOperationCount: 1,
+        operationCountsByEntity: args.batch.operationCountsByEntity,
+        touchedTables: [],
+        clientPayloadHash: args.batch.clientPayloadHash,
+        serverPayloadHash: args.batch.clientPayloadHash,
+        hashMatch: true,
+        conflictIds: ['conflict-1'],
+        outboxSafeToClear: false,
+      },
+      error: null,
+    };
+  };
+  let conflictThrown = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch (error: any) {
+    conflictThrown = String(error?.message ?? '').includes('did not fully complete');
+  }
+  assert(conflictThrown, 'conflict receipt should reject save completion');
+  const outboxRaw = JSON.parse(storage.getItem('followup_hq_persistence_outbox_v1') ?? '{\"entries\":[]}');
+  assert((outboxRaw.entries ?? []).length > 0, 'conflict should keep durable outbox entry');
 }
 
 void run();

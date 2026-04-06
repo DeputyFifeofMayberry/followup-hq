@@ -12,6 +12,7 @@ import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 import { buildRecordSurfaceSummary } from '../domains/editor';
 import { QuickRecordEditPanel } from './QuickRecordEditPanel';
 import { applyQuickEditPatchToFollowUp, applyQuickEditPatchToTask } from '../lib/quickEdit';
+import type { FollowUpItem, TaskItem } from '../types';
 
 const typeLabel: Record<RecordType, string> = {
   followup: 'Follow-up',
@@ -27,6 +28,21 @@ function summaryRows(record: RecordDescriptor) {
     { label: 'Type', value: summary.typeLabel },
     ...summary.metadata.map((meta) => ({ label: meta.label, value: meta.value && meta.value !== '—' ? (meta.label === 'Updated' || meta.label === 'Due' ? formatDateTime(meta.value) : meta.value) : '—' })),
   ];
+}
+
+function trustSummary(record: FollowUpItem | TaskItem): { label: string; tone: 'ok' | 'warn'; detail: string } {
+  const lifecycle = record.lifecycleState || 'unknown';
+  const reasons = (record.reviewReasons || []) as string[];
+  if (lifecycle === 'ready' || lifecycle === 'active') {
+    return { label: 'Trusted live', tone: 'ok', detail: 'This record can be acted on in live execution lanes.' };
+  }
+  if (lifecycle === 'draft') {
+    return { label: 'Draft', tone: 'warn', detail: 'Draft records are saved, but not yet promoted for live execution.' };
+  }
+  if (lifecycle === 'review_required' || reasons.length || record.needsCleanup) {
+    return { label: 'Review required', tone: 'warn', detail: reasons.length ? reasons.join(', ') : 'Record requires cleanup before live use.' };
+  }
+  return { label: 'Unknown trust state', tone: 'warn', detail: 'Open full editor to confirm lifecycle and integrity status.' };
 }
 
 export function UniversalRecordDrawer() {
@@ -160,6 +176,22 @@ export function UniversalRecordDrawer() {
                 ))}
               </div>
             </RecordContextDrawerSection>
+
+            {(recordDrawerRef.type === 'followup' || recordDrawerRef.type === 'task') ? (
+              <RecordContextDrawerSection title="Lifecycle / trust">
+                {(() => {
+                  const record = recordDrawerRef.type === 'followup' ? selectedFollowUp : selectedTask;
+                  if (!record) return <div className="text-xs text-slate-500">No trust data available.</div>;
+                  const trust = trustSummary(record);
+                  return (
+                    <div className={trust.tone === 'ok' ? 'rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800' : 'rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800'}>
+                      <div className="font-semibold">{trust.label}</div>
+                      <div className="mt-1 text-xs">{trust.detail}</div>
+                    </div>
+                  );
+                })()}
+              </RecordContextDrawerSection>
+            ) : null}
 
             <RecordContextDrawerSection title="What matters around this record">
               <div className="mt-2 text-xs text-slate-600">

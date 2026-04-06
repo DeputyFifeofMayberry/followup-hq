@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { daysSince, isOverdue, isTaskDeferred, isTaskOverdue, needsNudge, todayIso } from './utils';
 import { getProjectLinkedRecords } from './recordContext';
+import { isReviewRecord, isTrustedLiveRecord } from '../domains/records/integrity';
 
 export type ProjectSavedViewKey = 'All projects' | 'Hot projects' | 'Closeout' | 'Waiting on external' | 'Blocked by tasks' | 'Docs need review' | 'Low activity / stale';
 
@@ -41,6 +42,8 @@ export interface ProjectDerivedRecord {
   updatedAt: string;
   contacts: ContactRecord[];
   companies: CompanyRecord[];
+  reviewFollowUps: FollowUpItem[];
+  reviewTasks: TaskItem[];
 }
 
 const STALE_DAYS = 10;
@@ -145,8 +148,12 @@ export function buildProjectDerivedRecords(
   const now = todayIso();
   return projects.map((project) => {
     const projectLinkedRecords = getProjectLinkedRecords(project.id, { items, tasks, projects, contacts, companies });
-    const openFollowUps = projectLinkedRecords.followups.filter((item) => item.status !== 'Closed');
-    const openTasks = projectLinkedRecords.tasks.filter((task) => task.status !== 'Done');
+    const trustedFollowUps = projectLinkedRecords.followups.filter((item) => isTrustedLiveRecord(item));
+    const trustedTasks = projectLinkedRecords.tasks.filter((task) => isTrustedLiveRecord(task));
+    const openFollowUps = trustedFollowUps.filter((item) => item.status !== 'Closed');
+    const openTasks = trustedTasks.filter((task) => task.status !== 'Done');
+    const reviewFollowUps = projectLinkedRecords.followups.filter((item) => isReviewRecord(item));
+    const reviewTasks = projectLinkedRecords.tasks.filter((task) => isReviewRecord(task));
     const docs = intakeDocuments.filter((doc) => doc.projectId === project.id);
 
     const projectDates = [project.updatedAt, project.lastReviewedAt, ...openFollowUps.map((item) => item.lastActionAt || item.lastTouchDate), ...openTasks.map((task) => task.updatedAt), ...docs.map((doc) => doc.uploadedAt)]
@@ -170,6 +177,8 @@ export function buildProjectDerivedRecords(
       updatedAt,
       contacts: projectContacts,
       companies: projectCompanies,
+      reviewFollowUps,
+      reviewTasks,
     };
   });
 }

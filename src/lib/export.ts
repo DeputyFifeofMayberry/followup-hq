@@ -1,5 +1,6 @@
 import type { FollowUpItem, FollowUpPriority, FollowUpStatus, SavedViewKey, TaskItem, TaskPriority, TaskStatus } from '../types';
 import { applySavedView, daysSince, formatDate, formatDateTime, isOverdue, needsNudge } from './utils';
+import { isReviewRecord, isTrustedLiveRecord } from '../domains/records/integrity';
 
 export type ExportDataset = 'followUps' | 'tasks' | 'combined';
 export type ExportDetailLevel = 'simple' | 'standard' | 'detailed';
@@ -19,6 +20,8 @@ export interface FollowUpExportFilters {
   onlyOverdue: boolean;
   onlyNeedsNudge: boolean;
   tagQuery: string;
+  includeReviewRequired: boolean;
+  includeDraftRecords: boolean;
 }
 
 export interface TaskExportFilters {
@@ -32,6 +35,8 @@ export interface TaskExportFilters {
   linkedOnly: boolean;
   includeDone: boolean;
   tagQuery: string;
+  includeReviewRequired: boolean;
+  includeDraftRecords: boolean;
 }
 
 export interface ExportOptions {
@@ -45,6 +50,7 @@ export interface ExportOptions {
   includeDrafts: boolean;
   includeTags: boolean;
   includeLinkedRecordColumns: boolean;
+  includeTrustColumns: boolean;
   followUps: FollowUpExportFilters;
   tasks: TaskExportFilters;
 }
@@ -96,6 +102,11 @@ function includesTag(tags: string[], tagQuery: string): boolean {
 export function filterFollowUps(items: FollowUpItem[], filters: FollowUpExportFilters): FollowUpItem[] {
   const savedViewItems = applySavedView(items, filters.savedView);
   return savedViewItems.filter((item) => {
+    const reviewRecord = isReviewRecord(item);
+    const isDraft = item.lifecycleState === 'draft' || item.dataQuality === 'draft';
+    if (!filters.includeReviewRequired && reviewRecord) return false;
+    if (!filters.includeDraftRecords && isDraft) return false;
+    if (!reviewRecord && !isDraft && !isTrustedLiveRecord(item)) return false;
     if (!filters.includeClosed && item.status === 'Closed') return false;
     if (filters.project !== 'All' && item.project !== filters.project) return false;
     if (filters.owner !== 'All' && item.owner !== filters.owner) return false;
@@ -127,6 +138,11 @@ export function filterFollowUps(items: FollowUpItem[], filters: FollowUpExportFi
 
 export function filterTasks(tasks: TaskItem[], filters: TaskExportFilters): TaskItem[] {
   return tasks.filter((task) => {
+    const reviewRecord = isReviewRecord(task);
+    const isDraft = task.lifecycleState === 'draft' || task.dataQuality === 'draft';
+    if (!filters.includeReviewRequired && reviewRecord) return false;
+    if (!filters.includeDraftRecords && isDraft) return false;
+    if (!reviewRecord && !isDraft && !isTrustedLiveRecord(task)) return false;
     if (!filters.includeDone && task.status === 'Done') return false;
     if (filters.project !== 'All' && task.project !== filters.project) return false;
     if (filters.owner !== 'All' && task.owner !== filters.owner) return false;
@@ -190,6 +206,13 @@ function buildFollowUpRows(items: FollowUpItem[], options: ExportOptions): Array
       base['Project ID'] = item.projectId ?? '';
       base['Thread Key'] = item.threadKey ?? '';
     }
+    if (options.includeTrustColumns) {
+      base['Lifecycle State'] = item.lifecycleState || '';
+      base['Data Quality'] = item.dataQuality || '';
+      base['Needs Cleanup'] = item.needsCleanup ? 'Yes' : 'No';
+      base['Review Reasons'] = item.reviewReasons?.join(' | ') || '';
+      base['Integrity Summary'] = item.invalidReason || '';
+    }
 
     if (options.detailLevel === 'detailed' || options.includeSourceRefs) {
       base['Source Ref'] = item.sourceRef;
@@ -247,6 +270,13 @@ function buildTaskRows(tasks: TaskItem[], options: ExportOptions): Array<Record<
       base['Company ID'] = task.companyId ?? '';
       base['Project ID'] = task.projectId ?? '';
     }
+    if (options.includeTrustColumns) {
+      base['Lifecycle State'] = task.lifecycleState || '';
+      base['Data Quality'] = task.dataQuality || '';
+      base['Needs Cleanup'] = task.needsCleanup ? 'Yes' : 'No';
+      base['Review Reasons'] = task.reviewReasons?.join(' | ') || '';
+      base['Integrity Summary'] = task.invalidReason || '';
+    }
 
     if (options.detailLevel === 'detailed' || options.includeNotes) {
       base.Notes = task.notes;
@@ -294,10 +324,16 @@ function buildSummaryRows(
     { Metric: 'Dataset', Value: options.dataset },
     { Metric: 'Detail Level', Value: options.detailLevel },
     { Metric: 'Follow-ups Exported', Value: followUps.length },
+    { Metric: 'Follow-ups Trusted Live', Value: followUps.filter((item) => isTrustedLiveRecord(item)).length },
+    { Metric: 'Follow-ups Review Required', Value: followUps.filter((item) => isReviewRecord(item)).length },
+    { Metric: 'Follow-ups Draft', Value: followUps.filter((item) => item.lifecycleState === 'draft' || item.dataQuality === 'draft').length },
     { Metric: 'Open Follow-ups', Value: followUps.filter((item) => item.status !== 'Closed').length },
     { Metric: 'Overdue Follow-ups', Value: followUps.filter(isOverdue).length },
     { Metric: 'Needs Nudge Follow-ups', Value: followUps.filter(needsNudge).length },
     { Metric: 'Tasks Exported', Value: tasks.length },
+    { Metric: 'Tasks Trusted Live', Value: tasks.filter((task) => isTrustedLiveRecord(task)).length },
+    { Metric: 'Tasks Review Required', Value: tasks.filter((task) => isReviewRecord(task)).length },
+    { Metric: 'Tasks Draft', Value: tasks.filter((task) => task.lifecycleState === 'draft' || task.dataQuality === 'draft').length },
     { Metric: 'Open Tasks', Value: tasks.filter((task) => task.status !== 'Done').length },
     { Metric: 'Blocked Tasks', Value: tasks.filter((task) => task.status === 'Blocked').length },
     { Metric: 'Linked Tasks', Value: tasks.filter((task) => task.linkedFollowUpId).length },
@@ -357,4 +393,3 @@ export function buildCsvRows(
     ...buildTaskRows(tasks, options).map((row) => ({ RecordType: 'Task', ...row })),
   ];
 }
-

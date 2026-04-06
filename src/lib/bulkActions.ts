@@ -1,5 +1,6 @@
 import type { FollowUpItem, TaskItem } from '../types';
 import { todayIso } from './utils';
+import { isTrustedLiveRecord } from '../domains/records/integrity';
 
 export type BulkActionType = 'close' | 'reopen' | 'nudge' | 'snooze' | 'escalate' | 'assign' | 'retag' | 'set_next_touch' | 'set_due_date';
 
@@ -16,13 +17,21 @@ export interface BulkPreview {
   skipped: number;
   warnings: string[];
   changes: string[];
+  skippedForIntegrity: number;
+}
+
+function actionRequiresTrustedLive(spec: BulkActionSpec): boolean {
+  return spec.type !== 'retag';
 }
 
 export function previewBulkAction(spec: BulkActionSpec, items: FollowUpItem[], tasks: TaskItem[]): BulkPreview {
   const itemSet = new Set(spec.ids);
   const all = [...items, ...tasks.filter((task) => !items.some((item) => item.id === task.id))];
   const selected = all.filter((entry) => itemSet.has(entry.id));
-  const skipped = spec.ids.length - selected.length;
+  const integritySkipped = actionRequiresTrustedLive(spec)
+    ? selected.filter((entry) => !isTrustedLiveRecord(entry)).length
+    : 0;
+  const skipped = spec.ids.length - selected.length + integritySkipped;
   const warnings: string[] = [];
   const changes: string[] = [];
 
@@ -36,11 +45,13 @@ export function previewBulkAction(spec: BulkActionSpec, items: FollowUpItem[], t
 
   if (spec.type === 'close' && selected.some((entry) => 'status' in entry && (entry as FollowUpItem).status === 'Closed')) warnings.push('Some follow-ups are already closed.');
   if (spec.type === 'retag' && !(spec.tags || []).length) warnings.push('No tags provided.');
+  if (integritySkipped > 0) warnings.push(`${integritySkipped} selected record${integritySkipped === 1 ? ' was' : 's were'} skipped because ${integritySkipped === 1 ? 'it is' : 'they are'} not trusted live records.`);
 
-  return { affected: selected.length, skipped, warnings, changes };
+  return { affected: selected.length - integritySkipped, skipped, warnings, changes, skippedForIntegrity: integritySkipped };
 }
 
 export function applyBulkToFollowUp(item: FollowUpItem, spec: BulkActionSpec): FollowUpItem {
+  if (actionRequiresTrustedLive(spec) && !isTrustedLiveRecord(item)) return item;
   if (spec.type === 'close') return { ...item, status: 'Closed', actionState: 'Complete', lastActionAt: todayIso() };
   if (spec.type === 'reopen') return { ...item, status: 'Needs action', actionState: 'Draft created', lastActionAt: todayIso() };
   if (spec.type === 'nudge') return { ...item, lastNudgedAt: todayIso(), lastTouchDate: todayIso(), lastActionAt: todayIso() };

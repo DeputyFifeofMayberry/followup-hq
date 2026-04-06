@@ -1,6 +1,7 @@
 import type { CompanyRecord, CompanyType, ContactRecord, FollowUpItem, TaskItem } from '../types';
 import { daysSince, isOverdue, isTaskOverdue } from './utils';
 import { getCompanyLinkedRecords, getContactLinkedRecords } from './recordContext';
+import { isReviewRecord, isTrustedLiveRecord } from '../domains/records/integrity';
 
 export type RelationshipEntityType = 'contact' | 'company';
 export type RelationshipSortKey = 'pressure' | 'name' | 'activeProjects' | 'waiting' | 'overdue' | 'touchAge' | 'risk';
@@ -26,6 +27,8 @@ export interface RelationshipSummary {
   linkedRiskCount: number;
   stale: boolean;
   pressureScore: number;
+  reviewFollowUps: number;
+  reviewTasks: number;
 }
 
 export interface RelationshipFilterState {
@@ -127,8 +130,10 @@ export function buildRelationshipSummaries(items: FollowUpItem[], tasks: TaskIte
 
   const contactSummaries: RelationshipSummary[] = contacts.map((contact) => {
     const linked = getContactLinkedRecords(contact.id, { items, tasks, contacts, companies, projects: [] });
-    const linkedFollowUps = linked.followups;
-    const linkedTasks = linked.tasks;
+    const linkedFollowUps = linked.followups.filter((item) => isTrustedLiveRecord(item));
+    const linkedTasks = linked.tasks.filter((task) => isTrustedLiveRecord(task));
+    const reviewFollowUps = linked.followups.filter((item) => isReviewRecord(item)).length;
+    const reviewTasks = linked.tasks.filter((task) => isReviewRecord(task)).length;
     const projectKeys = new Set<string>();
     linkedFollowUps.forEach((item) => projectKeys.add(item.projectId || item.project));
     linkedTasks.forEach((task) => projectKeys.add(task.projectId || task.project));
@@ -166,14 +171,18 @@ export function buildRelationshipSummaries(items: FollowUpItem[], tasks: TaskIte
       linkedRiskCount,
       stale: averageTouchAge >= 14,
       pressureScore: 0,
+      reviewFollowUps,
+      reviewTasks,
     };
     return { ...summary, pressureScore: pressureFrom(summary) };
   });
 
   const companySummaries: RelationshipSummary[] = companies.map((company) => {
     const linked = getCompanyLinkedRecords(company.id, { items, tasks, contacts, companies, projects: [] });
-    const linkedFollowUps = linked.followups;
-    const linkedTasks = linked.tasks;
+    const linkedFollowUps = linked.followups.filter((item) => isTrustedLiveRecord(item));
+    const linkedTasks = linked.tasks.filter((task) => isTrustedLiveRecord(task));
+    const reviewFollowUps = linked.followups.filter((item) => isReviewRecord(item)).length;
+    const reviewTasks = linked.tasks.filter((task) => isReviewRecord(task)).length;
     const projectKeys = new Set<string>();
     linkedFollowUps.forEach((item) => projectKeys.add(item.projectId || item.project));
     linkedTasks.forEach((task) => projectKeys.add(task.projectId || task.project));
@@ -210,6 +219,8 @@ export function buildRelationshipSummaries(items: FollowUpItem[], tasks: TaskIte
       linkedRiskCount,
       stale: averageTouchAge >= 14,
       pressureScore: 0,
+      reviewFollowUps,
+      reviewTasks,
     };
     return { ...summary, pressureScore: pressureFrom(summary) };
   });

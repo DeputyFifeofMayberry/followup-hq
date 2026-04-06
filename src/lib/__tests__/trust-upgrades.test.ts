@@ -2,6 +2,7 @@ import { scoreCandidateMatch } from '../intake/reviewPipeline';
 import { normalizeIdentity, mergeAliases } from '../entities';
 import { createDraftMessage, transitionOutbound } from '../outboundMessages';
 import { applyBulkToFollowUp, previewBulkAction } from '../bulkActions';
+import { filterFollowUps } from '../export';
 import type { FollowUpItem } from '../../types';
 
 function assert(condition: boolean, message: string): void {
@@ -39,8 +40,43 @@ function testBulkPreviewApplyUndoShape(): void {
   };
   const preview = previewBulkAction({ type: 'retag', ids: ['FU1'], tags: ['ops'] }, [item], []);
   assert(preview.affected === 1, 'bulk preview should include one target');
+  assert(preview.skippedForIntegrity === 0, 'retag should not skip trusted/lifecycle states');
   const updated = applyBulkToFollowUp(item, { type: 'retag', ids: ['FU1'], tags: ['ops'] });
   assert(updated.tags.includes('alpha') && updated.tags.includes('ops'), 'retag must merge instead of overwrite');
+
+  const reviewItem = { ...item, id: 'FU2', lifecycleState: 'review_required' as const, reviewReasons: ['missing_project_link' as const], dataQuality: 'review_required' as const, needsCleanup: true };
+  const closePreview = previewBulkAction({ type: 'close', ids: ['FU1', 'FU2'] }, [item, reviewItem], []);
+  assert(closePreview.affected === 1 && closePreview.skippedForIntegrity === 1, 'close should skip review records');
+  const unchanged = applyBulkToFollowUp(reviewItem, { type: 'close', ids: ['FU2'] });
+  assert(unchanged.status === reviewItem.status, 'non-trusted review records should not be bulk-closed');
+}
+
+function testExportTrustDefaults(): void {
+  const trusted: FollowUpItem = {
+    id: 'FU-LIVE', title: 'Live follow-up', source: 'Notes', project: 'P', owner: 'Owner', status: 'Needs action', priority: 'Medium',
+    dueDate: '2026-04-10', lastTouchDate: '2026-04-01T00:00:00.000Z', nextTouchDate: '2026-04-04T00:00:00.000Z', nextAction: 'Ping vendor', summary: 'Awaiting package',
+    tags: [], sourceRef: 'manual', sourceRefs: [], mergedItemIds: [], notes: '', timeline: [], category: 'Coordination', owesNextAction: 'Vendor', escalationLevel: 'None', cadenceDays: 3, lifecycleState: 'ready', dataQuality: 'valid_live',
+  };
+  const review = { ...trusted, id: 'FU-REVIEW', lifecycleState: 'review_required' as const, dataQuality: 'review_required' as const, reviewReasons: ['missing_project_link' as const], needsCleanup: true };
+  const defaults = filterFollowUps([trusted, review], {
+    savedView: 'All',
+    project: 'All',
+    owner: 'All',
+    statuses: ['All'],
+    priorities: ['All'],
+    search: '',
+    dueFrom: '',
+    dueTo: '',
+    nextTouchFrom: '',
+    nextTouchTo: '',
+    includeClosed: true,
+    onlyOverdue: false,
+    onlyNeedsNudge: false,
+    tagQuery: '',
+    includeReviewRequired: false,
+    includeDraftRecords: false,
+  });
+  assert(defaults.length === 1 && defaults[0].id === 'FU-LIVE', 'default export should include trusted live records only');
 }
 
 export function runTrustUpgradeSelfChecks(): void {
@@ -48,6 +84,7 @@ export function runTrustUpgradeSelfChecks(): void {
   testEntityNormalization();
   testOutboundStateTransitions();
   testBulkPreviewApplyUndoShape();
+  testExportTrustDefaults();
 }
 
 try {

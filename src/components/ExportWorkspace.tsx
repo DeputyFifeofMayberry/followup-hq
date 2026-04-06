@@ -31,6 +31,7 @@ const defaultOptions: ExportOptions = {
   includeDrafts: false,
   includeTags: true,
   includeLinkedRecordColumns: true,
+  includeTrustColumns: true,
   followUps: {
     savedView: 'All',
     project: 'All',
@@ -46,6 +47,8 @@ const defaultOptions: ExportOptions = {
     onlyOverdue: false,
     onlyNeedsNudge: false,
     tagQuery: '',
+    includeReviewRequired: false,
+    includeDraftRecords: false,
   },
   tasks: {
     project: 'All',
@@ -58,6 +61,8 @@ const defaultOptions: ExportOptions = {
     linkedOnly: false,
     includeDone: true,
     tagQuery: '',
+    includeReviewRequired: false,
+    includeDraftRecords: false,
   },
 };
 
@@ -235,6 +240,7 @@ export function ExportWorkspace() {
               <ToggleRow checked={options.includeSummarySheet} onChange={(checked) => updateOptions({ includeSummarySheet: checked })} label="Include summary sheet" helper="Adds rolled-up counts for the exported records." />
               <ToggleRow checked={options.includeTags} onChange={(checked) => updateOptions({ includeTags: checked })} label="Include tags" helper="Keeps tag columns in the export output." />
               <ToggleRow checked={options.includeLinkedRecordColumns} onChange={(checked) => updateOptions({ includeLinkedRecordColumns: checked })} label="Include linked record IDs" helper="Adds contact, company, project, thread, and linked follow-up columns where relevant." />
+              <ToggleRow checked={options.includeTrustColumns} onChange={(checked) => updateOptions({ includeTrustColumns: checked })} label="Include lifecycle / trust columns" helper="Adds lifecycle state, cleanup flags, and review reasons to support audits." />
               <ToggleRow checked={options.includeNotes} onChange={(checked) => updateOptions({ includeNotes: checked })} label="Include notes" helper="Useful for full narrative handoff and historical context." />
               <ToggleRow checked={options.includeSourceRefs} onChange={(checked) => updateOptions({ includeSourceRefs: checked })} label="Include source references" helper="Adds raw source links and merged-source fields for follow-ups." />
               <ToggleRow checked={options.includeTimeline} onChange={(checked) => updateOptions({ includeTimeline: checked })} label="Include timelines" helper="Adds the full follow-up activity timeline as a multiline cell." />
@@ -303,6 +309,8 @@ export function ExportWorkspace() {
                 <ToggleRow checked={options.followUps.includeClosed} onChange={(checked) => updateFollowUps({ includeClosed: checked })} label="Include closed" helper="Keep completed follow-ups in the report." />
                 <ToggleRow checked={options.followUps.onlyOverdue} onChange={(checked) => updateFollowUps({ onlyOverdue: checked })} label="Only overdue" helper="Restrict follow-ups to items past due." />
                 <ToggleRow checked={options.followUps.onlyNeedsNudge} onChange={(checked) => updateFollowUps({ onlyNeedsNudge: checked })} label="Only needs nudge" helper="Restrict to follow-ups that should be touched now." />
+                <ToggleRow checked={options.followUps.includeReviewRequired} onChange={(checked) => updateFollowUps({ includeReviewRequired: checked })} label="Include review-required" helper="Opt in unresolved review records for cleanup/audit reports." />
+                <ToggleRow checked={options.followUps.includeDraftRecords} onChange={(checked) => updateFollowUps({ includeDraftRecords: checked })} label="Include drafts" helper="Include draft-state records for intake and cleanup exports." />
               </div>
             </section>
           ) : null}
@@ -353,6 +361,8 @@ export function ExportWorkspace() {
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <ToggleRow checked={options.tasks.includeDone} onChange={(checked) => updateTasks({ includeDone: checked })} label="Include done tasks" helper="Keep completed tasks in the report history." />
                 <ToggleRow checked={options.tasks.linkedOnly} onChange={(checked) => updateTasks({ linkedOnly: checked })} label="Only linked tasks" helper="Restrict to tasks attached to a follow-up record." />
+                <ToggleRow checked={options.tasks.includeReviewRequired} onChange={(checked) => updateTasks({ includeReviewRequired: checked })} label="Include review-required" helper="Opt in unresolved review tasks for cleanup/audit reports." />
+                <ToggleRow checked={options.tasks.includeDraftRecords} onChange={(checked) => updateTasks({ includeDraftRecords: checked })} label="Include drafts" helper="Include draft tasks in exports when auditing intake work." />
               </div>
             </section>
           ) : null}
@@ -403,7 +413,6 @@ export function ExportWorkspace() {
     </div>
   );
 }
-
 
 
 

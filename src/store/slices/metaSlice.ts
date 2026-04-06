@@ -7,7 +7,7 @@ import { normalizeContact, normalizeCompany } from '../../domains/relationships/
 import { deriveProjects, projectCanonicalKey } from '../../domains/projects/helpers';
 import { normalizeItems, attachProjects } from '../../domains/followups/helpers';
 import { applyTaskRollupsToItems, normalizeTasks } from '../../domains/tasks/helpers';
-import { enforceFollowUpIntegrity, enforceTaskIntegrity } from '../../domains/records/integrity';
+import { enforceFollowUpIntegrity, enforceTaskIntegrity, isReviewRecord, isTrustedLiveRecord } from '../../domains/records/integrity';
 import type { FollowUpColumnKey } from '../../types';
 import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
@@ -68,6 +68,10 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           const linkedProject = projects.find((project) => projectCanonicalKey(project.name) === projectCanonicalKey(projectName));
           return enforceTaskIntegrity({ ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId }, projects);
         }));
+        const trustedLiveItemCount = items.filter((item) => isTrustedLiveRecord(item)).length;
+        const trustedLiveTaskCount = tasks.filter((task) => isTrustedLiveRecord(task)).length;
+        const reviewItemCount = items.filter((item) => isReviewRecord(item)).length;
+        const reviewTaskCount = tasks.filter((task) => isReviewRecord(task)).length;
         const dismissedDuplicatePairs = payload.auxiliary.dismissedDuplicatePairs ?? [];
         set({
           items,
@@ -155,25 +159,34 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           conflictQueueSummary: undefined,
           lastConflictFailureMessage: undefined,
           conflictQueue: [],
-          persistenceActivity: [createPersistenceActivityEvent({
-            kind: 'saved',
-            summary: fallbackFailure
-              ? fallbackFailure.summary
-              : localNewerThanCloud && loadedFromFallback
-                ? 'Opened using protected local data.'
-                : mode === 'browser'
-                  ? 'Opened using local device data.'
-                  : 'Workspace opened.',
-            detail: fallbackFailure
-              ? fallbackFailure.detail
-              : localNewerThanCloud && loadedFromFallback
-                ? 'SetPoint restored the newer local copy to avoid data loss.'
-                : mode === 'browser'
-                  ? 'Your latest updates are saved on this device.'
-                  : mode === 'supabase'
-                    ? 'Your latest updates are saved.'
-                    : 'Your latest updates are saved on this device.',
-          })],
+          persistenceActivity: [
+            createPersistenceActivityEvent({
+              kind: 'saved',
+              summary: fallbackFailure
+                ? fallbackFailure.summary
+                : localNewerThanCloud && loadedFromFallback
+                  ? 'Opened using protected local data.'
+                  : mode === 'browser'
+                    ? 'Opened using local device data.'
+                    : 'Workspace opened.',
+              detail: fallbackFailure
+                ? fallbackFailure.detail
+                : localNewerThanCloud && loadedFromFallback
+                  ? 'SetPoint restored the newer local copy to avoid data loss.'
+                  : mode === 'browser'
+                    ? 'Your latest updates are saved on this device.'
+                    : mode === 'supabase'
+                      ? 'Your latest updates are saved.'
+                      : 'Your latest updates are saved on this device.',
+            }),
+            ...(reviewItemCount + reviewTaskCount > 0
+              ? [createPersistenceActivityEvent({
+                kind: 'queued',
+                summary: 'Legacy cleanup review queue updated.',
+                detail: `${reviewItemCount + reviewTaskCount} record${reviewItemCount + reviewTaskCount === 1 ? '' : 's'} require review before trusted live execution (${trustedLiveItemCount + trustedLiveTaskCount} trusted live).`,
+              })]
+              : []),
+          ],
           outlookConnection: { ...defaultOutlookConnection, ...(payload.auxiliary.outlookConnection ?? {}), settings: { ...defaultOutlookConnection.settings, ...(payload.auxiliary.outlookConnection?.settings ?? {}) }, syncCursorByFolder: { inbox: payload.auxiliary.outlookConnection?.syncCursorByFolder?.inbox ?? {}, sentitems: payload.auxiliary.outlookConnection?.syncCursorByFolder?.sentitems ?? {} } },
           outlookMessages: payload.auxiliary.outlookMessages ?? [],
         });

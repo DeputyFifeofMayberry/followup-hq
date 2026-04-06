@@ -23,9 +23,11 @@ function resolveProject(projectId: string | undefined, projectName: string | und
     const direct = projects.find((project) => project.id === projectId);
     if (direct) return direct;
   }
-  const byName = projects.find((project) => normalizeIdentity(project.name) === normalizeIdentity(projectName));
+  const normalizedName = normalizeIdentity(projectName);
+  if (!normalizedName) return undefined;
+  const byName = projects.find((project) => normalizeIdentity(project.name) === normalizedName);
   if (byName) return byName;
-  return projects.find((project) => (project.aliases || []).includes(normalizeIdentity(projectName)));
+  return projects.find((project) => (project.aliases || []).includes(normalizedName));
 }
 
 function projectReasons(project: ProjectRecord | undefined, rawProjectName?: string): RecordIntegrityReason[] {
@@ -63,14 +65,31 @@ function toIntegrityResult(reasons: RecordIntegrityReason[]): IntegrityResult {
   };
 }
 
+function withLegacyReasonIfNeeded(
+  reasons: RecordIntegrityReason[],
+  record: Pick<FollowUpItem | TaskItem, 'lifecycleState' | 'dataQuality' | 'provenance'>,
+): RecordIntegrityReason[] {
+  const hasLegacyShape = !record.lifecycleState || !record.dataQuality || !record.provenance || record.provenance.sourceType === 'manual';
+  if (!hasLegacyShape) return reasons;
+  return reasons.includes('legacy_record_requires_cleanup') ? reasons : [...reasons, 'legacy_record_requires_cleanup'];
+}
+
 export function enforceFollowUpIntegrity(item: FollowUpItem, projects: ProjectRecord[]): FollowUpItem {
   const linkedProject = resolveProject(item.projectId, item.project, projects);
-  const reasons = [
-    ...projectReasons(linkedProject, item.project),
-    ...ownerReasons(item.owner),
-    ...provenanceReasons(item.sourceRef),
-  ];
+  const reasons = withLegacyReasonIfNeeded(
+    [
+      ...projectReasons(linkedProject, item.project),
+      ...ownerReasons(item.owner),
+      ...provenanceReasons(item.sourceRef),
+    ],
+    item,
+  );
   const integrity = toIntegrityResult(Array.from(new Set(reasons)));
+  const provenance = item.provenance ?? {
+    sourceType: 'migration',
+    sourceRef: item.sourceRef || item.id,
+    capturedAt: todayIso(),
+  };
   return {
     ...item,
     projectId: linkedProject?.id,
@@ -79,19 +98,27 @@ export function enforceFollowUpIntegrity(item: FollowUpItem, projects: ProjectRe
     reviewReasons: integrity.reviewReasons,
     invalidReason: integrity.invalidReason,
     dataQuality: integrity.dataQuality,
-    provenance: item.provenance ?? { sourceType: 'manual', sourceRef: item.sourceRef, capturedAt: todayIso() },
+    provenance,
     needsCleanup: integrity.lifecycleState !== 'ready' ? true : item.needsCleanup,
   };
 }
 
 export function enforceTaskIntegrity(task: TaskItem, projects: ProjectRecord[]): TaskItem {
   const linkedProject = resolveProject(task.projectId, task.project, projects);
-  const reasons = [
-    ...projectReasons(linkedProject, task.project),
-    ...ownerReasons(task.owner),
-    ...provenanceReasons(task.provenance?.sourceRef || task.summary),
-  ];
+  const reasons = withLegacyReasonIfNeeded(
+    [
+      ...projectReasons(linkedProject, task.project),
+      ...ownerReasons(task.owner),
+      ...provenanceReasons(task.provenance?.sourceRef || task.summary),
+    ],
+    task,
+  );
   const integrity = toIntegrityResult(Array.from(new Set(reasons)));
+  const provenance = task.provenance ?? {
+    sourceType: 'migration',
+    sourceRef: task.summary?.slice(0, 120) || task.id,
+    capturedAt: todayIso(),
+  };
   return {
     ...task,
     projectId: linkedProject?.id,
@@ -100,13 +127,27 @@ export function enforceTaskIntegrity(task: TaskItem, projects: ProjectRecord[]):
     reviewReasons: integrity.reviewReasons,
     invalidReason: integrity.invalidReason,
     dataQuality: integrity.dataQuality,
-    provenance: task.provenance ?? { sourceType: 'manual', sourceRef: task.summary?.slice(0, 120), capturedAt: todayIso() },
+    provenance,
     needsCleanup: integrity.lifecycleState !== 'ready' ? true : task.needsCleanup,
   };
 }
 
 export function isExecutionReady(record: Pick<FollowUpItem | TaskItem, 'lifecycleState'>): boolean {
   return record.lifecycleState === 'ready' || record.lifecycleState === 'active';
+}
+
+export function isTrustedLiveRecord(record: Pick<FollowUpItem | TaskItem, 'lifecycleState' | 'reviewReasons' | 'needsCleanup' | 'dataQuality'>): boolean {
+  return isExecutionReady(record)
+    && !record.needsCleanup
+    && (record.reviewReasons?.length ?? 0) === 0
+    && (record.dataQuality === 'valid_live' || !record.dataQuality);
+}
+
+export function isReviewRecord(record: Pick<FollowUpItem | TaskItem, 'lifecycleState' | 'reviewReasons' | 'needsCleanup' | 'dataQuality'>): boolean {
+  return record.lifecycleState === 'review_required'
+    || record.dataQuality === 'review_required'
+    || !!record.needsCleanup
+    || (record.reviewReasons?.length ?? 0) > 0;
 }
 
 export function getIntegrityReasonLabel(reason: RecordIntegrityReason): string {

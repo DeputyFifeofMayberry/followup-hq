@@ -2,6 +2,13 @@
 
 ## 2026-04-06
 
+### High-frequency create/edit simplification pass
+- High-frequency create/edit simplification pass: clarified Quick Add vs Quick Edit vs Full Edit vs Record Context, reduced correction friction, and decomposed the canonical editor for personal daily-driving.
+- Simplified Quick Add hierarchy around a dominant import-vs-review decision, moved parser diagnostics/trust posture into optional disclosures, and kept structured full-create escalation explicit but secondary (`src/components/UniversalCapture.tsx`).
+- Added a lightweight Quick Edit patch surface for common corrections (title, next move, due date, owner, project) and wired it into the record context drawer so routine fixes avoid full-editor overhead (`src/components/QuickRecordEditPanel.tsx`, `src/components/UniversalRecordDrawer.tsx`, `src/lib/quickEdit.ts`).
+- Refactored the canonical CreateWorkModal into thinner body components with quick-core fields first and optional full-depth sections, reducing mode confusion while preserving shared editor-domain architecture (`src/components/CreateWorkModal.tsx`).
+- Expanded edit-surface language with an explicit quick-edit role and added focused quick-edit helper tests to lock common patch behavior (`src/lib/editSurfacePolicy.ts`, `src/lib/__tests__/quickEdit.test.ts`).
+
 ### Execution-lane momentum pass
 - Execution-lane momentum pass: made Follow-Ups and Tasks more action-first, reduced inspector friction, and improved next-item throughput for personal daily driving.
 - Tightened Follow-Ups and Tasks lane headers so queues appear earlier, collapsed lower-frequency controls behind calmer disclosures, and reduced top-of-lane management overhead.

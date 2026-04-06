@@ -1,4 +1,4 @@
-export type EditSurfaceRole = 'execution' | 'full_edit' | 'context' | 'maintenance' | 'transition';
+export type EditSurfaceRole = 'execution' | 'quick_edit' | 'full_edit' | 'context' | 'maintenance' | 'transition';
 
 /**
  * Deficiency 4 / Phase 1 canonical hierarchy:
@@ -18,6 +18,10 @@ export const editSurfacePolicy: Record<EditSurfaceRole, {
   execution: {
     label: 'Take action now',
     intent: 'Fast operational updates while moving work forward in-lane.',
+  },
+  quick_edit: {
+    label: 'Quick edit',
+    intent: 'Patch one or two common fields without entering the full editor.',
   },
   full_edit: {
     label: 'Edit full record',
@@ -39,7 +43,11 @@ export const editSurfacePolicy: Record<EditSurfaceRole, {
 
 export const editSurfaceCtas = {
   fullEditTask: 'Edit full task',
+  fullEditProject: 'Edit full project',
   fullEditFollowUp: 'Edit full follow-up',
+  quickEditFollowUp: 'Quick edit follow-up',
+  quickEditTask: 'Quick edit task',
+  quickEditRecord: editSurfacePolicy.quick_edit.label,
   fullEditRecord: editSurfacePolicy.full_edit.label,
   openContext: editSurfacePolicy.context.label,
 } as const;

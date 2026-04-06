@@ -1,5 +1,5 @@
 import { ArrowRight, Link2, X } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { formatDateTime } from '../lib/utils';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
@@ -10,6 +10,8 @@ import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 import { buildRecordSurfaceSummary } from '../domains/editor';
+import { QuickRecordEditPanel } from './QuickRecordEditPanel';
+import { applyQuickEditPatchToFollowUp, applyQuickEditPatchToTask } from '../lib/quickEdit';
 
 const typeLabel: Record<RecordType, string> = {
   followup: 'Follow-up',
@@ -28,11 +30,13 @@ function summaryRows(record: RecordDescriptor) {
 }
 
 export function UniversalRecordDrawer() {
-  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, openRecordEditor, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
+  const { recordDrawerRef, closeRecordDrawer, openRecordDrawer, openRecordEditor, updateItem, updateTask, items, tasks, projects, contacts, companies } = useAppStore(useShallow((s) => ({
     recordDrawerRef: s.recordDrawerRef,
     closeRecordDrawer: s.closeRecordDrawer,
     openRecordDrawer: s.openRecordDrawer,
     openRecordEditor: s.openRecordEditor,
+    updateItem: s.updateItem,
+    updateTask: s.updateTask,
     items: s.items,
     tasks: s.tasks,
     projects: s.projects,
@@ -40,11 +44,22 @@ export function UniversalRecordDrawer() {
     companies: s.companies,
   })));
 
+  const [showQuickEdit, setShowQuickEdit] = useState(false);
+
   const bundle = useMemo(() => {
     if (!recordDrawerRef) return null;
     return getRelatedRecordBundle(recordDrawerRef, { items, tasks, projects, contacts, companies });
   }, [recordDrawerRef, items, tasks, projects, contacts, companies]);
 
+  const selectedFollowUp = useMemo(() => {
+    if (!recordDrawerRef || recordDrawerRef.type !== 'followup') return null;
+    return items.find((entry) => entry.id === recordDrawerRef.id) ?? null;
+  }, [recordDrawerRef, items]);
+
+  const selectedTask = useMemo(() => {
+    if (!recordDrawerRef || recordDrawerRef.type !== 'task') return null;
+    return tasks.find((entry) => entry.id === recordDrawerRef.id) ?? null;
+  }, [recordDrawerRef, tasks]);
 
   const childRollup = useMemo(() => {
     if (!recordDrawerRef || recordDrawerRef.type !== 'followup') return null;
@@ -52,6 +67,7 @@ export function UniversalRecordDrawer() {
     if (!item) return null;
     return buildFollowUpChildRollup(item.id, item.status, tasks);
   }, [recordDrawerRef, items, tasks]);
+
   const closeout = useMemo(() => {
     if (!recordDrawerRef || recordDrawerRef.type !== 'followup') return null;
     const item = items.find((entry) => entry.id === recordDrawerRef.id);
@@ -93,7 +109,7 @@ export function UniversalRecordDrawer() {
       <aside className="record-drawer app-shell-card app-shell-card-inspector" onClick={(event) => event.stopPropagation()} aria-label="Universal record drawer">
         <div className="record-drawer-head">
           <div>
-            <div className="inspector-kicker">Record context drawer</div>
+            <div className="inspector-kicker">Record context</div>
             <div className="inspector-title">{bundle?.selected ? `${typeLabel[bundle.selected.type]} · ${bundle.selected.title}` : 'Record unavailable'}</div>
             <div className="text-xs text-slate-500 mt-1">{editSurfacePolicy.context.intent}</div>
           </div>
@@ -102,11 +118,39 @@ export function UniversalRecordDrawer() {
 
         {!bundle?.selected ? <EmptyState title="Record not found" message="This record is no longer available." /> : (
           <RecordContextDrawerShell>
-            <RecordContextDrawerSection title="Actions">
+            <RecordContextDrawerSection title="Context actions">
               <div className="mt-2 flex flex-wrap gap-2">
+                {recordDrawerRef.type === 'followup' ? <button onClick={() => setShowQuickEdit((value) => !value)} className="action-btn">{editSurfaceCtas.quickEditFollowUp}</button> : null}
+                {recordDrawerRef.type === 'task' ? <button onClick={() => setShowQuickEdit((value) => !value)} className="action-btn">{editSurfaceCtas.quickEditTask}</button> : null}
                 {recordDrawerRef.type === 'followup' ? <button onClick={() => openRecordEditor({ type: 'followup', id: recordDrawerRef.id }, 'edit', 'context_drawer')} className="action-btn">{editSurfaceCtas.fullEditFollowUp}</button> : null}
                 {recordDrawerRef.type === 'task' ? <button onClick={() => openRecordEditor({ type: 'task', id: recordDrawerRef.id }, 'edit', 'context_drawer')} className="action-btn">{editSurfaceCtas.fullEditTask}</button> : null}
               </div>
+              {showQuickEdit && selectedFollowUp ? (
+                <div className="mt-3">
+                  <QuickRecordEditPanel
+                    type="followup"
+                    record={selectedFollowUp}
+                    onCancel={() => setShowQuickEdit(false)}
+                    onSave={(patch) => {
+                      updateItem(selectedFollowUp.id, applyQuickEditPatchToFollowUp(selectedFollowUp, patch));
+                      setShowQuickEdit(false);
+                    }}
+                  />
+                </div>
+              ) : null}
+              {showQuickEdit && selectedTask ? (
+                <div className="mt-3">
+                  <QuickRecordEditPanel
+                    type="task"
+                    record={selectedTask}
+                    onCancel={() => setShowQuickEdit(false)}
+                    onSave={(patch) => {
+                      updateTask(selectedTask.id, applyQuickEditPatchToTask(selectedTask, patch));
+                      setShowQuickEdit(false);
+                    }}
+                  />
+                </div>
+              ) : null}
             </RecordContextDrawerSection>
 
             <RecordContextDrawerSection title="Record summary">
@@ -126,7 +170,7 @@ export function UniversalRecordDrawer() {
             <RecordContextDrawerSection title="Linked records">
               <div className="space-y-2 mt-2">
                 {bundle.related.slice(0, 12).map((related) => (
-                  <button key={`${related.type}-${related.id}`} onClick={() => openRecordDrawer({ type: related.type, id: related.id })} className="record-drawer-link-row">
+                  <button key={`${related.type}-${related.id}`} onClick={() => { setShowQuickEdit(false); openRecordDrawer({ type: related.type, id: related.id }); }} className="record-drawer-link-row">
                     <div className="text-sm font-medium text-slate-900">{related.title}</div>
                     <div className="text-xs text-slate-500">{typeLabel[related.type]} • {related.status || related.subtitle || 'No status'}</div>
                   </button>

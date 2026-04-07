@@ -33,7 +33,7 @@ export function useOverviewTriageViewModel() {
     setExecutionSelectedId: s.setExecutionSelectedId,
     openExecutionLane: s.openExecutionLane,
     openRecordDrawer: s.openRecordDrawer,
-    openCreateFromCapture: s.openCreateFromCapture,
+    openCreateWorkModal: s.openCreateWorkModal,
   })));
 
   const queue = store.getUnifiedQueue();
@@ -135,7 +135,7 @@ export function useOverviewTriageViewModel() {
     selectedFilter,
     selected,
     signalCards,
-    openCreateFromCapture: store.openCreateFromCapture,
+    openCreateWorkModal: store.openCreateWorkModal,
     setSelectedId: store.setExecutionSelectedId,
     setSelectedFilter,
     routeToLane,

@@ -22,7 +22,6 @@ export interface WorkspaceMeta {
   shellPurpose: string;
   category: WorkspaceCategory;
   startSurface: boolean;
-  showUniversalCapture: boolean;
   primaryAction?: WorkspacePrimaryAction;
   healthLabel: (context: WorkspaceHealthContext) => string;
 }
@@ -54,7 +53,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     shellPurpose: 'Start-of-day cockpit for triage, routing decisions, and immediate execution control.',
     category: 'core',
     startSurface: true,
-    showUniversalCapture: true,
     primaryAction: { label: 'Create work item', actionKey: 'new-work', primary: true },
     healthLabel: ({ navCounts }) => `${navCounts.worklist || 0} require same-day direction`,
   },
@@ -66,7 +64,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Team commitment lane for accountable follow-through, escalation, and closeout.',
     category: 'core',
     startSurface: false,
-    showUniversalCapture: true,
     primaryAction: { label: 'Add follow-up', actionKey: 'new-followup', primary: true },
     healthLabel: ({ navCounts }) => `${navCounts.followups || 0} active commitments`,
   },
@@ -78,7 +75,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Team work lane for assignees, throughput, and linked commitment support.',
     category: 'core',
     startSurface: false,
-    showUniversalCapture: true,
     primaryAction: { label: 'Add task', actionKey: 'new-task', primary: true },
     healthLabel: ({ navCounts }) => `${navCounts.tasks || 0} open tasks`,
   },
@@ -90,7 +86,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Team intake funnel for inbound material, review safety, and disciplined routing.',
     category: 'support',
     startSurface: false,
-    showUniversalCapture: true,
     healthLabel: ({ combinedCleanup }) => `${combinedCleanup} need cleanup`,
   },
   projects: {
@@ -101,7 +96,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Project pressure lens for risk, ownership friction, and escalation context.',
     category: 'support',
     startSurface: false,
-    showUniversalCapture: false,
     healthLabel: ({ totalItems }) => `${totalItems} linked follow-ups`,
   },
   relationships: {
@@ -112,7 +106,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Stakeholder coordination lens for relationship health, history, and ownership pressure.',
     category: 'support',
     startSurface: false,
-    showUniversalCapture: false,
     healthLabel: ({ totalItems }) => `${totalItems} connected threads`,
   },
   exports: {
@@ -123,7 +116,6 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
       : 'Reporting support surface for team snapshots, status packs, and audit-ready exports.',
     category: 'support',
     startSurface: false,
-    showUniversalCapture: false,
     healthLabel: () => 'Export-ready data',
   },
 });

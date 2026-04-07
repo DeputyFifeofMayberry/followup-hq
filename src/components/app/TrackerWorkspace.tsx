@@ -6,8 +6,6 @@ import {
   AppBadge,
   ExecutionLaneQueueCard,
   ExecutionLaneSelectionStrip,
-  ExecutionLaneSummary,
-  ExecutionLaneHandoffStrip,
   ExecutionLaneFooterMeta,
   SectionHeader,
   WorkspacePage,
@@ -55,10 +53,10 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
   return (
     <WorkspacePage>
       <WorkspaceTopStack className="followup-top-stack">
-        <ExecutionLaneSummary className="followup-summary-strip">
+        <section className="app-shell-card app-shell-card-hero followup-summary-strip">
           <SectionHeader
-            title="Follow-up execution lane"
-            subtitle={personalMode ? 'Scan → pick next move → act → continue.' : 'Team queue tuned for fast assignment and follow-through.'}
+            title="Follow Ups"
+            subtitle={personalMode ? 'One clear queue for commitments, nudges, and closeout.' : 'Team coordination queue for ownership, risks, and follow-through.'}
             actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>}
             compact
           />
@@ -67,12 +65,12 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             {!isPhone ? <span className="workspace-support-copy">Due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · waiting {executionMetrics.waiting}</span> : null}
             {executionIntent?.target === 'followups' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </div>
-        </ExecutionLaneSummary>
+        </section>
       </WorkspaceTopStack>
       <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
         <ExecutionLaneQueueCard className="tracker-workspace-main">
           <ControlBar />
-          {handoffSummary ? <ExecutionLaneHandoffStrip title="Lane handoff" summary={handoffSummary} /> : null}
+          {handoffSummary ? <div className="execution-lane-handoff-strip" role="status" aria-live="polite"><div className="execution-lane-handoff-summary">{handoffSummary}</div></div> : null}
           {!isMobileLike ? (
             <ExecutionLaneSelectionStrip
               title={laneContext.selectedItem?.title}

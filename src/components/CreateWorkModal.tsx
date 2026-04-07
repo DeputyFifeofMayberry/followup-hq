@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
 import { createId, fromDateInputValue, toDateInputValue } from '../lib/utils';
@@ -12,7 +11,7 @@ import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFoo
 type WorkMode = 'followup' | 'task';
 
 type EntityOptions = {
-  projectOptions: Array<{ id: string; label: string; meta?: string }>;
+  projectOptions: Array<{ id: string; label: string }>;
   contactOptions: Array<{ id: string; label: string; meta?: string }>;
   companyOptions: Array<{ id: string; label: string; meta?: string }>;
 };
@@ -39,93 +38,83 @@ function buildCreateSessions(projectFilter?: string) {
   return { followUpSession, taskSession, followUpDefaults, taskDefaults };
 }
 
-function FollowUpEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany, showFullFields }: {
+function FollowUpEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany }: {
   form: FollowUpFormInput;
   setForm: (next: FollowUpFormInput) => void;
   entityOptions: EntityOptions;
   addProject: (input: { name: string; owner: string; status: 'Active'; notes: string; tags: string[] }) => string;
   addContact: (input: { name: string; role: string; notes: string; tags: string[] }) => string;
   addCompany: (input: { name: string; type: 'Other'; notes: string; tags: string[] }) => string;
-  showFullFields: boolean;
 }) {
   return (
     <>
       <RecordEditorSection title="Core fields">
         <RecordEditorMetaGrid>
           <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
-          <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} /></div>
+          <EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} />
           <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
           <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
           <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} className="field-textarea" /></div>
         </RecordEditorMetaGrid>
       </RecordEditorSection>
 
-      {showFullFields ? (
-        <>
-          <RecordEditorSection title="Execution and detail">
-            <RecordEditorMetaGrid>
-              <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
-              <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-              <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(form.nextTouchDate)} onChange={(e) => setForm({ ...form, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
-            </RecordEditorMetaGrid>
-          </RecordEditorSection>
+      <RecordEditorSection title="Execution and detail">
+        <RecordEditorMetaGrid>
+          <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select></div>
+          <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+          <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(form.nextTouchDate)} onChange={(e) => setForm({ ...form, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
 
-          <RecordEditorSection title="Relationship / linkage">
-            <RecordEditorMetaGrid>
-              <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
-              <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
-            </RecordEditorMetaGrid>
-          </RecordEditorSection>
-        </>
-      ) : null}
+      <RecordEditorSection title="Relationship / linkage">
+        <RecordEditorMetaGrid>
+          <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
+          <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
     </>
   );
 }
 
-function TaskEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany, showFullFields }: {
+function TaskEditorBody({ form, setForm, entityOptions, addProject, addContact, addCompany }: {
   form: TaskFormInput;
   setForm: (next: TaskFormInput) => void;
   entityOptions: EntityOptions;
   addProject: (input: { name: string; owner: string; status: 'Active'; notes: string; tags: string[] }) => string;
   addContact: (input: { name: string; role: string; notes: string; tags: string[] }) => string;
   addCompany: (input: { name: string; type: 'Other'; notes: string; tags: string[] }) => string;
-  showFullFields: boolean;
 }) {
   return (
     <>
       <RecordEditorSection title="Core fields">
         <RecordEditorMetaGrid>
           <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
-          <div className="field-block"><label className="field-label">Project</label><EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} /></div>
+          <EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} />
           <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
           <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
           <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={form.nextStep} onChange={(e) => setForm({ ...form, nextStep: e.target.value })} className="field-textarea" /></div>
         </RecordEditorMetaGrid>
       </RecordEditorSection>
 
-      {showFullFields ? (
-        <>
-          <RecordEditorSection title="Execution and detail">
-            <RecordEditorMetaGrid>
-              <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
-              <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-              <div className="field-block"><label className="field-label">Deferred until</label><input type="date" value={toDateInputValue(form.deferredUntil)} onChange={(e) => setForm({ ...form, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-              <div className="field-block"><label className="field-label">Block reason</label><input value={form.blockReason || ''} onChange={(e) => setForm({ ...form, blockReason: e.target.value })} className="field-input" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
-              <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
-            </RecordEditorMetaGrid>
-          </RecordEditorSection>
+      <RecordEditorSection title="Execution and detail">
+        <RecordEditorMetaGrid>
+          <div className="field-block"><label className="field-label">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select></div>
+          <div className="field-block"><label className="field-label">Priority</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+          <div className="field-block"><label className="field-label">Deferred until</label><input type="date" value={toDateInputValue(form.deferredUntil)} onChange={(e) => setForm({ ...form, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Block reason</label><input value={form.blockReason || ''} onChange={(e) => setForm({ ...form, blockReason: e.target.value })} className="field-input" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} className="field-textarea" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field-textarea" /></div>
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
 
-          <RecordEditorSection title="Relationship / linkage">
-            <RecordEditorMetaGrid>
-              <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
-              <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
-            </RecordEditorMetaGrid>
-          </RecordEditorSection>
-        </>
-      ) : null}
+      <RecordEditorSection title="Relationship / linkage">
+        <RecordEditorMetaGrid>
+          <EntityCombobox label="External contact" valueId={form.contactId} valueLabel={entityOptions.contactOptions.find((contact) => contact.id === form.contactId)?.label} options={entityOptions.contactOptions} onSelect={(option) => setForm({ ...form, contactId: option.id })} onCreate={(label) => { const id = addContact({ name: label, role: 'PM', notes: '', tags: [] }); setForm({ ...form, contactId: id }); }} />
+          <EntityCombobox label="Company" valueId={form.companyId} valueLabel={entityOptions.companyOptions.find((company) => company.id === form.companyId)?.label} options={entityOptions.companyOptions} onSelect={(option) => setForm({ ...form, companyId: option.id })} onCreate={(label) => { const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] }); setForm({ ...form, companyId: id }); }} />
+        </RecordEditorMetaGrid>
+      </RecordEditorSection>
     </>
   );
 }
@@ -180,7 +169,6 @@ export function CreateWorkModal() {
   const [mode, setMode] = useState<WorkMode>(getRecentWorkMode());
   const [followUpSession, setFollowUpSession] = useState<RecordEditorSession<any, FollowUpFormInput, any> | null>(null);
   const [taskSession, setTaskSession] = useState<RecordEditorSession<any, TaskFormInput, any> | null>(null);
-  const [showFullFields, setShowFullFields] = useState(false);
 
   const followUpForm = followUpSession?.draft ?? buildSmartFollowUpDefaults({ projectFilter });
   const taskForm = taskSession?.draft ?? buildSmartTaskDefaults({ projectFilter });
@@ -200,14 +188,12 @@ export function CreateWorkModal() {
     if (currentItem) {
       setMode('followup');
       setFollowUpSession(createRecordEditorSession({ adapter: followUpEditorAdapter, recordRef: { type: 'followup', id: currentItem.id }, mode: 'edit', record: currentItem }));
-      setShowFullFields(true);
       return;
     }
 
     if (currentTask) {
       setMode('task');
       setTaskSession(createRecordEditorSession({ adapter: taskEditorAdapter, recordRef: { type: 'task', id: currentTask.id }, mode: 'edit', record: currentTask }));
-      setShowFullFields(true);
       return;
     }
 
@@ -251,14 +237,12 @@ export function CreateWorkModal() {
 
       setFollowUpSession(updateRecordEditorDraft(freshFollowUpSession, followUpEditorAdapter, () => followUpDraft));
       setTaskSession(updateRecordEditorDraft(freshTaskSession, taskEditorAdapter, () => taskDraft));
-      setShowFullFields(Boolean(createWorkDraft.cleanupReasons?.length));
       return;
     }
 
     setMode(itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
     setFollowUpSession(freshFollowUpSession);
     setTaskSession(freshTaskSession);
-    setShowFullFields(false);
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
 
   if (!open) return null;
@@ -269,7 +253,7 @@ export function CreateWorkModal() {
   };
 
   const entityOptions: EntityOptions = {
-    projectOptions: projects.map((project) => ({ id: project.id, label: project.name, meta: project.owner })),
+    projectOptions: projects.map((project) => ({ id: project.id, label: project.name })),
     contactOptions: contacts.map((contact) => ({ id: contact.id, label: contact.name, meta: contact.role || contact.email })),
     companyOptions: companies.map((company) => ({ id: company.id, label: company.name, meta: company.type })),
   };
@@ -301,23 +285,19 @@ export function CreateWorkModal() {
     const { followUpDefaults, taskDefaults } = buildCreateSessions(projectFilter);
     setFollowUpSession((session) => session ? updateRecordEditorDraft(session, followUpEditorAdapter, () => followUpDefaults) : session);
     setTaskSession((session) => session ? updateRecordEditorDraft(session, taskEditorAdapter, () => taskDefaults) : session);
-    setShowFullFields(false);
   };
 
   return (
     <AppModal size="wide">
-      <div
-        className="flex h-full min-h-0 flex-col"
-        onKeyDown={(event) => {
+      <div className="flex h-full min-h-0 flex-col" onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           save(false);
         }
-      }}
-      >
+      }}>
         <AppModalHeader
-          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create work item'}
-          subtitle={followUpEditing || taskEditing ? 'Full edit is the deep destination for broad record changes.' : 'Choose a work type, then start with quick create fields. Open full editor fields only if needed.'}
+          title={followUpEditing ? 'Edit follow-up' : taskEditing ? 'Edit task' : 'Create work item'}
+          subtitle={followUpEditing || taskEditing ? 'Update details and save changes.' : 'Choose a work type and complete all required fields in one editor.'}
           onClose={close}
         />
         <AppModalBody>
@@ -334,33 +314,13 @@ export function CreateWorkModal() {
                   { value: 'task', label: 'Task' },
                 ]}
               />
-              <p className="create-work-controls-helper">Follow-up tracks external coordination. Task tracks internal execution work.</p>
-            </div>
-
-            <div className="create-work-controls-group">
-              <label className="create-work-controls-label" id="create-work-depth-label">Editor depth</label>
-              <SegmentedControl
-                value={showFullFields ? 'full' : 'quick'}
-                onChange={(next) => setShowFullFields(next === 'full')}
-                ariaLabel="Editor depth selector"
-                className="create-work-segmented"
-                options={[
-                  { value: 'quick', label: 'Quick fields' },
-                  {
-                    value: 'full',
-                    label: <span className="create-work-full-option-label">Full editor fields <ChevronRight size={14} aria-hidden="true" /></span>,
-                    ariaLabel: 'Full editor fields, deep edit mode',
-                  },
-                ]}
-              />
-              <p className="create-work-controls-helper">Quick fields capture essentials fast. Full editor fields reveal execution, relationship, and detailed notes sections.</p>
             </div>
           </div>
 
           <RecordEditorShell>
             <RecordEditorHeader
-              title={mode === 'followup' ? 'Work type: Follow-up' : 'Work type: Task'}
-              subtitle={showFullFields ? 'Full fields are visible for this work item.' : 'Quick fields only: title, due date, ownership, and next move.'}
+              title={mode === 'followup' ? 'Follow-up details' : 'Task details'}
+              subtitle="All fields are available in this editor."
             />
 
             {mode === 'followup' ? (
@@ -371,7 +331,6 @@ export function CreateWorkModal() {
                 addProject={addProject}
                 addContact={addContact}
                 addCompany={addCompany}
-                showFullFields={showFullFields}
               />
             ) : (
               <TaskEditorBody
@@ -381,7 +340,6 @@ export function CreateWorkModal() {
                 addProject={addProject}
                 addContact={addContact}
                 addCompany={addCompany}
-                showFullFields={showFullFields}
               />
             )}
           </RecordEditorShell>

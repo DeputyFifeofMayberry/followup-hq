@@ -18,7 +18,7 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   void appMode;
-  const { stats, triageRows, selectedFilter, selected, signalCards, openCreateFromCapture, setSelectedId, setSelectedFilter, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
+  const { stats, triageRows, selectedFilter, selected, signalCards, openCreateWorkModal, setSelectedId, setSelectedFilter, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
   const [searchQuery, setSearchQuery] = useState('');
   const visibleRows = useMemo(() => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())), [triageRows, searchQuery]);
   const activeFilterMeta = signalCards.find((card) => card.key === selectedFilter);
@@ -29,14 +29,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         <OverviewStartStrip
           stats={stats}
           onOpenIntake={() => onOpenWorkspace('outlook')}
-          onQuickAdd={() => openCreateFromCapture({
-            kind: 'followup',
-            rawText: '',
-            title: '',
-            priority: 'Medium',
-            confidence: 1,
-            cleanupReasons: [],
-          })}
+          onCreateWork={openCreateWorkModal}
         />
       </WorkspaceTopStack>
 

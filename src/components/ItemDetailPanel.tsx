@@ -63,6 +63,7 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const item = laneContext.selectedItem;
 
   const [showActivity, setShowActivity] = useState(false);
+  const [detailView, setDetailView] = useState<'focus' | 'context' | 'history'>('focus');
   const [activeAction, setActiveAction] = useState<FollowUpActionType | null>(null);
   const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
 
@@ -139,13 +140,33 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
         <button onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')} className="action-btn"><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
       </div>
 
+
+      <div className="segmented-control followup-view-segmented w-fit" role="tablist" aria-label="Selected follow-up sections">
+        {[
+          { value: 'focus', label: 'Work item' },
+          { value: 'context', label: 'Status' },
+          { value: 'history', label: 'History' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={detailView === option.value}
+            className={`segmented-control-btn ${detailView === option.value ? 'segmented-control-btn-active' : ''}`}
+            onClick={() => setDetailView(option.value as typeof detailView)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
       <div className="followup-operational-summary">
         {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
         {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked work {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
         <AppBadge tone="info">{editSurfacePolicy.context.intent}</AppBadge>
       </div>
 
-      <div className="detail-card inspector-block mb-3">
+      {detailView === 'focus' ? <div className="detail-card inspector-block mb-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why this matters now</div>
         <div className="mt-1 text-sm font-semibold text-slate-900">{laneContext.attentionSignal?.helperText ?? 'No active blockers.'}</div>
         <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended next move</div>
@@ -153,12 +174,12 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           <AppBadge tone={recommendedAction?.tone === 'default' ? 'info' : (recommendedAction?.tone ?? 'info')}>{recommendedAction?.label ?? laneContext.nextMove?.label ?? 'Update next move'}</AppBadge>
         </div>
         <div className="mt-1 text-sm text-slate-700">{recommendedAction?.reason ?? laneContext.nextMove?.reason ?? 'Move this record forward with one clear action.'}</div>
-      </div>
+      </div> : null}
 
       {actionFeedback ? <div className={`mb-3 rounded-xl border p-2 text-xs ${actionFeedback.tone === 'danger' ? 'border-rose-200 bg-rose-50 text-rose-900' : actionFeedback.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{actionFeedback.message}</div> : null}
       {laneContext.workflowWarnings.length ? <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{laneContext.workflowWarnings.slice(0, 2).map((warning) => <div key={warning}>{warning}</div>)}</div> : null}
 
-      <div className="detail-card inspector-block">
+      {detailView === 'focus' ? <div className="detail-card inspector-block">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Take action now</div>
         <div className="mt-2 flex flex-wrap gap-2">
           <button onClick={runRecommendedAction} className="primary-btn">{recommendedAction?.label ?? 'Update next move'}</button>
@@ -170,15 +191,15 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           <button onClick={() => setActiveAction('close')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
           <button onClick={() => { addTask({ id: createId('TSK'), title: `Task: ${item.title}`, project: item.project, projectId: item.projectId, owner: item.owner, status: 'To do', priority: item.priority, dueDate: item.nextTouchDate || item.dueDate, startDate: todayIso(), summary: item.summary, nextStep: item.nextAction || 'Complete next step.', notes: '', tags: ['From follow-up'], linkedFollowUpId: item.id, contextNote: `Supports follow-up: ${item.title}`, completionImpact: 'advance_parent', contactId: item.contactId, companyId: item.companyId, createdAt: todayIso(), updatedAt: todayIso(), lastCompletedAction: 'Delegated as task', lastActionAt: todayIso() }); setActionFeedback({ tone: 'success', message: 'Linked task created.' }); }} className="action-btn"><SquareCheckBig className="h-4 w-4" />Create task</button>
         </div>
-      </div>
+      </div> : null}
 
-      <div className="detail-card inspector-block mt-3">
+      {detailView === 'context' ? <div className="detail-card inspector-block mt-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Full edit</div>
         <p className="mt-2 text-sm text-slate-600">Deep editing now happens in the full editor window so fields stay structured and reachable.</p>
         <button className="action-btn mt-2" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />Open full edit window</button>
-      </div>
+      </div> : null}
 
-      <details className="detail-card inspector-block mt-3">
+      {detailView === 'context' ? <details className="detail-card inspector-block mt-3">
         <summary className="cursor-pointer text-sm font-semibold text-slate-900">Supporting context</summary>
         <div className="mt-3 space-y-3">
           <div className="text-sm text-slate-700">{contact?.name ?? '—'} · {company?.name ?? '—'} · Due {formatDate(item.dueDate)} · Next touch {formatDate(item.nextTouchDate)}</div>
@@ -192,24 +213,24 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
           ) : null}
           <div className="text-xs text-slate-600">{noteEntries.length} notes · {item.timeline.length} events · {relatedBundle.counts.relationships} related records</div>
         </div>
-      </details>
+      </details> : null}
 
-      <details className="detail-card inspector-block mt-3">
+      {detailView === 'history' ? <details className="detail-card inspector-block mt-3">
         <summary className="cursor-pointer text-sm font-semibold text-slate-900">Notes & recent history</summary>
         <div className="mt-2 space-y-2">
           {activityEntries.length ? activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>) : <div className="text-xs text-slate-500">No recent activity.</div>}
           {item.timeline.length > activityEntries.length ? <button onClick={() => setShowActivity((value) => !value)} className="action-btn">{showActivity ? 'Show less' : 'Show more'}</button> : null}
         </div>
-      </details>
+      </details> : null}
 
-      <details className="detail-card inspector-block mt-3">
+      {detailView === 'context' ? <details className="detail-card inspector-block mt-3">
         <summary className="cursor-pointer text-sm font-semibold text-slate-900">Maintenance & deep edit</summary>
         <div className="mt-2 flex flex-wrap gap-2">
           <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />{editSurfaceCtas.openContext}</button>
           <button className="action-btn" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
         </div>
         {linkedTasks.length ? <div className="mt-3 space-y-2">{linkedTasks.map((task) => <div key={task.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-2 list-row-family"><div><div className="text-sm font-medium text-slate-900">{task.title}</div><div className="text-xs text-slate-500">{task.status} · Due {formatDate(task.dueDate)}</div></div><button className="action-btn" onClick={() => { setSelectedTaskId(task.id); openRecordDrawer({ type: 'task', id: task.id }); }}>Open child</button></div>)}</div> : null}
-      </details>
+      </details> : null}
 
       <FollowUpActionModal
         item={item}

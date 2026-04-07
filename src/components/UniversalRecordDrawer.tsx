@@ -61,6 +61,7 @@ export function UniversalRecordDrawer() {
   })));
 
   const [showQuickEdit, setShowQuickEdit] = useState(false);
+  const [activeSection, setActiveSection] = useState<'context' | 'summary' | 'related' | 'timeline'>('context');
 
   const bundle = useMemo(() => {
     if (!recordDrawerRef) return null;
@@ -134,7 +135,12 @@ export function UniversalRecordDrawer() {
 
         {!bundle?.selected ? <EmptyState title="Record not found" message="This record is no longer available." /> : (
           <RecordContextDrawerShell>
-            <RecordContextDrawerSection title="Context actions">
+            <div className="segmented-control followup-view-segmented w-fit" role="tablist" aria-label="Record drawer sections">
+              {[['context','Work item'],['summary','Status'],['related','Related'],['timeline','Activity']].map(([value,label]) => (
+                <button key={value} type="button" role="tab" aria-selected={activeSection === value} className={`segmented-control-btn ${activeSection === value ? 'segmented-control-btn-active' : ''}`} onClick={() => setActiveSection(value as typeof activeSection)}>{label}</button>
+              ))}
+            </div>
+            {activeSection === 'context' ? <RecordContextDrawerSection title="Context actions">
               <div className="mt-2 flex flex-wrap gap-2">
                 {recordDrawerRef.type === 'followup' ? <button onClick={() => setShowQuickEdit((value) => !value)} className="action-btn">{editSurfaceCtas.quickEditFollowUp}</button> : null}
                 {recordDrawerRef.type === 'task' ? <button onClick={() => setShowQuickEdit((value) => !value)} className="action-btn">{editSurfaceCtas.quickEditTask}</button> : null}
@@ -167,17 +173,17 @@ export function UniversalRecordDrawer() {
                   />
                 </div>
               ) : null}
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
 
-            <RecordContextDrawerSection title="Record summary">
+            {activeSection === 'summary' ? <RecordContextDrawerSection title="Record summary">
               <div className="detail-summary-grid">
                 {summaryRows(bundle.selected).map((row) => (
                   <div key={row.label}><div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{row.label}</div><div className="mt-1 text-sm font-semibold text-slate-900">{row.value}</div></div>
                 ))}
               </div>
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
 
-            {(recordDrawerRef.type === 'followup' || recordDrawerRef.type === 'task') ? (
+            {activeSection === 'summary' && (recordDrawerRef.type === 'followup' || recordDrawerRef.type === 'task') ? (
               <RecordContextDrawerSection title="Lifecycle / trust">
                 {(() => {
                   const record = recordDrawerRef.type === 'followup' ? selectedFollowUp : selectedTask;
@@ -193,13 +199,13 @@ export function UniversalRecordDrawer() {
               </RecordContextDrawerSection>
             ) : null}
 
-            <RecordContextDrawerSection title="What matters around this record">
+            {activeSection === 'related' ? <RecordContextDrawerSection title="What matters around this record">
               <div className="mt-2 text-xs text-slate-600">
                 Related links: {bundle.counts.relationships} · Open child work: {bundle.counts.openChildWork} · Blocked child work: {bundle.counts.blockedChildWork} · Overdue child work: {bundle.counts.overdueChildWork}
               </div>
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
 
-            <RecordContextDrawerSection title="Linked records">
+            {activeSection === 'related' ? <RecordContextDrawerSection title="Linked records">
               <div className="space-y-2 mt-2">
                 {bundle.related.slice(0, 12).map((related) => (
                   <button key={`${related.type}-${related.id}`} onClick={() => { setShowQuickEdit(false); openRecordDrawer({ type: related.type, id: related.id }); }} className="record-drawer-link-row">
@@ -209,9 +215,9 @@ export function UniversalRecordDrawer() {
                 ))}
                 {bundle.related.length === 0 ? <div className="text-xs text-slate-500">No linked records found.</div> : null}
               </div>
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
 
-            <RecordContextDrawerSection title="Project / relationship context">
+            {activeSection === 'related' ? <RecordContextDrawerSection title="Project / relationship context">
               <div className="space-y-2 mt-2">
                 {recordDrawerRef.type === 'followup' ? (
                   <>
@@ -239,16 +245,16 @@ export function UniversalRecordDrawer() {
                   </button>
                 ) : null}
               </div>
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
 
-            <RecordContextDrawerSection title="Activity / timeline">
+            {activeSection === 'timeline' ? <RecordContextDrawerSection title="Activity / timeline">
               <div className="space-y-2 mt-2">
                 {timeline.slice(0, 20).map((event) => (
                   <div key={event.id} className="record-drawer-timeline-row"><div className="text-xs text-slate-500">{formatDateTime(event.at)}</div><div className="text-sm text-slate-700">{event.label}</div></div>
                 ))}
                 {timeline.length === 0 ? <div className="text-xs text-slate-500">No timeline available for this record.</div> : null}
               </div>
-            </RecordContextDrawerSection>
+            </RecordContextDrawerSection> : null}
           </RecordContextDrawerShell>
         )}
       </aside>

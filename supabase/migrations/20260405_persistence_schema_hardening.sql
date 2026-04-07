@@ -116,19 +116,26 @@ alter table public.companies enable row level security;
 alter table public.user_preferences enable row level security;
 alter table public.app_snapshots enable row level security;
 
-create policy if not exists "follow_up_items owner" on public.follow_up_items
+drop policy if exists "follow_up_items owner" on public.follow_up_items;
+create policy "follow_up_items owner" on public.follow_up_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "tasks owner" on public.tasks
+drop policy if exists "tasks owner" on public.tasks;
+create policy "tasks owner" on public.tasks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "projects owner" on public.projects
+drop policy if exists "projects owner" on public.projects;
+create policy "projects owner" on public.projects
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "contacts owner" on public.contacts
+drop policy if exists "contacts owner" on public.contacts;
+create policy "contacts owner" on public.contacts
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "companies owner" on public.companies
+drop policy if exists "companies owner" on public.companies;
+create policy "companies owner" on public.companies
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "user_preferences owner" on public.user_preferences
+drop policy if exists "user_preferences owner" on public.user_preferences;
+create policy "user_preferences owner" on public.user_preferences
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "app_snapshots owner" on public.app_snapshots
+drop policy if exists "app_snapshots owner" on public.app_snapshots;
+create policy "app_snapshots owner" on public.app_snapshots
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 comment on table public.follow_up_items is 'SetPoint entity persistence table for follow-up items.';

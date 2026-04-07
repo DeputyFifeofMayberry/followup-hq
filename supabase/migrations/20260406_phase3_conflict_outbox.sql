@@ -77,13 +77,16 @@ create index if not exists persistence_conflicts_user_updated_idx on public.pers
 
 alter table public.persistence_conflicts enable row level security;
 
-create policy if not exists "persistence_conflicts owner select" on public.persistence_conflicts
+drop policy if exists "persistence_conflicts owner select" on public.persistence_conflicts;
+create policy "persistence_conflicts owner select" on public.persistence_conflicts
   for select using (auth.uid() = user_id);
 
-create policy if not exists "persistence_conflicts owner update" on public.persistence_conflicts
+drop policy if exists "persistence_conflicts owner update" on public.persistence_conflicts;
+create policy "persistence_conflicts owner update" on public.persistence_conflicts
   for update using (auth.uid() = user_id);
 
-create policy if not exists "persistence_conflicts owner insert" on public.persistence_conflicts
+drop policy if exists "persistence_conflicts owner insert" on public.persistence_conflicts;
+create policy "persistence_conflicts owner insert" on public.persistence_conflicts
   for insert with check (auth.uid() = user_id);
 
 create or replace function public.apply_save_batch(batch jsonb)

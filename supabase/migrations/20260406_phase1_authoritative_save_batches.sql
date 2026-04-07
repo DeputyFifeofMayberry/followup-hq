@@ -38,7 +38,8 @@ create index if not exists save_batches_user_created_idx on public.save_batches 
 
 alter table public.save_batches enable row level security;
 
-create policy if not exists "save_batches owner select" on public.save_batches
+drop policy if exists "save_batches owner select" on public.save_batches;
+create policy "save_batches owner select" on public.save_batches
   for select
   using (auth.uid() = user_id);
 

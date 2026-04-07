@@ -192,10 +192,11 @@ function MainApp({ session }: { session: Session }) {
       setSelectedId: s.setSelectedId,
     })),
   );
-  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated } = useAppStore(
+  const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
+      openCreateWorkModal: s.openCreateWorkModal,
       openRecordDrawer: s.openRecordDrawer,
       openExecutionLane: s.openExecutionLane,
       items: s.items,
@@ -326,15 +327,19 @@ function MainApp({ session }: { session: Session }) {
     ];
   }, [modeConfig.workspaceMeta, orderedWorkspaces]);
 
-  const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'none') => {
+  const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'new-work' | 'none') => {
     if (actionKey === 'new-followup') {
       openCreateModal();
       return;
     }
     if (actionKey === 'new-task') {
       openCreateTaskModal();
+      return;
     }
-  }, [openCreateModal, openCreateTaskModal]);
+    if (actionKey === 'new-work') {
+      openCreateWorkModal();
+    }
+  }, [openCreateModal, openCreateTaskModal, openCreateWorkModal]);
 
   const commands = useMemo(() => buildCommandPaletteConfig({
     orderedWorkspaces,

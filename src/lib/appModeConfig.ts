@@ -2,7 +2,7 @@ import type { AppMode } from '../types';
 
 export type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
 export type WorkspaceCategory = 'core' | 'support';
-export type WorkspaceActionKey = 'new-followup' | 'new-task' | 'none';
+export type WorkspaceActionKey = 'new-followup' | 'new-task' | 'new-work' | 'none';
 
 export interface WorkspacePrimaryAction {
   label: string;
@@ -55,7 +55,7 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     category: 'core',
     startSurface: true,
     showUniversalCapture: true,
-    primaryAction: { label: 'New follow-up', actionKey: 'new-followup', primary: true },
+    primaryAction: { label: 'Create work item', actionKey: 'new-work', primary: true },
     healthLabel: ({ navCounts }) => `${navCounts.worklist || 0} require same-day direction`,
   },
   followups: {

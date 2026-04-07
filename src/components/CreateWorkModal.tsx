@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
 import { createId, fromDateInputValue, toDateInputValue } from '../lib/utils';
@@ -6,7 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { FollowUpFormInput, TaskFormInput, TaskItem } from '../types';
 import { EntityCombobox } from './EntityCombobox';
 import { createRecordEditorSession, followUpEditorAdapter, taskEditorAdapter, updateRecordEditorDraft, type RecordEditorSession } from '../domains/editor';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFooter, RecordEditorHeader, RecordEditorMetaGrid, RecordEditorSection, RecordEditorShell } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFooter, RecordEditorHeader, RecordEditorMetaGrid, RecordEditorSection, RecordEditorShell, SegmentedControl } from './ui/AppPrimitives';
 
 type WorkMode = 'followup' | 'task';
 
@@ -317,13 +318,40 @@ export function CreateWorkModal() {
           onClose={close}
         />
         <AppModalBody>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Work type</span>
-            <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
-            <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
-            <button onClick={() => setShowFullFields((value) => !value)} className={showFullFields ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
-              {showFullFields ? 'Hide full fields' : 'Open full editor fields'}
-            </button>
+          <div className="create-work-controls">
+            <div className="create-work-controls-group">
+              <label className="create-work-controls-label" id="create-work-type-label">Work type</label>
+              <SegmentedControl
+                value={mode}
+                onChange={setMode}
+                ariaLabel="Work type selector"
+                className="create-work-segmented"
+                options={[
+                  { value: 'followup', label: 'Follow-up' },
+                  { value: 'task', label: 'Task' },
+                ]}
+              />
+              <p className="create-work-controls-helper">Follow-up tracks external coordination. Task tracks internal execution work.</p>
+            </div>
+
+            <div className="create-work-controls-group">
+              <label className="create-work-controls-label" id="create-work-depth-label">Editor depth</label>
+              <SegmentedControl
+                value={showFullFields ? 'full' : 'quick'}
+                onChange={(next) => setShowFullFields(next === 'full')}
+                ariaLabel="Editor depth selector"
+                className="create-work-segmented"
+                options={[
+                  { value: 'quick', label: 'Quick fields' },
+                  {
+                    value: 'full',
+                    label: <span className="create-work-full-option-label">Full editor fields <ChevronRight size={14} aria-hidden="true" /></span>,
+                    ariaLabel: 'Full editor fields, deep edit mode',
+                  },
+                ]}
+              />
+              <p className="create-work-controls-helper">Quick fields capture essentials fast. Full editor fields reveal execution, relationship, and detailed notes sections.</p>
+            </div>
           </div>
 
           <RecordEditorShell>

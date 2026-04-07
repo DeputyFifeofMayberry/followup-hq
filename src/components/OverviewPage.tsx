@@ -18,9 +18,10 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   void appMode;
-  const { stats, sharedMetrics, triageRows, selected, signalCards, openCreateFromCapture, setSelectedId, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
+  const { stats, triageRows, selectedFilter, selected, signalCards, openCreateFromCapture, setSelectedId, setSelectedFilter, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
   const [searchQuery, setSearchQuery] = useState('');
   const visibleRows = useMemo(() => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())), [triageRows, searchQuery]);
+  const activeFilterMeta = signalCards.find((card) => card.key === selectedFilter);
 
   return (
     <WorkspacePage>
@@ -28,14 +29,6 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         <OverviewStartStrip
           stats={stats}
           onOpenIntake={() => onOpenWorkspace('outlook')}
-          onRouteFollowUps={() => {
-            routeToLane('followups', { section: 'triage', intentLabel: 'overview start strip: route follow-ups' });
-            onOpenWorkspace('followups');
-          }}
-          onRouteTasks={() => {
-            routeToLane('tasks', { section: 'now', intentLabel: 'overview start strip: route tasks' });
-            onOpenWorkspace('tasks');
-          }}
           onQuickAdd={() => openCreateFromCapture({
             kind: 'followup',
             rawText: '',
@@ -54,16 +47,14 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             className="overview-primary-toolbar"
             left={<label className="field-block followup-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title, project, owner" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
             middle={<span className="workspace-support-copy">Command intent: route triage items into the correct execution lane.</span>}
-            right={<span className="workspace-support-copy">Visible {sharedMetrics.visible} · Due now {sharedMetrics.dueNow} · Blocked/at risk {sharedMetrics.blockedOrAtRisk}</span>}
+            right={<span className="workspace-support-copy">{activeFilterMeta ? `${activeFilterMeta.label}: ${activeFilterMeta.filterSummary}` : 'All queue items in priority order.'}</span>}
           />
 
           <div className="overview-signal-support">
             <OverviewSignalCards
               cards={signalCards}
-              onRouteCard={(card) => {
-                routeToLane(card.lane, { section: card.section, intentLabel: card.intentLabel });
-                onOpenWorkspace(card.lane);
-              }}
+              selectedFilter={selectedFilter}
+              onSelectFilter={setSelectedFilter}
             />
           </div>
 

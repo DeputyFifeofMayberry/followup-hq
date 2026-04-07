@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, LogOut, Mail, Menu, Search, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react';
+import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, Mail, Menu, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
@@ -26,7 +26,7 @@ import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
-import { ReminderCenterControl } from './components/ReminderCenterControl';
+import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
@@ -192,7 +192,7 @@ function MainApp({ session }: { session: Session }) {
       setSelectedId: s.setSelectedId,
     })),
   );
-  const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated } = useAppStore(
+  const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated, reminderPreferences, reminderCenterSummary, pendingReminders, updateReminderPreferences, requestReminderPermission, runReminderEvaluation, testReminderNotification } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
@@ -214,6 +214,13 @@ function MainApp({ session }: { session: Session }) {
       flushPersistenceNow: s.flushPersistenceNow,
       workspaceAttentionCounts: s.workspaceAttentionCounts,
       hydrated: s.hydrated,
+      reminderPreferences: s.reminderPreferences,
+      reminderCenterSummary: s.reminderCenterSummary,
+      pendingReminders: s.pendingReminders,
+      updateReminderPreferences: s.updateReminderPreferences,
+      requestReminderPermission: s.requestReminderPermission,
+      runReminderEvaluation: s.runReminderEvaluation,
+      testReminderNotification: s.testReminderNotification,
     })),
   );
   useReminderScheduler(hydrated);
@@ -228,7 +235,6 @@ function MainApp({ session }: { session: Session }) {
   const modeConfig = getModeConfig(appMode);
   const [showCommand, setShowCommand] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutInProgress, setSignOutInProgress] = useState(false);
@@ -390,7 +396,6 @@ function MainApp({ session }: { session: Session }) {
     try {
       await performSignOut({ session, localPolicy });
       setShowSignOutModal(false);
-      setShowAccountMenu(false);
     } catch (error) {
       setSignOutError(error instanceof Error ? error.message : 'Sign out could not be completed.');
     } finally {
@@ -492,29 +497,21 @@ function MainApp({ session }: { session: Session }) {
                 <div className="workspace-header-meta-top">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
                   <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
-                  <ReminderCenterControl />
                   <SyncStatusControl />
-                  <div className="account-pill-shell">
-                    <button
-                      type="button"
-                      className="account-pill-btn"
-                      onClick={() => setShowAccountMenu((value) => !value)}
-                      aria-haspopup="menu"
-                      aria-expanded={showAccountMenu}
-                    >
-                      <UserRound className="h-4 w-4" />
-                      <span>{accountLabel}</span>
-                    </button>
-                    {showAccountMenu ? (
-                      <div className="account-pill-menu app-shell-card app-shell-card-inspector" role="menu" aria-label="Account menu">
-                        <div className="account-pill-email">{accountLabel}</div>
-                        <button type="button" className="action-btn account-pill-signout" onClick={handleStartSignOut} disabled={signOutInProgress}>
-                          {signOutInProgress ? <LoaderCircle className="h-4 w-4 state-spin" /> : <LogOut className="h-4 w-4" />}
-                          {signOutInProgress ? 'Signing out…' : 'Sign out'}
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
+                  <SettingsDrawer
+                    accountLabel={accountLabel}
+                    appMode={appMode}
+                    onChangeAppMode={setAppMode}
+                    onSignOut={handleStartSignOut}
+                    signOutInProgress={signOutInProgress}
+                    reminderPreferences={reminderPreferences}
+                    reminderCenterSummary={reminderCenterSummary}
+                    pendingReminders={pendingReminders}
+                    updateReminderPreferences={updateReminderPreferences}
+                    requestReminderPermission={requestReminderPermission}
+                    runReminderEvaluation={runReminderEvaluation}
+                    testReminderNotification={testReminderNotification}
+                  />
                 </div>
                 <div className="workspace-header-actions">
                   {currentMeta.primaryAction ? (
@@ -528,7 +525,7 @@ function MainApp({ session }: { session: Session }) {
             </header>
             {showUniversalCapture ? (
               <section className="app-capture-slot app-shell-card app-shell-card-command">
-                <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} />
+                <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} selfIdentity={accountLabel} />
               </section>
             ) : null}
             <section className="workspace-body-slot">

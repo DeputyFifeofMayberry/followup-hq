@@ -20,6 +20,7 @@ export interface ParseUniversalCaptureOptions {
   contextOwner?: string;
   recentProject?: string;
   recentOwner?: string;
+  defaultOwner?: string;
   referenceDate?: Date;
 }
 
@@ -77,7 +78,11 @@ const weekdayMap: Record<string, number> = {
 };
 
 const FOLLOWUP_PATTERNS = /(follow\s*-?up|check\s+on|waiting\s+on|nudge|ping|confirm\s+response|see\s+if|replied|reply|response)/i;
-const TASK_PATTERNS = /(update|draft|send|submit|revise|build|close\s*out|review|deliver|call\s+vendor|confirm\s+delivery|complete|finish)/i;
+const TASK_PATTERNS = /(update|draft|send|submit|revise|build|close\s*out|review|deliver|call\s+vendor|confirm\s+delivery|complete|finish|prepare|schedule|file|publish|approve)/i;
+
+function isPlaceholderIdentity(value: string): boolean {
+  return /^(unknown|unassigned|n\/a|none|tbd|null|account)$/i.test(value.trim());
+}
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -163,6 +168,9 @@ export function matchKnownProject(input: string | undefined, options: ParseUnive
 
 export function matchKnownOwner(input: string | undefined, options: ParseUniversalCaptureOptions): MatchResult {
   if (!input?.trim()) {
+    if (options.defaultOwner?.trim() && !isPlaceholderIdentity(options.defaultOwner)) {
+      return { value: options.defaultOwner.trim(), status: 'contextual', confidence: 0.58, source: 'context', reasons: ['Owner inferred from your signed-in identity.'] };
+    }
     if (options.contextOwner?.trim()) {
       return { value: options.contextOwner.trim(), status: 'contextual', confidence: 0.6, source: 'context', reasons: ['Owner inherited from current workspace context.'] };
     }
@@ -239,7 +247,7 @@ export function inferDueDate(input: string, tokenDue?: string, referenceDate = n
   if (/\btoday\b/.test(lower)) return { value: today, status: tokenDue ? 'explicit' : 'inferred', confidence: 0.84, source: tokenDue ? 'explicit_token' : 'heuristic', reasons: ['Detected "today" timing language.'] };
   if (/\btomorrow\b/.test(lower)) return { value: addDaysIso(today, 1), status: tokenDue ? 'explicit' : 'inferred', confidence: 0.86, source: tokenDue ? 'explicit_token' : 'heuristic', reasons: ['Detected "tomorrow" timing language.'] };
   if (/\bnext week\b/.test(lower)) return { value: addDaysIso(today, 7), status: 'inferred', confidence: 0.55, source: 'heuristic', reasons: ['Detected "next week" (kept broad and lower confidence).'] };
-  if (/\b(eow|end of week)\b/.test(lower)) return { value: addDaysIso(today, Math.max(1, 5 - referenceDate.getDay())), status: 'inferred', confidence: 0.58, source: 'heuristic', reasons: ['Detected end-of-week target (weekday precision only).'] };
+  if (/\b(by the end of (the )?week|end of (the )?week|eow)\b/.test(lower)) return { value: addDaysIso(today, Math.max(1, 5 - referenceDate.getDay())), status: 'inferred', confidence: 0.74, source: 'heuristic', reasons: ['Detected end-of-week commitment target.'] };
   if (/\bthis afternoon\b/.test(lower)) return { value: today, status: 'inferred', confidence: 0.5, source: 'heuristic', reasons: ['Detected "this afternoon"; normalized to today with lower certainty.'] };
 
   const weekdayMatch = lower.match(/\b(?:by|due|before|on)?\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
@@ -324,8 +332,9 @@ export function buildCaptureFieldEvidence(input: {
 }
 
 export function calculateCaptureConfidence(fieldEvidence: Record<CaptureFieldEvidence['field'], CaptureFieldEvidence>): { confidence: number; cleanupReasons: CaptureCleanupReason[]; parserNotes: string[] } {
-  const requiredKeys: CaptureFieldEvidence['field'][] = ['kind', 'title', 'project', 'owner', 'dueDate'];
-  const average = Object.values(fieldEvidence).reduce((sum, field) => sum + field.confidence, 0) / Object.values(fieldEvidence).length;
+  const requiredKeys: CaptureFieldEvidence['field'][] = ['kind', 'title'];
+  const understandingKeys: CaptureFieldEvidence['field'][] = ['kind', 'title', 'dueDate', 'priority'];
+  const average = understandingKeys.reduce((sum, key) => sum + fieldEvidence[key].confidence, 0) / understandingKeys.length;
   const requiredPenalty = requiredKeys.reduce((penalty, key) => penalty + (fieldEvidence[key].confidence < 0.45 ? 0.08 : 0), 0);
   const conflictPenalty = Object.values(fieldEvidence).some((field) => field.status === 'conflicting') ? 0.16 : 0;
   const confidence = clamp(average - requiredPenalty - conflictPenalty);

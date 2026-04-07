@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { ExecutionRouteTarget, ExecutionSectionKey, UnifiedQueueItem } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
@@ -13,9 +13,9 @@ export interface OverviewSignalCard {
   key: string;
   label: string;
   count: number;
+  filterSummary: string;
   lane: LaneTarget;
   section: ExecutionSectionKey;
-  ctaLabel: string;
   intentLabel: string;
 }
 
@@ -37,10 +37,23 @@ export function useOverviewTriageViewModel() {
   })));
 
   const queue = store.getUnifiedQueue();
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
   const executionItems = useMemo(() => selectExecutionLaneItems('overview', queue), [queue]);
   const sharedMetrics = useMemo(() => buildExecutionLaneMetrics(executionItems, store.executionSelectedId), [executionItems, store.executionSelectedId]);
-  const triageRows = useMemo(() => queue.slice(0, TRIAGE_LIMIT), [queue]);
+  const signalPredicates = useMemo(() => ({
+    due_now: (row: UnifiedQueueItem) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday,
+    ready_close: (row: UnifiedQueueItem) => row.queueFlags.readyToCloseParent,
+    blocked: (row: UnifiedQueueItem) => row.queueFlags.blocked || row.queueFlags.parentAtRisk || row.queueFlags.waiting,
+    cleanup: (row: UnifiedQueueItem) => row.queueFlags.cleanupRequired || row.queueFlags.waitingTooLong || row.queueFlags.orphanedTask,
+  }), []);
+
+  const triageRows = useMemo(() => {
+    const filteredQueue = selectedFilter === 'all'
+      ? queue
+      : queue.filter((row) => signalPredicates[selectedFilter as keyof typeof signalPredicates]?.(row));
+    return filteredQueue.slice(0, TRIAGE_LIMIT);
+  }, [queue, selectedFilter, signalPredicates]);
 
   const triageIds = useMemo(() => triageRows.map((row) => row.id), [triageRows]);
 
@@ -64,36 +77,36 @@ export function useOverviewTriageViewModel() {
         key: 'due_now',
         label: 'Due now',
         count: dueNowRows.length,
+        filterSummary: 'Work requiring same-day movement.',
         lane: pickLaneForRows(dueNowRows, 'tasks'),
         section: 'now',
-        ctaLabel: 'Open lane',
         intentLabel: 'handle due now commitments',
       },
       {
         key: 'ready_close',
         label: 'Ready to close',
         count: readyToCloseRows.length,
+        filterSummary: 'Items that can be closed after final verification.',
         lane: 'followups',
         section: 'ready_to_close',
-        ctaLabel: 'Open Follow Ups',
         intentLabel: 'close ready follow-ups',
       },
       {
         key: 'blocked',
         label: 'Blocked / at risk',
         count: blockedRows.length,
+        filterSummary: 'Commitments needing unblock or risk intervention.',
         lane: pickLaneForRows(blockedRows, 'tasks'),
         section: 'blocked',
-        ctaLabel: 'Open lane',
         intentLabel: 'unblock at-risk work',
       },
       {
         key: 'cleanup',
         label: 'Cleanup / review',
         count: cleanupRows.length,
+        filterSummary: 'Needs cleanup context before routing.',
         lane: pickLaneForRows(cleanupRows, 'followups'),
         section: 'triage',
-        ctaLabel: 'Route cleanup',
         intentLabel: 'review cleanup and routing',
       },
     ];
@@ -119,10 +132,12 @@ export function useOverviewTriageViewModel() {
     stats,
     sharedMetrics,
     triageRows,
+    selectedFilter,
     selected,
     signalCards,
     openCreateFromCapture: store.openCreateFromCapture,
     setSelectedId: store.setExecutionSelectedId,
+    setSelectedFilter,
     routeToLane,
     openSelectedDetail,
   };

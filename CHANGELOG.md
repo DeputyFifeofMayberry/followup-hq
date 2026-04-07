@@ -2,6 +2,11 @@
 
 ## 2026-04-07
 
+### Overview/Settings/Quick Add cohesion pass
+- Unified Overview into one queue-first operational system: compact command strip, clickable signal filter chips that directly focus the queue, and route decisions centralized in the inspector to reduce duplicated routing surfaces.
+- Consolidated header controls under a single Settings cog by migrating reminder controls and account/sign-out flows into a grouped settings surface while keeping sync trust visible via Sync Status.
+- Split Quick Add confidence framing into parser understanding vs import readiness, improved imperative/due-date parsing heuristics (including “by the end of the week”), improved personal owner inference defaults, and added regression coverage for straightforward imperative intake statements.
+
 ### Overview primary create action wording alignment
 - Replaced Overview’s misleading `New follow-up` primary CTA with a unified `Create work item` action wired to a neutral shared create opener that respects the last used work type.
 - Added a dedicated `openCreateWorkModal` store action and new workspace action key so Overview launches shared create without follow-up-biased labeling while Follow Ups/Tasks keep workspace-specific wording.

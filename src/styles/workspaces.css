@@ -189,41 +189,35 @@
   border-color: var(--border-strong);
 }
 .overview-signal-support { padding-top: 0.12rem; }
-.overview-signal-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.overview-signal-card {
-  display: grid;
-  gap: 0.32rem;
-  border: 1px solid var(--border-default);
-  border-radius: 0.78rem;
-  padding: 0.56rem 0.62rem;
-  background: var(--surface-row);
-}
-.overview-signal-topline {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.45rem;
+.overview-signal-grid { display: flex; flex-wrap: wrap; gap: 0.42rem; }
+.overview-signal-chip {
+  display: inline-flex;
   align-items: center;
+  gap: 0.38rem;
+  border: 1px solid var(--border-default);
+  background: #f7fbff;
+  border-radius: 999px;
+  padding: 0.28rem 0.62rem;
+  min-height: 1.95rem;
 }
-.overview-signal-label { font-size: 0.65rem; color: #42566d; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; }
-.overview-signal-lane { font-size: 0.65rem; color: var(--text-muted); }
-.overview-signal-count { font-size: 1.3rem; font-weight: 760; color: var(--text-primary); line-height: 1; letter-spacing: -0.02em; }
-.overview-signal-intent { margin: 0; font-size: 0.7rem; color: #51657c; line-height: 1.35; min-height: 1.8rem; }
-.overview-signal-cta { min-height: 1.65rem; justify-content: flex-start; font-size: 0.72rem; font-weight: 700; }
+.overview-signal-chip-label { font-size: 0.7rem; color: #42566d; font-weight: 700; }
+.overview-signal-chip-count { font-size: 0.78rem; color: var(--text-primary); }
+.overview-signal-chip-active {
+  border-color: #3b82f6;
+  background: #eaf2ff;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
 .overview-signal-card-due_now {
-  border-color: rgba(185, 28, 28, 0.25);
-  background: linear-gradient(180deg, #fff9f9 0%, #fff3f5 100%);
+  border-color: rgba(185, 28, 28, 0.28);
 }
 .overview-signal-card-blocked {
-  border-color: rgba(180, 83, 9, 0.28);
-  background: linear-gradient(180deg, #fffbf4 0%, #fff7ed 100%);
+  border-color: rgba(180, 83, 9, 0.3);
 }
 .overview-signal-card-ready_close {
-  border-color: rgba(30, 64, 175, 0.26);
-  background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
+  border-color: rgba(30, 64, 175, 0.3);
 }
 .overview-signal-card-cleanup {
-  border-color: rgba(71, 85, 105, 0.25);
-  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fc 100%);
+  border-color: rgba(71, 85, 105, 0.3);
 }
 .overview-triage-main {
   border: 1px solid var(--border-default);

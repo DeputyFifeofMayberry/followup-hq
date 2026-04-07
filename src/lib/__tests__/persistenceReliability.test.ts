@@ -371,6 +371,44 @@ async function run() {
   assert(rpcMissingClassified, 'missing RPC should classify as non-retryable backend setup failure');
 
   reset();
+  const originalRpc = (supabase as any).rpc;
+  let rpcInvocation = 0;
+  (supabase as any).rpc = async (fn: string, args: any) => {
+    rpcInvocation += 1;
+    if (fn === 'get_persistence_contract_report') return { data: { status: 'healthy' }, error: null };
+    if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
+    if (args?.batch?.batchId === '__schema_health_check__') {
+      return {
+        data: {
+          batchId: '__schema_health_check__',
+          userId: mock.sessionUserId ?? 'user-1',
+          status: 'committed',
+          schemaVersion: 1,
+          operationCount: 0,
+          operationCountsByEntity: { items: { upserts: 0, deletes: 0 }, tasks: { upserts: 0, deletes: 0 }, projects: { upserts: 0, deletes: 0 }, contacts: { upserts: 0, deletes: 0 }, companies: { upserts: 0, deletes: 0 } },
+          touchedTables: [],
+          clientPayloadHash: '',
+          serverPayloadHash: '',
+          hashMatch: true,
+        },
+        error: null,
+      };
+    }
+    return { data: null, error: { message: 'Could not find the function public.apply_save_batch(batch)', code: 'PGRST202' } };
+  };
+  let cacheExposureMismatchClassified = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch (error: any) {
+    cacheExposureMismatchClassified = error?.diagnostics?.failureKind === 'backend_rpc_exposure_cache'
+      && error?.diagnostics?.nonRetryable === true
+      && String(error?.message ?? '').includes('Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.');
+  } finally {
+    (supabase as any).rpc = originalRpc;
+  }
+  assert(cacheExposureMismatchClassified, `rpc exposure/cache mismatch should surface specific non-retryable diagnostics (calls=${rpcInvocation})`);
+
+  reset();
   mock.rpcFailure = { message: 'rpc unavailable', code: 'PGRST301' };
   let failureHasBatch = false;
   try {

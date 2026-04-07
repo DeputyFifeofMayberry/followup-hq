@@ -120,6 +120,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const recoveredByCloudSave = state.sessionDegraded && !postSave.sessionDegraded && postSave.sessionDegradedClearedByCloudSave;
               const backendBlocked = state.sessionDegradedReason === 'backend-schema-mismatch' || state.sessionDegradedReason === 'backend-rpc-missing'
                 || diagnostics?.failureKind === 'backend_missing_rpc'
+                || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
                 || diagnostics?.failureKind === 'backend_schema_mismatch';
               const saveSummary = reason === 'retry'
                 ? recoveredByCloudSave
@@ -234,6 +235,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
             sessionTrustState: 'degraded',
             sessionDegraded: true,
             sessionDegradedReason: diagnostics?.failureKind === 'backend_missing_rpc'
+              || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
               ? 'backend-rpc-missing'
               : diagnostics?.failureKind === 'backend_schema_mismatch'
                 ? 'backend-schema-mismatch'
@@ -259,16 +261,20 @@ export const useAppStore = create<AppStore>()((set, get) => {
               at: timestamp,
               summary: diagnostics?.failureKind === 'backend_missing_rpc'
                 ? 'Cloud setup required: missing RPC.'
-                : diagnostics?.failureKind === 'backend_schema_mismatch'
-                  ? 'Cloud setup required: schema mismatch.'
-                  : reason === 'retry'
-                    ? 'Retry failed. Protected local copy retained.'
-                    : 'Save failed. Protected local copy retained.',
-              detail: diagnostics?.failedBatchId
-                ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
-                : diagnostics?.failedTable
-                  ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
-                  : message,
+                : diagnostics?.failureKind === 'backend_rpc_exposure_cache'
+                  ? 'Cloud sync waiting on REST schema cache.'
+                  : diagnostics?.failureKind === 'backend_schema_mismatch'
+                    ? 'Cloud setup required: schema mismatch.'
+                    : reason === 'retry'
+                      ? 'Retry failed. Protected local copy retained.'
+                      : 'Save failed. Protected local copy retained.',
+              detail: diagnostics?.failureKind === 'backend_rpc_exposure_cache'
+                ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
+                : diagnostics?.failedBatchId
+                  ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
+                  : diagnostics?.failedTable
+                    ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
+                    : message,
             })),
           })),
         },

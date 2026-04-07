@@ -188,7 +188,7 @@ export interface SaveDiagnostics {
   conflictedOperationCount?: number;
   conflictIds?: string[];
   outboxSafeToClear?: boolean;
-  failureKind?: 'backend_schema_mismatch' | 'backend_missing_rpc' | 'transient_cloud_failure' | 'conflict';
+  failureKind?: 'backend_schema_mismatch' | 'backend_missing_rpc' | 'backend_rpc_exposure_cache' | 'transient_cloud_failure' | 'conflict';
   backendHealthStatus?: PersistenceSchemaHealthResult['status'];
   nonRetryable?: boolean;
   supabaseHost?: string;
@@ -820,6 +820,17 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
   return `Cloud persistence preflight failed${code}.${host}`;
 }
 
+function isRpcExposureCacheMismatch(normalized: NormalizedPersistenceError): boolean {
+  const code = normalized.code?.toUpperCase();
+  const lower = [normalized.message, normalized.details, normalized.hint, normalized.rawSummary]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return code === 'PGRST202'
+    || lower.includes('could not find the function public.apply_save_batch')
+    || lower.includes('function public.apply_save_batch');
+}
+
 function classifyBackendFailureKind(normalized: NormalizedPersistenceError): NonNullable<LoadResult['backendFailureKind']> {
   const code = normalized.code?.toUpperCase();
   const status = Number(normalized.status);
@@ -1264,12 +1275,19 @@ export async function savePersistedPayload(
     diagnostics.failedBatchId = envelope.batchId;
     diagnostics.failureKind = diagnostics.receiptStatus === 'conflict'
       ? 'conflict'
-      : normalized.code?.toUpperCase() === 'PGRST202'
-        ? 'backend_missing_rpc'
+      : isRpcExposureCacheMismatch(normalized) && diagnostics.backendHealthStatus === 'healthy'
+        ? 'backend_rpc_exposure_cache'
+        : isRpcExposureCacheMismatch(normalized)
+          ? 'backend_missing_rpc'
         : normalized.code?.toUpperCase() === '42703'
           ? 'backend_schema_mismatch'
           : 'transient_cloud_failure';
-    diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc' || diagnostics.failureKind === 'backend_schema_mismatch';
+    diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc'
+      || diagnostics.failureKind === 'backend_schema_mismatch'
+      || diagnostics.failureKind === 'backend_rpc_exposure_cache';
+    const rawMessageWithClassification = diagnostics.failureKind === 'backend_rpc_exposure_cache'
+      ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
+      : rawMessage;
     if (diagnostics.receiptStatus === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, rawMessage, currentUserId);
     else await markBatchFailed(batchEntry.outboxEntryId, rawMessage, currentUserId);
     incrementMetric('outboxRetries');
@@ -1287,8 +1305,8 @@ export async function savePersistedPayload(
       lastCommittedBatchId: existingCache?.lastCommittedBatchId,
       lastReceiptStatus: diagnostics.receiptStatus,
       lastReceiptCommittedTime: undefined,
-      lastFailureMessage: rawMessage,
+      lastFailureMessage: rawMessageWithClassification,
     }, currentUserId);
-    throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
+    throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessageWithClassification}`, diagnostics);
   }
 }

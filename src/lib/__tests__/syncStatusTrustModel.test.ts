@@ -204,6 +204,20 @@ function testFailedOutboxDoesNotShowSavingForever(): void {
   assert(model.stateLabel !== 'Saving', `failed save state should not be rendered as Saving`);
 }
 
+function testBackendRpcExposureFailureDoesNotShowSavingForever(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'error',
+    localSaveState: 'error',
+    cloudSyncState: 'failed',
+    cloudSyncStatus: 'cloud-save-failed-local-preserved',
+    sessionDegraded: true,
+    sessionDegradedReason: 'backend-rpc-missing',
+    saveError: 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.',
+  } as any);
+  assert(model.primaryState !== 'saving', `backend rpc exposure failure should not remain in saving state, got ${model.primaryState}`);
+}
+
 function testSharedSnapshotSelectorConsistency(): void {
   const state = {
     hydrated: true,
@@ -332,7 +346,8 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   testBackendSetupIssueMapsToSavedLocally();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
-testFailedOutboxDoesNotShowSavingForever();
+  testFailedOutboxDoesNotShowSavingForever();
+  testBackendRpcExposureFailureDoesNotShowSavingForever();
   testVerifiedMatchAndRecoveryProjection();
   testSharedSnapshotSelectorConsistency();
 })();

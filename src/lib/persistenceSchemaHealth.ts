@@ -13,6 +13,7 @@ export type PersistenceSchemaHealthStatus =
   | 'missing_column'
   | 'missing_rpc'
   | 'missing_hashing_dependency'
+  | 'backend_hashing_failure'
   | 'auth_unavailable'
   | 'permissions_error'
   | 'unknown_backend_error';
@@ -63,8 +64,11 @@ function classifyFailure(normalized: NormalizedPersistenceError): PersistenceSch
     || lower.includes('function digest(text, unknown) does not exist')
     || lower.includes('function digest(bytea, text) does not exist')
     || (lower.includes('digest(') && lower.includes('does not exist'))
-    || (lower.includes('pgcrypto') && lower.includes('missing'))
   ) {
+    return 'backend_hashing_failure';
+  }
+
+  if (lower.includes('pgcrypto') && lower.includes('missing')) {
     return 'missing_hashing_dependency';
   }
 
@@ -118,7 +122,8 @@ function toFailureResult(input: {
   const isBackendContractIssue = input.status === 'missing_table'
     || input.status === 'missing_column'
     || input.status === 'missing_rpc'
-    || input.status === 'missing_hashing_dependency';
+    || input.status === 'missing_hashing_dependency'
+    || input.status === 'backend_hashing_failure';
   return {
     status: input.status,
     checkedAt: new Date().toISOString(),
@@ -140,7 +145,7 @@ function toFailureResult(input: {
 }
 
 type ContractRpcReport = {
-  status?: 'healthy' | 'missing_table' | 'missing_column' | 'missing_rpc' | 'missing_hashing_dependency';
+  status?: 'healthy' | 'missing_table' | 'missing_column' | 'missing_rpc' | 'missing_hashing_dependency' | 'backend_hashing_failure';
   failingTable?: RequiredTable;
   failingColumn?: string;
   failingRpc?: 'apply_save_batch';

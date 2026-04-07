@@ -28,7 +28,8 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
   const backendSchemaMismatch = didRestoreFallback && load.backendFailureKind === 'schema-mismatch';
   const backendRpcMissing = didRestoreFallback && load.backendFailureKind === 'missing-rpc';
-  const backendMissingHashingSupport = didRestoreFallback && load.backendFailureKind === 'missing-hashing-dependency';
+  const backendMissingHashingSupport = didRestoreFallback
+    && (load.backendFailureKind === 'hashing-failure' || load.backendFailureKind === 'missing-hashing-dependency');
   const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback && !backendSchemaMismatch && !backendRpcMissing && !backendMissingHashingSupport);
   const usedLocalNewerFallback = Boolean(load.localNewerThanCloud && didRestoreFallback);
   const usedGeneralRecovery = Boolean(didRestoreFallback && !usedCloudReadFailureFallback && !usedLocalNewerFallback);

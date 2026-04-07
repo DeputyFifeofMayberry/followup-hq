@@ -98,7 +98,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               ? state.sessionDegradedReason === 'backend-rpc-missing'
                 ? 'Cloud sync blocked by missing RPC.'
                 : state.sessionDegradedReason === 'backend-missing-hashing-support'
-                  ? 'Cloud sync blocked by missing hashing support.'
+                  ? 'Cloud sync blocked by backend hashing failure.'
                 : 'Cloud sync blocked by schema mismatch.'
               : reason === 'retry'
                 ? 'Retry in progress.'
@@ -126,7 +126,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 || state.sessionDegradedReason === 'backend-rpc-missing'
                 || state.sessionDegradedReason === 'backend-missing-hashing-support'
                 || diagnostics?.failureKind === 'backend_missing_rpc'
-                || diagnostics?.failureKind === 'backend_missing_hashing_dependency'
+                || diagnostics?.failureKind === 'backend_hashing_failure'
                 || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
                 || diagnostics?.failureKind === 'backend_schema_mismatch';
               const saveSummary = reason === 'retry'
@@ -137,9 +137,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   ? 'Local changes remain protected until backend contract is repaired.'
                 : saveKind === 'cloud-confirmed'
                   ? 'Changes confirmed to cloud.'
-                  : saveKind === 'local-only'
-                    ? 'Changes saved locally.'
-                    : 'No new changes to save.';
+                : saveKind === 'local-only'
+                  ? 'Changes saved locally.'
+                : 'No new changes to save.';
               const saveDetail = saveKind === 'cloud-confirmed'
                 ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
                 : saveKind === 'local-only'
@@ -148,7 +148,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                     ? (state.sessionDegradedReason === 'backend-rpc-missing'
                       ? 'Save skipped: cloud sync is blocked because apply_save_batch is missing in the connected Supabase project.'
                       : state.sessionDegradedReason === 'backend-missing-hashing-support'
-                        ? 'Save skipped: cloud persistence backend is missing required hashing support (pgcrypto).'
+                        ? 'Save skipped: cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.'
                       : 'Save skipped: cloud sync is blocked until the Supabase schema contract is repaired.')
                     : 'No new changes were detected.';
               const recoveredEvent = recoveredByCloudSave
@@ -246,7 +246,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
             sessionDegradedReason: diagnostics?.failureKind === 'backend_missing_rpc'
               || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
               ? 'backend-rpc-missing'
-              : diagnostics?.failureKind === 'backend_missing_hashing_dependency'
+              : diagnostics?.failureKind === 'backend_hashing_failure'
                 ? 'backend-missing-hashing-support'
               : diagnostics?.failureKind === 'backend_schema_mismatch'
                 ? 'backend-schema-mismatch'
@@ -272,8 +272,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
               at: timestamp,
               summary: diagnostics?.failureKind === 'backend_missing_rpc'
                 ? 'Cloud setup required: missing RPC.'
-                : diagnostics?.failureKind === 'backend_missing_hashing_dependency'
-                  ? 'Cloud setup required: missing hashing support.'
+                : diagnostics?.failureKind === 'backend_hashing_failure'
+                  ? 'Cloud setup required: backend hashing failure.'
                 : diagnostics?.failureKind === 'backend_rpc_exposure_cache'
                   ? 'Cloud sync waiting on REST schema cache.'
                   : diagnostics?.failureKind === 'backend_schema_mismatch'
@@ -283,8 +283,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
                       : 'Save failed. Protected local copy retained.',
               detail: diagnostics?.failureKind === 'backend_rpc_exposure_cache'
                 ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
-                : diagnostics?.failureKind === 'backend_missing_hashing_dependency'
-                  ? 'Cloud persistence backend is missing required hashing support (pgcrypto). Apply the pgcrypto extension migration in the connected Supabase project.'
+                : diagnostics?.failureKind === 'backend_hashing_failure'
+                  ? 'Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.'
                 : diagnostics?.failedBatchId
                   ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                   : diagnostics?.failedTable

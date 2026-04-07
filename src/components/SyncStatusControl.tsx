@@ -132,8 +132,8 @@ export function SyncStatusControl() {
               <div className="sync-status-row-detail">
                 {syncMeta.sessionDegradedReason === 'backend-rpc-missing'
                   ? 'Cloud sync is blocked because public.apply_save_batch(batch) is missing in the connected Supabase project.'
-                  : syncMeta.sessionDegradedReason === 'backend-missing-hashing-support'
-                    ? 'Cloud persistence backend is missing required hashing support (pgcrypto).'
+                : syncMeta.sessionDegradedReason === 'backend-missing-hashing-support'
+                    ? 'Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.'
                   : 'Cloud sync is blocked because one or more required table columns are missing in the connected Supabase project.'}
               </div>
             ) : null}

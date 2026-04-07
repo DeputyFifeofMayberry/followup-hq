@@ -56,7 +56,7 @@ export function appendPersistenceActivity(
 export function describeLoadFallbackFailure(
   stage?: LoadFailureStage,
   message?: string,
-  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'missing-hashing-dependency' | 'permissions' | 'auth' | 'unknown',
+  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'hashing-failure' | 'missing-hashing-dependency' | 'permissions' | 'auth' | 'unknown',
 ): { summary: string; detail: string } {
   const normalizedMessage = message
     ? formatPersistenceErrorMessage(normalizePersistenceError(message, { stage, operation: 'load' }))
@@ -80,12 +80,12 @@ export function describeLoadFallbackFailure(
     };
   }
 
-  if (backendFailureKind === 'missing-hashing-dependency') {
+  if (backendFailureKind === 'hashing-failure' || backendFailureKind === 'missing-hashing-dependency') {
     return {
-      summary: 'Cloud sync blocked by missing hashing support.',
+      summary: 'Cloud sync blocked by backend hashing failure.',
       detail: normalizedMessage
-        ? `Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto). Technical detail: ${normalizedMessage}`
-        : 'Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto).',
+        ? `Changes are saved locally. Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed. Technical detail: ${normalizedMessage}`
+        : 'Changes are saved locally. Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.',
     };
   }
 

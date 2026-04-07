@@ -80,12 +80,11 @@ async function run() {
 
   reset();
   mock.contractReport = {
-    status: 'missing_hashing_dependency',
-    details: 'Required extension pgcrypto is missing. Cloud persistence hashing depends on digest().',
+    status: 'backend_hashing_failure',
+    details: 'Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.',
   };
   const missingHashing = await runPersistenceSchemaHealthCheck('user-1', { force: true });
-  assert(missingHashing.status === 'missing_hashing_dependency', 'missing hashing dependency should classify separately');
-  assert(missingHashing.missingExtension === 'pgcrypto', 'missing hashing dependency should preserve extension metadata');
+  assert(missingHashing.status === 'backend_hashing_failure', 'backend hashing failure should classify separately');
 
   reset();
   mock.rpcFailure = { code: 'PGRST202', message: 'Could not find the function public.apply_save_batch(batch)' };

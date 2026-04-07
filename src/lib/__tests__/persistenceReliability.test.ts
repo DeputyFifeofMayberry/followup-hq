@@ -376,11 +376,11 @@ async function run() {
   try {
     await savePersistedPayload(payloadFixture);
   } catch (error: any) {
-    hashingDependencyClassified = error?.diagnostics?.failureKind === 'backend_missing_hashing_dependency'
+    hashingDependencyClassified = error?.diagnostics?.failureKind === 'backend_hashing_failure'
       && error?.diagnostics?.nonRetryable === true
-      && String(error?.message ?? '').includes('pgcrypto');
+      && String(error?.message ?? '').includes('digest()');
   }
-  assert(hashingDependencyClassified, 'missing pgcrypto should classify as non-retryable backend setup failure');
+  assert(hashingDependencyClassified, 'digest signature failures should classify as non-retryable backend hashing failure');
 
   reset();
   const originalRpc = (supabase as any).rpc;

@@ -147,7 +147,7 @@ export interface LoadResult {
   loadFailureStage?: LoadFailureStage;
   loadFailureMessage?: string;
   loadFailureRecoveredWithLocalCache?: boolean;
-  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'missing-hashing-dependency' | 'permissions' | 'auth' | 'unknown';
+  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'hashing-failure' | 'missing-hashing-dependency' | 'permissions' | 'auth' | 'unknown';
   localRevision?: number;
   lastCloudConfirmedRevision?: number;
   lastCommittedBatchId?: string;
@@ -188,7 +188,7 @@ export interface SaveDiagnostics {
   conflictedOperationCount?: number;
   conflictIds?: string[];
   outboxSafeToClear?: boolean;
-  failureKind?: 'backend_schema_mismatch' | 'backend_missing_rpc' | 'backend_missing_hashing_dependency' | 'backend_rpc_exposure_cache' | 'transient_cloud_failure' | 'conflict';
+  failureKind?: 'backend_schema_mismatch' | 'backend_missing_rpc' | 'backend_hashing_failure' | 'backend_rpc_exposure_cache' | 'transient_cloud_failure' | 'conflict';
   backendHealthStatus?: PersistenceSchemaHealthResult['status'];
   nonRetryable?: boolean;
   supabaseHost?: string;
@@ -811,6 +811,9 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
   if (result.status === 'missing_rpc') {
     return `Cloud persistence is missing required RPC public.apply_save_batch(batch)${code}.${host}${result.wrongProjectLikely ? ' This looks like a Supabase project/environment mismatch (required migration signature not present).' : ''}${result.backendContractVersion ? ` Backend contract version: ${result.backendContractVersion}.` : ''}`;
   }
+  if (result.status === 'backend_hashing_failure') {
+    return `Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed${code}.${host}`;
+  }
   if (result.status === 'missing_hashing_dependency') {
     return `Cloud persistence backend is missing required hashing support (pgcrypto)${code}.${host}`;
   }
@@ -839,12 +842,12 @@ function classifyBackendFailureKind(normalized: NormalizedPersistenceError): Non
   const status = Number(normalized.status);
   if (code === '42703' || code === 'PGRST205') return 'schema-mismatch';
   if (code === 'PGRST202') return 'missing-rpc';
-  if (code === '42883') return 'missing-hashing-dependency';
+  if (code === '42883') return 'hashing-failure';
   const lower = [normalized.message, normalized.details, normalized.hint, normalized.rawSummary]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
-  if (lower.includes('digest(') && lower.includes('does not exist')) return 'missing-hashing-dependency';
+  if (lower.includes('digest(') && lower.includes('does not exist')) return 'hashing-failure';
   if (code === '42501' || status === 403) return 'permissions';
   if (code === 'PGRST301' || status === 401) return 'auth';
   return 'unknown';
@@ -926,7 +929,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
           message: detail,
           code: normalized.code ?? health.errorCode ?? (health.status === 'missing_rpc'
             ? 'PGRST202'
-            : health.status === 'missing_hashing_dependency'
+            : health.status === 'missing_hashing_dependency' || health.status === 'backend_hashing_failure'
               ? '42883'
               : health.status === 'missing_table'
                 ? 'PGRST205'
@@ -1179,13 +1182,13 @@ export async function savePersistedPayload(
     diagnostics.failedTable = schemaHealth.failingTable;
     diagnostics.failureKind = schemaHealth.status === 'missing_rpc'
       ? 'backend_missing_rpc'
-      : schemaHealth.status === 'missing_hashing_dependency'
-        ? 'backend_missing_hashing_dependency'
+      : schemaHealth.status === 'missing_hashing_dependency' || schemaHealth.status === 'backend_hashing_failure'
+        ? 'backend_hashing_failure'
         : schemaHealth.status === 'missing_table' || schemaHealth.status === 'missing_column'
           ? 'backend_schema_mismatch'
           : 'transient_cloud_failure';
     diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc'
-      || diagnostics.failureKind === 'backend_missing_hashing_dependency'
+      || diagnostics.failureKind === 'backend_hashing_failure'
       || diagnostics.failureKind === 'backend_schema_mismatch';
     const errorMessage = formatSchemaHealthMessage(schemaHealth);
     await writeLocalCache({
@@ -1293,14 +1296,14 @@ export async function savePersistedPayload(
       : isRpcExposureCacheMismatch(normalized) && diagnostics.backendHealthStatus === 'healthy'
         ? 'backend_rpc_exposure_cache'
         : (normalized.code?.toUpperCase() === '42883' || rawMessage.toLowerCase().includes('digest('))
-          ? 'backend_missing_hashing_dependency'
+          ? 'backend_hashing_failure'
           : isRpcExposureCacheMismatch(normalized)
           ? 'backend_missing_rpc'
           : normalized.code?.toUpperCase() === '42703'
             ? 'backend_schema_mismatch'
             : 'transient_cloud_failure';
     diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc'
-      || diagnostics.failureKind === 'backend_missing_hashing_dependency'
+      || diagnostics.failureKind === 'backend_hashing_failure'
       || diagnostics.failureKind === 'backend_schema_mismatch'
       || diagnostics.failureKind === 'backend_rpc_exposure_cache';
     const rawMessageWithClassification = diagnostics.failureKind === 'backend_rpc_exposure_cache'

@@ -247,7 +247,7 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
   if (meta.sessionDegradedReason === 'backend-missing-hashing-support') {
     return {
       reassurance: 'Changes are saved locally.',
-      stateDescription: 'Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto).',
+      stateDescription: 'Changes are saved locally. Cloud persistence backend hashing failed due to a stale digest() dependency.',
       tone: 'warn',
       stateTone: 'danger',
     };
@@ -386,14 +386,14 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       trustLabel: meta.sessionDegradedReason === 'backend-rpc-missing'
         ? 'Cloud trust blocked by missing RPC'
         : meta.sessionDegradedReason === 'backend-missing-hashing-support'
-          ? 'Cloud trust blocked by missing hashing support'
+          ? 'Cloud trust blocked by backend hashing failure'
           : meta.sessionDegradedReason === 'backend-schema-mismatch'
             ? 'Cloud trust blocked by schema mismatch'
             : undefined,
       trustDescription: meta.sessionDegradedReason === 'backend-rpc-missing'
         ? 'Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing.'
         : meta.sessionDegradedReason === 'backend-missing-hashing-support'
-          ? 'Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto).'
+          ? 'Changes are saved locally. Cloud persistence backend hashing failed due to a stale digest() dependency.'
           : meta.sessionDegradedReason === 'backend-schema-mismatch'
             ? 'Changes are saved locally. Cloud sync is blocked until the Supabase schema is updated.'
             : undefined,

@@ -125,7 +125,7 @@ function testBackendMissingHashingSupportMapsToExplicitDegradedReason(): void {
     cacheStatus: 'pending',
     loadedFromFallback: true,
     cloudReadFailed: true,
-    backendFailureKind: 'missing-hashing-dependency',
+    backendFailureKind: 'hashing-failure',
     loadFailureStage: 'schema_preflight',
     loadFailureMessage: 'function digest(text, unknown) does not exist',
   });

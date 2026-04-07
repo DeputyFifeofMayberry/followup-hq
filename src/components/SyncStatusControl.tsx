@@ -93,6 +93,7 @@ export function SyncStatusControl() {
             </div>
             <div className="sync-status-row-detail">{statusModel.modeDescription}</div>
             <div className="sync-status-row-detail">Local/browser mode: {syncMeta.persistenceMode === "supabase" ? "Cloud-backed" : "Local/browser mode"}</div>
+            <div className="sync-status-row-detail">Signed in as cloud-backed workspace user.</div>
           </div>
 
           <div className="sync-status-row">
@@ -106,6 +107,9 @@ export function SyncStatusControl() {
           <div className="sync-status-row">
             <span className="sync-status-row-label">Summary</span>
             <div className="sync-status-row-detail">{statusModel.reassurance}</div>
+            <div className="sync-status-row-detail">Connectivity: {syncMeta.connectivityState}</div>
+            {syncMeta.pendingOfflineChangeCount > 0 ? <div className="sync-status-row-detail">Queued offline changes: {syncMeta.pendingOfflineChangeCount}</div> : null}
+            {syncMeta.offlineLoadState !== 'none' ? <div className="sync-status-row-detail">Startup mode: {syncMeta.offlineLoadState.replaceAll('-', ' ')}</div> : null}
             {isNeedsAttention ? <div className="sync-status-row-detail">{statusModel.stateDescription}</div> : null}
             {statusModel.trustRecoveryMessage ? <div className="sync-status-row-detail">{statusModel.trustRecoveryMessage}</div> : null}
           </div>

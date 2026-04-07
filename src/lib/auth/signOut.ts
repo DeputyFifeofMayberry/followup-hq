@@ -21,7 +21,7 @@ export async function performSignOut({ session, localPolicy }: PerformSignOutOpt
   }
 
   if (localPolicy === 'clear-scoped-persistence') {
-    clearScopedPersistenceForUser(userId);
+    await clearScopedPersistenceForUser(userId);
   }
 
   setPersistenceScopeUserId(null);

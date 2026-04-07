@@ -192,4 +192,9 @@ export const initialMetaState: AppMetaState = {
   workspaceAttentionCounts: DEFAULT_WORKSPACE_ATTENTION_COUNTS,
   pendingReminders: [],
   reminderPermissionState: 'default',
+  connectivityState: 'online',
+  offlineLoadState: 'none',
+  pendingOfflineChangeCount: 0,
+  lastConnectivityChangeAt: undefined,
+  lastReconnectAttemptAt: undefined,
 };

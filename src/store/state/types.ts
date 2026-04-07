@@ -327,4 +327,9 @@ export interface AppMetaState {
   workspaceAttentionCounts: WorkspaceAttentionCounts;
   pendingReminders: ReminderCandidate[];
   reminderPermissionState: ReminderPermissionState;
+  connectivityState: 'online' | 'offline' | 'degraded';
+  offlineLoadState: 'none' | 'loaded-from-offline-cache' | 'offline-no-cache';
+  pendingOfflineChangeCount: number;
+  lastConnectivityChangeAt?: string;
+  lastReconnectAttemptAt?: string;
 }

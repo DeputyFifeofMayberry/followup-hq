@@ -1,5 +1,6 @@
 import type { SaveBatchOperation } from './persistenceTypes';
 import { getPersistenceScopeUserId } from './persistenceIdentity';
+import { clearPersistenceBlob, loadPersistenceBlob, savePersistenceBlob } from './persistenceStorage';
 
 const OUTBOX_KEY_PREFIX = 'followup_hq_persistence_outbox_v1';
 const LEGACY_OUTBOX_KEY = 'followup_hq_persistence_outbox_v1';
@@ -39,10 +40,6 @@ export interface OutboxFlushResult {
   error?: string;
 }
 
-function canUseStorage() {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
 function createId(prefix: string): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
@@ -74,63 +71,22 @@ function parseOutbox(raw: string | null): OutboxState | null {
   }
 }
 
-function migrateLegacyOutboxIfNeeded(userId?: string | null): void {
-  if (!canUseStorage()) return;
-  const scopeUserId = userId ?? getPersistenceScopeUserId();
-  if (!scopeUserId) return;
-
-  const scopedKey = buildOutboxKey(scopeUserId);
-  const legacyKey = buildLegacyOutboxKey();
-  const scopedRaw = window.localStorage.getItem(scopedKey);
-  if (scopedRaw) return;
-
-  const legacyRaw = window.localStorage.getItem(legacyKey);
-  if (!legacyRaw) return;
-
-  const legacyState = parseOutbox(legacyRaw);
-  if (!legacyState) return;
-
-  try {
-    window.localStorage.setItem(scopedKey, JSON.stringify(legacyState));
-    window.localStorage.removeItem(legacyKey);
-  } catch {
-    // ignore
-  }
+export async function loadOutboxState(userId?: string | null): Promise<OutboxState> {
+  const raw = await loadPersistenceBlob(resolveOutboxKey(userId), buildLegacyOutboxKey());
+  return parseOutbox(raw) ?? { entries: [], updatedAt: new Date(0).toISOString() };
 }
 
-export function loadOutboxState(userId?: string | null): OutboxState {
-  if (!canUseStorage()) return { entries: [], updatedAt: new Date(0).toISOString() };
-  migrateLegacyOutboxIfNeeded(userId);
-  try {
-    const raw = window.localStorage.getItem(resolveOutboxKey(userId));
-    return parseOutbox(raw) ?? { entries: [], updatedAt: new Date(0).toISOString() };
-  } catch {
-    return { entries: [], updatedAt: new Date(0).toISOString() };
-  }
-}
-
-export function saveOutboxState(state: OutboxState, userId?: string | null): OutboxState {
+export async function saveOutboxState(state: OutboxState, userId?: string | null): Promise<OutboxState> {
   const next = { ...state, updatedAt: new Date().toISOString() };
-  if (canUseStorage()) {
-    try {
-      window.localStorage.setItem(resolveOutboxKey(userId), JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  }
+  await savePersistenceBlob(resolveOutboxKey(userId), JSON.stringify(next), buildLegacyOutboxKey());
   return next;
 }
 
-export function clearOutboxForUser(userId: string): void {
-  if (!canUseStorage()) return;
-  try {
-    window.localStorage.removeItem(buildOutboxKey(userId));
-  } catch {
-    // ignore
-  }
+export async function clearOutboxForUser(userId: string): Promise<void> {
+  await clearPersistenceBlob(buildOutboxKey(userId));
 }
 
-export function enqueueOutboxEntry(input: Omit<OutboxEntry, 'outboxEntryId' | 'createdAt' | 'updatedAt'> & { outboxEntryId?: string; createdAt?: string; updatedAt?: string }, userId?: string | null): OutboxEntry {
+export async function enqueueOutboxEntry(input: Omit<OutboxEntry, 'outboxEntryId' | 'createdAt' | 'updatedAt'> & { outboxEntryId?: string; createdAt?: string; updatedAt?: string }, userId?: string | null): Promise<OutboxEntry> {
   const now = new Date().toISOString();
   const entry: OutboxEntry = {
     ...input,
@@ -138,35 +94,36 @@ export function enqueueOutboxEntry(input: Omit<OutboxEntry, 'outboxEntryId' | 'c
     createdAt: input.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
   };
-  const state = loadOutboxState(userId);
+  const state = await loadOutboxState(userId);
   return upsertOutboxEntry(entry, state, userId);
 }
 
-export function upsertOutboxEntry(entry: OutboxEntry, existingState?: OutboxState, userId?: string | null): OutboxEntry {
-  const state = existingState ?? loadOutboxState(userId);
+export async function upsertOutboxEntry(entry: OutboxEntry, existingState?: OutboxState, userId?: string | null): Promise<OutboxEntry> {
+  const state = existingState ?? await loadOutboxState(userId);
   const index = state.entries.findIndex((candidate) => candidate.outboxEntryId === entry.outboxEntryId);
   const next = { ...entry, updatedAt: new Date().toISOString() };
   if (index >= 0) state.entries[index] = next;
   else state.entries.push(next);
-  saveOutboxState(state, userId);
+  await saveOutboxState(state, userId);
   return next;
 }
 
-export function listUnresolvedOutboxEntries(state = loadOutboxState()): OutboxEntry[] {
-  return state.entries.filter((entry) => !['committed', 'superseded'].includes(entry.status));
+export async function listUnresolvedOutboxEntries(state?: OutboxState): Promise<OutboxEntry[]> {
+  const source = state ?? await loadOutboxState();
+  return source.entries.filter((entry) => !['committed', 'superseded'].includes(entry.status));
 }
 
-export function updateOutboxEntry(entryId: string, patch: Partial<OutboxEntry>, userId?: string | null): OutboxEntry | null {
-  const state = loadOutboxState(userId);
+export async function updateOutboxEntry(entryId: string, patch: Partial<OutboxEntry>, userId?: string | null): Promise<OutboxEntry | null> {
+  const state = await loadOutboxState(userId);
   const existing = state.entries.find((entry) => entry.outboxEntryId === entryId);
   if (!existing) return null;
   const next = { ...existing, ...patch, updatedAt: new Date().toISOString() };
-  upsertOutboxEntry(next, state, userId);
+  await upsertOutboxEntry(next, state, userId);
   return next;
 }
 
-export function clearCommittedOutboxEntries(userId?: string | null): OutboxState {
-  const state = loadOutboxState(userId);
+export async function clearCommittedOutboxEntries(userId?: string | null): Promise<OutboxState> {
+  const state = await loadOutboxState(userId);
   state.entries = state.entries.filter((entry) => !['committed', 'superseded'].includes(entry.status));
   return saveOutboxState(state, userId);
 }

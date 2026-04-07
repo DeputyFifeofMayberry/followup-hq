@@ -67,6 +67,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: 'dirty',
                 outboxState: 'queued',
+                pendingOfflineChangeCount: state.connectivityState === 'offline' ? pendingRecordCount : state.pendingOfflineChangeCount,
                 saveError: '',
                 cloudSyncStatus: state.sessionDegraded
                   ? state.cloudSyncStatus
@@ -139,12 +140,13 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
                 lastFailedBatchId: postSave.lastFailedBatchId,
                 outboxState: 'idle',
-                unresolvedOutboxCount: listUnresolvedOutboxEntries(clearCommittedOutboxEntries()).length,
+                unresolvedOutboxCount: 0,
                 lastOutboxFlushAt: timestamp,
                 lastFallbackRestoreAt: state.lastFallbackRestoreAt,
                 unsavedChangeCount: 0,
                 hasLocalUnsavedChanges: false,
                 dirtyRecordRefs: [],
+                pendingOfflineChangeCount: 0,
                 cloudSyncStatus: postSave.cloudSyncStatus,
                 loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
                 sessionTrustState: postSave.sessionTrustState,
@@ -184,11 +186,12 @@ export const useAppStore = create<AppStore>()((set, get) => {
               : state.conflictQueue,
             syncState: 'error',
             outboxState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
-            unresolvedOutboxCount: listUnresolvedOutboxEntries(loadOutboxState()).length,
+            unresolvedOutboxCount: state.unresolvedOutboxCount,
             lastOutboxFailureAt: timestamp,
             saveError: message,
             hasLocalUnsavedChanges: true,
             unsavedChangeCount: state.dirtyRecordRefs.length,
+            pendingOfflineChangeCount: state.connectivityState === 'offline' ? state.dirtyRecordRefs.length : state.pendingOfflineChangeCount,
             cloudSyncStatus: 'cloud-save-failed-local-preserved',
             loadedFromLocalRecoveryCache: false,
             lastLocalWriteAt: timestamp,
@@ -291,6 +294,14 @@ export const useAppStore = create<AppStore>()((set, get) => {
       if (!persistenceQueue) return;
       await persistenceQueue.retryNow();
     },
+    setConnectivityState: (connectivityState) => set((state) => ({
+      connectivityState,
+      lastConnectivityChangeAt: new Date().toISOString(),
+      persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+        kind: 'queued',
+        summary: connectivityState === 'offline' ? 'Offline — changes stay local.' : 'Back online — sync resumes.',
+      })),
+    })),
     resetForLogout: () => {
       resetPersistenceQueueController();
       set(() => ({

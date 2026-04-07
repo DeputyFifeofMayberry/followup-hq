@@ -2,6 +2,15 @@
 
 ## 2026-04-07
 
+### Follow Ups workspace refactor (queue-first execution pass)
+- Removed remaining top-of-page Follow Ups framing and stale handoff chrome so the tab now opens directly into compact controls + dominant table workflow (`src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`).
+- Rebuilt Follow Ups control hierarchy around primary queue states (`All items`, `All open`, `Needs nudge`, `At risk`, `Ready to close`, `Closed`) with explicit All-items vs All-open counts and one compact `View options` disclosure for secondary filtering/layout controls (`src/components/ControlBar.tsx`, `src/lib/followUpSelectors.ts`).
+- Reworked table scan/action behavior: calmer non-sort headers, sorting limited to high-value timing fields, stronger row hierarchy (`title → what matters now → quiet support metadata`), reduced badge noise, and practical row actions (`Open`, `Log touch`, `Nudge`, `Snooze`, `Delete`) (`src/components/TrackerTable.tsx`).
+- Added a reliable inline delete path from rows with confirmation and deterministic next-selection cleanup to prevent stale selected-record state after destructive actions (`src/components/TrackerTable.tsx`).
+- Demoted duplicate review from persistent page chrome into an on-demand modal entry so duplicate workflows no longer compete with main queue execution (`src/components/app/TrackerWorkspace.tsx`, `src/components/DuplicateReviewPanel.tsx`).
+- Simplified selected follow-up detail into a record-first modal flow (`What to do now` + `Context`) with clearer top summary, tighter action grouping, and lower-emphasis maintenance actions (`src/components/ItemDetailPanel.tsx`).
+- Strengthened create/edit trust copy in the shared work editor by marking required fields clearly and surfacing full validation issue lists before save (`src/components/CreateWorkModal.tsx`).
+
 ### Overview command center refactor (list-first, on-demand detail)
 - Rebuilt Overview as a dedicated command-center grammar: compact daily summary strip, single calm toolbar/filter row, and dominant triage list surface without execution-lane queue/inspector shell framing (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSummaryStats.tsx`, `src/components/overview/OverviewRouteActions.tsx`, `src/styles/workspaces.css`).
 - Replaced persistent split inspector with on-demand selected-item modal context so the queue remains full-width by default and detail opens only when needed (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewRouteInspector.tsx`, `src/components/ui/AppPrimitives.tsx`, `src/styles/workspaces.css`).

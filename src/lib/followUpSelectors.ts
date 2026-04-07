@@ -141,7 +141,9 @@ export function selectFollowUpViewCounts(input: FollowUpViewScopeInput): FollowU
 export function buildFollowUpCounts(rows: FollowUpItem[]) {
   const openRows = rows.filter((item) => !isClosed(item));
   return {
-    total: openRows.length,
+    total: rows.length,
+    allOpen: openRows.length,
+    closed: rows.length - openRows.length,
     overdue: openRows.filter(isOverdue).length,
     needsNudge: openRows.filter(needsNudge).length,
     atRisk: openRows.filter((item) => item.status === 'At risk' || item.escalationLevel === 'Critical').length,

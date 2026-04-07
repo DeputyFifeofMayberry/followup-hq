@@ -12,11 +12,23 @@ import { getModeConfig } from '../lib/appModeConfig';
 import type { FollowUpAttentionSignal } from '../domains/followups';
 import { TrackerMobileList } from './TrackerMobileList';
 import { useViewportBand } from '../hooks/useViewport';
+import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'nextAction', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
-const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate', 'priority']);
+const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate']);
+
+function getWhatMattersNow(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success' } {
+  const dueDelta = daysUntil(item.dueDate);
+  const touchDelta = daysUntil(item.nextTouchDate);
+  if (item.status === 'Closed') return { label: 'Closed record', tone: 'success' };
+  if (dueDelta < 0) return { label: `Overdue by ${Math.abs(dueDelta)}d`, tone: 'danger' };
+  if ((item.blockedLinkedTaskCount ?? 0) > 0) return { label: 'Blocked by linked work', tone: 'danger' };
+  if (needsNudge(item)) return { label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today', tone: 'warn' };
+  if (item.allLinkedTasksDone) return { label: 'Ready to close', tone: 'info' };
+  return { label: item.nextAction || 'Set next move', tone: 'info' };
+}
 
 export function TrackerTable({
   personalMode = false,
@@ -24,14 +36,16 @@ export function TrackerTable({
   embedded = false,
   selectedAttentionSignal,
   onRowOpen,
+  subtitle,
 }: {
   personalMode?: boolean;
   appMode?: AppMode;
   embedded?: boolean;
   selectedAttentionSignal?: FollowUpAttentionSignal | null;
   onRowOpen?: (id: string) => void;
+  subtitle?: string;
 }) {
-  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity, openTouchModal, snoozeItem, updateItem, confirmFollowUpSent } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity, openTouchModal, snoozeItem, deleteItem, confirmFollowUpSent, updateItem } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
@@ -48,8 +62,9 @@ export function TrackerTable({
     followUpTableDensity: s.followUpTableDensity,
     openTouchModal: s.openTouchModal,
     snoozeItem: s.snoozeItem,
-    updateItem: s.updateItem,
+    deleteItem: s.deleteItem,
     confirmFollowUpSent: s.confirmFollowUpSent,
+    updateItem: s.updateItem,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const modeConfig = getModeConfig(appMode);
@@ -57,36 +72,38 @@ export function TrackerTable({
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
+  const handleDelete = (id: string) => {
+    const target = filteredItems.find((item) => item.id === id);
+    if (!target) return;
+    const confirmed = window.confirm(`Delete follow-up \"${target.title}\"? This cannot be undone.`);
+    if (!confirmed) return;
+    deleteItem(id);
+    const progression = getExecutionLaneNextSelection(filteredItems.map((item) => item.id), selectedId, [id]);
+    if (selectedId === id) setSelectedId(progression.nextSelectedId ?? null);
+  };
+
   const baseColumns = useMemo<Record<FollowUpColumnKey, ColumnDef<FollowUpItem>>>(() => ({
     title: {
       accessorKey: 'title',
-      header: 'Work item',
+      header: 'Follow-up',
       cell: ({ row }) => {
         const active = row.original.id === selectedId;
-        const touchDelta = daysUntil(row.original.nextTouchDate);
-        const dueDelta = daysUntil(row.original.dueDate);
-        const contextBits = [
-          row.original.nextAction || 'No next move set',
-          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
+        const matterNow = getWhatMattersNow(row.original);
+        const supportMeta = [
           row.original.project,
+          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
+          row.original.owner !== (row.original.assigneeDisplayName || row.original.owner) ? `Owner: ${row.original.owner}` : null,
         ].filter(Boolean);
-        const linkedOpen = row.original.openLinkedTaskCount ?? 0;
-        const linkedTotal = row.original.linkedTaskCount ?? 0;
-        const hasLinkedRisk = linkedOpen > 0 && row.original.status !== 'Closed';
         return (
           <div className="tracker-title-cell">
             <div className="tracker-title-primary">{row.original.title}</div>
-            <div className="tracker-title-secondary">{contextBits.join(' • ')}</div>
+            <div className="tracker-title-secondary">{matterNow.label}</div>
+            <div className="mt-1 text-xs text-slate-500">{supportMeta.join(' • ')}</div>
             <div className="mt-1 flex flex-wrap gap-1">
-              {dueDelta < 0 ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
-              {needsNudge(row.original) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
-              {hasLinkedRisk ? <AppBadge tone="warn">Linked {linkedOpen}/{linkedTotal} open</AppBadge> : null}
+              <AppBadge tone={matterNow.tone}>{matterNow.tone === 'info' ? 'What matters now' : matterNow.label}</AppBadge>
+              {row.original.priority === 'Critical' ? <AppBadge tone="warn">Critical priority</AppBadge> : null}
+              {active && selectedAttentionSignal ? <AppBadge tone={selectedAttentionSignal.tone === 'default' ? 'info' : selectedAttentionSignal.tone}>{selectedAttentionSignal.label}</AppBadge> : null}
             </div>
-            {active && selectedAttentionSignal ? (
-              <div className="mt-1 flex flex-wrap gap-1">
-                <AppBadge tone={selectedAttentionSignal.tone === 'default' ? 'info' : selectedAttentionSignal.tone}>{selectedAttentionSignal.label}</AppBadge>
-              </div>
-            ) : null}
           </div>
         );
       },
@@ -95,7 +112,7 @@ export function TrackerTable({
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
     status: { accessorKey: 'status', header: 'Status', cell: ({ row }) => <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge> },
-    priority: { accessorKey: 'priority', header: 'Priority', enableSorting: true, cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
+    priority: { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
     dueDate: { accessorKey: 'dueDate', header: 'Due', enableSorting: true, cell: ({ row }) => formatDate(row.original.dueDate) },
     nextTouchDate: { accessorKey: 'nextTouchDate', header: 'Next touch', enableSorting: true, cell: ({ row }) => formatDate(row.original.nextTouchDate) },
     promisedDate: { accessorKey: 'promisedDate', header: 'Promised', cell: ({ row }) => formatDate(row.original.promisedDate) },
@@ -109,15 +126,10 @@ export function TrackerTable({
       cell: ({ row }) => {
         const open = row.original.openLinkedTaskCount ?? 0;
         const total = row.original.linkedTaskCount ?? 0;
-        return (
-          <div className="text-xs">
-            <div className="font-semibold text-slate-800">{open}/{total} open</div>
-            <div className="text-slate-500">{open > 0 ? 'Needs linked follow-through' : 'Linked work clear'}</div>
-          </div>
-        );
+        return <div className="text-xs text-slate-700">{open}/{total} open</div>;
       },
     },
-    nextAction: { accessorKey: 'nextAction', header: 'Next action', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction}</div> },
+    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction || '—'}</div> },
   }), [personalMode, selectedId, selectedAttentionSignal]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
@@ -140,15 +152,15 @@ export function TrackerTable({
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Open</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); setSelectedId(row.original.id); openTouchModal(); }}>Touch</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); setSelectedId(row.original.id); openTouchModal(); }}>Log touch</button>
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); snoozeItem(row.original.id, 2); }}>Snooze</button>
-            <button type="button" className="action-btn action-btn-danger !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: 'Closed' }); }}>Close</button>
+            <button type="button" className="action-btn action-btn-danger !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); handleDelete(row.original.id); }}>Delete</button>
           </div>
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, personalMode, baseColumns, onRowOpen, setSelectedId, openTouchModal, snoozeItem, updateItem]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, personalMode, baseColumns, onRowOpen, setSelectedId, openTouchModal, snoozeItem]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
@@ -173,6 +185,7 @@ export function TrackerTable({
 
   const desktopBody = (
     <>
+      {subtitle ? <div className="px-3 pt-2 text-xs text-slate-500">{subtitle}</div> : null}
       <div className="overflow-x-auto">
         <table className={`min-w-full border-collapse tracker-table ${followUpTableDensity === 'comfortable' ? 'tracker-table-comfortable' : 'tracker-table-compact'}`}>
           <thead className="tracker-table-head">
@@ -192,7 +205,7 @@ export function TrackerTable({
                         <ArrowUpDown className="h-3.5 w-3.5" />
                       </button>
                     ) : (
-                      <span className="tracker-head-btn !cursor-default">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{flexRender(header.column.columnDef.header, header.getContext())}</span>
                     )}
                   </th>
                 ))}
@@ -237,7 +250,7 @@ export function TrackerTable({
         shownCount={filteredItems.length}
         selectedCount={selectedFollowUpIds.length}
         scopeSummary={modeConfig.trackerOwnerContext === 'compact' ? 'Execution view' : 'Coordination view'}
-        hint={modeConfig.trackerOwnerContext === 'compact' ? 'Next action and timing stay primary.' : 'Owner and assignee context stays visible for assignment decisions.'}
+        hint={modeConfig.trackerOwnerContext === 'compact' ? 'Next move and timing stay primary.' : 'Owner and assignee remain visible for handoff decisions.'}
       />
     </>
   );

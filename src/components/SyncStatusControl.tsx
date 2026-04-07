@@ -38,6 +38,7 @@ export function SyncStatusControl() {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
+  const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch' || syncMeta.sessionDegradedReason === 'backend-rpc-missing';
   const isNeedsAttention = statusModel.primaryState === 'needs-attention';
   const showRetry = syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict';
   const trustAction = syncMeta.persistenceMode === 'supabase'
@@ -116,13 +117,20 @@ export function SyncStatusControl() {
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Session trust</span>
-            <div className="sync-status-row-detail">{statusModel.trustLabel ?? 'Session trust status unavailable.'}</div>
+            <div className="sync-status-row-detail">{statusModel.trustLabel ?? (isBackendSetupIssue ? 'Protected local mode: cloud setup required.' : 'Session trust status unavailable.')}</div>
             {statusModel.trustDescription ? <div className="sync-status-row-detail">{statusModel.trustDescription}</div> : null}
             {syncMeta.sessionDegraded ? (
               <>
                 <div className="sync-status-row-detail">Why review is needed: {syncMeta.sessionDegradedReason.replaceAll('-', ' ')}.</div>
                 <div className="sync-status-row-detail">{trustAction}</div>
               </>
+            ) : null}
+            {isBackendSetupIssue ? (
+              <div className="sync-status-row-detail">
+                {syncMeta.sessionDegradedReason === 'backend-rpc-missing'
+                  ? 'Cloud sync is blocked because public.apply_save_batch(batch) is missing in the connected Supabase project.'
+                  : 'Cloud sync is blocked because one or more required table columns are missing in the connected Supabase project.'}
+              </div>
             ) : null}
           </div>
 

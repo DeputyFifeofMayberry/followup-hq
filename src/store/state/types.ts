@@ -224,6 +224,8 @@ export type SessionTrustState = 'healthy' | 'degraded' | 'recovered';
 export type SessionDegradedReason =
   | 'none'
   | 'cloud-save-failed'
+  | 'backend-schema-mismatch'
+  | 'backend-rpc-missing'
   | 'cloud-read-failed-fallback'
   | 'local-newer-than-cloud'
   | 'local-recovery-fallback'

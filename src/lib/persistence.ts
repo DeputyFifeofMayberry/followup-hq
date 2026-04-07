@@ -187,6 +187,10 @@ export interface SaveDiagnostics {
   conflictedOperationCount?: number;
   conflictIds?: string[];
   outboxSafeToClear?: boolean;
+  failureKind?: 'backend_schema_mismatch' | 'backend_missing_rpc' | 'transient_cloud_failure' | 'conflict';
+  backendHealthStatus?: PersistenceSchemaHealthResult['status'];
+  nonRetryable?: boolean;
+  supabaseHost?: string;
 }
 
 export interface SaveResult {
@@ -794,6 +798,13 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
   if (result.status === 'missing_table' && table) {
     return `Cloud persistence is not configured correctly. Missing table: ${table}${code}.${host}`;
   }
+  if (result.status === 'missing_column' && table) {
+    const columnDetail = result.failingColumn ? ` Missing column: ${table}.${result.failingColumn}.` : '';
+    return `Cloud persistence schema drift detected for ${table}${code}.${columnDetail}${host}`;
+  }
+  if (result.status === 'missing_rpc') {
+    return `Cloud persistence is missing required RPC public.apply_save_batch(batch)${code}.${host}`;
+  }
   if (result.status === 'permissions_error' && table) {
     return `Cloud persistence permissions issue while checking ${table}${code}.${host}`;
   }
@@ -1032,16 +1043,21 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
 export class PersistenceSaveError extends Error {
   diagnostics: SaveDiagnostics;
   batchId?: string;
+  nonRetryable: boolean;
 
   constructor(message: string, diagnostics: SaveDiagnostics) {
     super(message);
     this.name = 'PersistenceSaveError';
     this.diagnostics = diagnostics;
     this.batchId = diagnostics.batchId ?? diagnostics.failedBatchId;
+    this.nonRetryable = Boolean(diagnostics.nonRetryable);
   }
 }
 
-export async function savePersistedPayload(payload: PersistedPayload, options?: { dirtyRecords?: DirtyRecordRef[] }): Promise<SaveResult> {
+export async function savePersistedPayload(
+  payload: PersistedPayload,
+  options?: { dirtyRecords?: DirtyRecordRef[]; forceSchemaCheck?: boolean },
+): Promise<SaveResult> {
   const scopedUserId = getPersistenceScopeUserId();
   const currentUserId = scopedUserId ?? await getSessionUserId();
   const saveAttemptAt = new Date().toISOString();
@@ -1058,6 +1074,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     completedTables: [],
     staleDeleteWarnings: [],
     operationCounts: summarizeOperations(pendingOperations),
+    supabaseHost: getSupabaseHost(),
   };
 
   const hasLocalChanges = auxiliaryChanged || scopedOps.length > 0;
@@ -1102,6 +1119,38 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { mode: 'supabase', diagnostics };
+  }
+
+  const schemaHealth = await runPersistenceSchemaHealthCheck(currentUserId, {
+    force: Boolean(options?.forceSchemaCheck),
+  });
+  if (schemaHealth.status !== 'healthy') {
+    diagnostics.backendHealthStatus = schemaHealth.status;
+    diagnostics.failedTable = schemaHealth.failingTable;
+    diagnostics.failureKind = schemaHealth.status === 'missing_rpc'
+      ? 'backend_missing_rpc'
+      : schemaHealth.status === 'missing_table' || schemaHealth.status === 'missing_column'
+        ? 'backend_schema_mismatch'
+        : 'transient_cloud_failure';
+    diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc' || diagnostics.failureKind === 'backend_schema_mismatch';
+    const errorMessage = formatSchemaHealthMessage(schemaHealth);
+    await writeLocalCache({
+      entities: payload,
+      updatedAt: saveAttemptAt,
+      cloudStatus: 'pending',
+      localRevision: nextLocalRevision,
+      lastCloudConfirmedRevision: existingCache?.lastCloudConfirmedRevision ?? 0,
+      userId: currentUserId,
+      lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
+      pendingOperations,
+      lastSaveReceipt: existingCache?.lastSaveReceipt,
+      lastFailedBatchId: existingCache?.lastFailedBatchId,
+      lastCommittedBatchId: existingCache?.lastCommittedBatchId,
+      lastReceiptStatus: existingCache?.lastReceiptStatus,
+      lastReceiptCommittedTime: existingCache?.lastReceiptCommittedTime,
+      lastFailureMessage: errorMessage,
+    }, currentUserId);
+    throw new PersistenceSaveError(errorMessage, diagnostics);
   }
 
   let batchEntry = await getNextBatchToSend(currentUserId);
@@ -1153,6 +1202,8 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
         ...diagnostics,
         failedBatchId: envelope.batchId,
+        failureKind: receipt.status === 'conflict' ? 'conflict' : 'transient_cloud_failure',
+        nonRetryable: false,
       });
     }
     incrementMetric('saveBatchCommits');
@@ -1183,6 +1234,14 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     diagnostics.failedBatchId = envelope.batchId;
+    diagnostics.failureKind = diagnostics.receiptStatus === 'conflict'
+      ? 'conflict'
+      : normalized.code?.toUpperCase() === 'PGRST202'
+        ? 'backend_missing_rpc'
+        : normalized.code?.toUpperCase() === '42703'
+          ? 'backend_schema_mismatch'
+          : 'transient_cloud_failure';
+    diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc' || diagnostics.failureKind === 'backend_schema_mismatch';
     if (diagnostics.receiptStatus === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, rawMessage, currentUserId);
     else await markBatchFailed(batchEntry.outboxEntryId, rawMessage, currentUserId);
     incrementMetric('outboxRetries');

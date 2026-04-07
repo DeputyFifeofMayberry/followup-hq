@@ -71,7 +71,10 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
 
     try {
       const dirtyRecords = Array.from(pendingDirtyRefs.values());
-      const saveResult = await savePersistedPayload(payload, { dirtyRecords });
+      const saveResult = await savePersistedPayload(payload, {
+        dirtyRecords,
+        forceSchemaCheck: reason === 'retry',
+      });
       lastMode = saveResult.mode;
       pendingDirtyRefs = new Map();
       handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
@@ -80,6 +83,11 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       const diagnostics = typeof error === 'object' && error !== null && 'diagnostics' in error
         ? (error as { diagnostics?: SaveResult['diagnostics'] }).diagnostics
         : undefined;
+      const nonRetryable = Boolean((error as { nonRetryable?: boolean })?.nonRetryable || diagnostics?.nonRetryable);
+      if (nonRetryable) {
+        handlers.onError(message, todayIso(), reason, diagnostics);
+        return;
+      }
       if (attempt < maxRetries) {
         timer = setTimeout(() => {
           void flush(attempt + 1, reason);

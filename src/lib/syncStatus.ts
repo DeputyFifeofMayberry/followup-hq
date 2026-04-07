@@ -229,6 +229,24 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
     };
   }
 
+  if (meta.sessionDegradedReason === 'backend-rpc-missing') {
+    return {
+      reassurance: 'Changes are saved on this device.',
+      stateDescription: 'Cloud sync is blocked because the required RPC is missing.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
+  if (meta.sessionDegradedReason === 'backend-schema-mismatch') {
+    return {
+      reassurance: 'Changes are saved on this device.',
+      stateDescription: 'Cloud sync cannot start until the Supabase schema is updated.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
+
   if (meta.sessionDegradedReason === 'cloud-read-failed-fallback') {
     return {
       reassurance: 'Your recent work was protected.',
@@ -331,11 +349,16 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   const isSaving = meta.syncState === 'saving' || meta.localSaveState === 'saving' || meta.cloudSyncState === 'sending' || meta.cloudSyncState === 'queued';
 
   if (hasHardFailure) {
+    const isBackendSetupIssue = meta.sessionDegradedReason === 'backend-rpc-missing' || meta.sessionDegradedReason === 'backend-schema-mismatch';
     return {
-      primaryState: 'needs-attention',
-      stateLabel: 'Needs attention',
-      stateDescription: 'Cloud sync needs attention; your local copy is safe',
-      reassurance: 'Cloud sync needs attention; your local copy is safe',
+      primaryState: isBackendSetupIssue ? 'saved' : 'needs-attention',
+      stateLabel: isBackendSetupIssue ? 'Saved locally' : 'Needs attention',
+      stateDescription: isBackendSetupIssue
+        ? 'Cloud setup required'
+        : 'Cloud sync needs attention; your local copy is safe',
+      reassurance: isBackendSetupIssue
+        ? 'Changes are saved on this device. Cloud setup is required to resume sync.'
+        : 'Cloud sync needs attention; your local copy is safe',
       tone: 'warn',
       stateTone: 'danger',
       showSpinner: false,

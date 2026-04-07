@@ -219,11 +219,15 @@ export const useAppStore = create<AppStore>()((set, get) => {
             lastFailedSyncAt: timestamp,
             sessionTrustState: 'degraded',
             sessionDegraded: true,
-            sessionDegradedReason: 'cloud-save-failed',
+            sessionDegradedReason: diagnostics?.failureKind === 'backend_missing_rpc'
+              ? 'backend-rpc-missing'
+              : diagnostics?.failureKind === 'backend_schema_mismatch'
+                ? 'backend-schema-mismatch'
+                : 'cloud-save-failed',
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
             lastFailedBatchId: diagnostics?.failedBatchId,
-            pendingBatchCount: Math.max(state.pendingBatchCount, 1),
+            pendingBatchCount: Math.max(state.pendingBatchCount, diagnostics?.operationCount ?? 1),
             localSaveState: 'error',
             cloudSyncState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
             trustState: 'degraded',
@@ -239,7 +243,13 @@ export const useAppStore = create<AppStore>()((set, get) => {
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
-              summary: reason === 'retry' ? 'Retry failed. Protected local copy retained.' : 'Save failed. Protected local copy retained.',
+              summary: diagnostics?.failureKind === 'backend_missing_rpc'
+                ? 'Cloud setup required: missing RPC.'
+                : diagnostics?.failureKind === 'backend_schema_mismatch'
+                  ? 'Cloud setup required: schema mismatch.'
+                  : reason === 'retry'
+                    ? 'Retry failed. Protected local copy retained.'
+                    : 'Save failed. Protected local copy retained.',
               detail: diagnostics?.failedBatchId
                 ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                 : diagnostics?.failedTable

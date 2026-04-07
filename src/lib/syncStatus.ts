@@ -317,32 +317,6 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  if (meta.syncState === 'saving' || meta.syncState === 'dirty' || meta.hasLocalUnsavedChanges) {
-    if (meta.connectivityState === 'offline') {
-      const queued = meta.pendingOfflineChangeCount || meta.unsavedChangeCount;
-      return {
-        primaryState: 'saving',
-        stateLabel: 'Offline — saved locally',
-        stateDescription: queued > 0 ? `Offline — ${queued} queued change${queued === 1 ? '' : 's'} pending cloud sync.` : 'Offline — changes are saved locally until connection returns.',
-        reassurance: 'Your work is protected on this device.',
-        tone: 'info',
-        stateTone: 'warn',
-        showSpinner: false,
-        ...modeDetails,
-      };
-    }
-    return {
-      primaryState: 'saving',
-      stateLabel: 'Saving',
-      stateDescription: 'Saving your latest changes.',
-      reassurance: 'SetPoint is working on your latest updates now.',
-      tone: 'info',
-      stateTone: 'info',
-      showSpinner: meta.syncState === 'saving',
-      ...modeDetails,
-    };
-  }
-
   const needsAttention =
     meta.conflictReviewNeeded
     || meta.openConflictCount > 0
@@ -397,6 +371,33 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       trustLabel: 'Session trust needs review',
       trustDescription: attention.stateDescription,
       showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+
+  if (meta.syncState === 'saving' || meta.syncState === 'dirty' || (meta.hasLocalUnsavedChanges && !needsAttention)) {
+    if (meta.connectivityState === 'offline') {
+      const queued = meta.pendingOfflineChangeCount || meta.unsavedChangeCount;
+      return {
+        primaryState: 'saving',
+        stateLabel: 'Offline — saved locally',
+        stateDescription: queued > 0 ? `Offline — ${queued} queued change${queued === 1 ? '' : 's'} pending cloud sync.` : 'Offline — changes are saved locally until connection returns.',
+        reassurance: 'Your work is protected on this device.',
+        tone: 'info',
+        stateTone: 'warn',
+        showSpinner: false,
+        ...modeDetails,
+      };
+    }
+    return {
+      primaryState: 'saving',
+      stateLabel: 'Saving',
+      stateDescription: 'Saving your latest changes.',
+      reassurance: 'SetPoint is working on your latest updates now.',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: meta.syncState === 'saving',
       ...modeDetails,
     };
   }

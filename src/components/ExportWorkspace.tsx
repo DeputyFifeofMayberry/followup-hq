@@ -18,7 +18,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
 
-const savedViewOptions: SavedViewKey[] = ['All', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Overdue', 'By project'];
+const savedViewOptions: SavedViewKey[] = ['All', 'Closed', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Overdue', 'By project'];
 
 const defaultOptions: ExportOptions = {
   dataset: 'combined',

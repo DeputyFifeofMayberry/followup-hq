@@ -2,6 +2,14 @@
 
 ## 2026-04-07
 
+### Follow-ups execution lane reliability + UX cohesion pass
+- Fixed follow-up selector semantics so **All open** always excludes `Closed`, added a first-class **Closed** view, and centralized tab counts through canonical selector logic so counts and visible rows cannot disagree (`src/lib/followUpSelectors.ts`, `src/components/ControlBar.tsx`, `src/types.ts`).
+- Removed duplicate Follow Up creation CTA from the execution controls, shifted the page to a cleaner hierarchy (top CTA + segmented execution tabs + essential controls), and refreshed tab visuals/table header treatment to align with app primitives (`src/components/ControlBar.tsx`, `src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+- Demoted side-panel deep editing by removing inline deep-edit form behavior and routing full edits to the modal editor window as the canonical destination (`src/components/ItemDetailPanel.tsx`).
+- Redesigned close action UX into a focused completion flow with dedicated closure summary and linked-work context sections (`src/components/actions/FollowUpActionModal.tsx`, `src/styles/workspaces.css`).
+- Hardened sync-status trust modeling to prevent failed/degraded save sessions from rendering as endless “Saving” by prioritizing attention/error states ahead of transient dirty/saving projection (`src/lib/syncStatus.ts`).
+- Added regression coverage for closed/open selector behavior, view/count consistency, and failed-save status projection (`src/domains/followups/__tests__/followUpSelectors.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`).
+
 ### Overview/Settings/Quick Add cohesion pass
 - Unified Overview into one queue-first operational system: compact command strip, clickable signal filter chips that directly focus the queue, and route decisions centralized in the inspector to reduce duplicated routing surfaces.
 - Consolidated header controls under a single Settings cog by migrating reminder controls and account/sign-out flows into a grouped settings surface while keeping sync trust visible via Sync Status.

@@ -132,7 +132,7 @@ export function TrackerTable({
       ...dynamic,
       {
         id: 'quickActions',
-        header: 'Quick',
+        header: 'Actions',
         enableSorting: false,
         cell: ({ row }) => (
           <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
@@ -219,7 +219,7 @@ export function TrackerTable({
             })}
           </tbody>
         </table>
-        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." /></div> : null}
+        {filteredItems.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters or clear search to find matching follow-ups." /></div> : null}
       </div>
       <ExecutionLaneFooterMeta
         shownCount={filteredItems.length}

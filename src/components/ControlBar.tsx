@@ -1,13 +1,13 @@
-import { ChevronDown, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { buildFollowUpCounts, selectFollowUpRows } from '../lib/followUpSelectors';
+import { buildFollowUpCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../lib/followUpSelectors';
 import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { ExecutionLaneToolbarScaffold, FilterBar } from './ui/AppPrimitives';
+import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
-const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close'];
+const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
 const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
@@ -30,7 +30,6 @@ export function ControlBar() {
     setActiveView,
     setFollowUpFilters,
     resetFollowUpFilters,
-    openCreateModal,
     clearFollowUpSelection,
     saveFollowUpCustomView,
     applySavedFollowUpCustomView,
@@ -55,7 +54,6 @@ export function ControlBar() {
     setActiveView: s.setActiveView,
     setFollowUpFilters: s.setFollowUpFilters,
     resetFollowUpFilters: s.resetFollowUpFilters,
-    openCreateModal: s.openCreateModal,
     clearFollowUpSelection: s.clearFollowUpSelection,
     saveFollowUpCustomView: s.saveFollowUpCustomView,
     applySavedFollowUpCustomView: s.applySavedFollowUpCustomView,
@@ -82,7 +80,8 @@ export function ControlBar() {
   const assignees = useMemo(() => ['All', ...new Set(items.map((item) => item.assigneeDisplayName || item.owner))], [items]);
 
   const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
-  const stats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
+  const stats = useMemo(() => selectFollowUpViewCounts({ items, contacts, companies, search, filters: followUpFilters }), [items, contacts, companies, search, followUpFilters]);
+  const queueStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
 
   const activeAdvancedFilterCount = useMemo(() => (
     [
@@ -163,17 +162,23 @@ export function ControlBar() {
   return (
     <div className="workspace-control-stack followup-control-stack">
       <FilterBar>
-        <div className="followup-chip-row followup-chip-strip">
-          {PRIMARY_VIEWS.map((view) => {
-            const count = view === 'All' ? stats.total : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : stats.readyToClose;
-            return (
-              <button key={view} onClick={() => setActiveView(view)} className={activeView === view ? 'followup-chip followup-chip-active' : 'followup-chip'}>
-                <span>{view === 'All' ? 'All open' : view}</span>
-                <strong>{count}</strong>
-              </button>
-            );
-          })}
-          <select value={SECONDARY_VIEWS.includes(activeView) ? activeView : ''} onChange={(event) => setActiveView(event.target.value as SavedViewKey)} className="field-input !w-auto">
+        <div className="followup-view-strip">
+          <SegmentedControl
+            value={PRIMARY_VIEWS.includes(activeView) ? activeView : 'All'}
+            onChange={setActiveView}
+            ariaLabel="Follow-up views"
+            className="followup-view-segmented"
+            options={PRIMARY_VIEWS.map((view) => ({
+              value: view,
+              label: (
+                <span className="followup-view-option">
+                  <span>{view === 'All' ? 'All open' : view}</span>
+                  <strong>{view === 'All' ? stats.allOpen : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : view === 'Ready to close' ? stats.readyToClose : stats.closed}</strong>
+                </span>
+              ),
+            }))}
+          />
+          <select value={SECONDARY_VIEWS.includes(activeView) ? activeView : ''} onChange={(event) => setActiveView((event.target.value || 'All') as SavedViewKey)} className="field-input !w-auto">
             <option value="">More views</option>
             {SECONDARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
           </select>
@@ -220,10 +225,6 @@ export function ControlBar() {
             <button onClick={() => togglePanel('savedViews')} className="action-btn">
               Saved views
               <ChevronDown className={`h-4 w-4 ${openPanel === 'savedViews' ? 'rotate-180' : ''}`} />
-            </button>
-            <button onClick={openCreateModal} className="primary-btn">
-              <Plus className="h-4 w-4" />
-              Add follow-up
             </button>
           </>
         )}
@@ -344,7 +345,7 @@ export function ControlBar() {
         </div>
       ) : (
         <div className="followup-toolbar-foot execution-toolbar-foot">
-          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown · {stats.waiting} waiting · {stats.overdue} overdue</div>
+          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown · {queueStats.waiting} waiting · {queueStats.overdue} overdue</div>
         </div>
       )}
 

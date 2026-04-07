@@ -150,6 +150,22 @@ function testDirtyMapsToSavingState(): void {
   assert(model.stateLabel === 'Saving', `expected Saving label, got ${model.stateLabel}`);
 }
 
+
+function testFailedOutboxDoesNotShowSavingForever(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    hasLocalUnsavedChanges: true,
+    unsavedChangeCount: 3,
+    syncState: 'error',
+    outboxState: 'failed',
+    cloudSyncStatus: 'cloud-save-failed-local-preserved',
+    sessionDegraded: true,
+    sessionDegradedReason: 'cloud-save-failed',
+  } as any);
+  assert(model.primaryState === 'needs-attention', `expected failed outbox to surface attention state, got ${model.primaryState}`);
+  assert(model.stateLabel !== 'Saving', `failed save state should not be rendered as Saving`);
+}
+
 function testSharedSnapshotSelectorConsistency(): void {
   const state = {
     hydrated: true,
@@ -270,6 +286,7 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   testFallbackCasesMapToNeedsAttention();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
+testFailedOutboxDoesNotShowSavingForever();
   testVerifiedMatchAndRecoveryProjection();
   testSharedSnapshotSelectorConsistency();
 })();

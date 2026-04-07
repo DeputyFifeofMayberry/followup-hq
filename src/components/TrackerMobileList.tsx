@@ -38,7 +38,7 @@ export function TrackerMobileList({
     <div className="tracker-mobile-surface">
       <div className="tracker-mobile-list">
         {items.length === 0 ? (
-          <EmptyState title="No follow-ups found" message="Adjust filters, clear search, or Quick Add a follow-up." />
+          <EmptyState title="No follow-ups found" message="Adjust filters or clear search to find matching follow-ups." />
         ) : (
           items.map((item) => {
             const active = selectedId === item.id;

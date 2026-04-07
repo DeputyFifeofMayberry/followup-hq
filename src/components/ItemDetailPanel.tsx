@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, FileEdit, Link2, Save, Send, SquareCheckBig } from 'lucide-react';
+import { CheckCircle2, FileEdit, Link2, Send, SquareCheckBig } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, createId, escalationTone, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
@@ -62,9 +62,6 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   const laneContext = useFollowUpLaneContext();
   const item = laneContext.selectedItem;
 
-  const [nextActionDraft, setNextActionDraft] = useState('');
-  const [nextTouchDraft, setNextTouchDraft] = useState('');
-  const [assigneeDraft, setAssigneeDraft] = useState('');
   const [showActivity, setShowActivity] = useState(false);
   const [activeAction, setActiveAction] = useState<FollowUpActionType | null>(null);
   const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
@@ -88,9 +85,6 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
   }, [item, laneContext.nextMove, laneContext.attentionSignal, laneContext.closeoutEvaluation?.readiness, laneContext.hasDuplicateAttention, laneContext.linkedTaskSummary?.blocked]);
 
   useEffect(() => {
-    setNextActionDraft(item?.nextAction ?? '');
-    setNextTouchDraft((item?.nextTouchDate ?? '').slice(0, 10));
-    setAssigneeDraft(item?.assigneeDisplayName ?? item?.owner ?? '');
     setActiveAction(null);
     setActionFeedback(null);
   }, [item?.assigneeDisplayName, item?.id, item?.nextAction, item?.nextTouchDate, item?.owner]);
@@ -179,27 +173,9 @@ export function ItemDetailPanel({ personalMode = false }: { personalMode?: boole
       </div>
 
       <div className="detail-card inspector-block mt-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick update</div>
-        <div className="mt-2 grid gap-2">
-          <input value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} className="field-input" placeholder="Next move" />
-          <div className="flex gap-2">
-            <input type="date" value={nextTouchDraft} onChange={(event) => setNextTouchDraft(event.target.value)} className="field-input" />
-            {!personalMode ? <input value={assigneeDraft} onChange={(event) => setAssigneeDraft(event.target.value)} className="field-input" placeholder="Assignee" /> : null}
-            <button
-              onClick={() => {
-                updateItem(item.id, {
-                  nextAction: nextActionDraft.trim(),
-                  nextTouchDate: nextTouchDraft ? new Date(`${nextTouchDraft}T00:00:00`).toISOString() : undefined,
-                  assigneeDisplayName: assigneeDraft.trim() || item.assigneeDisplayName || item.owner,
-                });
-                setActionFeedback({ tone: 'success', message: 'Quick update saved.' });
-              }}
-              className="action-btn"
-            >
-              <Save className="h-4 w-4" />Save
-            </button>
-          </div>
-        </div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Full edit</div>
+        <p className="mt-2 text-sm text-slate-600">Deep editing now happens in the full editor window so fields stay structured and reachable.</p>
+        <button className="action-btn mt-2" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />Open full edit window</button>
       </div>
 
       <details className="detail-card inspector-block mt-3">

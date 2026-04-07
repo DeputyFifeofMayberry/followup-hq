@@ -23,9 +23,35 @@ import {
   DEFAULT_WORKSPACE_ATTENTION_COUNTS,
 } from '../../lib/reminders';
 
-export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
+interface MetaSliceDependencies {
+  loadPersistedPayload: typeof loadPersistedPayload;
+  listUnresolvedOutboxEntries: typeof listUnresolvedOutboxEntries;
+  loadOutboxState: typeof loadOutboxState;
+}
+
+const defaultMetaSliceDependencies: MetaSliceDependencies = {
+  loadPersistedPayload,
+  listUnresolvedOutboxEntries,
+  loadOutboxState,
+};
+
+export function createMetaSlice(
+  set: SliceSet,
+  defaultOutlookConnection: any,
+  dependencies: Partial<MetaSliceDependencies> = {},
+): Pick<AppStoreActions, 'initializeApp'> {
+  const deps: MetaSliceDependencies = {
+    ...defaultMetaSliceDependencies,
+    ...dependencies,
+  };
   return {
     initializeApp: async () => {
+      let lastCommittedBatchId: string | undefined;
+      let lastReceiptStatus: 'committed' | 'received' | 'rejected' | 'conflict' | undefined;
+      let lastReceiptCommittedTime: string | undefined;
+      let lastFailureMessage: string | undefined;
+      let lastFailedBatchId: string | undefined;
+      let unresolvedOutbox: Array<{ status: string }> = [];
       try {
         const {
           payload,
@@ -44,12 +70,17 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           backendFailureKind,
           localRevision,
           lastCloudConfirmedRevision,
-          lastCommittedBatchId,
-          lastFailedBatchId,
-          lastReceiptStatus,
-          lastReceiptCommittedTime,
-          lastFailureMessage,
-        } = await loadPersistedPayload();
+          lastCommittedBatchId: loadedLastCommittedBatchId,
+          lastFailedBatchId: loadedLastFailedBatchId,
+          lastReceiptStatus: loadedLastReceiptStatus,
+          lastReceiptCommittedTime: loadedLastReceiptCommittedTime,
+          lastFailureMessage: loadedLastFailureMessage,
+        } = await deps.loadPersistedPayload();
+        lastCommittedBatchId = loadedLastCommittedBatchId;
+        lastReceiptStatus = loadedLastReceiptStatus;
+        lastReceiptCommittedTime = loadedLastReceiptCommittedTime;
+        lastFailureMessage = loadedLastFailureMessage;
+        lastFailedBatchId = loadedLastFailedBatchId;
         const syncMeta = deriveSyncMetaFromLoadResult({
           mode,
           source,
@@ -68,7 +99,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
         const fallbackFailure = loadedFromFallback
           ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage, backendFailureKind)
           : undefined;
-        const unresolvedOutbox = await listUnresolvedOutboxEntries(await loadOutboxState());
+        unresolvedOutbox = await deps.listUnresolvedOutboxEntries(await deps.loadOutboxState());
         if (unresolvedOutbox.length > 0) incrementMetric('outboxRestoresOnStartup', unresolvedOutbox.length);
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);

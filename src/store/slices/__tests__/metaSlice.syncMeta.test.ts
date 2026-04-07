@@ -1,4 +1,5 @@
 import { deriveSyncMetaFromLoadResult } from '../syncMetaDerivation';
+import { createMetaSlice } from '../metaSlice';
 import { appendPersistenceActivity, createPersistenceActivityEvent, describeLoadFallbackFailure } from '../../persistenceActivity';
 
 function assert(condition: boolean, message: string): void {
@@ -147,7 +148,31 @@ function testFallbackPreservesRevisionMetadataHints(): void {
   assert(meta.lastCloudConfirmedAt === '2026-04-05T00:00:00.000Z', `expected preserved cloud confirmed timestamp, got ${meta.lastCloudConfirmedAt}`);
 }
 
-(function run() {
+async function testInitializeAppCatchDoesNotReferenceTryScopedValues(): Promise<void> {
+  const snapshots: Array<Record<string, unknown>> = [];
+  const set = (partial: unknown) => {
+    snapshots.push(partial as Record<string, unknown>);
+    return partial;
+  };
+  const slice = createMetaSlice(
+    set as any,
+    { settings: {}, syncCursorByFolder: { inbox: {}, sentitems: {} } } as any,
+    {
+      loadPersistedPayload: async () => {
+        throw new Error('forced startup failure');
+      },
+      loadOutboxState: async () => ({ entries: [] } as any),
+      listUnresolvedOutboxEntries: async () => [],
+    },
+  );
+  await slice.initializeApp();
+  const next = snapshots.at(-1) ?? {};
+  assert(next.syncState === 'error', `expected startup fallback syncState=error, got ${String(next.syncState)}`);
+  assert(next.cloudSyncState === 'failed', `expected startup fallback cloudSyncState=failed, got ${String(next.cloudSyncState)}`);
+  assert(next.localSaveState === 'error', `expected startup fallback localSaveState=error, got ${String(next.localSaveState)}`);
+}
+
+(async function run() {
   testCloudConfirmedLoad();
   testBrowserLoadNotRecovery();
   testCloudReadFailureFallback();
@@ -158,4 +183,5 @@ function testFallbackPreservesRevisionMetadataHints(): void {
   testBackendMissingRpcMapsToExplicitDegradedReason();
   testContractFailureActivityIsDeduplicated();
   testFallbackPreservesRevisionMetadataHints();
+  await testInitializeAppCatchDoesNotReferenceTryScopedValues();
 })();

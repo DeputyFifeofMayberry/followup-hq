@@ -497,10 +497,14 @@ export function AppModal({
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
-        {children}
+        <AppModalContentShell>{children}</AppModalContentShell>
       </div>
     </div>
   );
+}
+
+export function AppModalContentShell({ children }: PropsWithChildren) {
+  return <div className="modal-content-shell">{children}</div>;
 }
 
 export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' }: { title: string; subtitle?: string; onClose: () => void; closeLabel?: string }) {
@@ -516,7 +520,7 @@ export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' 
 }
 
 export function AppModalBody({ children, scrollable = true }: PropsWithChildren<{ scrollable?: boolean }>) {
-  return <div className={scrollable ? 'modal-body modal-body-scroll' : 'modal-body'}>{children}</div>;
+  return <div className={scrollable ? 'modal-body modal-body-scroll' : 'modal-body modal-body-static'}>{children}</div>;
 }
 
 export function AppModalFooter({ children }: PropsWithChildren) {

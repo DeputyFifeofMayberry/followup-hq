@@ -4,6 +4,7 @@ import { normalizeTask, normalizeTasks } from '../../domains/tasks/helpers';
 import { makeAuditEntry } from '../../domains/shared/audit';
 import { enforceTaskIntegrity } from '../../domains/records/integrity';
 import { buildBlockedTransitionToast, buildTaskUpdateTitle, shouldToastTaskPatch } from '../../lib/actionFeedback';
+import { isMeaningfulUndoableTaskUpdate } from '../../lib/undo';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
 import { applyTaskMutationEffects } from '../useCases/mutationEffects';
@@ -36,14 +37,27 @@ export function createTasksSlice(set: SliceSet, get: SliceGet, { queuePersist }:
       if (before && shouldToastTaskPatch(patch)) {
         get().pushToast({ tone: 'success', title: buildTaskUpdateTitle(before, patch), source: 'tasks.updateTask', recordType: 'task', recordIds: [id] });
       }
+      const after = get().tasks.find((task) => task.id === id);
+      if (before && after && isMeaningfulUndoableTaskUpdate(patch)) {
+        get().registerUndoEntry({
+          actionKind: 'task_update',
+          title: buildTaskUpdateTitle(before, patch),
+          entityRefs: [{ type: 'task', id }],
+          dirtyRecordRefs: [{ type: 'task', id }],
+          snapshots: [{ entityType: 'task', id, before, after }],
+          overlapPolicy: 'latest-only',
+        });
+      }
       queuePersist({ dirtyRecords: [{ type: 'task', id }] });
     },
     deleteTask: (id) => {
+      const before = get().tasks.find((task) => task.id === id);
       set((state: AppStore) => {
         const tasks = normalizeTasks(state.tasks.filter((task) => task.id !== id));
         return { ...applyTaskMutationEffects(state, tasks), selectedTaskId: state.selectedTaskId === id ? tasks[0]?.id ?? null : state.selectedTaskId, taskModal: state.taskModal.taskId === id ? { open: false, mode: 'create', taskId: null } : state.taskModal };
       });
-      get().pushToast({ tone: 'warning', kind: 'undo_offer', title: 'Task deleted', source: 'tasks.deleteTask', recordType: 'task', recordIds: [id], action: { label: 'Undo', actionId: 'undo-task-delete' } });
+      const undoId = before ? get().registerUndoEntry({ actionKind: 'task_delete', title: 'Task deleted', entityRefs: [{ type: 'task', id }], dirtyRecordRefs: [{ type: 'task', id }], snapshots: [{ entityType: 'task', id, before, after: null }] }) : null;
+      get().pushToast({ tone: 'warning', kind: 'undo_offer', title: 'Task deleted', source: 'tasks.deleteTask', recordType: 'task', recordIds: [id], action: undoId ? { label: 'Undo', actionId: undoId } : undefined });
       queuePersist({ dirtyRecords: [{ type: 'task', id }] });
     },
     attemptTaskTransition: (id, status, patch = {}) => {

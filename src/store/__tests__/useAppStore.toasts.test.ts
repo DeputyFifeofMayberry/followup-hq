@@ -20,11 +20,11 @@ function assert(condition: boolean, message: string): void {
   useAppStore.getState().expireToast(expiringId);
   assert(useAppStore.getState().toasts.length === 0, 'expireToast should remove a toast for auto-dismiss path');
 
-  const undoId = useAppStore.getState().pushToast({ title: 'Task deleted', action: { label: 'Undo', actionId: 'undo-task-delete' } });
+  const undoId = useAppStore.getState().pushToast({ title: 'Task deleted', action: { label: 'Undo', actionId: 'UNDO_missing' } });
   useAppStore.getState().handleToastAction(undoId);
   const nextToasts = useAppStore.getState().toasts;
-  assert(nextToasts.length === 1, 'handleToastAction should replace toast with system notice until undo is implemented');
-  assert(nextToasts[0].title.includes('not available yet'), 'handleToastAction should emit undo-ready notice');
+  assert(nextToasts.length === 1, 'handleToastAction should emit feedback toast for undo action');
+  assert(nextToasts[0].title.toLowerCase().includes('undo'), 'handleToastAction should produce undo feedback');
 
   useAppStore.setState({ ...useAppStore.getState(), toasts: initialUiState.toasts });
 })();

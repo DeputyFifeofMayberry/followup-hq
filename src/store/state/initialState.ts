@@ -2,6 +2,11 @@ import { defaultExecutionViews } from '../../lib/unifiedQueue';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { getDefaultOutlookSettings } from '../../lib/outlookGraph';
+import {
+  DEFAULT_REMINDER_CENTER_SUMMARY,
+  DEFAULT_REMINDER_PREFERENCES,
+  DEFAULT_WORKSPACE_ATTENTION_COUNTS,
+} from '../../lib/reminders';
 import type { AppBusinessState, AppMetaState, AppUiState } from './types';
 
 export const initialBusinessState: AppBusinessState = {
@@ -168,4 +173,10 @@ export const initialMetaState: AppMetaState = {
   lastConflictFailureMessage: undefined,
   conflictQueue: [],
   persistenceActivity: [],
+  reminderPreferences: DEFAULT_REMINDER_PREFERENCES,
+  reminderLedger: [],
+  reminderCenterSummary: DEFAULT_REMINDER_CENTER_SUMMARY,
+  workspaceAttentionCounts: DEFAULT_WORKSPACE_ATTENTION_COUNTS,
+  pendingReminders: [],
+  reminderPermissionState: 'default',
 };

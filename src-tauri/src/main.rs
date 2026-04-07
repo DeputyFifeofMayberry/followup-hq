@@ -783,6 +783,7 @@ fn save_snapshot(app: AppHandle, snapshot: AppSnapshot) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(Arc::new(Mutex::new(OutlookLoopbackState::default())))
         .invoke_handler(tauri::generate_handler![
             load_snapshot,

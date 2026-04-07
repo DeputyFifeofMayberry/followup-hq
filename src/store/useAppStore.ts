@@ -19,6 +19,17 @@ import { appendPersistenceActivity, createPersistenceActivityEvent } from './per
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 import { verifyPersistedState } from '../lib/persistenceVerification';
 import { clearCommittedOutboxEntries, listUnresolvedOutboxEntries, loadOutboxState } from '../lib/persistenceOutbox';
+import {
+  buildReminderCenterSummary,
+  buildWorkspaceAttentionCounts,
+  evaluateReminderCandidates,
+  shouldDeliverReminder,
+} from '../lib/reminders';
+import { deliverReminderNotification } from '../lib/notifications/delivery';
+import {
+  getEffectivePermissionState,
+  requestNotificationPermissionForCurrentPlatform,
+} from '../lib/notifications/platform';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -241,6 +252,164 @@ export const useAppStore = create<AppStore>()((set, get) => {
         ...initialUiState,
         ...initialMetaState,
       }));
+    },
+    updateReminderPreferences: (patch) => {
+      const wasEnabled = get().reminderPreferences.enabled;
+      set((state) => ({
+        reminderPreferences: { ...state.reminderPreferences, ...patch },
+      }));
+      queuePersist();
+      if (!wasEnabled && patch.enabled) {
+        void requestNotificationPermissionForCurrentPlatform().then((permissionState) => {
+          set((state) => ({
+            reminderPermissionState: permissionState,
+            reminderCenterSummary: {
+              ...state.reminderCenterSummary,
+              permissionState,
+            },
+          }));
+          queuePersist();
+        });
+      }
+    },
+    dismissReminder: (signature) => {
+      const nowIso = new Date().toISOString();
+      set((state) => ({
+        reminderLedger: state.reminderLedger.map((entry) => (
+          entry.signature === signature ? { ...entry, lastDismissedAt: nowIso } : entry
+        )),
+        pendingReminders: state.pendingReminders.filter((candidate) => candidate.signature !== signature),
+      }));
+      queuePersist();
+    },
+    clearReminderLedger: () => {
+      set({ reminderLedger: [] });
+      queuePersist();
+    },
+    requestReminderPermission: async () => {
+      const permissionState = await requestNotificationPermissionForCurrentPlatform();
+      set((state) => ({
+        reminderPermissionState: permissionState,
+        reminderCenterSummary: {
+          ...state.reminderCenterSummary,
+          permissionState,
+        },
+      }));
+      queuePersist();
+      return permissionState;
+    },
+    setReminderSchedulerState: (schedulerState) => {
+      set((state) => ({
+        reminderCenterSummary: { ...state.reminderCenterSummary, schedulerState },
+      }));
+    },
+    setReminderNextEvaluationAt: (nextPlannedEvaluationAt) => {
+      set((state) => ({
+        reminderCenterSummary: { ...state.reminderCenterSummary, nextPlannedEvaluationAt },
+      }));
+    },
+    runReminderEvaluation: async (reason = 'manual') => {
+      const nowIso = new Date().toISOString();
+      const state = get();
+      const candidates = evaluateReminderCandidates(
+        state.items,
+        state.tasks,
+        state.reminderPreferences,
+        nowIso,
+      );
+      const workspaceAttentionCounts = buildWorkspaceAttentionCounts(
+        state.items,
+        state.tasks,
+        state.reminderPreferences,
+        nowIso,
+      );
+      const permissionState = await getEffectivePermissionState();
+      set((current) => ({
+        reminderPermissionState: permissionState,
+        pendingReminders: candidates,
+        workspaceAttentionCounts,
+        reminderCenterSummary: buildReminderCenterSummary(
+          candidates,
+          permissionState,
+          current.reminderCenterSummary.schedulerState,
+          nowIso,
+          current.reminderCenterSummary.nextPlannedEvaluationAt,
+          current.reminderCenterSummary.lastDeliveredAt,
+        ),
+        persistenceActivity: reason === 'manual'
+          ? appendPersistenceActivity(
+            current.persistenceActivity,
+            createPersistenceActivityEvent({
+              kind: 'manual-save',
+              summary: 'Reminder evaluation completed.',
+            }),
+          )
+          : current.persistenceActivity,
+      }));
+    },
+    deliverEligibleReminders: async (candidates, nowIso) => {
+      const state = get();
+      let latestDeliveryAt = state.reminderCenterSummary.lastDeliveredAt;
+      const ledgerBySignature = new Map(state.reminderLedger.map((entry) => [entry.signature, entry] as const));
+      const nextLedger = [...state.reminderLedger];
+      const permissionState = state.reminderPermissionState;
+      for (const candidate of candidates) {
+        const ledgerEntry = ledgerBySignature.get(candidate.signature);
+        if (!shouldDeliverReminder(candidate, ledgerEntry, state.reminderPreferences, nowIso)) continue;
+        const result = await deliverReminderNotification(candidate, state.reminderPreferences, permissionState);
+        if (!result.delivered) continue;
+        latestDeliveryAt = nowIso;
+        const updatedEntry = {
+          signature: candidate.signature,
+          lastDeliveredAt: nowIso,
+          lastSeenSeverity: candidate.severity,
+          lastSortTime: candidate.sortTime,
+          deliveryCount: (ledgerEntry?.deliveryCount ?? 0) + 1,
+          lastDismissedAt: ledgerEntry?.lastDismissedAt,
+          mutedUntil: ledgerEntry?.mutedUntil,
+        };
+        if (ledgerEntry) {
+          const idx = nextLedger.findIndex((entry) => entry.signature === candidate.signature);
+          nextLedger[idx] = updatedEntry;
+        } else {
+          nextLedger.push(updatedEntry);
+        }
+      }
+      set((current) => ({
+        reminderLedger: nextLedger,
+        reminderCenterSummary: {
+          ...current.reminderCenterSummary,
+          lastDeliveredAt: latestDeliveryAt,
+        },
+      }));
+      queuePersist();
+    },
+    testReminderNotification: async () => {
+      const state = get();
+      const nowIso = new Date().toISOString();
+      const permissionState = await getEffectivePermissionState();
+      if (permissionState !== 'granted') return;
+      const candidate = {
+        id: 'test-reminder',
+        signature: `test:reminder:${new Date(nowIso).toISOString().slice(0, 13)}`,
+        kind: 'task_due_soon' as const,
+        recordType: 'task' as const,
+        recordId: 'test',
+        title: 'SetPoint reminder test',
+        project: 'SetPoint',
+        owner: 'You',
+        severity: 'info' as const,
+        workspaceTarget: 'worklist' as const,
+        message: 'Notifications are enabled and working.',
+        reason: 'Manual test notification',
+        sortTime: nowIso,
+      };
+      const result = await deliverReminderNotification(candidate, state.reminderPreferences, permissionState);
+      if (result.delivered) {
+        set((current) => ({
+          reminderCenterSummary: { ...current.reminderCenterSummary, lastDeliveredAt: nowIso },
+        }));
+      }
     },
 
     verifyNow: async (mode = 'manual') => {

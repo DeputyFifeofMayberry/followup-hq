@@ -17,6 +17,11 @@ import { deriveSyncMetaFromLoadResult } from './syncMetaDerivation';
 import { formatPersistenceErrorMessage, normalizePersistenceError } from '../../lib/persistenceError';
 import { listUnresolvedOutboxEntries, loadOutboxState } from '../../lib/persistenceOutbox';
 import { incrementMetric } from '../../lib/persistenceMetrics';
+import {
+  DEFAULT_REMINDER_CENTER_SUMMARY,
+  DEFAULT_REMINDER_PREFERENCES,
+  DEFAULT_WORKSPACE_ATTENTION_COUNTS,
+} from '../../lib/reminders';
 
 export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): Pick<AppStoreActions, 'initializeApp'> {
   return {
@@ -104,6 +109,21 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           savedFollowUpViews: payload.auxiliary.savedFollowUpViews ?? [],
           followUpTableDensity: payload.auxiliary.followUpTableDensity ?? 'compact',
           followUpDuplicateModule: payload.auxiliary.followUpDuplicateModule ?? 'auto',
+          reminderPreferences: {
+            ...DEFAULT_REMINDER_PREFERENCES,
+            ...(payload.auxiliary.reminderPreferences ?? {}),
+          },
+          reminderLedger: payload.auxiliary.reminderLedger ?? [],
+          reminderCenterSummary: {
+            ...DEFAULT_REMINDER_CENTER_SUMMARY,
+            ...(payload.auxiliary.reminderCenterSummary ?? {}),
+          },
+          workspaceAttentionCounts: {
+            ...DEFAULT_WORKSPACE_ATTENTION_COUNTS,
+            ...(payload.auxiliary.workspaceAttentionCounts ?? {}),
+          },
+          pendingReminders: [],
+          reminderPermissionState: payload.auxiliary.reminderCenterSummary?.permissionState ?? 'default',
           saveError: '',
           syncState: syncMeta.syncState,
           cloudSyncStatus: syncMeta.cloudSyncStatus,

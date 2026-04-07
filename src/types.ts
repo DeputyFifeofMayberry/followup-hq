@@ -13,6 +13,88 @@ export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type TaskStatus = 'To do' | 'In progress' | 'Blocked' | 'Done';
 export type TaskWorkflowState = 'ready' | 'blocked' | 'deferred' | 'done';
 export type TaskPriority = FollowUpPriority;
+export type ReminderKind =
+  | 'followup_overdue'
+  | 'followup_due_today'
+  | 'followup_due_soon'
+  | 'followup_promised_due_soon'
+  | 'followup_needs_nudge'
+  | 'task_overdue'
+  | 'task_due_today'
+  | 'task_due_soon';
+export type ReminderRecordType = 'followup' | 'task';
+export type ReminderSeverity = 'info' | 'warn' | 'danger';
+export type ReminderWorkspaceTarget = 'worklist' | 'followups' | 'tasks';
+export type ReminderPermissionState = 'unsupported' | 'default' | 'granted' | 'denied';
+export type ReminderSchedulerState = 'idle' | 'running' | 'paused';
+
+export interface ReminderCandidate {
+  id: string;
+  signature: string;
+  kind: ReminderKind;
+  recordType: ReminderRecordType;
+  recordId: string;
+  title: string;
+  project: string;
+  owner: string;
+  dueAt?: string;
+  promisedAt?: string;
+  nextTouchAt?: string;
+  severity: ReminderSeverity;
+  workspaceTarget: ReminderWorkspaceTarget;
+  message: string;
+  reason: string;
+  sortTime: string;
+  deepLink?: string;
+}
+
+export interface ReminderPreferences {
+  enabled: boolean;
+  useBrowserNotifications: boolean;
+  useDesktopNotifications: boolean;
+  evaluationIntervalMinutes: number;
+  dueSoonLeadHours: number;
+  promisedSoonLeadHours: number;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  notifyFollowUpOverdue: boolean;
+  notifyFollowUpDueToday: boolean;
+  notifyFollowUpDueSoon: boolean;
+  notifyPromisedDueSoon: boolean;
+  notifyNeedsNudge: boolean;
+  notifyTaskOverdue: boolean;
+  notifyTaskDueToday: boolean;
+  notifyTaskDueSoon: boolean;
+}
+
+export interface ReminderLedgerEntry {
+  signature: string;
+  lastDeliveredAt: string;
+  lastDismissedAt?: string;
+  lastSeenSeverity?: ReminderSeverity;
+  lastSortTime?: string;
+  deliveryCount: number;
+  mutedUntil?: string;
+}
+
+export interface ReminderCenterSummary {
+  permissionState: ReminderPermissionState;
+  schedulerState: ReminderSchedulerState;
+  lastEvaluatedAt?: string;
+  nextPlannedEvaluationAt?: string;
+  pendingCount: number;
+  overdueCount: number;
+  dueTodayCount: number;
+  needsNudgeCount: number;
+  lastDeliveredAt?: string;
+}
+
+export interface WorkspaceAttentionCounts {
+  worklist: number;
+  followups: number;
+  tasks: number;
+}
 export type AppUserRole = 'user' | 'manager' | 'admin';
 export type AppMode = 'personal' | 'team';
 export type VisibilityScope = 'private' | 'team' | 'company';
@@ -1353,6 +1435,10 @@ export interface AppSnapshot {
   savedFollowUpViews?: SavedFollowUpCustomView[];
   followUpTableDensity?: FollowUpTableDensity;
   followUpDuplicateModule?: FollowUpDuplicateModuleMode;
+  reminderPreferences?: ReminderPreferences;
+  reminderLedger?: ReminderLedgerEntry[];
+  reminderCenterSummary?: ReminderCenterSummary;
+  workspaceAttentionCounts?: WorkspaceAttentionCounts;
   teamMembers?: TeamMember[];
   currentUserId?: string;
   intakeReviews?: IntakeReviewRecord[];

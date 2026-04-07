@@ -2,6 +2,7 @@ import { starterCompanies, starterContacts, starterItems, starterProjects, start
 import { defaultFollowUpFilters } from '../../../lib/followUpSelectors';
 import { buildPersistedPayload } from '../persistence';
 import { initialBusinessState } from '../initialState';
+import { DEFAULT_REMINDER_CENTER_SUMMARY, DEFAULT_REMINDER_PREFERENCES, DEFAULT_WORKSPACE_ATTENTION_COUNTS } from '../../../lib/reminders';
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -36,6 +37,10 @@ export function runPersistenceChecks() {
     savedFollowUpViews: [],
     followUpTableDensity: 'compact',
     followUpDuplicateModule: 'auto',
+    reminderPreferences: DEFAULT_REMINDER_PREFERENCES,
+    reminderLedger: [],
+    reminderCenterSummary: DEFAULT_REMINDER_CENTER_SUMMARY,
+    workspaceAttentionCounts: DEFAULT_WORKSPACE_ATTENTION_COUNTS,
   });
 
   assert(payload.items.length === starterItems.length, 'payload items should persist all follow-ups');

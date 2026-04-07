@@ -3,14 +3,17 @@ import { useShallow } from 'zustand/react/shallow';
 import type { ExecutionRouteTarget, ExecutionSectionKey, UnifiedQueueItem } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildExecutionQueueStats } from '../../shared/selectors/executionQueueSelectors';
-import { buildExecutionLaneMetrics, resolveExecutionLaneSelection, selectExecutionLaneItems } from '../../shared';
+import { resolveExecutionLaneSelection } from '../../shared';
 
-const TRIAGE_LIMIT = 12;
+const BASE_TRIAGE_LIMIT = 24;
+const TRIAGE_INCREMENT = 24;
 
 type LaneTarget = Exclude<ExecutionRouteTarget, 'overview'>;
 
+type OverviewFilterKey = 'all' | 'due_now' | 'blocked' | 'waiting' | 'ready_close';
+
 export interface OverviewSignalCard {
-  key: string;
+  key: Exclude<OverviewFilterKey, 'all'>;
   label: string;
   count: number;
   filterSummary: string;
@@ -37,25 +40,28 @@ export function useOverviewTriageViewModel() {
   })));
 
   const queue = store.getUnifiedQueue();
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [selectedFilter, setSelectedFilter] = useState<OverviewFilterKey>('all');
+  const [visibleLimit, setVisibleLimit] = useState(BASE_TRIAGE_LIMIT);
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
-  const executionItems = useMemo(() => selectExecutionLaneItems('overview', queue), [queue]);
-  const sharedMetrics = useMemo(() => buildExecutionLaneMetrics(executionItems, store.executionSelectedId), [executionItems, store.executionSelectedId]);
-  const signalPredicates = useMemo(() => ({
-    due_now: (row: UnifiedQueueItem) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday,
-    ready_close: (row: UnifiedQueueItem) => row.queueFlags.readyToCloseParent,
-    blocked: (row: UnifiedQueueItem) => row.queueFlags.blocked || row.queueFlags.parentAtRisk || row.queueFlags.waiting,
-    cleanup: (row: UnifiedQueueItem) => row.queueFlags.cleanupRequired || row.queueFlags.waitingTooLong || row.queueFlags.orphanedTask,
+
+  const signalPredicates: Record<Exclude<OverviewFilterKey, 'all'>, (row: UnifiedQueueItem) => boolean> = useMemo(() => ({
+    due_now: (row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday,
+    blocked: (row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk,
+    waiting: (row) => row.queueFlags.waiting || row.queueFlags.waitingTooLong,
+    ready_close: (row) => row.queueFlags.readyToCloseParent,
   }), []);
 
-  const triageRows = useMemo(() => {
-    const filteredQueue = selectedFilter === 'all'
-      ? queue
-      : queue.filter((row) => signalPredicates[selectedFilter as keyof typeof signalPredicates]?.(row));
-    return filteredQueue.slice(0, TRIAGE_LIMIT);
+  const filteredRows = useMemo(() => {
+    if (selectedFilter === 'all') return queue;
+    return queue.filter((row) => signalPredicates[selectedFilter]?.(row));
   }, [queue, selectedFilter, signalPredicates]);
 
+  const triageRows = useMemo(() => filteredRows.slice(0, visibleLimit), [filteredRows, visibleLimit]);
   const triageIds = useMemo(() => triageRows.map((row) => row.id), [triageRows]);
+
+  useEffect(() => {
+    setVisibleLimit(BASE_TRIAGE_LIMIT);
+  }, [selectedFilter]);
 
   useEffect(() => {
     const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds });
@@ -64,53 +70,53 @@ export function useOverviewTriageViewModel() {
     }
   }, [triageIds, store]);
 
-  const selected = triageRows.find((row) => row.id === (resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds }))) || null;
+  const selected = triageRows.find((row) => row.id === resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds })) || null;
 
   const signalCards = useMemo<OverviewSignalCard[]>(() => {
-    const dueNowRows = executionItems.filter((entry) => entry.surface.queueFlags.overdue || entry.surface.queueFlags.dueToday || entry.surface.queueFlags.needsTouchToday).map((entry) => entry.surface.sourceItem);
-    const readyToCloseRows = executionItems.filter((entry) => entry.surface.queueFlags.readyToCloseParent).map((entry) => entry.surface.sourceItem);
-    const blockedRows = executionItems.filter((entry) => entry.surface.queueFlags.blocked || entry.surface.queueFlags.parentAtRisk || entry.surface.queueFlags.waiting).map((entry) => entry.surface.sourceItem);
-    const cleanupRows = executionItems.filter((entry) => entry.surface.queueFlags.cleanupRequired || entry.surface.queueFlags.waitingTooLong || entry.surface.queueFlags.orphanedTask).map((entry) => entry.surface.sourceItem);
+    const dueNowRows = queue.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday);
+    const blockedRows = queue.filter((row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk);
+    const waitingRows = queue.filter((row) => row.queueFlags.waiting || row.queueFlags.waitingTooLong);
+    const readyToCloseRows = queue.filter((row) => row.queueFlags.readyToCloseParent);
 
     return [
       {
         key: 'due_now',
         label: 'Due now',
         count: dueNowRows.length,
-        filterSummary: 'Work requiring same-day movement.',
+        filterSummary: 'Requires same-day movement.',
         lane: pickLaneForRows(dueNowRows, 'tasks'),
         section: 'now',
         intentLabel: 'handle due now commitments',
       },
       {
-        key: 'ready_close',
-        label: 'Ready to close',
-        count: readyToCloseRows.length,
-        filterSummary: 'Items that can be closed after final verification.',
-        lane: 'followups',
-        section: 'ready_to_close',
-        intentLabel: 'close ready follow-ups',
-      },
-      {
         key: 'blocked',
-        label: 'Blocked / at risk',
+        label: 'Blocked',
         count: blockedRows.length,
-        filterSummary: 'Commitments needing unblock or risk intervention.',
+        filterSummary: 'Needs unblock or risk response.',
         lane: pickLaneForRows(blockedRows, 'tasks'),
         section: 'blocked',
         intentLabel: 'unblock at-risk work',
       },
       {
-        key: 'cleanup',
-        label: 'Cleanup / review',
-        count: cleanupRows.length,
-        filterSummary: 'Needs cleanup context before routing.',
-        lane: pickLaneForRows(cleanupRows, 'followups'),
+        key: 'waiting',
+        label: 'Waiting',
+        count: waitingRows.length,
+        filterSummary: 'Stalled and waiting on others.',
+        lane: pickLaneForRows(waitingRows, 'followups'),
         section: 'triage',
-        intentLabel: 'review cleanup and routing',
+        intentLabel: 'clear waiting dependencies',
+      },
+      {
+        key: 'ready_close',
+        label: 'Ready to close',
+        count: readyToCloseRows.length,
+        filterSummary: 'Can close with quick verification.',
+        lane: 'followups',
+        section: 'ready_to_close',
+        intentLabel: 'close ready follow-ups',
       },
     ];
-  }, [executionItems]);
+  }, [queue]);
 
   const routeToLane = (lane: LaneTarget, options?: { record?: UnifiedQueueItem | null; section?: ExecutionSectionKey; intentLabel?: string }) => {
     store.openExecutionLane(lane, {
@@ -130,11 +136,13 @@ export function useOverviewTriageViewModel() {
 
   return {
     stats,
-    sharedMetrics,
     triageRows,
     selectedFilter,
     selected,
     signalCards,
+    totalFilteredCount: filteredRows.length,
+    hasMoreRows: filteredRows.length > triageRows.length,
+    showMoreRows: () => setVisibleLimit((current) => current + TRIAGE_INCREMENT),
     openCreateWorkModal: store.openCreateWorkModal,
     setSelectedId: store.setExecutionSelectedId,
     setSelectedFilter,

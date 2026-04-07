@@ -1,4 +1,3 @@
-import { StatTile } from '../ui/AppPrimitives';
 import type { ExecutionQueueStats } from '../../domains/shared';
 
 interface OverviewSummaryStatsProps {
@@ -6,20 +5,18 @@ interface OverviewSummaryStatsProps {
 }
 
 export function OverviewSummaryStats({ stats }: OverviewSummaryStatsProps) {
-  const totalPressure = stats.due + stats.blocked + stats.cleanup;
+  const pressureNow = stats.due + stats.blocked;
 
   return (
-    <section className="overview-command-stats" aria-label="Current pressure summary">
-      <div className="overview-pressure-chip">
-        <span className="overview-pressure-chip-label">Pressure now</span>
-        <strong className="overview-pressure-chip-value">{totalPressure}</strong>
+    <section className="overview-summary-stats" aria-label="Overview summary">
+      <div className="overview-summary-chip overview-summary-chip-pressure">
+        <span>Pressure now</span>
+        <strong>{pressureNow}</strong>
       </div>
-      <div className="overview-stat-grid overview-stat-grid-compact">
-        <StatTile label="Due now" value={stats.due} tone={stats.due ? 'danger' : 'default'} helper="Requires same-day move" />
-        <StatTile label="Blocked" value={stats.blocked} tone={stats.blocked ? 'warn' : 'default'} helper="Need unblock decision" />
-        <StatTile label="Cleanup" value={stats.cleanup} tone={stats.cleanup ? 'warn' : 'default'} helper="Needs review before routing" />
-        <StatTile label="Ready to close" value={stats.closeable} tone={stats.closeable ? 'info' : 'default'} helper="Can close with verification" />
-      </div>
+      <div className="overview-summary-chip"><span>Due now</span><strong>{stats.due}</strong></div>
+      <div className="overview-summary-chip"><span>Blocked</span><strong>{stats.blocked}</strong></div>
+      <div className="overview-summary-chip"><span>Waiting cleanup</span><strong>{stats.cleanup}</strong></div>
+      <div className="overview-summary-chip"><span>Ready to close</span><strong>{stats.closeable}</strong></div>
     </section>
   );
 }

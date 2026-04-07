@@ -2,6 +2,16 @@
 
 ## 2026-04-07
 
+### Intake workspace refactor (manual-ingestion workbench)
+- Reframed Intake as a dedicated manual-ingestion workspace with a compact top intro, stronger workflow framing, and removal of stale Outlook/admin shell treatment so users land directly in upload → review → create behavior (`src/components/OutlookPanel.tsx`, `src/components/app/WorkspaceRenderer.tsx`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Rebuilt the upload zone into a trust-forward import surface with explicit supported file categories (email, Word, spreadsheet, PDF, CSV), clearer parse-state feedback, and stronger loading/status reassurance during ingestion (`src/components/UniversalIntakeWorkspace.tsx`).
+- Redesigned uploaded-file scanning with clearer file hierarchy (name, type, size, parse state, warning/failure detail) and friendlier parse statuses beyond raw processing labels (`src/components/UniversalIntakeWorkspace.tsx`).
+- Reworked extraction results for scanability with candidate type labels, human-readable confidence tiers, warning chips, spreadsheet row/source context labels, and a clearer multi-sheet review selector (`src/components/UniversalIntakeWorkspace.tsx`).
+- Upgraded the selected-candidate panel into a true review-and-create flow with checklist guidance, improved field placeholders, actionable warning block, cleaner source-evidence cards, and stronger empty states (`src/components/UniversalIntakeWorkspace.tsx`).
+- Hardened create action trust paths in the UI by auditing post-decision state transitions for Create follow-up, Create task, Save reference, and Dismiss; each action now returns explicit success/failure feedback and avoids silent no-op behavior (`src/components/UniversalIntakeWorkspace.tsx`).
+- Removed the low-value generic bottom strip and replaced it with a useful compact operational summary near the top so flow context remains visible without stealing attention from the workspace columns (`src/components/UniversalIntakeWorkspace.tsx`).
+
+
 ### Tasks workspace refactor (list-first daily execution workspace)
 - Removed the execution-lane shell framing from Tasks (summary band, lane handoff strip, selection strip, split queue/inspector layout) and replaced it with a shallower header + dominant single-column task list so the queue starts much higher and scans faster (`src/components/TaskWorkspace.tsx`).
 - Collapsed top controls to a practical default set (`Search`, one `View` selector, `Options`, `Add task`) and rebuilt secondary controls as one compact options panel with only high-value filters/sort fields plus reset (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).

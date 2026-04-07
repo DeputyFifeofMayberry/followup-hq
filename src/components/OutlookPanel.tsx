@@ -1,15 +1,12 @@
 import { UniversalIntakeWorkspace } from './UniversalIntakeWorkspace';
-import { AppShellCard, SectionHeader } from './ui/AppPrimitives';
 
-export function OutlookPanel() {
+export function IntakeWorkspacePanel() {
   return (
-    <AppShellCard className="space-y-4" surface="command">
-      <SectionHeader
-        title="Intake"
-        subtitle="Manual drag-and-drop ingestion workspace for project documents and messages."
-        compact
-      />
+    <div className="space-y-3">
       <UniversalIntakeWorkspace />
-    </AppShellCard>
+    </div>
   );
 }
+
+// Backward-compatible export while workspace keys still use `outlook` internally.
+export const OutlookPanel = IntakeWorkspacePanel;

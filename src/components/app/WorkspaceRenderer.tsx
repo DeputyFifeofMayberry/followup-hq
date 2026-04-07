@@ -1,6 +1,6 @@
 import type { AppMode, SavedViewKey } from '../../types';
 import { ExportWorkspace } from '../ExportWorkspace';
-import { OutlookPanel } from '../OutlookPanel';
+import { IntakeWorkspacePanel } from '../OutlookPanel';
 import { ProjectCommandCenter } from '../ProjectCommandCenter';
 import { RelationshipBoard } from '../RelationshipBoard';
 import { TaskWorkspace } from '../TaskWorkspace';
@@ -26,7 +26,7 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTra
     case 'exports':
       return <ExportWorkspace />;
     case 'outlook':
-      return <OutlookPanel />;
+      return <IntakeWorkspacePanel />;
     case 'projects':
       return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} setWorkspace={setWorkspace} />;
     case 'relationships':

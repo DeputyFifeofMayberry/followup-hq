@@ -113,7 +113,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               cloudSyncState: state.persistenceMode !== 'supabase'
                 ? 'confirmed'
                 : backendBlocked
-                  ? 'failed'
+                  ? 'queued'
                   : state.connectivityState === 'offline'
                     ? 'offline-pending'
                     : 'sending',

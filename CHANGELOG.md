@@ -2,6 +2,13 @@
 
 ## 2026-04-07
 
+### Product cleanup + reliability pass (follow-ups, tasks, save/sync, intake)
+- Follow Ups: removed the redundant top hero shell so the tab opens directly into queue controls + table, added a single primary `Add follow-up` action in the control bar, and reduced execution-lane framing copy in the workspace shell (`src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`).
+- Follow Ups table: shifted non-essential headers to calmer static labels, kept sorting emphasis to timing/priority columns, and expanded row actions to practical daily operations (`Open`, `Touch`, `Nudge`, `Snooze`, `Close`) instead of a single narrow action (`src/components/TrackerTable.tsx`).
+- Create Work reliability: fixed save-disable behavior by allowing valid typed project values (not only canonical picker IDs) and surfaced first validation issue inline so blocked saves explain why (`src/domains/editor/adapters.ts`, `src/components/CreateWorkModal.tsx`).
+- Save/sync trust: removed false failed-cloud projection during preflight saving when backend setup is degraded and simplified top-level sync labels to explicit trust states (`Confirmed to cloud`, `Saved locally`, `Retry needed`, `Backend setup issue`) (`src/store/useAppStore.ts`, `src/lib/syncStatus.ts`).
+- Intake parsing + action wiring: improved email decoding hygiene (charset-aware decode, MIME-word decoding, binary glyph cleanup), sanitized evidence previews, surfaced candidate warnings in review, and made `Create task` report actionable feedback when creation is blocked (`src/lib/universalIntake.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Tasks language cleanup: removed stale “execution lane” wording in key task workspace labels to align with calmer queue-first copy (`src/components/TaskWorkspace.tsx`).
 
 ### Follow Ups + Intake workspace overhaul
 - Follow Ups: removed the pinned selected-follow-up side inspector and converted row selection to a table-first modal detail flow, giving the queue full-width working space while preserving action depth (`src/components/app/TrackerWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`, `src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).

@@ -38,6 +38,7 @@ export function ControlBar() {
     setFollowUpColumns,
     setFollowUpTableDensity,
     setFollowUpDuplicateModule,
+    openCreateModal,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
@@ -62,6 +63,7 @@ export function ControlBar() {
     setFollowUpColumns: s.setFollowUpColumns,
     setFollowUpTableDensity: s.setFollowUpTableDensity,
     setFollowUpDuplicateModule: s.setFollowUpDuplicateModule,
+    openCreateModal: s.openCreateModal,
   })));
 
   const [customViewName, setCustomViewName] = useState('');
@@ -226,6 +228,7 @@ export function ControlBar() {
               Saved views
               <ChevronDown className={`h-4 w-4 ${openPanel === 'savedViews' ? 'rotate-180' : ''}`} />
             </button>
+            <button onClick={openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}
       />

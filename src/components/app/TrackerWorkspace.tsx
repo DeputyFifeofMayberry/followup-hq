@@ -1,37 +1,29 @@
-import { ChevronDown, Sparkles } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { AppMode } from '../../types';
 import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
 import {
-  AppBadge,
   AppModal,
   AppModalBody,
   AppModalHeader,
-  ExecutionLaneFooterMeta,
-  ExecutionLaneQueueCard,
-  ExecutionLaneSelectionStrip,
-  SectionHeader,
   WorkspacePage,
-  WorkspaceTopStack,
 } from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 import { describeExecutionIntent } from '../../lib/executionHandoff';
-import { buildExecutionSelectedContext, describeHandoffMission, toExecutionLaneHandoff } from '../../domains/shared';
+import { describeHandoffMission, toExecutionLaneHandoff } from '../../domains/shared';
 import { useViewportBand } from '../../hooks/useViewport';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { followUpStats, openCreateModal, executionIntent, clearExecutionIntent, setSelectedId, executionMetrics, laneItems, lastExecutionRoute } = useFollowUpsViewModel();
+  const { followUpStats, executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
   const laneContext = useFollowUpLaneContext();
   const { isMobileLike, isPhone } = useViewportBand();
   const [handoffSummary, setHandoffSummary] = useState<string | null>(null);
   const [showDuplicateReview, setShowDuplicateReview] = useState(false);
   const [showMobileDetail, setShowMobileDetail] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const selectedExecution = laneItems.find((item) => item.surface.id === laneContext.selectedItem?.id) ?? null;
-  const selectedContext = buildExecutionSelectedContext(selectedExecution?.surface ?? null, lastExecutionRoute);
 
   useEffect(() => {
     if (executionIntent?.target !== 'followups') return;
@@ -54,40 +46,14 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
 
   return (
     <WorkspacePage>
-      <WorkspaceTopStack className="followup-top-stack">
-        <section className="app-shell-card app-shell-card-hero followup-summary-strip">
-          <SectionHeader
-            title="Follow Ups"
-            subtitle={personalMode ? 'One clear queue for commitments, nudges, and closeout.' : 'Team coordination queue for ownership, risks, and follow-through.'}
-            actions={<button onClick={openCreateModal} className="primary-btn"><Sparkles className="h-4 w-4" />Add follow-up</button>}
-            compact
-          />
-          <div className="workspace-toolbar-row followup-summary-meta-row">
-            <span className="workspace-support-copy">{followUpStats.total} visible · {followUpStats.needsNudge} need nudge · {followUpStats.readyToClose} ready to close</span>
-            {!isPhone ? <span className="workspace-support-copy">Due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · waiting {executionMetrics.waiting}</span> : null}
-            {executionIntent?.target === 'followups' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
-          </div>
-        </section>
-      </WorkspaceTopStack>
       <div className="tracker-main-single">
-        <ExecutionLaneQueueCard className="tracker-workspace-main">
+        <div className="tracker-workspace-main app-shell-card">
           <ControlBar />
+          <div className="workspace-toolbar-row px-3 pb-2 text-xs text-slate-600">
+            <span>{followUpStats.total} visible · {followUpStats.needsNudge} need nudge · {followUpStats.readyToClose} ready to close</span>
+            {!isPhone && executionIntent?.target === 'followups' ? <span>{describeExecutionIntent(executionIntent)}</span> : null}
+          </div>
           {handoffSummary ? <div className="execution-lane-handoff-strip" role="status" aria-live="polite"><div className="execution-lane-handoff-summary">{handoffSummary}</div></div> : null}
-          {!isMobileLike ? (
-            <ExecutionLaneSelectionStrip
-              title={laneContext.selectedItem?.title}
-              helper={laneContext.selectedItem ? `Next move: ${selectedContext?.nextMove ?? laneContext.nextMove?.label ?? laneContext.recommendedNextMove}` : undefined}
-              emptyMessage="Select a follow-up to review and act."
-              badges={laneContext.selectedItem ? (
-                <>
-                  {selectedContext?.topSignal ? <AppBadge tone={laneContext.attentionSignal?.tone === 'default' ? 'info' : laneContext.attentionSignal?.tone}>{selectedContext.topSignal}</AppBadge> : null}
-                  {laneContext.hasDuplicateAttention ? <AppBadge tone="warn">Possible duplicates</AppBadge> : null}
-                  {laneContext.closeoutEvaluation?.readiness === 'ready_to_close' ? <AppBadge tone="success">Ready to close</AppBadge> : null}
-                  {laneContext.linkedTaskSummary ? <AppBadge tone={laneContext.linkedTaskSummary.blocked > 0 ? 'danger' : 'info'}>Linked {laneContext.linkedTaskSummary.open}/{laneContext.linkedTaskSummary.total}</AppBadge> : null}
-                </>
-              ) : null}
-            />
-          ) : null}
           <TrackerTable
             personalMode={personalMode}
             appMode={appMode}
@@ -112,15 +78,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             </button>
             {showDuplicateReview ? <div className="mt-2"><DuplicateReviewPanel /></div> : null}
           </div>
-          {!isMobileLike ? (
-            <ExecutionLaneFooterMeta
-              shownCount={followUpStats.total}
-              selectedCount={laneContext.selectedItem ? 1 : 0}
-              scopeSummary={personalMode ? 'Execution view' : 'Coordination view'}
-              hint="Scan → select → act"
-            />
-          ) : null}
-        </ExecutionLaneQueueCard>
+        </div>
       </div>
       {!isMobileLike && detailModalOpen && laneContext.selectedItem ? (
         <AppModal size="inspector" onClose={() => setDetailModalOpen(false)} onBackdropClick={() => setDetailModalOpen(false)}>

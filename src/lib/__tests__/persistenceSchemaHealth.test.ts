@@ -8,6 +8,8 @@ function assert(condition: boolean, message: string) {
 const mock = {
   failTable: '' as string,
   failure: null as unknown,
+  rpcFailure: null as unknown,
+  rpcResult: { status: 'committed' as string },
 };
 
 (supabase as any).from = (table: string) => ({
@@ -23,10 +25,18 @@ const mock = {
   }),
 });
 
+(supabase as any).rpc = async (fn: string) => {
+  if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
+  if (mock.rpcFailure) return { data: null, error: mock.rpcFailure };
+  return { data: mock.rpcResult, error: null };
+};
+
 function reset() {
   resetPersistenceSchemaHealthCache();
   mock.failTable = '';
   mock.failure = null;
+  mock.rpcFailure = null;
+  mock.rpcResult = { status: 'committed' };
 }
 
 async function run() {
@@ -40,6 +50,19 @@ async function run() {
   const missing = await runPersistenceSchemaHealthCheck('user-1', { force: true });
   assert(missing.status === 'missing_table', 'missing table should classify correctly');
   assert(missing.failingTable === 'follow_up_items', 'missing table should preserve failing table');
+
+  reset();
+  mock.failTable = 'tasks';
+  mock.failure = { code: '42703', message: 'column tasks.deleted_at does not exist' };
+  const missingColumn = await runPersistenceSchemaHealthCheck('user-1', { force: true });
+  assert(missingColumn.status === 'missing_column', 'missing column should classify correctly');
+  assert(missingColumn.failingColumn === 'deleted_at', 'missing column should preserve failing column');
+
+  reset();
+  mock.rpcFailure = { code: 'PGRST202', message: 'Could not find the function public.apply_save_batch(batch)' };
+  const missingRpc = await runPersistenceSchemaHealthCheck('user-1', { force: true });
+  assert(missingRpc.status === 'missing_rpc', 'missing rpc should classify separately');
+  assert(missingRpc.failingRpc === 'apply_save_batch', 'missing rpc should include rpc name');
 
   reset();
   mock.failTable = 'tasks';

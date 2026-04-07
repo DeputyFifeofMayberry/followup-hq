@@ -209,7 +209,7 @@ async function run() {
   assert(Boolean(task1), 'dirty-scoped upsert should keep targeted record persisted');
   assert(task1?.deleted_at == null, 'dirty-scoped upsert should keep targeted record active');
   assert(task2?.deleted_at == null, 'dirty-scoped save should not tombstone unrelated records');
-  assert(mock.rpcCallCount === 1, 'dirty-scoped save should commit via one RPC batch');
+  assert(mock.rpcCallCount >= 2, 'dirty-scoped save should probe rpc health and then commit');
 
   reset();
   const successful = await savePersistedPayload(payloadFixture);
@@ -358,7 +358,17 @@ async function run() {
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending', localRevision: 1, lastCloudConfirmedRevision: 0 }));
   mock.rpcCallCount = 0;
   await savePersistedPayload(payloadFixture);
-  assert(mock.rpcCallCount === 1, 'retry should send unresolved outbox work even when payload JSON is unchanged');
+  assert(mock.rpcCallCount >= 2, 'retry should probe rpc health and then send unresolved outbox work when payload JSON is unchanged');
+
+  reset();
+  mock.rpcFailure = { message: 'Could not find the function public.apply_save_batch(batch)', code: 'PGRST202' };
+  let rpcMissingClassified = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch (error: any) {
+    rpcMissingClassified = error?.diagnostics?.failureKind === 'backend_missing_rpc' && error?.diagnostics?.nonRetryable === true;
+  }
+  assert(rpcMissingClassified, 'missing RPC should classify as non-retryable backend setup failure');
 
   reset();
   mock.rpcFailure = { message: 'rpc unavailable', code: 'PGRST301' };

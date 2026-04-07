@@ -34,6 +34,14 @@ export function appendPersistenceActivity(
   if (duplicate) {
     return [{ ...next, id: recent.id }, ...existing.slice(1)].slice(0, max);
   }
+  if (next.kind === 'failed') {
+    const priorIndex = existing.findIndex((event) => event.kind === 'failed' && event.summary === next.summary && event.detail === next.detail);
+    if (priorIndex >= 0) {
+      const prior = existing[priorIndex];
+      const pruned = existing.filter((event, index) => index !== priorIndex);
+      return [{ ...next, id: prior.id }, ...pruned].slice(0, max);
+    }
+  }
   return [next, ...existing].slice(0, max);
 }
 

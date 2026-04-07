@@ -126,6 +126,27 @@ function testFallbackCasesMapToNeedsAttention(): void {
   });
 }
 
+function testBackendSetupIssueMapsToSavedLocally(): void {
+  const backendSchemaModel = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'error',
+    sessionDegraded: true,
+    sessionDegradedReason: 'backend-schema-mismatch',
+    cloudSyncStatus: 'cloud-save-failed-local-preserved',
+  } as any);
+  assert(backendSchemaModel.stateLabel === 'Saved locally', `expected Saved locally for backend schema mismatch, got ${backendSchemaModel.stateLabel}`);
+  assert(backendSchemaModel.stateDescription === 'Cloud setup required', `expected cloud setup required description, got ${backendSchemaModel.stateDescription}`);
+
+  const backendRpcModel = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'error',
+    sessionDegraded: true,
+    sessionDegradedReason: 'backend-rpc-missing',
+    cloudSyncStatus: 'cloud-save-failed-local-preserved',
+  } as any);
+  assert(backendRpcModel.stateLabel === 'Saved locally', `expected Saved locally for backend rpc mismatch, got ${backendRpcModel.stateLabel}`);
+}
+
 function testFailureNarrativesAreCalmAndSpecific(): void {
   const saveFailure = getSyncStatusModel({
     ...baseMeta(),
@@ -306,6 +327,7 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
   testPendingCloudFeelsTransitionalNotDangerous();
   testFallbackCasesMapToNeedsAttention();
+  testBackendSetupIssueMapsToSavedLocally();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
 testFailedOutboxDoesNotShowSavingForever();

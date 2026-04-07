@@ -10,6 +10,8 @@ import { AppShellCard, AppBadge, EmptyState, ExecutionLaneFooterMeta } from './u
 import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { getModeConfig } from '../lib/appModeConfig';
 import type { FollowUpAttentionSignal } from '../domains/followups';
+import { TrackerMobileList } from './TrackerMobileList';
+import { useViewportBand } from '../hooks/useViewport';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'nextAction', 'promisedDate']);
@@ -26,7 +28,7 @@ export function TrackerTable({
   embedded?: boolean;
   selectedAttentionSignal?: FollowUpAttentionSignal | null;
 }) {
-  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity } = useAppStore(useShallow((s) => ({
+  const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity, openTouchModal, snoozeItem, updateItem, confirmFollowUpSent } = useAppStore(useShallow((s) => ({
     items: s.items,
     contacts: s.contacts,
     companies: s.companies,
@@ -41,9 +43,14 @@ export function TrackerTable({
     selectAllVisibleFollowUps: s.selectAllVisibleFollowUps,
     markNudged: s.markNudged,
     followUpTableDensity: s.followUpTableDensity,
+    openTouchModal: s.openTouchModal,
+    snoozeItem: s.snoozeItem,
+    updateItem: s.updateItem,
+    confirmFollowUpSent: s.confirmFollowUpSent,
   })));
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const modeConfig = getModeConfig(appMode);
+  const { isMobileLike } = useViewportBand();
 
   const filteredItems = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
 
@@ -136,7 +143,26 @@ export function TrackerTable({
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
-  const tableBody = (
+  const mobileBody = (
+    <TrackerMobileList
+      items={filteredItems}
+      selectedId={selectedId}
+      selectedCount={selectedFollowUpIds.length}
+      appMode={appMode}
+      personalMode={personalMode}
+      onSelect={setSelectedId}
+      onLogTouch={(id) => {
+        setSelectedId(id);
+        openTouchModal();
+      }}
+      onNudge={markNudged}
+      onSnooze={(id) => snoozeItem(id, 2)}
+      onMarkSent={(id) => confirmFollowUpSent(id, 'Marked sent from mobile execution surface.')}
+      onStatusChange={(id, status) => updateItem(id, { status })}
+    />
+  );
+
+  const desktopBody = (
     <>
       <div className="overflow-x-auto">
         <table className={`min-w-full border-collapse tracker-table ${followUpTableDensity === 'comfortable' ? 'tracker-table-comfortable' : 'tracker-table-compact'}`}>
@@ -203,6 +229,8 @@ export function TrackerTable({
       />
     </>
   );
+
+  const tableBody = isMobileLike ? mobileBody : desktopBody;
 
   if (embedded) {
     return <div className="tracker-table-surface tracker-table-embedded">{tableBody}</div>;

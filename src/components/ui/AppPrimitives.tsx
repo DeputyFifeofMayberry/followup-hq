@@ -1,5 +1,6 @@
-import { AlertTriangle, CheckCircle2, CircleAlert, CircleOff, LoaderCircle, SearchX, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleAlert, CircleOff, Info, LoaderCircle, SearchX, Sparkles, X } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PropsWithChildren, type ReactNode } from 'react';
+import type { AppToast } from '../../store/state/types';
 
 type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
 
@@ -573,5 +574,53 @@ export function RecordContextDrawerSection({
       <div className="workspace-inspector-section-title">{title}</div>
       {children}
     </section>
+  );
+}
+
+function toastToneIcon(tone: AppToast['tone']) {
+  if (tone === 'success') return <CheckCircle2 size={16} />;
+  if (tone === 'warning') return <AlertTriangle size={16} />;
+  if (tone === 'error') return <CircleAlert size={16} />;
+  return <Info size={16} />;
+}
+
+export function AppToastViewport({ children }: PropsWithChildren) {
+  return <div className="app-toast-viewport" aria-live="polite" aria-relevant="additions text">{children}</div>;
+}
+
+export function AppToastStack({ children }: PropsWithChildren) {
+  return <div className="app-toast-stack">{children}</div>;
+}
+
+export function AppToastCard({
+  toast,
+  onDismiss,
+  onAction,
+  onPause,
+  onResume,
+}: {
+  toast: AppToast;
+  onDismiss: () => void;
+  onAction?: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
+}) {
+  return (
+    <article
+      className={`app-toast-card app-toast-card-${toast.tone}`}
+      role={toast.tone === 'warning' || toast.tone === 'error' ? 'alert' : 'status'}
+      onMouseEnter={onPause}
+      onMouseLeave={onResume}
+      onFocusCapture={onPause}
+      onBlurCapture={onResume}
+    >
+      <div className="app-toast-icon" aria-hidden="true">{toastToneIcon(toast.tone)}</div>
+      <div className="app-toast-content">
+        <div className="app-toast-title">{toast.title}</div>
+        {toast.message ? <div className="app-toast-message">{toast.message}</div> : null}
+        {toast.action ? <button type="button" className="app-toast-action" onClick={onAction}>{toast.action.label}</button> : null}
+      </div>
+      {toast.dismissible !== false ? <button type="button" className="app-toast-dismiss" onClick={onDismiss} aria-label="Dismiss notification"><X size={14} /></button> : null}
+    </article>
   );
 }

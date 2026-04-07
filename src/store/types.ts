@@ -1,4 +1,4 @@
-import type { AppBusinessState, AppMetaState, AppUiState } from './state/types';
+import type { AppBusinessState, AppMetaState, AppToast, AppToastAction, AppToastKind, AppToastTone, AppUiState } from './state/types';
 import type { UniversalCaptureDraft } from '../lib/universalCapture';
 import type { DirtyRecordRef } from './persistenceQueue';
 import type {
@@ -72,6 +72,23 @@ export interface AppStoreActions {
   resetFollowUpFilters: () => void;
   toggleFollowUpSelection: (id: string) => void;
   clearFollowUpSelection: () => void;
+  pushToast: (toast: {
+    kind?: AppToastKind;
+    tone?: AppToastTone;
+    title: string;
+    message?: string;
+    durationMs?: number;
+    action?: AppToastAction;
+    dismissible?: boolean;
+    source?: string;
+    recordType?: AppToast['recordType'];
+    recordIds?: string[];
+    operationSummary?: AppToast['operationSummary'];
+  }) => string;
+  dismissToast: (id: string) => void;
+  dismissAllToasts: () => void;
+  expireToast: (id: string) => void;
+  handleToastAction: (toastId: string) => void;
   selectAllVisibleFollowUps: (ids: string[]) => void;
   saveFollowUpCustomView: (name: string, search: string) => void;
   applySavedFollowUpCustomView: (id: string) => void;
@@ -107,7 +124,7 @@ export interface AppStoreActions {
   addRunningNote: (id: string, note: string) => void;
   addTask: (task: TaskItem) => void;
   updateTask: (id: string, patch: Partial<TaskItem>) => void;
-  attemptFollowUpTransition: (id: string, status: FollowUpStatus, patch?: Partial<FollowUpItem>, options?: { override?: boolean }) => WorkflowTransitionAttempt;
+  attemptFollowUpTransition: (id: string, status: FollowUpStatus, patch?: Partial<FollowUpItem>, options?: { override?: boolean; suppressToast?: boolean }) => WorkflowTransitionAttempt;
   attemptTaskTransition: (id: string, status: TaskStatus, patch?: Partial<TaskItem>) => WorkflowTransitionAttempt;
   runValidatedBatchFollowUpTransition: (ids: string[], status: FollowUpStatus, patch?: Partial<FollowUpItem>, options?: { override?: boolean }) => BatchWorkflowResult;
   deleteTask: (id: string) => void;

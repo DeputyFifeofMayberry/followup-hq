@@ -112,6 +112,17 @@ export const initialUiState: AppUiState = {
       lastLinkedSubset: null,
     },
   },
+  toasts: [],
+  toastConfig: {
+    maxVisible: 5,
+    pauseOnHover: true,
+    defaultDurationMs: {
+      success: 3800,
+      info: 4200,
+      warning: 4800,
+      error: 5200,
+    },
+  },
 };
 
 export const initialMetaState: AppMetaState = {

@@ -6,7 +6,8 @@ import type { QueueRequestMeta } from '../persistenceQueue';
 
 export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestMeta) => void): Pick<AppStoreActions,
   'setSelectedId' | 'setSearch' | 'setProjectFilter' | 'setStatusFilter' | 'setActiveView' | 'setFollowUpFilters' | 'resetFollowUpFilters' |
-  'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
+  'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'pushToast' | 'dismissToast' | 'dismissAllToasts' | 'expireToast' | 'handleToastAction' |
+  'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
   'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
@@ -41,6 +42,55 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
       selectedId: id,
     })),
     clearFollowUpSelection: () => set({ selectedFollowUpIds: [] }),
+    pushToast: (toastInput) => {
+      const id = createId('TOAST');
+      const createdAt = new Date().toISOString();
+      set((state: AppStore) => {
+        const tone = toastInput.tone ?? 'info';
+        const durationMs = toastInput.durationMs ?? state.toastConfig.defaultDurationMs[tone];
+        const toast = {
+          id,
+          kind: toastInput.kind ?? 'action_result',
+          tone,
+          title: toastInput.title,
+          message: toastInput.message,
+          createdAt,
+          durationMs,
+          expiresAt: durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : undefined,
+          action: toastInput.action,
+          dismissible: toastInput.dismissible ?? true,
+          source: toastInput.source,
+          recordType: toastInput.recordType,
+          recordIds: toastInput.recordIds,
+          operationSummary: toastInput.operationSummary,
+        };
+        return { toasts: [toast, ...state.toasts].slice(0, state.toastConfig.maxVisible) };
+      });
+      return id;
+    },
+    dismissToast: (id) => set((state: AppStore) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
+    dismissAllToasts: () => set({ toasts: [] }),
+    expireToast: (id) => set((state: AppStore) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
+    handleToastAction: (toastId) => {
+      set((state: AppStore) => {
+        const toast = state.toasts.find((entry) => entry.id === toastId);
+        if (!toast?.action) return state;
+        const infoToast = {
+          id: createId('TOAST'),
+          kind: 'system_notice' as const,
+          tone: 'info' as const,
+          title: `${toast.action.label} not available yet`,
+          message: 'Undo support will be enabled in the next workflow upgrade.',
+          createdAt: new Date().toISOString(),
+          durationMs: state.toastConfig.defaultDurationMs.info,
+          expiresAt: new Date(Date.now() + state.toastConfig.defaultDurationMs.info).toISOString(),
+          dismissible: true,
+          source: 'toast_action',
+        };
+        const toasts = state.toasts.filter((entry) => entry.id !== toastId);
+        return { toasts: [infoToast, ...toasts].slice(0, state.toastConfig.maxVisible) };
+      });
+    },
     selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
     saveFollowUpCustomView: (name, search) => {
       set((state: AppStore) => ({

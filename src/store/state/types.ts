@@ -95,6 +95,43 @@ export interface TaskModalState {
   taskId: string | null;
 }
 
+export type AppToastTone = 'success' | 'info' | 'warning' | 'error';
+export type AppToastKind = 'action_result' | 'bulk_result' | 'undo_offer' | 'system_notice';
+
+export interface AppToastAction {
+  label: string;
+  actionId?: string;
+  callbackKey?: string;
+  destructive?: boolean;
+}
+
+export interface AppToast {
+  id: string;
+  kind: AppToastKind;
+  tone: AppToastTone;
+  title: string;
+  message?: string;
+  createdAt: string;
+  expiresAt?: string;
+  durationMs?: number;
+  action?: AppToastAction;
+  dismissible?: boolean;
+  source?: string;
+  recordType?: 'followup' | 'task' | 'project' | 'contact' | 'company';
+  recordIds?: string[];
+  operationSummary?: {
+    affected?: number;
+    skipped?: number;
+    warnings?: string[];
+  };
+}
+
+export interface AppToastRuntimeConfig {
+  maxVisible: number;
+  pauseOnHover: boolean;
+  defaultDurationMs: Record<AppToastTone, number>;
+}
+
 export type ActiveRecordSurface = 'none' | 'context_drawer' | 'full_editor' | 'transition_flow';
 
 export interface AppBusinessState {
@@ -159,6 +196,8 @@ export interface AppUiState {
   executionLaneSessions: Record<'followups' | 'tasks', ExecutionLaneSessionState>;
   lastExecutionRoute: ExecutionRouteHandoff | null;
   supportWorkspaceSession: Record<'projects' | 'relationships', SupportWorkspaceSessionState>;
+  toasts: AppToast[];
+  toastConfig: AppToastRuntimeConfig;
 }
 
 export type CloudSyncStatus =

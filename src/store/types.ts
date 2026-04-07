@@ -39,6 +39,7 @@ import type {
 } from '../types';
 import type { WorkflowValidationResult } from '../lib/workflowPolicy';
 import type { RecordRef } from '../lib/recordContext';
+import type { UndoConflictReason, UndoExecutionResult, UndoRegistrationInput } from '../lib/undo';
 
 export interface WorkflowTransitionAttempt {
   applied: boolean;
@@ -89,6 +90,11 @@ export interface AppStoreActions {
   dismissAllToasts: () => void;
   expireToast: (id: string) => void;
   handleToastAction: (toastId: string) => void;
+  registerUndoEntry: (input: UndoRegistrationInput) => string | null;
+  executeUndo: (entryId: string) => UndoExecutionResult;
+  expireUndoEntry: (entryId: string) => void;
+  clearExpiredUndoEntries: () => void;
+  invalidateOverlappingUndoEntries: (entityRefs: Array<{ type: 'followup' | 'task' | 'project' | 'contact' | 'company' | 'auxiliary'; id: string }>, reason?: UndoConflictReason | 'record_changed_again') => void;
   selectAllVisibleFollowUps: (ids: string[]) => void;
   saveFollowUpCustomView: (name: string, search: string) => void;
   applySavedFollowUpCustomView: (id: string) => void;

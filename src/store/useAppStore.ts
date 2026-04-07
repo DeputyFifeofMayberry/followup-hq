@@ -13,6 +13,7 @@ import { createIntakeSlice } from './slices/intakeSlice';
 import { createForwardingSlice } from './slices/forwardingSlice';
 import { createOutlookSlice } from './slices/outlookSlice';
 import { createMetaSlice } from './slices/metaSlice';
+import { clearExpiredUndoEntries, executeUndoFromStack, invalidateOverlappingUndoEntries, registerUndoEntryWithCleanup } from './useCases/undoManager';
 import type { AppStore } from './types';
 import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } from './persistenceQueue';
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
@@ -228,7 +229,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
     ...initialUiState,
     ...initialMetaState,
     ...createMetaSlice(set, defaultOutlookConnection),
-    ...createUiSlice(set, queuePersist),
+    ...createUiSlice(set, get, queuePersist),
     ...createExecutionViewSlice(set, get, { queuePersist }),
     ...createFollowUpsSlice(set, get, { queuePersist }),
     ...createTasksSlice(set, get, { queuePersist }),
@@ -237,6 +238,51 @@ export const useAppStore = create<AppStore>()((set, get) => {
     ...createIntakeSlice(set, get, { queuePersist }),
     ...createForwardingSlice(set, { queuePersist }),
     ...createOutlookSlice(set, get, { queuePersist }, defaultOutlookConnection),
+    registerUndoEntry: (input) => {
+      let entryId: string | null = null;
+      set((state) => {
+        const registered = registerUndoEntryWithCleanup(state.undoStack, input);
+        entryId = registered.entry.id;
+        return { undoStack: registered.stack, lastUndoCleanupAt: new Date().toISOString() };
+      });
+      return entryId;
+    },
+    executeUndo: (entryId) => {
+      let result;
+      set((state) => {
+        const execution = executeUndoFromStack(state, entryId);
+        result = execution.result;
+        return execution.nextState;
+      });
+      const outcome = result as import('../lib/undo').UndoExecutionResult;
+      if (outcome.ok && outcome.dirtyRecordRefs) {
+        queuePersist({ dirtyRecords: outcome.dirtyRecordRefs });
+        get().pushToast({ tone: 'success', title: 'Action undone', source: 'undo.execute' });
+      } else if (!outcome.ok) {
+        const title = outcome.reason === 'expired'
+          ? 'Undo expired'
+          : outcome.reason === 'superseded' || outcome.reason === 'record_changed_again'
+            ? 'Undo no longer available'
+            : 'Undo failed';
+        const message = outcome.reason === 'superseded' || outcome.reason === 'record_changed_again'
+          ? 'Record changed again; earlier undo is no longer safe.'
+          : outcome.reason === 'expired'
+            ? 'The 30-second undo window has passed.'
+            : 'Undo could not be applied safely.';
+        get().pushToast({ tone: 'warning', title, message, source: 'undo.execute' });
+      }
+      return outcome;
+    },
+    expireUndoEntry: (entryId) => set((state) => ({
+      undoStack: state.undoStack.map((entry) => entry.id === entryId && entry.status === 'pending' ? { ...entry, status: 'expired', reason: 'expired' } : entry),
+    })),
+    clearExpiredUndoEntries: () => set((state) => ({
+      undoStack: clearExpiredUndoEntries(state.undoStack),
+      lastUndoCleanupAt: new Date().toISOString(),
+    })),
+    invalidateOverlappingUndoEntries: (entityRefs, reason = 'record_changed_again') => set((state) => ({
+      undoStack: invalidateOverlappingUndoEntries(state.undoStack, entityRefs, reason),
+    })),
     flushPersistenceNow: async () => {
       if (!persistenceQueue) return;
       await persistenceQueue.flushNow();

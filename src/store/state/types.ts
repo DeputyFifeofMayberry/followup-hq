@@ -55,6 +55,7 @@ import type {
 import type { ExecutionLaneSessionState, ExecutionRouteHandoff } from '../../domains/shared/execution';
 import type { SupportWorkspaceSessionState } from '../../domains/support';
 import type { OutboxStatus } from '../../lib/persistenceOutbox';
+import type { UndoEntry } from '../../lib/undo';
 
 export type PersistenceActivityKind =
   | 'queued'
@@ -198,6 +199,8 @@ export interface AppUiState {
   supportWorkspaceSession: Record<'projects' | 'relationships', SupportWorkspaceSessionState>;
   toasts: AppToast[];
   toastConfig: AppToastRuntimeConfig;
+  undoStack: UndoEntry[];
+  lastUndoCleanupAt?: string;
 }
 
 export type CloudSyncStatus =

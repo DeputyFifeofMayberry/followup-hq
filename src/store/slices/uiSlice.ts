@@ -1,10 +1,10 @@
 import { createId, todayIso } from '../../lib/utils';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import type { AppStore, AppStoreActions } from '../types';
-import type { SliceSet } from './types';
+import type { SliceGet, SliceSet } from './types';
 import type { QueueRequestMeta } from '../persistenceQueue';
 
-export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestMeta) => void): Pick<AppStoreActions,
+export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?: QueueRequestMeta) => void): Pick<AppStoreActions,
   'setSelectedId' | 'setSearch' | 'setProjectFilter' | 'setStatusFilter' | 'setActiveView' | 'setFollowUpFilters' | 'resetFollowUpFilters' |
   'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'pushToast' | 'dismissToast' | 'dismissAllToasts' | 'expireToast' | 'handleToastAction' |
   'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
@@ -72,24 +72,10 @@ export function createUiSlice(set: SliceSet, queuePersist: (meta?: QueueRequestM
     dismissAllToasts: () => set({ toasts: [] }),
     expireToast: (id) => set((state: AppStore) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
     handleToastAction: (toastId) => {
-      set((state: AppStore) => {
-        const toast = state.toasts.find((entry) => entry.id === toastId);
-        if (!toast?.action) return state;
-        const infoToast = {
-          id: createId('TOAST'),
-          kind: 'system_notice' as const,
-          tone: 'info' as const,
-          title: `${toast.action.label} not available yet`,
-          message: 'Undo support will be enabled in the next workflow upgrade.',
-          createdAt: new Date().toISOString(),
-          durationMs: state.toastConfig.defaultDurationMs.info,
-          expiresAt: new Date(Date.now() + state.toastConfig.defaultDurationMs.info).toISOString(),
-          dismissible: true,
-          source: 'toast_action',
-        };
-        const toasts = state.toasts.filter((entry) => entry.id !== toastId);
-        return { toasts: [infoToast, ...toasts].slice(0, state.toastConfig.maxVisible) };
-      });
+      const toast = get().toasts.find((entry) => entry.id === toastId);
+      if (!toast?.action?.actionId) return;
+      get().dismissToast(toastId);
+      get().executeUndo(toast.action.actionId);
     },
     selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
     saveFollowUpCustomView: (name, search) => {

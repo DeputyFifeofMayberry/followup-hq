@@ -113,6 +113,8 @@ export const initialUiState: AppUiState = {
     },
   },
   toasts: [],
+  undoStack: [],
+  lastUndoCleanupAt: undefined,
   toastConfig: {
     maxVisible: 5,
     pauseOnHover: true,

@@ -1,11 +1,13 @@
 import type { IngestionPreset, IntakeSignal, SourceType } from '../types';
 import { createId } from './utils';
+import { sanitizePersistenceString } from './persistenceSanitization';
 
 const urgencyWords = ['urgent', 'asap', 'overdue', 'late', 'critical', 'risk', 'need today'];
 const actionWords = ['follow up', 'send', 'confirm', 'review', 'update', 'call', 'coordinate', 'submit', 'verify', 'ask'];
 
 function detectUrgency(text: string): IntakeSignal['urgency'] {
-  const lower = text.toLowerCase();
+  const safeText = sanitizePersistenceString(text).value;
+  const lower = safeText.toLowerCase();
   if (urgencyWords.some((word) => lower.includes(word))) return 'High';
   if (actionWords.some((word) => lower.includes(word))) return 'Medium';
   return 'Low';
@@ -30,7 +32,7 @@ function cleanLine(line: string): string {
 
 export function parseIngestionText(raw: string, preset: IngestionPreset): IntakeSignal[] {
   const source = inferSource(preset);
-  const lines = raw
+  const lines = sanitizePersistenceString(raw).value
     .split(/\r?\n/)
     .map(cleanLine)
     .filter((line) => line.length >= 8);

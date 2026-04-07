@@ -360,6 +360,26 @@ async function run() {
   await savePersistedPayload(payloadFixture);
   assert(mock.rpcCallCount >= 2, 'retry should probe rpc health and then send unresolved outbox work when payload JSON is unchanged');
 
+
+  reset();
+  mock.rpcFailure = {
+    message: 'unsupported Unicode escape sequence',
+    code: '22P05',
+    details: '\u0000 cannot be converted to text.',
+  };
+  let payloadBlockedClassified = false;
+  try {
+    await savePersistedPayload({
+      ...payloadFixture,
+      items: [{ id: 'item-1', title: 'bad\u0000title' } as any],
+    });
+  } catch (error: any) {
+    payloadBlockedClassified = error?.diagnostics?.failureKind === 'payload_invalid'
+      && error?.diagnostics?.nonRetryable === true
+      && error?.diagnostics?.sanitizedFieldCount >= 1;
+  }
+  assert(payloadBlockedClassified, 'invalid text payload failures should classify as non-retryable payload_invalid with sanitization diagnostics');
+
   reset();
   mock.rpcFailure = { message: 'Could not find the function public.apply_save_batch(batch)', code: 'PGRST202' };
   let rpcMissingClassified = false;

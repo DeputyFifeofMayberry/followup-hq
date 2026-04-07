@@ -63,7 +63,10 @@ export type PersistenceActivityKind =
   | 'saved'
   | 'failed'
   | 'manual-save'
-  | 'retry';
+  | 'retry'
+  | 'payload-blocked'
+  | 'backend-blocked'
+  | 'local-recovery';
 
 export interface PersistenceActivityEvent {
   id: string;
@@ -217,7 +220,8 @@ export type CloudSyncStatus =
   | 'local-newer-than-cloud'
   | 'cloud-read-failed-local-fallback'
   | 'cloud-save-failed-local-preserved'
-  | 'load-failed-no-local-copy';
+  | 'load-failed-no-local-copy'
+  | 'payload-invalid';
 
 export type SessionTrustState = 'healthy' | 'degraded' | 'recovered';
 
@@ -230,7 +234,8 @@ export type SessionDegradedReason =
   | 'cloud-read-failed-fallback'
   | 'local-newer-than-cloud'
   | 'local-recovery-fallback'
-  | 'load-failed-no-local-copy';
+  | 'load-failed-no-local-copy'
+  | 'payload-invalid';
 
 export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'failed';
 export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
@@ -314,6 +319,10 @@ export interface AppMetaState {
   lastFailedBatchId?: string;
   lastReceiptCommittedAt?: string;
   lastFailureMessage?: string;
+  lastFailureClass?: 'payload-invalid' | 'backend-setup' | 'network-transient' | 'rpc-receipt' | 'conflict-revision' | 'cloud-read-fallback' | 'unknown';
+  lastFailureNonRetryable?: boolean;
+  lastSanitizedFieldCount?: number;
+  lastSanitizedEntityTypes?: string[];
   unresolvedConflictCount: number;
 
   verificationState: VerificationState;

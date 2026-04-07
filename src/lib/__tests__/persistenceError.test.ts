@@ -2,6 +2,7 @@ import {
   formatPersistenceErrorMessage,
   normalizePersistenceError,
   safeSerializeUnknownError,
+  classifyPersistenceFailure,
 } from '../persistenceError';
 
 function assert(condition: boolean, message: string) {
@@ -43,9 +44,22 @@ function testErrorPreservesMessage() {
   assert(normalized.message === 'network timeout', 'Error message should be preserved');
 }
 
+
+function testPayloadInvalidClassification() {
+  const normalized = normalizePersistenceError({
+    message: 'unsupported Unicode escape sequence',
+    code: '22P05',
+    details: '\u0000 cannot be converted to text.',
+  });
+  const classified = classifyPersistenceFailure({ normalized });
+  assert(classified.failureClass === 'payload-invalid', `expected payload-invalid, got ${classified.failureClass}`);
+  assert(classified.nonRetryable, 'payload-invalid should be non-retryable');
+}
+
 (function run() {
   testSupabaseShapeFormatting();
   testUnknownObjectFormatting();
   testCircularSerialization();
   testErrorPreservesMessage();
+  testPayloadInvalidClassification();
 })();

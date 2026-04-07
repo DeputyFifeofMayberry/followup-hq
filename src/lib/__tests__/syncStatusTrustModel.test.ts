@@ -14,6 +14,10 @@ function baseMeta() {
     unsavedChangeCount: 0,
     hasLocalUnsavedChanges: false,
     cloudSyncStatus: 'cloud-confirmed',
+    localRevision: 1,
+    lastCloudConfirmedRevision: 1,
+    localSaveState: 'saved',
+    cloudSyncState: 'confirmed',
     loadedFromLocalRecoveryCache: false,
     lastSyncedAt: '2026-04-05T10:00:00.000Z',
     lastCloudConfirmedAt: '2026-04-05T10:00:00.000Z',
@@ -61,6 +65,9 @@ function baseMeta() {
     lastConflictDetectedAt: undefined,
     lastConflictBatchId: undefined,
     lastConflictFailureMessage: undefined,
+    connectivityState: 'online',
+    offlineLoadState: 'none',
+    pendingOfflineChangeCount: 0,
   } as const;
 }
 
@@ -68,7 +75,7 @@ function testCloudConfirmedPrimaryState(): void {
   const model = getSyncStatusModel(baseMeta());
   assert(model.primaryState === 'saved', `expected saved primary state, got ${model.primaryState}`);
   assert(model.stateLabel === 'Saved', `expected Saved label, got ${model.stateLabel}`);
-  assert(model.stateDescription === 'Your latest updates are saved.', `expected simplified saved description, got ${model.stateDescription}`);
+  assert(model.stateDescription === 'All changes saved', `expected simplified saved description, got ${model.stateDescription}`);
 }
 
 function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
@@ -82,16 +89,20 @@ function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
   assert(model.primaryState === 'saved', `expected saved primary state in browser mode, got ${model.primaryState}`);
   assert(model.stateLabel === 'Saved', `expected Saved label in browser mode, got ${model.stateLabel}`);
   assert(model.stateTone === 'success', `expected success tone for local-only saved state, got ${model.stateTone}`);
-  assert(model.stateDescription === 'Your latest updates are saved on this device.', `expected local-only saved description, got ${model.stateDescription}`);
+  assert(model.stateDescription === 'Changes saved on this device; cloud sync will resume automatically', `expected local-only saved description, got ${model.stateDescription}`);
 }
 
 function testPendingCloudFeelsTransitionalNotDangerous(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
     cloudSyncStatus: 'pending-cloud',
+    localRevision: 2,
+    lastCloudConfirmedRevision: 1,
+    localSaveState: 'saved',
+    cloudSyncState: 'queued',
   });
-  assert(model.primaryState === 'saved', `expected pending-cloud to remain saved, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saved', `expected Saved label for pending-cloud, got ${model.stateLabel}`);
+  assert(model.primaryState === 'saved', `expected pending-cloud local protection state, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saved locally', `expected Saved locally label for pending-cloud, got ${model.stateLabel}`);
   assert(model.stateTone === 'info', `expected info tone for pending-cloud transition, got ${model.stateTone}`);
 }
 
@@ -145,9 +156,13 @@ function testDirtyMapsToSavingState(): void {
     hasLocalUnsavedChanges: true,
     unsavedChangeCount: 2,
     cloudSyncStatus: 'pending-cloud',
+    localRevision: 2,
+    lastCloudConfirmedRevision: 1,
+    localSaveState: 'saved',
+    cloudSyncState: 'queued',
   });
   assert(model.primaryState === 'saving', `expected dirty to map to saving, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saving', `expected Saving label, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Saving…', `expected Saving label, got ${model.stateLabel}`);
 }
 
 
@@ -175,6 +190,10 @@ function testSharedSnapshotSelectorConsistency(): void {
     unsavedChangeCount: 0,
     hasLocalUnsavedChanges: false,
     cloudSyncStatus: 'pending-cloud',
+    localRevision: 2,
+    lastCloudConfirmedRevision: 1,
+    localSaveState: 'saved',
+    cloudSyncState: 'queued',
     loadedFromLocalRecoveryCache: false,
     lastSyncedAt: '2026-04-05T09:00:00.000Z',
     lastCloudConfirmedAt: '2026-04-05T09:00:00.000Z',
@@ -228,6 +247,9 @@ function testSharedSnapshotSelectorConsistency(): void {
     lastConflictDetectedAt: undefined,
     lastConflictBatchId: undefined,
     lastConflictFailureMessage: undefined,
+    connectivityState: 'online',
+    offlineLoadState: 'none',
+    pendingOfflineChangeCount: 0,
   } as unknown as AppStore;
 
   const snapshotForBanner = selectSyncMetaSnapshot(state);
@@ -276,7 +298,7 @@ function testVerifiedMatchAndRecoveryProjection(): void {
     conflictReviewNeeded: true,
     openConflictCount: 2,
   } as any);
-  assert(conflictModel.stateLabel === 'Conflict review needed', `expected conflict-specific status label, got ${conflictModel.stateLabel}`);
+  assert(conflictModel.stateLabel === 'Needs attention', `expected conflict-specific attention label, got ${conflictModel.stateLabel}`);
 }
 
 (function run() {

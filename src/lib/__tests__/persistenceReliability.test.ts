@@ -335,6 +335,31 @@ async function run() {
   assert(noOp.mode === 'supabase', 'no-op should keep supabase mode');
   assert(mock.rpcCallCount === 0, 'no-op should not call rpc');
 
+  // H. unchanged payload with unresolved outbox must still retry
+  reset();
+  storage.setItem('followup_hq_persistence_outbox_v2', JSON.stringify({
+    entries: [{
+      outboxEntryId: 'outbox-1',
+      batchId: 'batch-pending-1',
+      localRevision: 1,
+      createdAt: '2026-04-05T10:00:00.000Z',
+      updatedAt: '2026-04-05T10:00:00.000Z',
+      deviceId: 'device',
+      sessionId: 'session',
+      status: 'failed',
+      operations: [{ entity: 'items', operation: 'upsert', recordId: 'item-1', recordSnapshot: { id: 'item-1' } }],
+      operationCount: 1,
+      payloadHash: 'hash-1',
+      retryCount: 1,
+      lastError: 'network',
+    }],
+    updatedAt: '2026-04-05T10:00:00.000Z',
+  }));
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending', localRevision: 1, lastCloudConfirmedRevision: 0 }));
+  mock.rpcCallCount = 0;
+  await savePersistedPayload(payloadFixture);
+  assert(mock.rpcCallCount === 1, 'retry should send unresolved outbox work even when payload JSON is unchanged');
+
   reset();
   mock.rpcFailure = { message: 'rpc unavailable', code: 'PGRST301' };
   let failureHasBatch = false;
@@ -376,7 +401,7 @@ async function run() {
     conflictThrown = String(error?.message ?? '').includes('did not fully complete');
   }
   assert(conflictThrown, 'conflict receipt should reject save completion');
-  const outboxRaw = JSON.parse(storage.getItem('followup_hq_persistence_outbox_v1') ?? '{\"entries\":[]}');
+  const outboxRaw = JSON.parse(storage.getItem('followup_hq_persistence_outbox_v2') ?? storage.getItem('followup_hq_persistence_outbox_v1') ?? '{\"entries\":[]}');
   assert((outboxRaw.entries ?? []).length > 0, 'conflict should keep durable outbox entry');
 }
 

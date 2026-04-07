@@ -13,12 +13,17 @@ import { getSupabaseHost } from './supabase';
 import { computeDeterministicHash } from './persistenceHash';
 import { getPersistenceScopeUserId, getSessionScopedId, getStableDeviceId } from './persistenceIdentity';
 import {
-  clearCommittedOutboxEntries,
   clearOutboxForUser,
+  compactSupersededBatches,
   enqueueOutboxEntry,
+  getNextBatchToSend,
   listUnresolvedOutboxEntries,
   loadOutboxState,
-  updateOutboxEntry,
+  loadPendingBatchesForUser,
+  markBatchCommitted,
+  markBatchConflict,
+  markBatchFailed,
+  markBatchSending,
 } from './persistenceOutbox';
 import { incrementMetric } from './persistenceMetrics';
 import { clearPersistenceBlob, loadPersistenceBlob, savePersistenceBlob } from './persistenceStorage';
@@ -115,11 +120,17 @@ export interface LocalCachePayload {
   entities: PersistedPayload;
   updatedAt: string;
   cloudStatus: 'pending' | 'confirmed';
+  localRevision: number;
+  lastCloudConfirmedRevision: number;
   userId?: string;
   lastCloudConfirmedAt?: string;
   pendingOperations?: PendingEntityOperation[];
   lastSaveReceipt?: SaveBatchReceipt;
   lastFailedBatchId?: string;
+  lastCommittedBatchId?: string;
+  lastReceiptStatus?: SaveBatchReceipt['status'];
+  lastReceiptCommittedTime?: string;
+  lastFailureMessage?: string;
 }
 
 export interface LoadResult {
@@ -136,6 +147,13 @@ export interface LoadResult {
   loadFailureStage?: LoadFailureStage;
   loadFailureMessage?: string;
   loadFailureRecoveredWithLocalCache?: boolean;
+  localRevision?: number;
+  lastCloudConfirmedRevision?: number;
+  lastCommittedBatchId?: string;
+  lastFailedBatchId?: string;
+  lastReceiptStatus?: SaveBatchReceipt['status'];
+  lastReceiptCommittedTime?: string;
+  lastFailureMessage?: string;
 }
 
 export type LoadFailureStage =
@@ -342,11 +360,17 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     entities: entities as PersistedPayload,
     updatedAt,
     cloudStatus,
+    localRevision: Number(asRecord.localRevision ?? 0),
+    lastCloudConfirmedRevision: Number(asRecord.lastCloudConfirmedRevision ?? 0),
     userId,
     lastCloudConfirmedAt,
     pendingOperations,
     lastSaveReceipt,
     lastFailedBatchId,
+    lastCommittedBatchId: typeof asRecord.lastCommittedBatchId === 'string' ? asRecord.lastCommittedBatchId : undefined,
+    lastReceiptStatus: asRecord.lastReceiptStatus === 'committed' || asRecord.lastReceiptStatus === 'conflict' || asRecord.lastReceiptStatus === 'received' || asRecord.lastReceiptStatus === 'rejected' ? asRecord.lastReceiptStatus : undefined,
+    lastReceiptCommittedTime: typeof asRecord.lastReceiptCommittedTime === 'string' ? asRecord.lastReceiptCommittedTime : undefined,
+    lastFailureMessage: typeof asRecord.lastFailureMessage === 'string' ? asRecord.lastFailureMessage : undefined,
   };
 }
 
@@ -361,7 +385,7 @@ async function readLocalCache(userId?: string | null): Promise<LocalCachePayload
     const normalized = normalizeLocalCache(parsed);
     if (normalized) return normalized;
     if (parsed && typeof parsed === 'object' && 'items' in (parsed as Record<string, unknown>)) {
-      return { entities: parsed as PersistedPayload, updatedAt: new Date().toISOString(), cloudStatus: 'pending' };
+      return { entities: parsed as PersistedPayload, updatedAt: new Date().toISOString(), cloudStatus: 'pending', localRevision: 0, lastCloudConfirmedRevision: 0 };
     }
     return null;
   } catch {
@@ -736,6 +760,8 @@ async function migrateLegacySnapshotIfNeeded(userId: string, currentPayload: Per
     entities: migrated,
     updatedAt: new Date().toISOString(),
     cloudStatus: 'confirmed',
+    localRevision: 1,
+    lastCloudConfirmedRevision: 1,
     lastCloudConfirmedAt: new Date().toISOString(),
   });
   return migrated;
@@ -798,6 +824,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: 'auth_session',
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        localRevision: cache.localRevision,
+        lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
+        lastCommittedBatchId: cache.lastCommittedBatchId,
+        lastFailedBatchId: cache.lastFailedBatchId,
+        lastReceiptStatus: cache.lastReceiptStatus,
+        lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+        lastFailureMessage: cache.lastFailureMessage,
       };
     }
     throw new PersistenceLoadError({
@@ -869,6 +902,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: preflightStage,
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        localRevision: cache.localRevision,
+        lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
+        lastCommittedBatchId: cache.lastCommittedBatchId,
+        lastFailedBatchId: cache.lastFailedBatchId,
+        lastReceiptStatus: cache.lastReceiptStatus,
+        lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+        lastFailureMessage: cache.lastFailureMessage,
       };
     }
     throw new PersistenceLoadError({
@@ -932,6 +972,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: stage,
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        localRevision: cache.localRevision,
+        lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
+        lastCommittedBatchId: cache.lastCommittedBatchId,
+        lastFailedBatchId: cache.lastFailedBatchId,
+        lastReceiptStatus: cache.lastReceiptStatus,
+        lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+        lastFailureMessage: cache.lastFailureMessage,
       };
     }
     throw new PersistenceLoadError({
@@ -963,6 +1010,8 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     entities: hydrated,
     updatedAt: confirmedAt,
     cloudStatus: 'confirmed',
+    localRevision: (cache?.localRevision ?? 0) + 1,
+    lastCloudConfirmedRevision: (cache?.localRevision ?? 0) + 1,
     lastCloudConfirmedAt: confirmedAt,
     userId,
   }, userId);
@@ -975,6 +1024,8 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     cloudUpdatedAt: confirmedAt,
     localCacheUpdatedAt: confirmedAt,
     localCacheLastCloudConfirmedAt: confirmedAt,
+    localRevision: (cache?.localRevision ?? 0) + 1,
+    lastCloudConfirmedRevision: (cache?.localRevision ?? 0) + 1,
   };
 }
 
@@ -1009,15 +1060,24 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     operationCounts: summarizeOperations(pendingOperations),
   };
 
+  const hasLocalChanges = auxiliaryChanged || scopedOps.length > 0;
+  const nextLocalRevision = hasLocalChanges ? (existingCache?.localRevision ?? 0) + 1 : (existingCache?.localRevision ?? 0);
+
   await writeLocalCache({
     entities: payload,
     updatedAt: saveAttemptAt,
     cloudStatus: 'pending',
+    localRevision: nextLocalRevision,
+    lastCloudConfirmedRevision: existingCache?.lastCloudConfirmedRevision ?? 0,
     userId: currentUserId ?? undefined,
     lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
     pendingOperations,
     lastSaveReceipt: existingCache?.lastSaveReceipt,
     lastFailedBatchId: existingCache?.lastFailedBatchId,
+    lastCommittedBatchId: existingCache?.lastCommittedBatchId,
+    lastReceiptStatus: existingCache?.lastReceiptStatus,
+    lastReceiptCommittedTime: existingCache?.lastReceiptCommittedTime,
+    lastFailureMessage: existingCache?.lastFailureMessage,
   }, currentUserId);
 
   if (!currentUserId) {
@@ -1027,6 +1087,8 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
       userId: undefined,
+      localRevision: nextLocalRevision,
+      lastCloudConfirmedRevision: nextLocalRevision,
       pendingOperations: [],
       lastSaveReceipt: existingCache?.lastSaveReceipt,
       lastFailedBatchId: undefined,
@@ -1034,7 +1096,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     return { mode: 'browser', diagnostics };
   }
 
-  if (!auxiliaryChanged && pendingOperations.length === 0) {
+  if (pendingOperations.length === 0 && unresolvedOutbox.length === 0 && (existingCache?.lastCloudConfirmedRevision ?? 0) >= nextLocalRevision) {
     return { mode: 'supabase', diagnostics };
   }
 
@@ -1042,16 +1104,23 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     return { mode: 'supabase', diagnostics };
   }
 
-  const provisionalEntry = await enqueueOutboxEntry({
-    batchId: diagnostics.batchId ?? `pending-${Date.now().toString(36)}`,
-    deviceId: getStableDeviceId(),
-    sessionId: getSessionScopedId(),
-    status: 'queued',
-    operations: pendingOperations,
-    operationCount: pendingOperations.length,
-    payloadHash: 'pending-hash',
-    retryCount: 0,
-  }, currentUserId);
+  let batchEntry = await getNextBatchToSend(currentUserId);
+  if (!batchEntry && pendingOperations.length > 0) {
+    batchEntry = await enqueueOutboxEntry({
+      batchId: diagnostics.batchId ?? `pending-${Date.now().toString(36)}`,
+      localRevision: nextLocalRevision,
+      basedOnCloudRevision: existingCache?.lastCloudConfirmedRevision ?? 0,
+      basedOnBatchId: existingCache?.lastCommittedBatchId,
+      deviceId: getStableDeviceId(),
+      sessionId: getSessionScopedId(),
+      status: 'queued',
+      operations: pendingOperations,
+      operationCount: pendingOperations.length,
+      payloadHash: 'pending-hash',
+      retryCount: 0,
+    }, currentUserId);
+  }
+  if (!batchEntry) return { mode: 'supabase', diagnostics };
   const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
   if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
     diagnostics.staleDeleteGuardTriggered = true;
@@ -1061,13 +1130,9 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     );
   }
 
-  const envelope = await buildSaveBatchEnvelope({ payload, operations: pendingOperations, clientGeneratedAt: saveAttemptAt });
+  const envelope = await buildSaveBatchEnvelope({ payload, operations: batchEntry.operations as PendingEntityOperation[], clientGeneratedAt: saveAttemptAt });
   diagnostics.batchId = envelope.batchId;
-  await updateOutboxEntry(provisionalEntry.outboxEntryId, {
-    batchId: envelope.batchId,
-    payloadHash: envelope.clientPayloadHash,
-    status: 'flushing',
-  }, currentUserId);
+  await markBatchSending(batchEntry.outboxEntryId, currentUserId);
   try {
     const receipt = await commitSaveBatch(envelope);
     diagnostics.receiptStatus = receipt.status;
@@ -1083,34 +1148,32 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     if (receipt.status !== 'committed') {
       if (receipt.status === 'conflict') incrementMetric('saveConflicts');
       else incrementMetric('saveBatchRejects');
-      await updateOutboxEntry(provisionalEntry.outboxEntryId, {
-        status: receipt.status === 'conflict' ? 'conflict' : 'failed',
-        blockedReason: receipt.status,
-        lastError: `Batch ${receipt.batchId} returned ${receipt.status}`,
-        retryCount: provisionalEntry.retryCount + 1,
-      }, currentUserId);
+      if (receipt.status === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned conflict`, currentUserId);
+      else await markBatchFailed(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned ${receipt.status}`, currentUserId);
       throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
         ...diagnostics,
         failedBatchId: envelope.batchId,
       });
     }
     incrementMetric('saveBatchCommits');
-    await updateOutboxEntry(provisionalEntry.outboxEntryId, {
-      status: 'committed',
-      blockedReason: undefined,
-      lastError: undefined,
-    }, currentUserId);
-    await clearCommittedOutboxEntries(currentUserId);
+    await markBatchCommitted(batchEntry.outboxEntryId, currentUserId);
+    await compactSupersededBatches(batchEntry.localRevision, currentUserId);
 
     await writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
+      localRevision: nextLocalRevision,
+      lastCloudConfirmedRevision: Math.max(batchEntry.localRevision, nextLocalRevision),
       userId: currentUserId,
       lastCloudConfirmedAt: receipt.committedAt ?? saveAttemptAt,
       pendingOperations: [],
       lastSaveReceipt: receipt,
       lastFailedBatchId: undefined,
+      lastCommittedBatchId: envelope.batchId,
+      lastReceiptStatus: receipt.status,
+      lastReceiptCommittedTime: receipt.committedAt,
+      lastFailureMessage: undefined,
     }, currentUserId);
     return { mode: 'supabase', diagnostics };
   } catch (error) {
@@ -1120,21 +1183,24 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     diagnostics.failedBatchId = envelope.batchId;
-    await updateOutboxEntry(provisionalEntry.outboxEntryId, {
-      status: diagnostics.receiptStatus === 'conflict' ? 'conflict' : 'failed',
-      lastError: rawMessage,
-      retryCount: provisionalEntry.retryCount + 1,
-    }, currentUserId);
+    if (diagnostics.receiptStatus === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, rawMessage, currentUserId);
+    else await markBatchFailed(batchEntry.outboxEntryId, rawMessage, currentUserId);
     incrementMetric('outboxRetries');
     await writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'pending',
+      localRevision: nextLocalRevision,
+      lastCloudConfirmedRevision: existingCache?.lastCloudConfirmedRevision ?? 0,
       userId: currentUserId,
       lastCloudConfirmedAt: existingCache?.lastCloudConfirmedAt,
       pendingOperations,
       lastSaveReceipt: existingCache?.lastSaveReceipt,
       lastFailedBatchId: envelope.batchId,
+      lastCommittedBatchId: existingCache?.lastCommittedBatchId,
+      lastReceiptStatus: diagnostics.receiptStatus,
+      lastReceiptCommittedTime: undefined,
+      lastFailureMessage: rawMessage,
     }, currentUserId);
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessage}`, diagnostics);
   }

@@ -544,8 +544,7 @@ export function RecordEditorHeader({
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Canonical full editor</div>
-          <div className="mt-1 text-base font-semibold text-slate-900">{title}</div>
+          <div className="text-base font-semibold text-slate-900">{title}</div>
           {subtitle ? <div className="mt-1 text-xs text-slate-600">{subtitle}</div> : null}
         </div>
         {badge ? <div>{badge}</div> : null}

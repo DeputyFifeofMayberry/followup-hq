@@ -9,7 +9,6 @@ import { ImportWizardModal } from './components/ImportWizardModal';
 import { CreateWorkModal } from './components/CreateWorkModal';
 import { MergeModal } from './components/MergeModal';
 import { TouchLogModal } from './components/TouchLogModal';
-import { UniversalCapture } from './components/UniversalCapture';
 import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
 import { SetPointMark, SetPointMonogram, SetPointWordmark } from './components/brand';
@@ -380,7 +379,6 @@ function MainApp({ session }: { session: Session }) {
 
   const currentMeta = modeConfig.workspaceMeta[workspace];
   const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });
-  const showUniversalCapture = currentMeta.showUniversalCapture;
   const outboxRequiresAttention = ['queued', 'flushing', 'failed', 'conflict'].includes(outboxState);
   const hasSignOutRisk = hasLocalUnsavedChanges
     || unsavedChangeCount > 0
@@ -523,11 +521,6 @@ function MainApp({ session }: { session: Session }) {
                 </div>
               </div>
             </header>
-            {showUniversalCapture ? (
-              <section className="app-capture-slot app-shell-card app-shell-card-command">
-                <UniversalCapture contextProject={selectedItem?.project} contextOwner={selectedItem?.owner} contextFollowUpId={selectedId} selfIdentity={accountLabel} />
-              </section>
-            ) : null}
             <section className="workspace-body-slot">
               {workspaceBody}
             </section>

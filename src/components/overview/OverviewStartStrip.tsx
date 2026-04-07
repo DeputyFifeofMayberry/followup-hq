@@ -6,10 +6,10 @@ import { OverviewRouteActions } from './OverviewRouteActions';
 interface OverviewStartStripProps {
   stats: ExecutionQueueStats;
   onOpenIntake: () => void;
-  onQuickAdd: () => void;
+  onCreateWork: () => void;
 }
 
-export function OverviewStartStrip({ stats, onOpenIntake, onQuickAdd }: OverviewStartStripProps) {
+export function OverviewStartStrip({ stats, onOpenIntake, onCreateWork }: OverviewStartStripProps) {
   return (
     <ExecutionLaneSummary className="overview-hero-card overview-start-band">
       <div className="overview-command-head">
@@ -18,7 +18,7 @@ export function OverviewStartStrip({ stats, onOpenIntake, onQuickAdd }: Overview
       <OverviewSummaryStats stats={stats} />
       <OverviewRouteActions
         onOpenIntake={onOpenIntake}
-        onQuickAdd={onQuickAdd}
+        onCreateWork={onCreateWork}
       />
     </ExecutionLaneSummary>
   );

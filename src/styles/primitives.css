@@ -78,7 +78,7 @@
 .primary-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .action-btn-danger { border-color: #fda4af; color: var(--danger); background: #fff1f2; }
 
-.field-block { display: grid; gap: 0.45rem; }
+.field-block { display: grid; gap: 0.3rem; }
 .field-label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
 .field-input,
 .field-textarea {
@@ -138,7 +138,7 @@
   background: var(--surface-secondary);
 }
 .modal-header { border-bottom: 1px solid var(--border-default); margin-bottom: 0; }
-.modal-footer { border-top: 1px solid var(--border-default); margin-top: 0; justify-content: flex-end; }
+.modal-footer { border-top: 1px solid var(--border-default); margin-top: 0; justify-content: flex-end; position: sticky; bottom: 0; z-index: 2; }
 .modal-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
 .modal-subtitle { margin-top: 0.22rem; font-size: 0.8rem; color: var(--text-muted); }
 .modal-body {
@@ -149,7 +149,7 @@
   flex: 1 1 auto;
   min-height: 0;
 }
-.modal-body-scroll { overflow-y: auto; overscroll-behavior: contain; }
+.modal-body-scroll { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0.8rem; }
 .modal-body-static { overflow: visible; }
 
 .segmented-control { display: inline-flex; gap: 0.28rem; padding: 0.26rem; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-muted); }

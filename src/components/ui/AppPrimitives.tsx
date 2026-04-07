@@ -528,7 +528,7 @@ export function AppModalFooter({ children }: PropsWithChildren) {
 }
 
 export function RecordEditorShell({ children }: PropsWithChildren) {
-  return <div className="space-y-4">{children}</div>;
+  return <div className="record-editor-shell">{children}</div>;
 }
 
 export function RecordEditorHeader({

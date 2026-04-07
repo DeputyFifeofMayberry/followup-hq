@@ -7,7 +7,7 @@ import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 
-const PRIMARY_VIEWS: SavedViewKey[] = ['All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
+const PRIMARY_VIEWS: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
 const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
@@ -173,7 +173,7 @@ export function ControlBar() {
               label: (
                 <span className="followup-view-option">
                   <span>{view === 'All' ? 'All open' : view}</span>
-                  <strong>{view === 'All' ? stats.allOpen : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : view === 'Ready to close' ? stats.readyToClose : stats.closed}</strong>
+                  <strong>{view === 'All items' ? stats.allItems : view === 'All' ? stats.allOpen : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : view === 'Ready to close' ? stats.readyToClose : stats.closed}</strong>
                 </span>
               ),
             }))}

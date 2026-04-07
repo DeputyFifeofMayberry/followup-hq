@@ -513,7 +513,9 @@
 .tracker-head-cell-support .tracker-head-btn { color: #475569; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .tracker-head-cell-action .tracker-head-btn { justify-content: flex-end; color: var(--text-secondary); }
 
-.tracker-main-grid { display: grid; gap: max(var(--workspace-region-gap, 0.95rem), 0.95rem); grid-template-columns: minmax(0, 1fr) minmax(320px, min(var(--workspace-inspector-width, 420px), 42vw)); align-items: start; }
+
+.tracker-main-single { display: grid; gap: var(--workspace-region-gap, 0.95rem); grid-template-columns: minmax(0, 1fr); }
+.tracker-main-grid { display: grid; gap: max(var(--workspace-region-gap, 0.95rem), 0.95rem); grid-template-columns: minmax(0, 1fr); align-items: start; }
 .tracker-workspace-main { gap: 0.65rem; }
 .followup-control-stack { margin-bottom: 0.1rem; }
 .followup-top-stack { --workspace-region-gap: 0.5rem; }

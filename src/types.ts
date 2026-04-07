@@ -114,6 +114,7 @@ export type TimelineEventType =
   | 'cleanup';
 
 export type SavedViewKey =
+  | 'All items'
   | 'All'
   | 'Today'
   | 'Waiting'

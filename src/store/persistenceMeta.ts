@@ -134,6 +134,35 @@ export function resolvePostSaveMetaState(
   }
 
   const recoveredByCloudSave = canCloudConfirmationRecoverSession(state);
+  const hasCommittedCloudReceipt = diagnostics?.receiptStatus === 'committed' && Boolean(diagnostics?.batchId);
+
+  if (!hasCommittedCloudReceipt) {
+    return {
+      syncState: 'saved',
+      lastSyncedAt: state.lastSyncedAt,
+      lastCloudConfirmedAt: state.lastCloudConfirmedAt,
+      lastLocalWriteAt: timestamp,
+      cloudSyncStatus: 'pending-cloud',
+      loadedFromLocalRecoveryCache: state.loadedFromLocalRecoveryCache,
+      sessionTrustState: state.sessionDegraded ? 'degraded' : state.sessionTrustState,
+      sessionDegraded: state.sessionDegraded,
+      sessionDegradedReason: state.sessionDegradedReason,
+      sessionDegradedAt: state.sessionDegradedAt,
+      sessionDegradedClearedByCloudSave: false,
+      sessionTrustRecoveredAt: state.sessionTrustRecoveredAt,
+      lastSuccessfulPersistAt: timestamp,
+      lastSuccessfulCloudPersistAt: state.lastSuccessfulCloudPersistAt,
+      lastConfirmedBatchId: state.lastConfirmedBatchId,
+      lastConfirmedBatchCommittedAt: state.lastConfirmedBatchCommittedAt,
+      lastReceiptStatus: diagnostics?.receiptStatus ?? state.lastReceiptStatus,
+      lastReceiptHashMatch: diagnostics?.hashMatch ?? state.lastReceiptHashMatch,
+      lastReceiptSchemaVersion: diagnostics?.schemaVersion ?? state.lastReceiptSchemaVersion,
+      lastReceiptTouchedTables: diagnostics?.touchedTables ?? state.lastReceiptTouchedTables,
+      lastReceiptOperationCount: diagnostics?.operationCount ?? state.lastReceiptOperationCount,
+      lastReceiptOperationCountsByEntity: diagnostics?.operationCountsByEntity ?? state.lastReceiptOperationCountsByEntity,
+      lastFailedBatchId: diagnostics?.failedBatchId ?? state.lastFailedBatchId,
+    };
+  }
 
   const committedAt = diagnostics?.committedAt ?? timestamp;
   return {

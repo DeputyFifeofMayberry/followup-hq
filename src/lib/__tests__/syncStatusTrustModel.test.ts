@@ -106,6 +106,22 @@ function testPendingCloudFeelsTransitionalNotDangerous(): void {
   assert(model.stateTone === 'info', `expected info tone for pending-cloud transition, got ${model.stateTone}`);
 }
 
+function testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'saved',
+    cloudSyncStatus: 'cloud-confirmed',
+    localRevision: 1,
+    lastCloudConfirmedRevision: 1,
+    hasLocalUnsavedChanges: false,
+    unsavedChangeCount: 0,
+    outboxState: 'idle',
+    cloudSyncState: 'queued',
+  });
+  assert(model.primaryState === 'saved', `queued lifecycle without unsaved work should not show saving, got ${model.primaryState}`);
+  assert(model.stateLabel === 'Saved', `queued lifecycle without unsaved work should settle to Saved, got ${model.stateLabel}`);
+}
+
 function testFallbackCasesMapToNeedsAttention(): void {
   const fallbackStatuses = [
     'local-recovery',
@@ -216,6 +232,19 @@ function testBackendRpcExposureFailureDoesNotShowSavingForever(): void {
     saveError: 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.',
   } as any);
   assert(model.primaryState !== 'saving', `backend rpc exposure failure should not remain in saving state, got ${model.primaryState}`);
+}
+
+function testVerificationMismatchDoesNotForceSaving(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'mismatch-found',
+    recoveryReviewNeeded: true,
+    syncState: 'saved',
+    localSaveState: 'saved',
+    cloudSyncState: 'confirmed',
+    cloudSyncStatus: 'cloud-confirmed',
+  });
+  assert(model.primaryState === 'saved', `verification mismatch should remain secondary and not force saving, got ${model.primaryState}`);
 }
 
 function testSharedSnapshotSelectorConsistency(): void {
@@ -342,12 +371,14 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   testCloudConfirmedPrimaryState();
   testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
   testPendingCloudFeelsTransitionalNotDangerous();
+  testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving();
   testFallbackCasesMapToNeedsAttention();
   testBackendSetupIssueMapsToSavedLocally();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
   testFailedOutboxDoesNotShowSavingForever();
   testBackendRpcExposureFailureDoesNotShowSavingForever();
+  testVerificationMismatchDoesNotForceSaving();
   testVerifiedMatchAndRecoveryProjection();
   testSharedSnapshotSelectorConsistency();
 })();

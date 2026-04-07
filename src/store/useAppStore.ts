@@ -55,6 +55,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               hasUnresolvedBatches: state.pendingBatchCount > 0 || state.unresolvedOutboxCount > 0,
               localRevision: state.localRevision,
               lastCloudConfirmedRevision: state.lastCloudConfirmedRevision,
+              persistenceMode: state.persistenceMode,
               online: state.connectivityState !== 'offline',
             };
           },
@@ -109,7 +110,13 @@ export const useAppStore = create<AppStore>()((set, get) => {
               syncState: 'saving',
               outboxState: 'flushing',
               localSaveState: 'saving',
-              cloudSyncState: 'sending',
+              cloudSyncState: state.persistenceMode !== 'supabase'
+                ? 'confirmed'
+                : backendBlocked
+                  ? 'failed'
+                  : state.connectivityState === 'offline'
+                    ? 'offline-pending'
+                    : 'sending',
               saveError: '',
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
@@ -118,6 +125,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
             set((state) => {
               const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
               const saveKind = getSaveResultKind(mode, didPersist);
+              const nextLocalRevision = didPersist ? state.localRevision + 1 : state.localRevision;
+              const hasConfirmedCloudReceipt = mode === 'supabase'
+                && postSave.lastReceiptStatus === 'committed'
+                && Boolean(postSave.lastConfirmedBatchId);
               const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
                 ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
                 : '';
@@ -161,7 +172,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 : null;
               return {
                 persistenceMode: mode,
-                localRevision: Math.max(state.localRevision, state.localRevision + (didPersist ? 1 : 0)),
+                localRevision: nextLocalRevision,
                 lastLocalSavedAt: timestamp,
                 syncState: postSave.syncState,
                 saveError: '',
@@ -179,10 +190,18 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastReceiptOperationCount: postSave.lastReceiptOperationCount,
                 lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
                 lastFailedBatchId: postSave.lastFailedBatchId,
-                lastCloudConfirmedRevision: saveKind === 'cloud-confirmed' ? Math.max(state.localRevision + (didPersist ? 1 : 0), state.lastCloudConfirmedRevision) : state.lastCloudConfirmedRevision,
+                lastCloudConfirmedRevision: hasConfirmedCloudReceipt
+                  ? Math.max(nextLocalRevision, state.lastCloudConfirmedRevision)
+                  : state.lastCloudConfirmedRevision,
                 pendingBatchCount: 0,
                 localSaveState: 'saved',
-                cloudSyncState: saveKind === 'cloud-confirmed' ? 'confirmed' : (state.connectivityState === 'offline' ? 'offline-pending' : 'queued'),
+                cloudSyncState: mode !== 'supabase'
+                  ? 'confirmed'
+                  : hasConfirmedCloudReceipt
+                    ? 'confirmed'
+                    : state.connectivityState === 'offline'
+                      ? 'offline-pending'
+                      : (nextLocalRevision > state.lastCloudConfirmedRevision ? 'queued' : 'confirmed'),
                 trustState: postSave.sessionDegraded ? 'degraded' : (postSave.sessionTrustState === 'recovered' ? 'recovered' : 'healthy'),
                 outboxState: 'idle',
                 unresolvedOutboxCount: 0,

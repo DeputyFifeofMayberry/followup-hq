@@ -73,7 +73,47 @@ function testPersistedSupabaseSavePromotesTrust(): void {
   assert(state.sessionTrustState === 'recovered', 'confirmed cloud save should mark recovered session trust state');
 }
 
+function testSupabasePersistWithoutCommittedReceiptStaysPendingCloud(): void {
+  const state = resolvePostSaveMetaState({
+    persistenceMode: 'supabase',
+    syncState: 'dirty',
+    cloudSyncStatus: 'pending-cloud',
+    loadedFromLocalRecoveryCache: false,
+    lastSyncedAt: '2026-04-05T10:00:00.000Z',
+    lastCloudConfirmedAt: '2026-04-05T10:00:00.000Z',
+    lastLocalWriteAt: '2026-04-05T10:00:00.000Z',
+    lastFallbackRestoreAt: undefined,
+    sessionTrustState: 'healthy',
+    sessionDegraded: false,
+    sessionDegradedReason: 'none',
+    sessionDegradedAt: undefined,
+    sessionDegradedClearedByCloudSave: false,
+    sessionTrustRecoveredAt: undefined,
+    lastSuccessfulPersistAt: undefined,
+    lastSuccessfulCloudPersistAt: '2026-04-05T10:00:00.000Z',
+    lastConfirmedBatchId: undefined,
+    lastConfirmedBatchCommittedAt: undefined,
+    lastReceiptStatus: undefined,
+    lastReceiptHashMatch: undefined,
+    lastReceiptSchemaVersion: undefined,
+    lastReceiptTouchedTables: undefined,
+    lastReceiptOperationCount: undefined,
+    lastReceiptOperationCountsByEntity: undefined,
+    lastFailedBatchId: undefined,
+  }, 'supabase', '2026-04-05T11:00:00.000Z', true, {
+    attemptedAt: '2026-04-05T11:00:00.000Z',
+    completedTables: [],
+    staleDeleteWarnings: [],
+    receiptStatus: 'received',
+  });
+
+  assert(state.cloudSyncStatus === 'pending-cloud', 'uncommitted receipt should remain pending-cloud');
+  assert(state.lastCloudConfirmedAt === '2026-04-05T10:00:00.000Z', 'uncommitted receipt should not update cloud confirmation timestamp');
+  assert(state.lastConfirmedBatchId === undefined, 'uncommitted receipt should not synthesize confirmed batch id');
+}
+
 (function run() {
   testNoOpSavePreservesConservativeTrust();
   testPersistedSupabaseSavePromotesTrust();
+  testSupabasePersistWithoutCommittedReceiptStaysPendingCloud();
 })();

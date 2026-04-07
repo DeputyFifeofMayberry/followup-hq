@@ -27,6 +27,7 @@ import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedContro
 import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
 import { ReminderCenterControl } from './components/ReminderCenterControl';
+import { AppToastHost } from './components/app/AppToastHost';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 
 type WorkspaceKey = ModeWorkspaceKey;
@@ -663,6 +664,7 @@ function MainApp({ session }: { session: Session }) {
       <MergeModal />
       <FollowUpDraftModal />
       <UniversalRecordDrawer />
+      <AppToastHost />
     </div>
   );
 }

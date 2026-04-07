@@ -117,6 +117,7 @@ export interface AppStoreActions {
   setTaskOwnerFilter: (value: string) => void;
   setTaskStatusFilter: (value: 'All' | TaskStatus) => void;
   openCreateTaskModal: () => void;
+  openCreateWorkModal: () => void;
   openCreateFromCapture: (draft: UniversalCaptureDraft) => void;
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;

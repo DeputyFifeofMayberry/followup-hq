@@ -1,4 +1,5 @@
 import { createId, todayIso } from '../../lib/utils';
+import { getRecentWorkMode } from '../../lib/dataEntryDefaults';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceGet, SliceSet } from './types';
@@ -10,7 +11,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
   'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
-  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
+  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateWorkModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
   'openRecordEditor' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
 > {
   return {
@@ -158,6 +159,19 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       activeEditorMode: 'create',
       recordSurfaceSource: 'create_button',
       createWorkDraft: null,
+    }),
+    openCreateWorkModal: () => set(() => {
+      const recentMode = getRecentWorkMode();
+      return {
+        itemModal: recentMode === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
+        taskModal: recentMode === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
+        recordDrawerRef: null,
+        activeRecordSurface: 'full_editor',
+        activeRecordRef: { type: recentMode, id: recentMode === 'task' ? 'new-task' : 'new-followup' },
+        activeEditorMode: 'create',
+        recordSurfaceSource: 'create_button',
+        createWorkDraft: null,
+      };
     }),
     openCreateFromCapture: (draft) => set({
       createWorkDraft: draft,

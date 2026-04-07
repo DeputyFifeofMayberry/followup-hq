@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-07
+
+### Overview primary create action wording alignment
+- Replaced Overview’s misleading `New follow-up` primary CTA with a unified `Create work item` action wired to a neutral shared create opener that respects the last used work type.
+- Added a dedicated `openCreateWorkModal` store action and new workspace action key so Overview launches shared create without follow-up-biased labeling while Follow Ups/Tasks keep workspace-specific wording.
+- Updated `CreateWorkModal` create-mode vocabulary to consistently use `Create work item` + `Work type` helper language across the header and editor guidance.
+
 ## 2026-04-06
 
 ### Save-system overhaul Phase 2: verification + recovery center

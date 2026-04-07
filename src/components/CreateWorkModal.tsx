@@ -312,12 +312,13 @@ export function CreateWorkModal() {
         }
       }}>
         <AppModalHeader
-          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create record'}
-          subtitle={followUpEditing || taskEditing ? 'Full edit is the deep destination for broad record changes.' : 'Start with quick create fields. Open full editor fields only if needed.'}
+          title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create work item'}
+          subtitle={followUpEditing || taskEditing ? 'Full edit is the deep destination for broad record changes.' : 'Choose a work type, then start with quick create fields. Open full editor fields only if needed.'}
           onClose={close}
         />
         <AppModalBody>
           <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Work type</span>
             <button onClick={() => setMode('followup')} className={mode === 'followup' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Follow-up</button>
             <button onClick={() => setMode('task')} className={mode === 'task' ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>Task</button>
             <button onClick={() => setShowFullFields((value) => !value)} className={showFullFields ? 'saved-view-card saved-view-card-active' : 'saved-view-card'}>
@@ -327,8 +328,8 @@ export function CreateWorkModal() {
 
           <RecordEditorShell>
             <RecordEditorHeader
-              title={mode === 'followup' ? 'Follow-up editor' : 'Task editor'}
-              subtitle={showFullFields ? 'Deep edit fields are visible.' : 'Quick create/edit fields only: title, due date, ownership, and next move.'}
+              title={mode === 'followup' ? 'Work type: Follow-up' : 'Work type: Task'}
+              subtitle={showFullFields ? 'Full fields are visible for this work item.' : 'Quick fields only: title, due date, ownership, and next move.'}
             />
 
             {mode === 'followup' ? (
@@ -357,9 +358,9 @@ export function CreateWorkModal() {
         <AppModalFooter>
           <RecordEditorFooter>
             <button onClick={close} className="action-btn">Cancel</button>
-            {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and add another</button> : null}
+            {!(followUpEditing || taskEditing) ? <button onClick={() => save(true)} className="action-btn">Save and create another</button> : null}
             <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
-              {followUpEditing || taskEditing ? 'Save changes' : 'Save record'}
+              {followUpEditing || taskEditing ? 'Save changes' : 'Save work item'}
             </button>
           </RecordEditorFooter>
         </AppModalFooter>

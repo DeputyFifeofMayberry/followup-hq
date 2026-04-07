@@ -411,22 +411,32 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   options,
+  ariaLabel = 'Segmented control',
+  className = '',
 }: {
   value: T;
   onChange: (value: T) => void;
-  options: Array<{ value: T; label: string }>;
+  options: Array<{ value: T; label: ReactNode; ariaLabel?: string }>;
+  ariaLabel?: string;
+  className?: string;
 }) {
   return (
-    <div className="segmented-control" role="tablist" aria-label="Segmented control">
+    <div className={`segmented-control ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
       {options.map((option, index) => {
         const active = value === option.value;
         const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();
-          const nextIndex = event.key === 'ArrowRight'
-            ? (index + 1) % options.length
-            : (index - 1 + options.length) % options.length;
+          const nextIndex = event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? options.length - 1
+              : event.key === 'ArrowRight'
+                ? (index + 1) % options.length
+                : (index - 1 + options.length) % options.length;
           onChange(options[nextIndex].value);
+          const sibling = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')?.[nextIndex];
+          sibling?.focus();
         };
 
         return (
@@ -438,6 +448,7 @@ export function SegmentedControl<T extends string>({
             className={active ? 'segmented-control-btn segmented-control-btn-active' : 'segmented-control-btn'}
             role="tab"
             aria-selected={active}
+            aria-label={option.ariaLabel}
             tabIndex={active ? 0 : -1}
           >
             {option.label}

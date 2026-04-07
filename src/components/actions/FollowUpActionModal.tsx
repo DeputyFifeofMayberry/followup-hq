@@ -54,9 +54,11 @@ export function FollowUpActionModal({ item, action, onClose, followUpActions, on
     });
   }, [item, action]);
 
+  const linkedSummary = `${item?.openLinkedTaskCount ?? 0} open of ${item?.linkedTaskCount ?? 0} linked tasks`;
+
   const actionMeta = useMemo(() => {
     if (!action) return null;
-    if (action === 'close') return { title: 'Close follow-up', confirm: overrideClose ? 'Close with override' : 'Close follow-up', subtitle: 'Mark this follow-up complete and capture closure context.' };
+    if (action === 'close') return { title: 'Close follow-up', confirm: overrideClose ? 'Confirm close with override' : 'Confirm and close', subtitle: 'Complete this follow-up with a focused closeout summary.' };
     if (action === 'waiting_on_response') return { title: 'Mark waiting on response', confirm: 'Mark waiting', subtitle: 'Capture who owns the next response and when you will check in.' };
     if (action === 'snooze') return { title: 'Snooze follow-up', confirm: 'Snooze', subtitle: 'Move the next review date without losing follow-up context.' };
     if (action === 'delete') return { title: 'Delete follow-up', confirm: 'Delete follow-up', subtitle: 'Permanently remove this follow-up record.' };
@@ -166,12 +168,23 @@ export function FollowUpActionModal({ item, action, onClose, followUpActions, on
           <div className="space-y-3">
             <ActionRecordContext title={item.title} status={item.status} />
             {action === 'close' ? (
-              <NotesSection
-                label="Completion note"
-                value={drafts.close.note}
-                onChange={(value) => setDrafts((current) => ({ ...current, close: { note: value } }))}
-                placeholder="Record what changed and why this is complete."
-              />
+              <div className="followup-close-flow">
+                <section className="followup-close-section">
+                  <div className="followup-close-kicker">Completion summary</div>
+                  <NotesSection
+                    label="Closure note"
+                    value={drafts.close.note}
+                    onChange={(value) => setDrafts((current) => ({ ...current, close: { note: value } }))}
+                    placeholder="What is complete, what changed, and why this can be closed."
+                  />
+                </section>
+                {(item.linkedTaskCount ?? 0) > 0 ? (
+                  <section className="followup-close-section followup-close-linked">
+                    <div className="followup-close-kicker">Linked work check</div>
+                    <p className="text-xs text-slate-600">{linkedSummary}</p>
+                  </section>
+                ) : null}
+              </div>
             ) : null}
             {action === 'waiting_on_response' ? (
               <>

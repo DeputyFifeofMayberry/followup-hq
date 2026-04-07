@@ -124,7 +124,8 @@ export type SavedViewKey =
   | 'Waiting on others'
   | 'Ready to close'
   | 'Promises due this week'
-  | 'Blocked by child tasks';
+  | 'Blocked by child tasks'
+  | 'Closed';
 
 export type FollowUpDateRange = 'all' | 'overdue' | 'today' | 'this_week' | 'next_7_days';
 

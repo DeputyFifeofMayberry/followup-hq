@@ -8,6 +8,7 @@ function assert(condition: boolean, message: string) {
 const mock = {
   failTable: '' as string,
   failure: null as unknown,
+  contractReport: null as unknown,
   rpcFailure: null as unknown,
   rpcResult: { status: 'committed' as string },
 };
@@ -26,6 +27,10 @@ const mock = {
 });
 
 (supabase as any).rpc = async (fn: string) => {
+  if (fn === 'get_persistence_contract_report') {
+    if (mock.contractReport) return { data: mock.contractReport, error: null };
+    return { data: { status: 'healthy', backendContractVersion: '2026-04-07.2', migrationSignaturePresent: true }, error: null };
+  }
   if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
   if (mock.rpcFailure) return { data: null, error: mock.rpcFailure };
   return { data: mock.rpcResult, error: null };
@@ -35,6 +40,7 @@ function reset() {
   resetPersistenceSchemaHealthCache();
   mock.failTable = '';
   mock.failure = null;
+  mock.contractReport = null;
   mock.rpcFailure = null;
   mock.rpcResult = { status: 'committed' };
 }
@@ -43,6 +49,20 @@ async function run() {
   reset();
   const healthy = await runPersistenceSchemaHealthCheck('user-1', { force: true });
   assert(healthy.status === 'healthy', 'healthy schema should report healthy');
+
+  reset();
+  mock.contractReport = {
+    status: 'missing_column',
+    failingTable: 'follow_up_items',
+    failingColumn: 'deleted_at',
+    details: 'Required column public.follow_up_items.deleted_at is missing.',
+    migrationSignaturePresent: false,
+  };
+  const reportMismatch = await runPersistenceSchemaHealthCheck('user-1', { force: true });
+  assert(reportMismatch.status === 'missing_column', 'structured report mismatch should classify correctly');
+  assert(reportMismatch.failingTable === 'follow_up_items', 'structured report mismatch should preserve failing table');
+  assert(reportMismatch.isBackendContractIssue === true, 'structured report mismatch should flag backend contract issue');
+  assert(reportMismatch.wrongProjectLikely === true, 'missing signature should mark wrong project likely');
 
   reset();
   mock.failTable = 'follow_up_items';

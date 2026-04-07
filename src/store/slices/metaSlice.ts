@@ -41,6 +41,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           loadFailureStage,
           loadFailureMessage,
           loadFailureRecoveredWithLocalCache,
+          backendFailureKind,
           localRevision,
           lastCloudConfirmedRevision,
           lastCommittedBatchId,
@@ -62,9 +63,10 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           loadFailureStage,
           loadFailureMessage,
           loadFailureRecoveredWithLocalCache,
+          backendFailureKind,
         });
-        const fallbackFailure = cloudReadFailed && loadedFromFallback
-          ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage)
+        const fallbackFailure = loadedFromFallback
+          ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage, backendFailureKind)
           : undefined;
         const unresolvedOutbox = await listUnresolvedOutboxEntries(await loadOutboxState());
         if (unresolvedOutbox.length > 0) incrementMetric('outboxRestoresOnStartup', unresolvedOutbox.length);

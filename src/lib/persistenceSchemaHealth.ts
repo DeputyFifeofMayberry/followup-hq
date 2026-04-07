@@ -20,10 +20,14 @@ export interface PersistenceSchemaHealthResult {
   status: PersistenceSchemaHealthStatus;
   checkedAt: string;
   supabaseHost: string;
+  isBackendContractIssue: boolean;
   failingTable?: RequiredTable;
   schemaQualifiedTable?: string;
-  failingColumn?: string;
   failingRpc?: 'apply_save_batch';
+  failingColumn?: string;
+  backendContractVersion?: string;
+  migrationSignaturePresent?: boolean;
+  wrongProjectLikely?: boolean;
   errorCode?: string;
   message?: string;
   normalized?: NormalizedPersistenceError;
@@ -93,19 +97,77 @@ function toFailureResult(input: {
   table?: RequiredTable;
   normalized: NormalizedPersistenceError;
   failingRpc?: 'apply_save_batch';
+  failingColumn?: string;
+  details?: string;
+  backendContractVersion?: string;
+  migrationSignaturePresent?: boolean;
+  wrongProjectLikely?: boolean;
 }): PersistenceSchemaHealthResult {
+  const isBackendContractIssue = input.status === 'missing_table' || input.status === 'missing_column' || input.status === 'missing_rpc';
   return {
     status: input.status,
     checkedAt: new Date().toISOString(),
     supabaseHost: getSupabaseHost(),
+    isBackendContractIssue,
     failingTable: input.table,
     schemaQualifiedTable: input.table ? schemaQualified(input.table) : undefined,
-    failingColumn: input.status === 'missing_column' ? extractMissingColumn(input.normalized) : undefined,
+    failingColumn: input.status === 'missing_column' ? (input.failingColumn ?? extractMissingColumn(input.normalized)) : undefined,
     failingRpc: input.failingRpc,
+    backendContractVersion: input.backendContractVersion,
+    migrationSignaturePresent: input.migrationSignaturePresent,
+    wrongProjectLikely: input.wrongProjectLikely,
     errorCode: input.normalized.code,
     message: input.normalized.message,
     normalized: input.normalized,
-    details: input.normalized.details,
+    details: input.details ?? input.normalized.details,
+  };
+}
+
+type ContractRpcReport = {
+  status?: 'healthy' | 'missing_table' | 'missing_column' | 'missing_rpc';
+  failingTable?: RequiredTable;
+  failingColumn?: string;
+  failingRpc?: 'apply_save_batch';
+  backendContractVersion?: string;
+  migrationSignaturePresent?: boolean;
+  details?: string;
+};
+
+async function checkStructuredContractReport(): Promise<{ ok: true } | { ok: false; result: PersistenceSchemaHealthResult }> {
+  const { data, error } = await supabase.rpc('get_persistence_contract_report');
+  if (error) {
+    const normalized = normalizeFailure('rpc', error);
+    const code = normalized.code?.toUpperCase();
+    if (code === 'PGRST202') {
+      // Legacy deployments may not have the helper yet. Continue with per-table probes.
+      return { ok: true };
+    }
+    const status = classifyFailure(normalized);
+    return {
+      ok: false,
+      result: toFailureResult({ status, normalized }),
+    };
+  }
+
+  const report = (data ?? {}) as ContractRpcReport;
+  const status = report.status ?? 'healthy';
+  if (status === 'healthy') return { ok: true };
+
+  const wrongProjectLikely = report.migrationSignaturePresent === false;
+  const normalized = normalizeFailure('rpc', new Error(report.details ?? `Backend contract status ${status}`));
+  return {
+    ok: false,
+    result: toFailureResult({
+      status,
+      table: report.failingTable,
+      normalized,
+      failingRpc: report.failingRpc,
+      failingColumn: report.failingColumn,
+      details: report.details,
+      backendContractVersion: report.backendContractVersion,
+      migrationSignaturePresent: report.migrationSignaturePresent,
+      wrongProjectLikely,
+    }),
   };
 }
 
@@ -176,6 +238,12 @@ export async function runPersistenceSchemaHealthCheck(userId: string, options?: 
     if (cached) return cached;
   }
 
+  const structuredOutcome = await checkStructuredContractReport();
+  if (structuredOutcome.ok === false) {
+    resultCache.set(key, structuredOutcome.result);
+    return structuredOutcome.result;
+  }
+
   for (const table of REQUIRED_ENTITY_TABLES) {
     const outcome = await checkEntityTableReachability(userId, table);
     if (outcome.ok === false) {
@@ -200,6 +268,7 @@ export async function runPersistenceSchemaHealthCheck(userId: string, options?: 
     status: 'healthy',
     checkedAt: new Date().toISOString(),
     supabaseHost: getSupabaseHost(),
+    isBackendContractIssue: false,
   };
   resultCache.set(key, healthy);
   return healthy;

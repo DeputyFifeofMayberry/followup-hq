@@ -91,11 +91,16 @@ export const useAppStore = create<AppStore>()((set, get) => {
             });
           },
           onSaving: ({ reason }) => set((state) => {
-            const summary = reason === 'retry'
-              ? 'Retry in progress.'
-              : reason === 'manual'
-                ? 'Saving latest changes.'
-                : 'Saving latest changes.';
+            const backendBlocked = state.sessionDegradedReason === 'backend-schema-mismatch' || state.sessionDegradedReason === 'backend-rpc-missing';
+            const summary = backendBlocked
+              ? state.sessionDegradedReason === 'backend-rpc-missing'
+                ? 'Cloud sync blocked by missing RPC.'
+                : 'Cloud sync blocked by schema mismatch.'
+              : reason === 'retry'
+                ? 'Retry in progress.'
+                : reason === 'manual'
+                  ? 'Saving latest changes.'
+                  : 'Saving latest changes.';
             return {
               syncState: 'saving',
               outboxState: 'flushing',
@@ -113,10 +118,15 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
                 : '';
               const recoveredByCloudSave = state.sessionDegraded && !postSave.sessionDegraded && postSave.sessionDegradedClearedByCloudSave;
+              const backendBlocked = state.sessionDegradedReason === 'backend-schema-mismatch' || state.sessionDegradedReason === 'backend-rpc-missing'
+                || diagnostics?.failureKind === 'backend_missing_rpc'
+                || diagnostics?.failureKind === 'backend_schema_mismatch';
               const saveSummary = reason === 'retry'
                 ? recoveredByCloudSave
                   ? 'Retry completed and trust restored.'
                   : 'Retry completed.'
+                : backendBlocked
+                  ? 'Local changes remain protected until backend contract is repaired.'
                 : saveKind === 'cloud-confirmed'
                   ? 'Changes confirmed to cloud.'
                   : saveKind === 'local-only'
@@ -126,7 +136,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
                 : saveKind === 'local-only'
                   ? `Your latest updates are saved on this device.${staleDeleteDetail}`
-                  : 'No new changes were detected.';
+                  : backendBlocked
+                    ? (state.sessionDegradedReason === 'backend-rpc-missing'
+                      ? 'Save skipped: cloud sync is blocked because apply_save_batch is missing in the connected Supabase project.'
+                      : 'Save skipped: cloud sync is blocked until the Supabase schema contract is repaired.')
+                    : 'No new changes were detected.';
               const recoveredEvent = recoveredByCloudSave
                 ? createPersistenceActivityEvent({
                   kind: 'saved',

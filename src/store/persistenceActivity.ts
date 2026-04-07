@@ -42,16 +42,45 @@ export function appendPersistenceActivity(
       return [{ ...next, id: prior.id }, ...pruned].slice(0, max);
     }
   }
+  if (next.summary.startsWith('Cloud sync blocked by')) {
+    const priorIndex = existing.findIndex((event) => event.summary === next.summary && event.detail === next.detail);
+    if (priorIndex >= 0) {
+      const prior = existing[priorIndex];
+      const pruned = existing.filter((event, index) => index !== priorIndex);
+      return [{ ...next, id: prior.id }, ...pruned].slice(0, max);
+    }
+  }
   return [next, ...existing].slice(0, max);
 }
 
-export function describeLoadFallbackFailure(stage?: LoadFailureStage, message?: string): { summary: string; detail: string } {
+export function describeLoadFallbackFailure(
+  stage?: LoadFailureStage,
+  message?: string,
+  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'permissions' | 'auth' | 'unknown',
+): { summary: string; detail: string } {
   const normalizedMessage = message
     ? formatPersistenceErrorMessage(normalizePersistenceError(message, { stage, operation: 'load' }))
     : undefined;
 
-  const missingSchema = normalizedMessage?.includes('Missing table:') || normalizedMessage?.includes('PGRST205');
+  if (backendFailureKind === 'schema-mismatch') {
+    return {
+      summary: 'Cloud sync blocked by schema mismatch.',
+      detail: normalizedMessage
+        ? `Changes are saved locally. Cloud sync is blocked until the Supabase schema is updated. Technical detail: ${normalizedMessage}`
+        : 'Changes are saved locally. Cloud sync is blocked until the Supabase schema is updated.',
+    };
+  }
 
+  if (backendFailureKind === 'missing-rpc') {
+    return {
+      summary: 'Cloud sync blocked by missing RPC.',
+      detail: normalizedMessage
+        ? `Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing. Technical detail: ${normalizedMessage}`
+        : 'Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing.',
+    };
+  }
+
+  const missingSchema = normalizedMessage?.includes('Missing table:') || normalizedMessage?.includes('PGRST205');
   if (missingSchema) {
     return {
       summary: 'Opened using protected local data.',

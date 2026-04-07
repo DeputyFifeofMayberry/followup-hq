@@ -145,6 +145,8 @@ function testBackendSetupIssueMapsToSavedLocally(): void {
     cloudSyncStatus: 'cloud-save-failed-local-preserved',
   } as any);
   assert(backendRpcModel.stateLabel === 'Saved locally', `expected Saved locally for backend rpc mismatch, got ${backendRpcModel.stateLabel}`);
+  assert(backendRpcModel.modeLabel === 'Protected local fallback', `expected protected local fallback mode, got ${backendRpcModel.modeLabel}`);
+  assert(backendRpcModel.trustLabel === 'Cloud trust blocked by missing RPC', `expected missing RPC trust label, got ${backendRpcModel.trustLabel}`);
 }
 
 function testFailureNarrativesAreCalmAndSpecific(): void {

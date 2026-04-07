@@ -93,8 +93,9 @@ export function SyncStatusControl() {
               <span>{statusModel.modeLabel}</span>
             </div>
             <div className="sync-status-row-detail">{statusModel.modeDescription}</div>
-            <div className="sync-status-row-detail">Local/browser mode: {syncMeta.persistenceMode === "supabase" ? "Cloud-backed" : "Local/browser mode"}</div>
-            <div className="sync-status-row-detail">Signed in as cloud-backed workspace user.</div>
+            <div className="sync-status-row-detail">
+              Account session: {syncMeta.persistenceMode === 'supabase' ? 'Signed in' : 'Local workspace session'}.
+            </div>
           </div>
 
           <div className="sync-status-row">
@@ -117,7 +118,7 @@ export function SyncStatusControl() {
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Session trust</span>
-            <div className="sync-status-row-detail">{statusModel.trustLabel ?? (isBackendSetupIssue ? 'Protected local mode: cloud setup required.' : 'Session trust status unavailable.')}</div>
+            <div className="sync-status-row-detail">{statusModel.trustLabel ?? (isBackendSetupIssue ? 'Cloud trust blocked by backend contract issue.' : 'Session trust status unavailable.')}</div>
             {statusModel.trustDescription ? <div className="sync-status-row-detail">{statusModel.trustDescription}</div> : null}
             {syncMeta.sessionDegraded ? (
               <>
@@ -209,11 +210,11 @@ export function SyncStatusControl() {
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Local revision</div>
-                <div className="sync-status-row-detail">{syncMeta.localRevision}</div>
+                <div className="sync-status-row-detail">{syncMeta.localRevision} (durable local snapshot version)</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Confirmed revision</div>
-                <div className="sync-status-row-detail">{syncMeta.lastCloudConfirmedRevision}</div>
+                <div className="sync-status-row-detail">{syncMeta.lastCloudConfirmedRevision} (last cloud-confirmed version)</div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Pending batches</div>
@@ -231,6 +232,14 @@ export function SyncStatusControl() {
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Connected Supabase host</div>
                 <div className="sync-status-row-detail">{getSupabaseHost()}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Backend contract diagnostics</div>
+                <div className="sync-status-row-detail">
+                  {isBackendSetupIssue
+                    ? (syncMeta.lastLoadFailureMessage ?? 'Cloud contract check failed; verify migrations are applied to this Supabase project.')
+                    : 'No contract drift detected in this session.'}
+                </div>
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Last confirmed batch ID</div>

@@ -1,5 +1,5 @@
 import { deriveSyncMetaFromLoadResult } from '../syncMetaDerivation';
-import { describeLoadFallbackFailure } from '../../persistenceActivity';
+import { appendPersistenceActivity, createPersistenceActivityEvent, describeLoadFallbackFailure } from '../../persistenceActivity';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -89,6 +89,64 @@ function testFallbackCopyIsCalmAndNonJargony(): void {
   assert(!fallback.summary.toLowerCase().includes('failed'), `summary should avoid alarming failure-first wording: ${fallback.summary}`);
 }
 
+function testBackendSchemaMismatchMapsToExplicitDegradedReason(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'local-cache',
+    cacheStatus: 'pending',
+    loadedFromFallback: true,
+    cloudReadFailed: true,
+    backendFailureKind: 'schema-mismatch',
+    loadFailureStage: 'follow_up_items',
+    loadFailureMessage: 'column public.follow_up_items.deleted_at does not exist',
+  });
+  assert(meta.sessionDegradedReason === 'backend-schema-mismatch', `expected backend-schema-mismatch, got ${meta.sessionDegradedReason}`);
+}
+
+function testBackendMissingRpcMapsToExplicitDegradedReason(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'local-cache',
+    cacheStatus: 'pending',
+    loadedFromFallback: true,
+    cloudReadFailed: true,
+    backendFailureKind: 'missing-rpc',
+    loadFailureStage: 'schema_preflight',
+    loadFailureMessage: 'Could not find the function public.apply_save_batch(batch)',
+  });
+  assert(meta.sessionDegradedReason === 'backend-rpc-missing', `expected backend-rpc-missing, got ${meta.sessionDegradedReason}`);
+}
+
+function testContractFailureActivityIsDeduplicated(): void {
+  const first = createPersistenceActivityEvent({
+    kind: 'saved',
+    summary: 'Cloud sync blocked by schema mismatch.',
+    detail: 'Local changes remain protected until backend contract is repaired.',
+  });
+  const second = createPersistenceActivityEvent({
+    kind: 'saved',
+    summary: 'Cloud sync blocked by schema mismatch.',
+    detail: 'Local changes remain protected until backend contract is repaired.',
+  });
+  const entries = appendPersistenceActivity(appendPersistenceActivity([], first), second);
+  assert(entries.length === 1, `expected deduped blocked contract event, got ${entries.length}`);
+}
+
+function testFallbackPreservesRevisionMetadataHints(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'local-cache',
+    cacheStatus: 'pending',
+    loadedFromFallback: true,
+    cloudReadFailed: true,
+    backendFailureKind: 'schema-mismatch',
+    localCacheUpdatedAt: '2026-04-06T00:00:00.000Z',
+    localCacheLastCloudConfirmedAt: '2026-04-05T00:00:00.000Z',
+  });
+  assert(meta.lastLocalWriteAt === '2026-04-06T00:00:00.000Z', `expected preserved local write timestamp, got ${meta.lastLocalWriteAt}`);
+  assert(meta.lastCloudConfirmedAt === '2026-04-05T00:00:00.000Z', `expected preserved cloud confirmed timestamp, got ${meta.lastCloudConfirmedAt}`);
+}
+
 (function run() {
   testCloudConfirmedLoad();
   testBrowserLoadNotRecovery();
@@ -96,4 +154,8 @@ function testFallbackCopyIsCalmAndNonJargony(): void {
   testCloudReadFailureWithoutFallbackDoesNotLie();
   testLocalNewerThanCloud();
   testFallbackCopyIsCalmAndNonJargony();
+  testBackendSchemaMismatchMapsToExplicitDegradedReason();
+  testBackendMissingRpcMapsToExplicitDegradedReason();
+  testContractFailureActivityIsDeduplicated();
+  testFallbackPreservesRevisionMetadataHints();
 })();

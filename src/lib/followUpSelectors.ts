@@ -14,6 +14,7 @@ interface FollowUpSelectorInput {
 interface FollowUpViewScopeInput extends Omit<FollowUpSelectorInput, 'activeView'> {}
 
 export interface FollowUpViewCounts {
+  allItems: number;
   allOpen: number;
   needsNudge: number;
   atRisk: number;
@@ -43,6 +44,8 @@ function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['du
 function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem[] {
   const openItems = items.filter((item) => !isClosed(item));
   switch (view) {
+    case 'All items':
+      return items;
     case 'All':
       return openItems;
     case 'Closed':
@@ -126,6 +129,7 @@ export function selectFollowUpRows(input: FollowUpSelectorInput): FollowUpItem[]
 export function selectFollowUpViewCounts(input: FollowUpViewScopeInput): FollowUpViewCounts {
   const baseRows = applyBaseFilters(input.items, input);
   return {
+    allItems: applySavedView(baseRows, 'All items').length,
     allOpen: applySavedView(baseRows, 'All').length,
     needsNudge: applySavedView(baseRows, 'Needs nudge').length,
     atRisk: applySavedView(baseRows, 'At risk').length,

@@ -22,11 +22,13 @@ export function TrackerTable({
   appMode = personalMode ? 'personal' : 'team',
   embedded = false,
   selectedAttentionSignal,
+  onRowOpen,
 }: {
   personalMode?: boolean;
   appMode?: AppMode;
   embedded?: boolean;
   selectedAttentionSignal?: FollowUpAttentionSignal | null;
+  onRowOpen?: (id: string) => void;
 }) {
   const { items, contacts, companies, selectedId, setSelectedId, search, activeView, followUpFilters, followUpColumns, selectedFollowUpIds, toggleFollowUpSelection, selectAllVisibleFollowUps, markNudged, followUpTableDensity, openTouchModal, snoozeItem, updateItem, confirmFollowUpSent } = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -194,11 +196,12 @@ export function TrackerTable({
               return (
                 <tr
                   key={row.id}
-                  onClick={() => setSelectedId(row.original.id)}
+                  onClick={() => { setSelectedId(row.original.id); onRowOpen?.(row.original.id); }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
                       setSelectedId(row.original.id);
+                      onRowOpen?.(row.original.id);
                     }
                   }}
                   tabIndex={0}

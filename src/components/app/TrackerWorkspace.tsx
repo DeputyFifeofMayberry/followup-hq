@@ -4,12 +4,14 @@ import type { AppMode } from '../../types';
 import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
 import {
   AppBadge,
+  AppModal,
+  AppModalBody,
+  AppModalHeader,
+  ExecutionLaneFooterMeta,
   ExecutionLaneQueueCard,
   ExecutionLaneSelectionStrip,
-  ExecutionLaneFooterMeta,
   SectionHeader,
   WorkspacePage,
-  WorkspacePrimaryLayout,
   WorkspaceTopStack,
 } from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
@@ -27,6 +29,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
   const [handoffSummary, setHandoffSummary] = useState<string | null>(null);
   const [showDuplicateReview, setShowDuplicateReview] = useState(false);
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const selectedExecution = laneItems.find((item) => item.surface.id === laneContext.selectedItem?.id) ?? null;
   const selectedContext = buildExecutionSelectedContext(selectedExecution?.surface ?? null, lastExecutionRoute);
 
@@ -36,19 +39,18 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
     setHandoffSummary(describeHandoffMission(handoff));
     if (executionIntent.recordType === 'followup' && executionIntent.recordId) {
       setSelectedId(executionIntent.recordId);
+      setDetailModalOpen(true);
       setShowMobileDetail(true);
     }
     clearExecutionIntent();
   }, [executionIntent, clearExecutionIntent, setSelectedId]);
 
   useEffect(() => {
-    if (!isMobileLike) return;
     if (!laneContext.selectedItem) {
+      setDetailModalOpen(false);
       setShowMobileDetail(false);
-      return;
     }
-    setShowMobileDetail(true);
-  }, [isMobileLike, laneContext.selectedItem?.id]);
+  }, [laneContext.selectedItem?.id]);
 
   return (
     <WorkspacePage>
@@ -67,7 +69,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
           </div>
         </section>
       </WorkspaceTopStack>
-      <WorkspacePrimaryLayout className="tracker-main-grid" inspectorWidth="420px">
+      <div className="tracker-main-single">
         <ExecutionLaneQueueCard className="tracker-workspace-main">
           <ControlBar />
           {handoffSummary ? <div className="execution-lane-handoff-strip" role="status" aria-live="polite"><div className="execution-lane-handoff-summary">{handoffSummary}</div></div> : null}
@@ -91,6 +93,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             appMode={appMode}
             embedded
             selectedAttentionSignal={laneContext.attentionSignal}
+            onRowOpen={() => setDetailModalOpen(true)}
           />
           {isMobileLike && laneContext.selectedItem ? (
             <div className="tracker-mobile-detail-shell">
@@ -118,8 +121,19 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             />
           ) : null}
         </ExecutionLaneQueueCard>
-        {!isMobileLike ? <ItemDetailPanel personalMode={personalMode} /> : null}
-      </WorkspacePrimaryLayout>
+      </div>
+      {!isMobileLike && detailModalOpen && laneContext.selectedItem ? (
+        <AppModal size="inspector" onClose={() => setDetailModalOpen(false)} onBackdropClick={() => setDetailModalOpen(false)}>
+          <AppModalHeader
+            title="Follow-up details"
+            subtitle="Review context and execute next action without leaving the queue."
+            onClose={() => setDetailModalOpen(false)}
+          />
+          <AppModalBody>
+            <ItemDetailPanel personalMode={personalMode} inModal onRequestClose={() => setDetailModalOpen(false)} />
+          </AppModalBody>
+        </AppModal>
+      ) : null}
     </WorkspacePage>
   );
 }

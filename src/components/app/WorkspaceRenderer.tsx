@@ -26,7 +26,7 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTra
     case 'exports':
       return <ExportWorkspace />;
     case 'outlook':
-      return <OutlookPanel showAdvanced={false} setWorkspace={setWorkspace} />;
+      return <OutlookPanel />;
     case 'projects':
       return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} setWorkspace={setWorkspace} />;
     case 'relationships':

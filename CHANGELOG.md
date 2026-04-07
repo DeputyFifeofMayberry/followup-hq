@@ -2,6 +2,13 @@
 
 ## 2026-04-07
 
+
+### Follow Ups + Intake workspace overhaul
+- Follow Ups: removed the pinned selected-follow-up side inspector and converted row selection to a table-first modal detail flow, giving the queue full-width working space while preserving action depth (`src/components/app/TrackerWorkspace.tsx`, `src/components/ItemDetailPanel.tsx`, `src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+- Follow Ups: unified selected-record section tabs to the same segmented/tab family used by primary queue tabs and added an explicit delete action in the selected-record surface with confirmation via existing action modal (`src/components/ItemDetailPanel.tsx`).
+- Follow Ups: introduced a first-class `All items` view (includes closed) while preserving `All open` semantics and count separation (`src/types.ts`, `src/lib/followUpSelectors.ts`, `src/components/ControlBar.tsx`).
+- Create Work modal: tightened modal-body/editor-shell layout for independent body scrolling so lower follow-up/task form fields remain reachable on smaller viewports (`src/components/ui/AppPrimitives.tsx`, `src/styles/primitives.css`).
+- Intake: replaced forwarding/review-lane-centric intake orchestration in the active workspace with a manual drag-and-drop ingestion workflow including file list, parse status, extraction review, spreadsheet sheet filtering, and direct create-as-follow-up/task/manual outcomes (`src/components/OutlookPanel.tsx`, `src/components/UniversalIntakeWorkspace.tsx`, `src/components/ForwardingIntakeWorkspace.tsx`).
 ### Follow-ups execution lane reliability + UX cohesion pass
 - Fixed follow-up selector semantics so **All open** always excludes `Closed`, added a first-class **Closed** view, and centralized tab counts through canonical selector logic so counts and visible rows cannot disagree (`src/lib/followUpSelectors.ts`, `src/components/ControlBar.tsx`, `src/types.ts`).
 - Removed duplicate Follow Up creation CTA from the execution controls, shifted the page to a cleaner hierarchy (top CTA + segmented execution tabs + essential controls), and refreshed tab visuals/table header treatment to align with app primitives (`src/components/ControlBar.tsx`, `src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).

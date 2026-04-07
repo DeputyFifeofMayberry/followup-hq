@@ -143,12 +143,11 @@
 .modal-subtitle { margin-top: 0.22rem; font-size: 0.8rem; color: var(--text-muted); }
 .modal-body {
   padding: var(--space-4) 1.2rem;
-  display: grid;
-  gap: var(--space-4);
-  align-content: start;
+  display: block;
   flex: 1 1 auto;
   min-height: 0;
 }
+.record-editor-shell { display: grid; gap: 1rem; min-height: min-content; padding-bottom: 0.5rem; }
 .modal-body-scroll { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0.8rem; }
 .modal-body-static { overflow: visible; }
 

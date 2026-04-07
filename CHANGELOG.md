@@ -2,6 +2,14 @@
 
 ## 2026-04-07
 
+### Tasks workspace refactor (list-first daily execution workspace)
+- Removed the execution-lane shell framing from Tasks (summary band, lane handoff strip, selection strip, split queue/inspector layout) and replaced it with a shallower header + dominant single-column task list so the queue starts much higher and scans faster (`src/components/TaskWorkspace.tsx`).
+- Collapsed top controls to a practical default set (`Search`, one `View` selector, `Options`, `Add task`) and rebuilt secondary controls as one compact options panel with only high-value filters/sort fields plus reset (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Simplified view taxonomy to four daily-use states (`Today`, `Upcoming`, `Blocked`, `All open`), removed session presets/density/inspector preference chrome, and reduced filter-chip persistence noise to only meaningful multi-filter states (`src/components/TaskWorkspace.tsx`).
+- Reworked task rows around title → why-now + next move → quiet metadata, reduced badge clutter to decision-useful signals, and kept compact quick actions (`Done`, `Block/Unblock`) secondary to row selection (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Replaced the persistent right-side inspector with an on-demand modal detail flow that is record-first (`why now`, `best next move`, focused actions, linked context) while demoting maintenance/full edit actions below primary execution behavior (`src/components/TaskWorkspace.tsx`).
+- Simplified the tasks view model by removing execution-lane shared metric/queue dependencies no longer needed by the refactored Tasks workspace (`src/domains/tasks/hooks/useTasksViewModel.ts`).
+
 ### Follow Ups workspace refactor (queue-first execution pass)
 - Removed remaining top-of-page Follow Ups framing and stale handoff chrome so the tab now opens directly into compact controls + dominant table workflow (`src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`).
 - Rebuilt Follow Ups control hierarchy around primary queue states (`All items`, `All open`, `Needs nudge`, `At risk`, `Ready to close`, `Closed`) with explicit All-items vs All-open counts and one compact `View options` disclosure for secondary filtering/layout controls (`src/components/ControlBar.tsx`, `src/lib/followUpSelectors.ts`).

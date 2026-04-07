@@ -9,6 +9,10 @@ export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 
   savedFollowUpViews: SavedFollowUpCustomView[];
   followUpTableDensity: FollowUpTableDensity;
   followUpDuplicateModule: FollowUpDuplicateModuleMode;
+  reminderPreferences: PersistedPayload['auxiliary']['reminderPreferences'];
+  reminderLedger: PersistedPayload['auxiliary']['reminderLedger'];
+  reminderCenterSummary: PersistedPayload['auxiliary']['reminderCenterSummary'];
+  workspaceAttentionCounts: PersistedPayload['auxiliary']['workspaceAttentionCounts'];
 };
 
 export function buildPersistedPayload(state: PersistableAppState): PersistedPayload {
@@ -41,6 +45,10 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       savedFollowUpViews: state.savedFollowUpViews,
       followUpTableDensity: state.followUpTableDensity,
       followUpDuplicateModule: state.followUpDuplicateModule,
+      reminderPreferences: state.reminderPreferences,
+      reminderLedger: state.reminderLedger,
+      reminderCenterSummary: state.reminderCenterSummary,
+      workspaceAttentionCounts: state.workspaceAttentionCounts,
     },
   };
 }

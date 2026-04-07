@@ -20,6 +20,9 @@ import type {
   ContactRecord,
   OutlookConnectionSettings,
   ProjectRecord,
+  ReminderCandidate,
+  ReminderPermissionState,
+  ReminderPreferences,
   SavedViewKey,
   TaskItem,
   TaskStatus,
@@ -176,6 +179,15 @@ export interface AppStoreActions {
   addManualForwardRule: (ruleInput: Omit<ForwardedEmailRule, 'id' | 'source' | 'createdAt' | 'updatedAt'>) => void;
   updateForwardRule: (ruleId: string, patch: Partial<ForwardedEmailRule>) => void;
   deleteForwardRule: (ruleId: string) => void;
+  updateReminderPreferences: (patch: Partial<ReminderPreferences>) => void;
+  dismissReminder: (signature: string) => void;
+  clearReminderLedger: () => void;
+  requestReminderPermission: () => Promise<ReminderPermissionState>;
+  runReminderEvaluation: (reason?: string) => Promise<void>;
+  testReminderNotification: () => Promise<void>;
+  setReminderSchedulerState: (state: 'idle' | 'running' | 'paused') => void;
+  setReminderNextEvaluationAt: (nextPlannedEvaluationAt?: string) => void;
+  deliverEligibleReminders: (candidates: ReminderCandidate[], nowIso: string) => Promise<void>;
 }
 
 export type AppStoreState = AppBusinessState & AppUiState & AppMetaState;

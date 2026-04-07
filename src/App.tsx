@@ -26,6 +26,8 @@ import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
+import { ReminderCenterControl } from './components/ReminderCenterControl';
+import { useReminderScheduler } from './hooks/useReminderScheduler';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -188,7 +190,7 @@ function MainApp({ session }: { session: Session }) {
       setSelectedId: s.setSelectedId,
     })),
   );
-  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow } = useAppStore(
+  const { openCreateModal, openCreateTaskModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated } = useAppStore(
     useShallow((s) => ({
       openCreateModal: s.openCreateModal,
       openCreateTaskModal: s.openCreateTaskModal,
@@ -207,8 +209,11 @@ function MainApp({ session }: { session: Session }) {
       unresolvedOutboxCount: s.unresolvedOutboxCount,
       syncState: s.syncState,
       flushPersistenceNow: s.flushPersistenceNow,
+      workspaceAttentionCounts: s.workspaceAttentionCounts,
+      hydrated: s.hydrated,
     })),
   );
+  useReminderScheduler(hydrated);
 
   const [workspace, setWorkspace] = useState<WorkspaceKey>('worklist');
   const [appMode, setAppMode] = useState<AppMode>(() => {
@@ -293,9 +298,9 @@ function MainApp({ session }: { session: Session }) {
   const combinedCleanup = cleanupFollowUps + cleanupTasks;
 
   const navCounts: Partial<Record<WorkspaceKey, number>> = {
-    worklist: items.filter((item) => item.status !== 'Closed' && new Date(item.dueDate).getTime() <= Date.now() + 86400000).length,
-    followups: items.filter((item) => item.status !== 'Closed').length,
-    tasks: tasks.filter((task) => task.status !== 'Done').length,
+    worklist: workspaceAttentionCounts.worklist,
+    followups: workspaceAttentionCounts.followups,
+    tasks: workspaceAttentionCounts.tasks,
     outlook: combinedCleanup,
   };
 
@@ -479,6 +484,7 @@ function MainApp({ session }: { session: Session }) {
                 <div className="workspace-header-meta-top">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
                   <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                  <ReminderCenterControl />
                   <SyncStatusControl />
                   <div className="account-pill-shell">
                     <button

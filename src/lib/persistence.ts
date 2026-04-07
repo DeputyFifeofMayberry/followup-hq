@@ -100,6 +100,10 @@ export interface AppAuxiliaryState {
   savedFollowUpViews?: AppSnapshot['savedFollowUpViews'];
   followUpTableDensity?: AppSnapshot['followUpTableDensity'];
   followUpDuplicateModule?: AppSnapshot['followUpDuplicateModule'];
+  reminderPreferences?: AppSnapshot['reminderPreferences'];
+  reminderLedger?: AppSnapshot['reminderLedger'];
+  reminderCenterSummary?: AppSnapshot['reminderCenterSummary'];
+  workspaceAttentionCounts?: AppSnapshot['workspaceAttentionCounts'];
 }
 
 export interface PersistedPayload extends CoreEntities {
@@ -223,6 +227,10 @@ function buildFallbackSnapshot(): AppSnapshot {
     savedFollowUpViews: [],
     followUpTableDensity: 'compact',
     followUpDuplicateModule: 'auto',
+    reminderPreferences: undefined,
+    reminderLedger: [],
+    reminderCenterSummary: undefined,
+    workspaceAttentionCounts: undefined,
   };
 }
 
@@ -256,6 +264,10 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       savedFollowUpViews: snapshot.savedFollowUpViews ?? [],
       followUpTableDensity: snapshot.followUpTableDensity,
       followUpDuplicateModule: snapshot.followUpDuplicateModule,
+      reminderPreferences: snapshot.reminderPreferences,
+      reminderLedger: snapshot.reminderLedger ?? [],
+      reminderCenterSummary: snapshot.reminderCenterSummary,
+      workspaceAttentionCounts: snapshot.workspaceAttentionCounts,
     },
   };
 }

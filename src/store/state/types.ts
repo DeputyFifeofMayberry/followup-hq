@@ -21,6 +21,11 @@ import type {
   OutlookMessage,
   PersistenceMode,
   ProjectRecord,
+  ReminderCandidate,
+  ReminderCenterSummary,
+  ReminderLedgerEntry,
+  ReminderPermissionState,
+  ReminderPreferences,
   SavedExecutionView,
   SavedFollowUpCustomView,
   FollowUpAdvancedFilters,
@@ -34,6 +39,7 @@ import type {
   UnifiedQueueFilter,
   UnifiedQueuePreset,
   UnifiedQueueSort,
+  WorkspaceAttentionCounts,
   ExecutionIntent,
 } from '../../types';
 import type { UniversalCaptureDraft } from '../../lib/universalCapture';
@@ -273,4 +279,10 @@ export interface AppMetaState {
   lastConflictFailureMessage?: string;
   conflictQueue: ConflictQueueItem[];
   persistenceActivity: PersistenceActivityEvent[];
+  reminderPreferences: ReminderPreferences;
+  reminderLedger: ReminderLedgerEntry[];
+  reminderCenterSummary: ReminderCenterSummary;
+  workspaceAttentionCounts: WorkspaceAttentionCounts;
+  pendingReminders: ReminderCandidate[];
+  reminderPermissionState: ReminderPermissionState;
 }

@@ -50,11 +50,11 @@ function FollowUpEditorBody({ form, setForm, entityOptions, addProject, addConta
     <>
       <RecordEditorSection title="Core fields">
         <RecordEditorMetaGrid>
-          <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Title *</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
           <EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} />
-          <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
-          <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-          <div className="field-block field-block-span-2"><label className="field-label">Next action</label><textarea value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} className="field-textarea" /></div>
+          <div className="field-block"><label className="field-label">Owner / assignee *</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Due date *</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+          <div className="field-block field-block-span-2"><label className="field-label">Next move *</label><textarea value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })} className="field-textarea" /></div>
         </RecordEditorMetaGrid>
       </RecordEditorSection>
 
@@ -90,9 +90,9 @@ function TaskEditorBody({ form, setForm, entityOptions, addProject, addContact, 
     <>
       <RecordEditorSection title="Core fields">
         <RecordEditorMetaGrid>
-          <div className="field-block"><label className="field-label">Title</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Title *</label><input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="field-input" /></div>
           <EntityCombobox label="Project" valueId={form.projectId} valueLabel={form.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => setForm({ ...form, project: option.label, projectId: option.id })} onCreate={(label) => { const id = addProject({ name: label, owner: form.owner || '', status: 'Active', notes: '', tags: [] }); setForm({ ...form, project: label, projectId: id }); }} />
-          <div className="field-block"><label className="field-label">Owner / assignee</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
+          <div className="field-block"><label className="field-label">Owner / assignee *</label><input value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" /></div>
           <div className="field-block"><label className="field-label">Due date</label><input type="date" value={toDateInputValue(form.dueDate)} onChange={(e) => setForm({ ...form, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
           <div className="field-block field-block-span-2"><label className="field-label">Next step</label><textarea value={form.nextStep} onChange={(e) => setForm({ ...form, nextStep: e.target.value })} className="field-textarea" /></div>
         </RecordEditorMetaGrid>
@@ -304,7 +304,10 @@ export function CreateWorkModal() {
         <AppModalBody>
           {validationIssues.length > 0 ? (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              {validationIssues[0]?.message}
+              <div className="font-semibold">Please fix before saving:</div>
+              <ul className="mt-1 list-disc pl-4">
+                {validationIssues.map((issue) => <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>)}
+              </ul>
             </div>
           ) : null}
           <div className="create-work-controls">
@@ -326,7 +329,7 @@ export function CreateWorkModal() {
           <RecordEditorShell>
             <RecordEditorHeader
               title={mode === 'followup' ? 'Follow-up details' : 'Task details'}
-              subtitle="All fields are available in this editor."
+              subtitle="All fields are available in this editor. Fields marked * are required."
             />
 
             {mode === 'followup' ? (

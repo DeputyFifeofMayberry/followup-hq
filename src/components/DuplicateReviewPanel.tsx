@@ -35,7 +35,7 @@ export function DuplicateReviewPanel() {
           {duplicateReviews.length} duplicate flag{duplicateReviews.length === 1 ? '' : 's'}
         </button>
         <span className="text-xs text-slate-500">
-          {selectedHasDuplicates ? 'Possible duplicates for selected follow-up.' : 'No duplicate attention on selected follow-up.'}
+          {selectedHasDuplicates ? 'Possible duplicates for selected follow-up.' : 'Review flagged duplicates when needed.'}
         </span>
       </div>
 

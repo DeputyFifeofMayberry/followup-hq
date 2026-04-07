@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildFollowUpCounts, selectFollowUpRows } from '../../../lib/followUpSelectors';
-import { buildExecutionLaneMetrics, selectExecutionLaneItems } from '../../shared';
 
 export function useFollowUpsViewModel() {
   const store = useAppStore(
@@ -20,9 +19,6 @@ export function useFollowUpsViewModel() {
       setFollowUpFilters: s.setFollowUpFilters,
       executionIntent: s.executionIntent,
       clearExecutionIntent: s.clearExecutionIntent,
-      getUnifiedQueue: s.getUnifiedQueue,
-      executionLaneSessions: s.executionLaneSessions,
-      lastExecutionRoute: s.lastExecutionRoute,
     })),
   );
 
@@ -40,14 +36,6 @@ export function useFollowUpsViewModel() {
 
   const followUpStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
   const openTaskCount = useMemo(() => store.tasks.filter((task) => task.status !== 'Done').length, [store.tasks]);
-  const laneItems = useMemo(
-    () => selectExecutionLaneItems('followups', store.getUnifiedQueue(), { project: store.executionLaneSessions.followups.lastProjectScope ?? undefined }),
-    [store.getUnifiedQueue, store.executionLaneSessions.followups.lastProjectScope],
-  );
-  const executionMetrics = useMemo(
-    () => buildExecutionLaneMetrics(laneItems, store.selectedId, store.lastExecutionRoute),
-    [laneItems, store.selectedId, store.lastExecutionRoute],
-  );
 
-  return { ...store, filteredRows, followUpStats, openTaskCount, laneItems, executionMetrics };
+  return { ...store, filteredRows, followUpStats, openTaskCount };
 }

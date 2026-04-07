@@ -364,7 +364,9 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   const hasHardFailure = meta.syncState === 'error' || meta.cloudSyncState === 'failed' || meta.cloudSyncState === 'conflict' || meta.sessionDegraded;
   const hasLocalOnly = meta.cloudSyncState === 'offline-pending' || meta.loadedFromLocalRecoveryCache || meta.lastCloudConfirmedRevision < meta.localRevision;
-  const isSaving = meta.syncState === 'saving' || meta.localSaveState === 'saving' || meta.cloudSyncState === 'sending' || meta.cloudSyncState === 'queued';
+  const queuedWithActiveUnsavedWork = meta.cloudSyncState === 'queued'
+    && (meta.syncState === 'dirty' || meta.outboxState === 'flushing' || meta.hasLocalUnsavedChanges || meta.unsavedChangeCount > 0);
+  const isSaving = meta.syncState === 'saving' || meta.localSaveState === 'saving' || meta.cloudSyncState === 'sending' || queuedWithActiveUnsavedWork;
 
   if (hasHardFailure) {
     const isBackendSetupIssue = meta.sessionDegradedReason === 'backend-rpc-missing'

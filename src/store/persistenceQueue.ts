@@ -22,6 +22,7 @@ export interface SyncAttemptContext {
   hasUnresolvedBatches: boolean;
   localRevision: number;
   lastCloudConfirmedRevision: number;
+  persistenceMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading';
   online: boolean;
 }
 
@@ -59,9 +60,12 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   let pendingDirtyRefs = new Map<string, DirtyRecordRef>();
 
   const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' = 'auto'): Promise<void> => {
+    const syncContext = handlers.getSyncAttemptContext?.();
+    if (syncContext) {
+      lastMode = syncContext.persistenceMode;
+    }
     handlers.onSaving({ reason, attempt });
     const payload = handlers.getPayload();
-    const syncContext = handlers.getSyncAttemptContext?.();
     const shouldSync = syncContext ? shouldAttemptCloudSync(syncContext) : true;
 
     if (!shouldSync && pendingDirtyRefs.size === 0 && reason !== 'manual') {

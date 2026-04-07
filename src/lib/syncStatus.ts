@@ -182,7 +182,13 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
   };
 }
 
-function describePersistenceMode(mode: PersistenceMode): Pick<SyncStatusModel, 'modeLabel' | 'modeDescription'> {
+function describePersistenceMode(mode: PersistenceMode, backendSetupBlocked: boolean): Pick<SyncStatusModel, 'modeLabel' | 'modeDescription'> {
+  if (backendSetupBlocked) {
+    return {
+      modeLabel: 'Protected local fallback',
+      modeDescription: 'Signed in to cloud, but writes are protected locally until backend setup is complete.',
+    };
+  }
   if (mode === 'supabase') {
     return {
       modeLabel: 'Cloud-backed',
@@ -231,8 +237,8 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
 
   if (meta.sessionDegradedReason === 'backend-rpc-missing') {
     return {
-      reassurance: 'Changes are saved on this device.',
-      stateDescription: 'Cloud sync is blocked because the required RPC is missing.',
+      reassurance: 'Changes are saved locally.',
+      stateDescription: 'Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing.',
       tone: 'warn',
       stateTone: 'danger',
     };
@@ -240,8 +246,8 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
 
   if (meta.sessionDegradedReason === 'backend-schema-mismatch') {
     return {
-      reassurance: 'Changes are saved on this device.',
-      stateDescription: 'Cloud sync cannot start until the Supabase schema is updated.',
+      reassurance: 'Changes are saved locally.',
+      stateDescription: 'Changes are saved locally. Cloud sync is blocked until the Supabase schema is updated.',
       tone: 'warn',
       stateTone: 'danger',
     };
@@ -329,7 +335,8 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
 
 
 export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
-  const modeDetails = describePersistenceMode(meta.persistenceMode);
+  const backendSetupBlocked = meta.sessionDegradedReason === 'backend-rpc-missing' || meta.sessionDegradedReason === 'backend-schema-mismatch';
+  const modeDetails = describePersistenceMode(meta.persistenceMode, backendSetupBlocked);
 
   if (!meta.hydrated || meta.syncState === 'checking' || meta.persistenceMode === 'loading') {
     return {
@@ -357,12 +364,22 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
         ? 'Cloud setup required'
         : 'Cloud sync needs attention; your local copy is safe',
       reassurance: isBackendSetupIssue
-        ? 'Changes are saved on this device. Cloud setup is required to resume sync.'
+        ? 'Changes are saved locally. Cloud setup is required to resume sync.'
         : 'Cloud sync needs attention; your local copy is safe',
       tone: 'warn',
       stateTone: 'danger',
       showSpinner: false,
       ...modeDetails,
+      trustLabel: meta.sessionDegradedReason === 'backend-rpc-missing'
+        ? 'Cloud trust blocked by missing RPC'
+        : meta.sessionDegradedReason === 'backend-schema-mismatch'
+          ? 'Cloud trust blocked by schema mismatch'
+          : undefined,
+      trustDescription: meta.sessionDegradedReason === 'backend-rpc-missing'
+        ? 'Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing.'
+        : meta.sessionDegradedReason === 'backend-schema-mismatch'
+          ? 'Changes are saved locally. Cloud sync is blocked until the Supabase schema is updated.'
+          : undefined,
     };
   }
 

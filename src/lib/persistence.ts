@@ -147,6 +147,7 @@ export interface LoadResult {
   loadFailureStage?: LoadFailureStage;
   loadFailureMessage?: string;
   loadFailureRecoveredWithLocalCache?: boolean;
+  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'permissions' | 'auth' | 'unknown';
   localRevision?: number;
   lastCloudConfirmedRevision?: number;
   lastCommittedBatchId?: string;
@@ -360,12 +361,17 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     : undefined;
   const lastFailedBatchId = typeof asRecord.lastFailedBatchId === 'string' ? asRecord.lastFailedBatchId : undefined;
 
+  const toNonNegativeInt = (value: unknown): number => {
+    const next = Number(value);
+    return Number.isFinite(next) && next >= 0 ? Math.floor(next) : 0;
+  };
+
   return {
     entities: entities as PersistedPayload,
     updatedAt,
     cloudStatus,
-    localRevision: Number(asRecord.localRevision ?? 0),
-    lastCloudConfirmedRevision: Number(asRecord.lastCloudConfirmedRevision ?? 0),
+    localRevision: toNonNegativeInt(asRecord.localRevision),
+    lastCloudConfirmedRevision: toNonNegativeInt(asRecord.lastCloudConfirmedRevision),
     userId,
     lastCloudConfirmedAt,
     pendingOperations,
@@ -800,10 +806,10 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
   }
   if (result.status === 'missing_column' && table) {
     const columnDetail = result.failingColumn ? ` Missing column: ${table}.${result.failingColumn}.` : '';
-    return `Cloud persistence schema drift detected for ${table}${code}.${columnDetail}${host}`;
+    return `Cloud persistence schema drift detected for ${table}${code}.${columnDetail}${host}${result.wrongProjectLikely ? ' This looks like a Supabase project/environment mismatch (required migration signature not present).' : ''}${result.backendContractVersion ? ` Backend contract version: ${result.backendContractVersion}.` : ''}`;
   }
   if (result.status === 'missing_rpc') {
-    return `Cloud persistence is missing required RPC public.apply_save_batch(batch)${code}.${host}`;
+    return `Cloud persistence is missing required RPC public.apply_save_batch(batch)${code}.${host}${result.wrongProjectLikely ? ' This looks like a Supabase project/environment mismatch (required migration signature not present).' : ''}${result.backendContractVersion ? ` Backend contract version: ${result.backendContractVersion}.` : ''}`;
   }
   if (result.status === 'permissions_error' && table) {
     return `Cloud persistence permissions issue while checking ${table}${code}.${host}`;
@@ -812,6 +818,16 @@ function formatSchemaHealthMessage(result: PersistenceSchemaHealthResult): strin
     return `Cloud persistence preflight could not verify your authenticated session${code}.${host}`;
   }
   return `Cloud persistence preflight failed${code}.${host}`;
+}
+
+function classifyBackendFailureKind(normalized: NormalizedPersistenceError): NonNullable<LoadResult['backendFailureKind']> {
+  const code = normalized.code?.toUpperCase();
+  const status = Number(normalized.status);
+  if (code === '42703' || code === 'PGRST205') return 'schema-mismatch';
+  if (code === 'PGRST202') return 'missing-rpc';
+  if (code === '42501' || status === 403) return 'permissions';
+  if (code === 'PGRST301' || status === 401) return 'auth';
+  return 'unknown';
 }
 
 export async function loadPersistedPayload(): Promise<LoadResult> {
@@ -835,6 +851,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: 'auth_session',
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        backendFailureKind: 'auth',
         localRevision: cache.localRevision,
         lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
         lastCommittedBatchId: cache.lastCommittedBatchId,
@@ -859,6 +876,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       source: 'local-cache',
       cacheStatus: 'confirmed',
       localCacheUpdatedAt: undefined,
+      backendFailureKind: 'none',
     };
   }
   const cache = await readLocalCache(userId);
@@ -886,7 +904,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         normalized: {
           ...normalized,
           message: detail,
-          code: normalized.code ?? health.errorCode,
+          code: normalized.code ?? health.errorCode ?? (health.status === 'missing_rpc'
+            ? 'PGRST202'
+            : health.status === 'missing_table'
+              ? 'PGRST205'
+              : health.status === 'missing_column'
+                ? '42703'
+                : undefined),
           stage,
           table: health.failingTable,
         },
@@ -913,6 +937,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: preflightStage,
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        backendFailureKind: classifyBackendFailureKind(normalized),
         localRevision: cache.localRevision,
         lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
         lastCommittedBatchId: cache.lastCommittedBatchId,
@@ -983,6 +1008,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         loadFailureStage: stage,
         loadFailureMessage,
         loadFailureRecoveredWithLocalCache: true,
+        backendFailureKind: classifyBackendFailureKind(normalized),
         localRevision: cache.localRevision,
         lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision,
         lastCommittedBatchId: cache.lastCommittedBatchId,
@@ -1013,6 +1039,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       localCacheUpdatedAt: cache.updatedAt,
       localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
       cloudUpdatedAt,
+      backendFailureKind: 'none',
     };
   }
 
@@ -1033,6 +1060,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     source: 'supabase',
     cacheStatus: 'confirmed',
     cloudUpdatedAt: confirmedAt,
+    backendFailureKind: 'none',
     localCacheUpdatedAt: confirmedAt,
     localCacheLastCloudConfirmedAt: confirmedAt,
     localRevision: (cache?.localRevision ?? 0) + 1,

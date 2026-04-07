@@ -15,7 +15,7 @@ export interface DerivedSyncMeta {
   lastLoadRecoveredWithLocalCache?: boolean;
   sessionTrustState: 'healthy' | 'degraded';
   sessionDegraded: boolean;
-  sessionDegradedReason: 'none' | 'cloud-read-failed-fallback' | 'local-newer-than-cloud' | 'local-recovery-fallback';
+  sessionDegradedReason: 'none' | 'backend-schema-mismatch' | 'backend-rpc-missing' | 'cloud-read-failed-fallback' | 'local-newer-than-cloud' | 'local-recovery-fallback';
   sessionDegradedAt?: string;
   sessionDegradedClearedByCloudSave: boolean;
   sessionTrustRecoveredAt?: string;
@@ -23,10 +23,12 @@ export interface DerivedSyncMeta {
   lastSuccessfulCloudPersistAt?: string;
 }
 
-export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt' | 'loadFailureStage' | 'loadFailureMessage' | 'loadFailureRecoveredWithLocalCache'>): DerivedSyncMeta {
+export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt' | 'loadFailureStage' | 'loadFailureMessage' | 'loadFailureRecoveredWithLocalCache' | 'backendFailureKind'>): DerivedSyncMeta {
   const loadedFromLocalCache = load.source === 'local-cache';
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
-  const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback);
+  const backendSchemaMismatch = didRestoreFallback && load.backendFailureKind === 'schema-mismatch';
+  const backendRpcMissing = didRestoreFallback && load.backendFailureKind === 'missing-rpc';
+  const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback && !backendSchemaMismatch && !backendRpcMissing);
   const usedLocalNewerFallback = Boolean(load.localNewerThanCloud && didRestoreFallback);
   const usedGeneralRecovery = Boolean(didRestoreFallback && !usedCloudReadFailureFallback && !usedLocalNewerFallback);
 
@@ -47,7 +49,11 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
     : undefined;
   const degradedReason = usedCloudReadFailureFallback
     ? 'cloud-read-failed-fallback'
-    : usedLocalNewerFallback
+    : backendSchemaMismatch
+      ? 'backend-schema-mismatch'
+      : backendRpcMissing
+        ? 'backend-rpc-missing'
+        : usedLocalNewerFallback
       ? 'local-newer-than-cloud'
       : usedGeneralRecovery
         ? 'local-recovery-fallback'

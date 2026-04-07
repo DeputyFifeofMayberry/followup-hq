@@ -49,6 +49,15 @@ export const useAppStore = create<AppStore>()((set, get) => {
       persistenceQueue = createPersistenceQueue(
         {
           getPayload: () => buildPersistedPayload(get()),
+          getSyncAttemptContext: () => {
+            const state = get();
+            return {
+              hasUnresolvedBatches: state.pendingBatchCount > 0 || state.unresolvedOutboxCount > 0,
+              localRevision: state.localRevision,
+              lastCloudConfirmedRevision: state.lastCloudConfirmedRevision,
+              online: state.connectivityState !== 'offline',
+            };
+          },
           onQueued: (requestMeta) => {
             set((state) => {
               const merged = new Map<string, DirtyRecordRef>();
@@ -67,6 +76,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 dirtyRecordRefs: Array.from(merged.values()),
                 syncState: 'dirty',
                 outboxState: 'queued',
+                localSaveState: 'saved',
+                cloudSyncState: state.connectivityState === 'offline' ? 'offline-pending' : 'queued',
+                trustState: state.sessionDegraded ? 'degraded' : 'local-only',
                 pendingOfflineChangeCount: state.connectivityState === 'offline' ? pendingRecordCount : state.pendingOfflineChangeCount,
                 saveError: '',
                 cloudSyncStatus: state.sessionDegraded
@@ -87,6 +99,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
             return {
               syncState: 'saving',
               outboxState: 'flushing',
+              localSaveState: 'saving',
+              cloudSyncState: 'sending',
               saveError: '',
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
@@ -123,6 +137,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 : null;
               return {
                 persistenceMode: mode,
+                localRevision: Math.max(state.localRevision, state.localRevision + (didPersist ? 1 : 0)),
+                lastLocalSavedAt: timestamp,
                 syncState: postSave.syncState,
                 saveError: '',
                 lastSyncedAt: postSave.lastSyncedAt,
@@ -139,6 +155,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastReceiptOperationCount: postSave.lastReceiptOperationCount,
                 lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
                 lastFailedBatchId: postSave.lastFailedBatchId,
+                lastCloudConfirmedRevision: saveKind === 'cloud-confirmed' ? Math.max(state.localRevision + (didPersist ? 1 : 0), state.lastCloudConfirmedRevision) : state.lastCloudConfirmedRevision,
+                pendingBatchCount: 0,
+                localSaveState: 'saved',
+                cloudSyncState: saveKind === 'cloud-confirmed' ? 'confirmed' : (state.connectivityState === 'offline' ? 'offline-pending' : 'queued'),
+                trustState: postSave.sessionDegraded ? 'degraded' : (postSave.sessionTrustState === 'recovered' ? 'recovered' : 'healthy'),
                 outboxState: 'idle',
                 unresolvedOutboxCount: 0,
                 lastOutboxFlushAt: timestamp,
@@ -202,6 +223,12 @@ export const useAppStore = create<AppStore>()((set, get) => {
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
             lastFailedBatchId: diagnostics?.failedBatchId,
+            pendingBatchCount: Math.max(state.pendingBatchCount, 1),
+            localSaveState: 'error',
+            cloudSyncState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
+            trustState: 'degraded',
+            lastFailureMessage: message,
+            unresolvedConflictCount: diagnostics?.receiptStatus === 'conflict' ? state.unresolvedConflictCount + 1 : state.unresolvedConflictCount,
             conflictReviewNeeded: diagnostics?.receiptStatus === 'conflict' || state.conflictReviewNeeded,
             openConflictCount: (diagnostics?.receiptStatus === 'conflict'
               ? (state.openConflictCount + (diagnostics?.conflictedOperationCount ?? 1))

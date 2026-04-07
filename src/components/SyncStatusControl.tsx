@@ -39,9 +39,9 @@ export function SyncStatusControl() {
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
   const isNeedsAttention = statusModel.primaryState === 'needs-attention';
-  const showRetry = syncMeta.syncState === 'error' || syncMeta.sessionDegradedReason === 'cloud-save-failed';
+  const showRetry = syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict';
   const trustAction = syncMeta.persistenceMode === 'supabase'
-    ? 'Run a successful cloud save (Save now or Retry failed save) to restore trust.'
+    ? 'Cloud sync retries automatically. Use Retry only if attention is required.'
     : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
   const lastSavedLabel = syncMeta.lastCloudConfirmedAt
     ? `Last confirmed save: ${formatDateTime(syncMeta.lastCloudConfirmedAt)}`
@@ -74,7 +74,7 @@ export function SyncStatusControl() {
 
       {open ? (
         <section className="sync-status-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Sync status details">
-          <div className="sync-status-panel-title">Save & sync trust center</div>
+          <div className="sync-status-panel-title">Save status</div>
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Current state</span>
@@ -198,6 +198,18 @@ export function SyncStatusControl() {
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Unsaved local edits</div>
                 <div className="sync-status-row-detail">{syncMeta.hasLocalUnsavedChanges ? `${syncMeta.unsavedChangeCount} record${syncMeta.unsavedChangeCount === 1 ? '' : 's'} with unsaved edits` : 'No pending local edits.'}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Local revision</div>
+                <div className="sync-status-row-detail">{syncMeta.localRevision}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Confirmed revision</div>
+                <div className="sync-status-row-detail">{syncMeta.lastCloudConfirmedRevision}</div>
+              </div>
+              <div>
+                <div className="sync-status-row-detail sync-status-row-detail-strong">Pending batches</div>
+                <div className="sync-status-row-detail">{syncMeta.pendingBatchCount}</div>
               </div>
 
               <div>

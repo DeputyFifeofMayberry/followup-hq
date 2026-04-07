@@ -22,6 +22,10 @@ export interface SyncMetaSnapshot {
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
   cloudSyncStatus: CloudSyncStatus;
+  localRevision: number;
+  lastCloudConfirmedRevision: number;
+  localSaveState: 'idle' | 'saving' | 'saved' | 'error';
+  cloudSyncState: 'idle' | 'queued' | 'sending' | 'confirmed' | 'failed' | 'conflict' | 'offline-pending';
   loadedFromLocalRecoveryCache: boolean;
   lastSyncedAt?: string;
   lastCloudConfirmedAt?: string;
@@ -121,6 +125,10 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     unsavedChangeCount: state.unsavedChangeCount,
     hasLocalUnsavedChanges: state.hasLocalUnsavedChanges,
     cloudSyncStatus: state.cloudSyncStatus,
+    localRevision: state.localRevision,
+    lastCloudConfirmedRevision: state.lastCloudConfirmedRevision,
+    localSaveState: state.localSaveState,
+    cloudSyncState: state.cloudSyncState,
     loadedFromLocalRecoveryCache: state.loadedFromLocalRecoveryCache,
     lastSyncedAt: state.lastSyncedAt,
     lastCloudConfirmedAt: state.lastCloudConfirmedAt,
@@ -301,15 +309,16 @@ function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 's
   };
 }
 
+
 export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   const modeDetails = describePersistenceMode(meta.persistenceMode);
 
   if (!meta.hydrated || meta.syncState === 'checking' || meta.persistenceMode === 'loading') {
     return {
       primaryState: 'checking',
-      stateLabel: 'Checking save status',
+      stateLabel: 'Saving…',
       stateDescription: 'Loading your workspace and save status.',
-      reassurance: 'SetPoint is checking your latest save information.',
+      reassurance: 'Checking save status…',
       tone: 'info',
       stateTone: 'info',
       showSpinner: true,
@@ -317,98 +326,29 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  const needsAttention =
-    meta.conflictReviewNeeded
-    || meta.openConflictCount > 0
-    || meta.outboxState === 'conflict'
-    || meta.outboxState === 'failed'
-    || meta.recoveryReviewNeeded
-    || meta.verificationState === 'failed'
-    || meta.sessionDegraded
-    || meta.syncState === 'error'
-    || Boolean(meta.saveError)
-    || meta.cloudSyncStatus === 'local-newer-than-cloud'
-    || meta.cloudSyncStatus === 'local-recovery'
-    || meta.cloudSyncStatus === 'cloud-read-failed-local-fallback'
-    || meta.cloudSyncStatus === 'cloud-save-failed-local-preserved'
-    || meta.cloudSyncStatus === 'load-failed-no-local-copy'
-    || Boolean(meta.loadedFromLocalRecoveryCache);
+  const hasHardFailure = meta.syncState === 'error' || meta.cloudSyncState === 'failed' || meta.cloudSyncState === 'conflict' || meta.sessionDegraded;
+  const hasLocalOnly = meta.cloudSyncState === 'offline-pending' || meta.loadedFromLocalRecoveryCache || meta.lastCloudConfirmedRevision < meta.localRevision;
+  const isSaving = meta.syncState === 'saving' || meta.localSaveState === 'saving' || meta.cloudSyncState === 'sending' || meta.cloudSyncState === 'queued';
 
-  if (needsAttention) {
-    if (meta.conflictReviewNeeded || meta.openConflictCount > 0 || meta.outboxState === 'conflict') {
-      return {
-        primaryState: 'needs-attention',
-        stateLabel: 'Conflict review needed',
-        stateDescription: 'Conflict review needed before cloud save can continue.',
-        reassurance: 'Protected local copy retained. Conflict review required.',
-        tone: 'warn',
-        stateTone: 'danger',
-        showSpinner: false,
-        ...modeDetails,
-      };
-    }
-    if (meta.outboxState === 'failed') {
-      return {
-        primaryState: 'needs-attention',
-        stateLabel: 'Pending save review',
-        stateDescription: 'Queued changes still need cloud confirmation.',
-        reassurance: 'Pending save review.',
-        tone: 'warn',
-        stateTone: 'warn',
-        showSpinner: false,
-        ...modeDetails,
-      };
-    }
-    const attention = meta.recoveryReviewNeeded
-      ? { reassurance: 'Recovery review needed.', stateDescription: 'Last verification found mismatches between local intended state and cloud state.', tone: 'warn' as const, stateTone: 'warn' as const }
-      : meta.verificationState === 'failed'
-        ? { reassurance: 'Could not verify current cloud match.', stateDescription: meta.lastVerificationFailureMessage ?? 'Verification could not confirm current cloud state.', tone: 'warn' as const, stateTone: 'danger' as const }
-        : getAttentionNarrative(meta);
+  if (hasHardFailure) {
     return {
       primaryState: 'needs-attention',
       stateLabel: 'Needs attention',
-      ...attention,
-      trustLabel: 'Session trust needs review',
-      trustDescription: attention.stateDescription,
+      stateDescription: 'Cloud sync needs attention; your local copy is safe',
+      reassurance: 'Cloud sync needs attention; your local copy is safe',
+      tone: 'warn',
+      stateTone: 'danger',
       showSpinner: false,
       ...modeDetails,
     };
   }
 
-
-  if (meta.syncState === 'saving' || meta.syncState === 'dirty' || (meta.hasLocalUnsavedChanges && !needsAttention)) {
-    if (meta.connectivityState === 'offline') {
-      const queued = meta.pendingOfflineChangeCount || meta.unsavedChangeCount;
-      return {
-        primaryState: 'saving',
-        stateLabel: 'Offline — saved locally',
-        stateDescription: queued > 0 ? `Offline — ${queued} queued change${queued === 1 ? '' : 's'} pending cloud sync.` : 'Offline — changes are saved locally until connection returns.',
-        reassurance: 'Your work is protected on this device.',
-        tone: 'info',
-        stateTone: 'warn',
-        showSpinner: false,
-        ...modeDetails,
-      };
-    }
+  if (isSaving) {
     return {
       primaryState: 'saving',
-      stateLabel: 'Saving',
-      stateDescription: 'Saving your latest changes.',
-      reassurance: 'SetPoint is working on your latest updates now.',
-      tone: 'info',
-      stateTone: 'info',
-      showSpinner: meta.syncState === 'saving',
-      ...modeDetails,
-    };
-  }
-
-
-  if (meta.verificationState === 'running') {
-    return {
-      primaryState: 'checking',
-      stateLabel: 'Verifying',
-      stateDescription: 'Comparing local intended state with current cloud data.',
-      reassurance: 'SetPoint is running a fresh verification read.',
+      stateLabel: 'Saving…',
+      stateDescription: 'Saving latest changes in the background.',
+      reassurance: 'Saving…',
       tone: 'info',
       stateTone: 'info',
       showSpinner: true,
@@ -416,53 +356,15 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  if (meta.verificationState === 'verified-match' && !needsAttention) {
+  if (hasLocalOnly) {
     return {
       primaryState: 'saved',
-      stateLabel: 'Saved',
-      stateDescription: 'Verified match with current cloud data.',
-      reassurance: 'Changes are confirmed to cloud and the latest verification matched.',
-      tone: 'default',
-      stateTone: 'success',
-      showSpinner: false,
-      trustLabel: 'Verified match',
-      trustDescription: 'Last verification matched current cloud state.',
-      ...modeDetails,
-    };
-  }
-
-  const localOnlySaved = meta.cloudSyncStatus === 'local-only-confirmed' || meta.persistenceMode !== 'supabase';
-  if (localOnlySaved) {
-    return {
-      primaryState: 'saved',
-      stateLabel: 'Saved',
-      stateDescription: 'Your latest updates are saved on this device.',
-      reassurance: 'Your latest updates are saved on this device.',
-      tone: 'default',
-      stateTone: 'success',
-      showSpinner: false,
-      trustLabel: meta.sessionTrustState === 'recovered' ? 'Session trust recovered' : 'Session trust healthy',
-      trustDescription: meta.persistenceMode === 'browser'
-        ? 'Local-only save mode is active and healthy for this session.'
-        : 'Session trust is healthy.',
-      trustRecoveryMessage: meta.sessionTrustRecoveredAt
-        ? 'Cloud-backed save trust has been restored for this session.'
-        : undefined,
-      ...modeDetails,
-    };
-  }
-
-  if (meta.cloudSyncStatus === 'pending-cloud') {
-    return {
-      primaryState: 'saved',
-      stateLabel: 'Saved',
-      stateDescription: 'Your latest updates are saved.',
-      reassurance: 'SetPoint is finalizing cloud confirmation in the background.',
+      stateLabel: 'Saved locally',
+      stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
+      reassurance: 'Changes saved on this device; cloud sync will resume automatically',
       tone: 'info',
-      stateTone: 'info',
+      stateTone: 'warn',
       showSpinner: false,
-      trustLabel: 'Session trust healthy',
-      trustDescription: 'SetPoint is finalizing cloud confirmation for the current healthy session.',
       ...modeDetails,
     };
   }
@@ -470,16 +372,11 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   return {
     primaryState: 'saved',
     stateLabel: 'Saved',
-    stateDescription: 'Your latest updates are saved.',
-    reassurance: 'Your latest updates are saved.',
+    stateDescription: 'All changes saved',
+    reassurance: 'All changes saved',
     tone: 'default',
     stateTone: 'success',
     showSpinner: false,
-    trustLabel: meta.sessionTrustState === 'recovered' ? 'Session trust recovered' : 'Session trust healthy',
-    trustDescription: 'Session trust is healthy.',
-    trustRecoveryMessage: meta.sessionTrustRecoveredAt
-      ? 'Cloud-backed save trust has been restored for this session.'
-      : undefined,
     ...modeDetails,
   };
 }

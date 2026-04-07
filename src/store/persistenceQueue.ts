@@ -18,8 +18,16 @@ export interface QueueRequestMeta {
   dirtyRecords?: DirtyRecordRef[];
 }
 
+export interface SyncAttemptContext {
+  hasUnresolvedBatches: boolean;
+  localRevision: number;
+  lastCloudConfirmedRevision: number;
+  online: boolean;
+}
+
 interface QueueHandlers {
   getPayload: () => PersistedPayload;
+  getSyncAttemptContext?: () => SyncAttemptContext;
   onQueued: (meta?: QueueRequestMeta) => void;
   onSaving: (context: { reason: 'auto' | 'manual' | 'retry'; attempt: number }) => void;
   onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry', didPersist: boolean, diagnostics?: SaveResult['diagnostics']) => void;
@@ -30,8 +38,15 @@ export interface PersistenceQueueController {
   enqueue: (meta?: QueueRequestMeta) => void;
   flushNow: () => Promise<void>;
   retryNow: () => Promise<void>;
+  replayPendingBatchesNow: () => Promise<void>;
   cancelPending: () => void;
   resetInternalState: () => void;
+}
+
+export function shouldAttemptCloudSync(input: SyncAttemptContext): boolean {
+  if (!input.online) return false;
+  if (input.hasUnresolvedBatches) return true;
+  return input.lastCloudConfirmedRevision < input.localRevision;
 }
 
 export function createPersistenceQueue(handlers: QueueHandlers, config: QueueConfig = {}) {
@@ -40,17 +55,16 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   const retryDelayMs = config.retryDelayMs ?? 700;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let lastSavedJson = '';
   let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
-
   let pendingDirtyRefs = new Map<string, DirtyRecordRef>();
 
   const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' = 'auto'): Promise<void> => {
     handlers.onSaving({ reason, attempt });
     const payload = handlers.getPayload();
-    const payloadJson = JSON.stringify(payload);
+    const syncContext = handlers.getSyncAttemptContext?.();
+    const shouldSync = syncContext ? shouldAttemptCloudSync(syncContext) : true;
 
-    if (payloadJson === lastSavedJson) {
+    if (!shouldSync && pendingDirtyRefs.size === 0 && reason !== 'manual') {
       handlers.onSaved(lastMode, todayIso(), reason, false);
       return;
     }
@@ -59,7 +73,6 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       const dirtyRecords = Array.from(pendingDirtyRefs.values());
       const saveResult = await savePersistedPayload(payload, { dirtyRecords });
       lastMode = saveResult.mode;
-      lastSavedJson = payloadJson;
       pendingDirtyRefs = new Map();
       handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
     } catch (error) {
@@ -98,6 +111,11 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     await flush(0, 'retry');
   };
 
+  const replayPendingBatchesNow = async () => {
+    if (timer) clearTimeout(timer);
+    await flush(0, 'retry');
+  };
+
   const cancelPending = () => {
     if (timer) clearTimeout(timer);
     timer = undefined;
@@ -106,7 +124,6 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   const resetInternalState = () => {
     cancelPending();
     pendingDirtyRefs = new Map();
-    lastSavedJson = '';
     lastMode = 'browser';
   };
 
@@ -114,6 +131,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     enqueue: schedule,
     flushNow,
     retryNow,
+    replayPendingBatchesNow,
     cancelPending,
     resetInternalState,
   } satisfies PersistenceQueueController;

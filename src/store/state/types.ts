@@ -203,6 +203,11 @@ export interface AppUiState {
   lastUndoCleanupAt?: string;
 }
 
+
+export type LocalSaveState = 'idle' | 'saving' | 'saved' | 'error';
+export type CloudSyncLifecycleState = 'idle' | 'queued' | 'sending' | 'confirmed' | 'failed' | 'conflict' | 'offline-pending';
+export type PersistenceTrustState = 'healthy' | 'local-only' | 'degraded' | 'recovered';
+
 export type CloudSyncStatus =
   | 'unknown'
   | 'cloud-confirmed'
@@ -267,6 +272,14 @@ export interface AppMetaState {
   saveError: string;
   syncState: 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
   cloudSyncStatus: CloudSyncStatus;
+  localRevision: number;
+  lastLocalSavedAt?: string;
+  lastCloudConfirmedRevision: number;
+  activeSyncBatchId?: string;
+  pendingBatchCount: number;
+  localSaveState: LocalSaveState;
+  cloudSyncState: CloudSyncLifecycleState;
+  trustState: PersistenceTrustState;
   loadedFromLocalRecoveryCache: boolean;
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
@@ -296,6 +309,9 @@ export interface AppMetaState {
   lastReceiptOperationCount?: number;
   lastReceiptOperationCountsByEntity?: OperationCountsByEntity;
   lastFailedBatchId?: string;
+  lastReceiptCommittedAt?: string;
+  lastFailureMessage?: string;
+  unresolvedConflictCount: number;
 
   verificationState: VerificationState;
   lastVerificationRunId?: string;

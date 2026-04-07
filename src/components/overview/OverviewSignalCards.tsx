@@ -2,24 +2,30 @@ import type { OverviewSignalCard } from '../../domains/overview/hooks/useOvervie
 
 interface OverviewSignalCardsProps {
   cards: OverviewSignalCard[];
-  onRouteCard: (card: OverviewSignalCard) => void;
+  selectedFilter: string;
+  onSelectFilter: (filterKey: string) => void;
 }
 
-export function OverviewSignalCards({ cards, onRouteCard }: OverviewSignalCardsProps) {
+export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: OverviewSignalCardsProps) {
   return (
-    <div className="overview-signal-grid" aria-label="Routing signals">
+    <div className="overview-signal-grid" aria-label="Queue focus filters">
+      <button
+        type="button"
+        className={`overview-signal-chip ${selectedFilter === 'all' ? 'overview-signal-chip-active' : ''}`}
+        onClick={() => onSelectFilter('all')}
+      >
+        <span className="overview-signal-chip-label">All queue</span>
+      </button>
       {cards.map((card) => (
-        <div key={card.key} className={`overview-signal-card overview-signal-card-${card.key}`}>
-          <div className="overview-signal-topline">
-            <span className="overview-signal-label">{card.label}</span>
-            <span className="overview-signal-lane">{card.lane === 'tasks' ? 'Tasks lane' : 'Follow Ups lane'}</span>
-          </div>
-          <strong className="overview-signal-count">{card.count}</strong>
-          <p className="overview-signal-intent">{card.intentLabel}</p>
-          <button onClick={() => onRouteCard(card)} className="action-btn overview-signal-cta">
-            {card.ctaLabel}
-          </button>
-        </div>
+        <button
+          key={card.key}
+          type="button"
+          className={`overview-signal-chip overview-signal-card-${card.key} ${selectedFilter === card.key ? 'overview-signal-chip-active' : ''}`}
+          onClick={() => onSelectFilter(card.key)}
+        >
+          <span className="overview-signal-chip-label">{card.label}</span>
+          <strong className="overview-signal-chip-count">{card.count}</strong>
+        </button>
       ))}
     </div>
   );

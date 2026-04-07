@@ -6,23 +6,18 @@ import { OverviewRouteActions } from './OverviewRouteActions';
 interface OverviewStartStripProps {
   stats: ExecutionQueueStats;
   onOpenIntake: () => void;
-  onRouteFollowUps: () => void;
-  onRouteTasks: () => void;
   onQuickAdd: () => void;
 }
 
-export function OverviewStartStrip({ stats, onOpenIntake, onRouteFollowUps, onRouteTasks, onQuickAdd }: OverviewStartStripProps) {
+export function OverviewStartStrip({ stats, onOpenIntake, onQuickAdd }: OverviewStartStripProps) {
   return (
     <ExecutionLaneSummary className="overview-hero-card overview-start-band">
       <div className="overview-command-head">
-        <SectionHeader title="Operational command deck" subtitle="Scan pressure, prioritize what matters now, and route work into the right lane." compact />
-        <p className="overview-command-caption">Use this surface to make fast routing decisions across tasks, follow-ups, and intake cleanup.</p>
+        <SectionHeader title="Queue command strip" subtitle="Use summary signals to focus the queue, then route from the inspector." compact />
       </div>
       <OverviewSummaryStats stats={stats} />
       <OverviewRouteActions
         onOpenIntake={onOpenIntake}
-        onRouteFollowUps={onRouteFollowUps}
-        onRouteTasks={onRouteTasks}
         onQuickAdd={onQuickAdd}
       />
     </ExecutionLaneSummary>

@@ -12,7 +12,7 @@ import { Badge } from './Badge';
 import { FieldConfidenceChip } from './intake/FieldReview';
 import { buildIntakeTuningModel } from '../lib/intakeTuningModel';
 
-export function UniversalCapture({ contextProject, contextOwner, contextFollowUpId }: { contextProject?: string; contextOwner?: string; contextFollowUpId?: string | null; }) {
+export function UniversalCapture({ contextProject, contextOwner, contextFollowUpId, selfIdentity }: { contextProject?: string; contextOwner?: string; contextFollowUpId?: string | null; selfIdentity?: string; }) {
   const { projects, contacts, addItem, addTask, openEditModal, openEditTaskModal, openCreateFromCapture, addProject, addContact, stageIntakeCandidate, intakeCandidates, intakeWorkCandidates, forwardedCandidates, forwardedRules, forwardedRoutingAudit, intakeReviewerFeedback, approveIntakeCandidate, discardIntakeCandidate, saveIntakeCandidateAsReference } = useAppStore(useShallow((s) => ({
     projects: s.projects,
     contacts: s.contacts,
@@ -76,9 +76,10 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
       contextOwner,
       recentProject: recentContext.project,
       recentOwner: recentContext.owner,
+      defaultOwner: selfIdentity,
     });
     return { ...base, project: base.project || contextProject, owner: base.owner || contextOwner };
-  }, [parsedOverride, text, projects, contacts, contextProject, contextOwner]);
+  }, [parsedOverride, text, projects, contacts, contextProject, contextOwner, selfIdentity]);
 
 
   const tuningModel = useMemo(() => buildIntakeTuningModel({
@@ -100,16 +101,27 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
   const kindEvidence = fieldEvidence?.kind ?? { field: 'kind', value: parsed.kind, status: 'weak', confidence: 0.5, source: 'inferred', reasons: ['Field evidence unavailable.'] };
   const titleEvidence = fieldEvidence?.title ?? { field: 'title', value: parsed.title, status: 'weak', confidence: 0.5, source: 'inferred', reasons: ['Field evidence unavailable.'] };
   const hasCriticalConflict = fieldEvidence ? Object.values(fieldEvidence).some((field) => field.status === 'conflicting') : false;
-  const criticalMissing = !parsed.title || !parsed.kind || !parsed.project || !parsed.owner;
+  const completenessMissing = [!parsed.project, !parsed.owner, !parsed.dueDate].filter(Boolean).length;
+  const criticalMissing = !parsed.title || !parsed.kind;
+  const understandingConfidence = parsed.confidence >= 0.78
+    ? 'high'
+    : parsed.confidence >= 0.56
+      ? 'medium'
+      : 'low';
   const canDirectImport = parsed.confidence >= Math.max(0.8, tuningReadyFloor)
     && titleEvidence.confidence >= 0.72
     && kindEvidence.confidence >= 0.7
     && !hasCriticalConflict
     && !criticalMissing
+    && completenessMissing === 0
     && !tuningReviewPressure
     && !tuningDueDateGuard
     && !tuningProjectGuard;
-  const confidence = canDirectImport ? 'high' : parsed.confidence >= 0.58 ? 'medium' : 'low';
+  const importReadiness = canDirectImport
+    ? 'ready'
+    : hasCriticalConflict || understandingConfidence === 'low'
+      ? 'review_first'
+      : 'needs_context';
   const canDirectSave = !!text.trim() && !!parsed.title.trim();
   const needsCleanup = parsed.cleanupReasons.length > 0;
   const parseReasons = [
@@ -162,7 +174,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         rawText: parsed.rawText,
         createdAt: todayIso(),
         suggestedType: parsed.kind,
-        confidenceTier: confidence,
+        confidenceTier: understandingConfidence,
         confidenceScore: parsed.confidence,
         parseReasons,
         missingFields: parsed.cleanupReasons,
@@ -180,9 +192,9 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         },
       };
       stageIntakeCandidate(candidate);
-      setConfirmation(confidence === 'low'
-        ? 'Capture sent to Review with warnings so nothing is imported on weak confidence.'
-        : 'Capture sent to Review so you can confirm inferred fields.');
+      setConfirmation(importReadiness === 'review_first'
+        ? 'Capture sent to Review because parser confidence needs verification.'
+        : 'Capture sent to Review because context is incomplete (project, owner, or due date).');
       setText('');
       setParsedOverride(null);
       return;
@@ -225,28 +237,28 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         <button onClick={() => setExpanded((v) => !v)} className="action-btn !px-2.5 !py-1.5 text-xs">Capture details <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} /></button>
       </div>
 
-      <p className="mt-1 text-xs text-slate-600">Quick Add is the fast lane: import now when confidence is high, or send to Review when confidence is uncertain.</p>
+      <p className="mt-1 text-xs text-slate-600">Quick Add separates parser understanding from import readiness so “understood but incomplete” routes to context review, not parser-failure warnings.</p>
 
       <div className="mt-2 flex gap-2">
         <input ref={inputRef} value={text} onChange={(event) => { setText(event.target.value); setParsedOverride(null); }} onKeyDown={(event) => {
           if (event.key === 'Escape') { setText(''); setParsedOverride(null); setConfirmation('Capture cleared.'); return; }
           if (event.key === 'Enter') { event.preventDefault(); saveDraft(false); }
         }} placeholder={`Capture a follow-up or task${contextProject ? ` for ${contextProject}` : ''}`} className="field-input smart-composer-input" />
-        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Import now' : 'Send to review'}</button>
+        <button onClick={() => saveDraft(false)} disabled={!canDirectSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{importReadiness === 'ready' ? 'Import now' : 'Send to review'}</button>
       </div>
 
       {expanded && text.trim() ? (
         <div className="mt-3 form-section">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             <span className="inline-flex items-center gap-1"><Sparkles className="h-4 w-4" />Quick Add decision</span>
-            <span className={`confidence-chip ${confidence === 'high' ? 'confidence-chip-high' : confidence === 'medium' ? 'confidence-chip-medium' : 'confidence-chip-low'}`}>{confidence} confidence</span>
+            <span className={`confidence-chip ${understandingConfidence === 'high' ? 'confidence-chip-high' : understandingConfidence === 'medium' ? 'confidence-chip-medium' : 'confidence-chip-low'}`}>Understanding: {understandingConfidence}</span>
           </div>
           <div className={`mb-2 rounded-xl border px-3 py-2 text-xs ${canDirectImport ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-            {canDirectImport ? 'Ready to import now.' : 'Review recommended before import.'}
+            {importReadiness === 'ready' ? 'Import readiness: Ready.' : importReadiness === 'needs_context' ? 'Import readiness: Needs context (parser understood intent, but fields are incomplete).' : 'Import readiness: Review-first (parser ambiguity/conflicts detected).'}
           </div>
 
           <div className="mb-2 grid gap-2 md:grid-cols-2">
-            <button onClick={() => saveDraft(false)} disabled={!text.trim()} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{confidence === 'high' ? 'Import now' : 'Send to review'}</button>
+            <button onClick={() => saveDraft(false)} disabled={!text.trim()} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">{importReadiness === 'ready' ? 'Import now' : 'Send to review'}</button>
             <button className="action-btn" onClick={() => openCreateFromCapture(parsed)}>Open full create editor</button>
           </div>
 
@@ -307,7 +319,7 @@ export function UniversalCapture({ contextProject, contextOwner, contextFollowUp
         </div>
       ) : null}
 
-      {confirmation ? <div className={`mt-2 rounded-xl border px-3 py-2 text-xs font-medium ${confidence === 'low' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{confidence === 'low' ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CheckCircle2 className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
+      {confirmation ? <div className={`mt-2 rounded-xl border px-3 py-2 text-xs font-medium ${importReadiness === 'review_first' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{importReadiness === 'review_first' ? <AlertTriangle className="mr-1 inline h-4 w-4" /> : <CheckCircle2 className="mr-1 inline h-4 w-4" />}{confirmation}</div> : null}
     </section>
   );
 }

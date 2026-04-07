@@ -8,25 +8,27 @@ interface OverviewSignalCardsProps {
 
 export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: OverviewSignalCardsProps) {
   return (
-    <div className="overview-signal-grid" aria-label="Queue focus filters">
+    <div className="overview-filter-row" aria-label="Overview focus filters">
       <button
         type="button"
-        className={`overview-signal-chip ${selectedFilter === 'all' ? 'overview-signal-chip-active' : ''}`}
+        className={`overview-filter-pill overview-filter-pill-baseline ${selectedFilter === 'all' ? 'overview-filter-pill-active' : ''}`}
         onClick={() => onSelectFilter('all')}
       >
-        <span className="overview-signal-chip-label">All queue</span>
+        All queue
       </button>
-      {cards.map((card) => (
-        <button
-          key={card.key}
-          type="button"
-          className={`overview-signal-chip overview-signal-card-${card.key} ${selectedFilter === card.key ? 'overview-signal-chip-active' : ''}`}
-          onClick={() => onSelectFilter(card.key)}
-        >
-          <span className="overview-signal-chip-label">{card.label}</span>
-          <strong className="overview-signal-chip-count">{card.count}</strong>
-        </button>
-      ))}
+      <div className="overview-filter-pill-group" role="group" aria-label="Priority focus filters">
+        {cards.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            className={`overview-filter-pill overview-filter-pill-${card.key} ${selectedFilter === card.key ? 'overview-filter-pill-active' : ''}`}
+            onClick={() => onSelectFilter(card.key)}
+          >
+            <span>{card.label}</span>
+            <strong>{card.count}</strong>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

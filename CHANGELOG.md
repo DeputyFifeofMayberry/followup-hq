@@ -2,6 +2,12 @@
 
 ## 2026-04-07
 
+### Overview command center refactor (list-first, on-demand detail)
+- Rebuilt Overview as a dedicated command-center grammar: compact daily summary strip, single calm toolbar/filter row, and dominant triage list surface without execution-lane queue/inspector shell framing (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSummaryStats.tsx`, `src/components/overview/OverviewRouteActions.tsx`, `src/styles/workspaces.css`).
+- Replaced persistent split inspector with on-demand selected-item modal context so the queue remains full-width by default and detail opens only when needed (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewRouteInspector.tsx`, `src/components/ui/AppPrimitives.tsx`, `src/styles/workspaces.css`).
+- Redesigned Overview filter model around daily operating states (`Due now`, `Blocked`, `Waiting`, `Ready to close`), separated baseline `All queue`, and removed the 12-row hard cap in favor of progressive `Show more` expansion plus `Open full queue` escape (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/components/overview/OverviewSignalCards.tsx`, `src/components/OverviewPage.tsx`).
+- Reworked triage row information hierarchy to title → why-now reason → quiet metadata, replaced blunt urgency labels with operational signals, and reduced priority badge dominance (`src/components/overview/OverviewTriageList.tsx`, `src/styles/workspaces.css`).
+
 ### Product cleanup + reliability pass (follow-ups, tasks, save/sync, intake)
 - Follow Ups: removed the redundant top hero shell so the tab opens directly into queue controls + table, added a single primary `Add follow-up` action in the control bar, and reduced execution-lane framing copy in the workspace shell (`src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`).
 - Follow Ups table: shifted non-essential headers to calmer static labels, kept sorting emphasis to timing/priority columns, and expanded row actions to practical daily operations (`Open`, `Touch`, `Nudge`, `Snooze`, `Close`) instead of a single narrow action (`src/components/TrackerTable.tsx`).

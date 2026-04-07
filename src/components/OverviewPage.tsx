@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ExecutionLaneFooterMeta, ExecutionLaneInspectorCard, ExecutionLaneQueueCard, ExecutionLaneSelectionStrip, ExecutionLaneToolbarScaffold, NoMatchesState, SectionHeader, WorkspacePage, WorkspacePrimaryLayout, WorkspaceTopStack } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalHeader, AppShellCard, NoMatchesState, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
 import type { AppMode } from '../types';
 import { OverviewStartStrip } from './overview/OverviewStartStrip';
 import { OverviewSignalCards } from './overview/OverviewSignalCards';
@@ -18,68 +18,114 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   void appMode;
-  const { stats, triageRows, selectedFilter, selected, signalCards, openCreateWorkModal, setSelectedId, setSelectedFilter, routeToLane, openSelectedDetail } = useOverviewTriageViewModel();
+  const {
+    stats,
+    triageRows,
+    selectedFilter,
+    selected,
+    signalCards,
+    totalFilteredCount,
+    hasMoreRows,
+    showMoreRows,
+    openCreateWorkModal,
+    setSelectedId,
+    setSelectedFilter,
+    routeToLane,
+    openSelectedDetail,
+  } = useOverviewTriageViewModel();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const visibleRows = useMemo(() => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())), [triageRows, searchQuery]);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const visibleRows = useMemo(
+    () => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())),
+    [triageRows, searchQuery],
+  );
   const activeFilterMeta = signalCards.find((card) => card.key === selectedFilter);
 
   return (
     <WorkspacePage>
-      <WorkspaceTopStack>
-        <OverviewStartStrip
-          stats={stats}
-          onOpenIntake={() => onOpenWorkspace('outlook')}
-          onCreateWork={openCreateWorkModal}
-        />
-      </WorkspaceTopStack>
+      <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('outlook')} onCreateWork={openCreateWorkModal} />
 
-      <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-primary-layout">
-        <ExecutionLaneQueueCard className="overview-main-panel">
-          <SectionHeader title="Priority queue" subtitle="Select the next operational decision and route it with intent." compact />
-          <ExecutionLaneToolbarScaffold
-            className="overview-primary-toolbar"
-            left={<label className="field-block followup-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title, project, owner" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
-            middle={<span className="workspace-support-copy">Command intent: route triage items into the correct execution lane.</span>}
-            right={<span className="workspace-support-copy">{activeFilterMeta ? `${activeFilterMeta.label}: ${activeFilterMeta.filterSummary}` : 'All queue items in priority order.'}</span>}
-          />
+      <AppShellCard className="overview-command-center" surface="data">
+        <div className="overview-toolbar-row">
+          <div className="overview-toolbar-left">
+            <label className="field-block overview-search-block">
+              <div className="search-field-wrap">
+                <Search className="search-field-icon h-4 w-4" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search queue"
+                  className="field-input search-field-input"
+                />
+                {searchQuery ? (
+                  <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search">
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            </label>
+            <OverviewSignalCards cards={signalCards} selectedFilter={selectedFilter} onSelectFilter={setSelectedFilter} />
+          </div>
+          <div className="overview-live-context" role="status" aria-live="polite">
+            <strong>{activeFilterMeta?.label ?? 'All queue'}</strong>
+            <span>{visibleRows.length} visible · {totalFilteredCount} in scope</span>
+            <span>{selected ? `Focused: ${selected.title}` : 'No item selected'}</span>
+          </div>
+        </div>
 
-          <div className="overview-signal-support">
-            <OverviewSignalCards
-              cards={signalCards}
-              selectedFilter={selectedFilter}
-              onSelectFilter={setSelectedFilter}
+        <section className="overview-triage-main" aria-label="Overview triage queue">
+          <SectionHeader title="Priority queue" subtitle="Open → scan → decide → move." compact />
+          {visibleRows.length === 0 && searchQuery ? (
+            <NoMatchesState message="Nothing matches this overview search." />
+          ) : (
+            <OverviewTriageList
+              rows={visibleRows}
+              selectedId={selected?.id || null}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setDetailOpen(true);
+              }}
             />
-          </div>
+          )}
+          {hasMoreRows ? (
+            <div className="overview-show-more-row">
+              <button type="button" className="action-btn" onClick={showMoreRows}>Show more</button>
+              <button type="button" className="action-btn" onClick={() => onOpenWorkspace('queue')}>Open full queue</button>
+            </div>
+          ) : null}
+        </section>
+      </AppShellCard>
 
-          <ExecutionLaneSelectionStrip
-            title={selected?.title}
-            helper={selected ? `Recommended next lane: ${selected.recordType === 'task' ? 'Tasks' : 'Follow-Ups'}.` : undefined}
-            emptyMessage="Select an overview item to route it to the right lane."
+      {detailOpen ? (
+        <AppModal size="inspector" onClose={() => setDetailOpen(false)} onBackdropClick={() => setDetailOpen(false)}>
+          <AppModalHeader
+            title="Selected item"
+            subtitle="Record context first, then choose the best next move."
+            onClose={() => setDetailOpen(false)}
           />
-
-          <div className="overview-triage-main">
-            {visibleRows.length === 0 && searchQuery ? <NoMatchesState message="Nothing matches this overview search." /> : <OverviewTriageList rows={visibleRows} selectedId={selected?.id || null} onSelect={setSelectedId} />}
-          </div>
-          <ExecutionLaneFooterMeta shownCount={visibleRows.length} selectedCount={selected ? 1 : 0} scopeSummary="Routing view" hint="Select → route → continue" />
-        </ExecutionLaneQueueCard>
-
-        <ExecutionLaneInspectorCard className="overview-inspector-shell">
-          <SectionHeader title="Route inspector" subtitle="Decide where to handle the selected item next." compact />
-          <OverviewRouteInspector
-            selected={selected}
-            onRouteDestination={(destination) => {
-              routeToLane(destination, {
-                record: selected,
-                section: destination === 'tasks' ? 'now' : 'triage',
-                intentLabel: `route selected overview item to ${destination}`,
-              });
-              onOpenWorkspace(destination);
-            }}
-            onOpenDetail={openSelectedDetail}
-            onOpenIntake={() => onOpenWorkspace('outlook')}
-          />
-        </ExecutionLaneInspectorCard>
-      </WorkspacePrimaryLayout>
+          <AppModalBody>
+            <OverviewRouteInspector
+              selected={selected}
+              onRouteDestination={(destination) => {
+                routeToLane(destination, {
+                  record: selected,
+                  section: destination === 'tasks' ? 'now' : 'triage',
+                  intentLabel: `route selected overview item to ${destination}`,
+                });
+                setDetailOpen(false);
+                onOpenWorkspace(destination);
+              }}
+              onOpenDetail={openSelectedDetail}
+              onOpenIntake={() => {
+                setDetailOpen(false);
+                onOpenWorkspace('outlook');
+              }}
+            />
+          </AppModalBody>
+        </AppModal>
+      ) : null}
     </WorkspacePage>
   );
 }

@@ -56,7 +56,7 @@ export function appendPersistenceActivity(
 export function describeLoadFallbackFailure(
   stage?: LoadFailureStage,
   message?: string,
-  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'permissions' | 'auth' | 'unknown',
+  backendFailureKind?: 'none' | 'schema-mismatch' | 'missing-rpc' | 'missing-hashing-dependency' | 'permissions' | 'auth' | 'unknown',
 ): { summary: string; detail: string } {
   const normalizedMessage = message
     ? formatPersistenceErrorMessage(normalizePersistenceError(message, { stage, operation: 'load' }))
@@ -77,6 +77,15 @@ export function describeLoadFallbackFailure(
       detail: normalizedMessage
         ? `Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing. Technical detail: ${normalizedMessage}`
         : 'Changes are saved locally. Cloud sync is blocked because apply_save_batch is missing.',
+    };
+  }
+
+  if (backendFailureKind === 'missing-hashing-dependency') {
+    return {
+      summary: 'Cloud sync blocked by missing hashing support.',
+      detail: normalizedMessage
+        ? `Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto). Technical detail: ${normalizedMessage}`
+        : 'Changes are saved locally. Cloud persistence backend is missing required hashing support (pgcrypto).',
     };
   }
 

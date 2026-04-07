@@ -226,6 +226,7 @@ export type SessionDegradedReason =
   | 'cloud-save-failed'
   | 'backend-schema-mismatch'
   | 'backend-rpc-missing'
+  | 'backend-missing-hashing-support'
   | 'cloud-read-failed-fallback'
   | 'local-newer-than-cloud'
   | 'local-recovery-fallback'

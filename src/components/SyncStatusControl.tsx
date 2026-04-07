@@ -38,7 +38,9 @@ export function SyncStatusControl() {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
-  const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch' || syncMeta.sessionDegradedReason === 'backend-rpc-missing';
+  const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch'
+    || syncMeta.sessionDegradedReason === 'backend-rpc-missing'
+    || syncMeta.sessionDegradedReason === 'backend-missing-hashing-support';
   const isNeedsAttention = statusModel.primaryState === 'needs-attention';
   const showRetry = syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict';
   const trustAction = syncMeta.persistenceMode === 'supabase'
@@ -130,6 +132,8 @@ export function SyncStatusControl() {
               <div className="sync-status-row-detail">
                 {syncMeta.sessionDegradedReason === 'backend-rpc-missing'
                   ? 'Cloud sync is blocked because public.apply_save_batch(batch) is missing in the connected Supabase project.'
+                  : syncMeta.sessionDegradedReason === 'backend-missing-hashing-support'
+                    ? 'Cloud persistence backend is missing required hashing support (pgcrypto).'
                   : 'Cloud sync is blocked because one or more required table columns are missing in the connected Supabase project.'}
               </div>
             ) : null}

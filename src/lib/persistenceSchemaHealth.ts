@@ -12,6 +12,7 @@ export type PersistenceSchemaHealthStatus =
   | 'missing_table'
   | 'missing_column'
   | 'missing_rpc'
+  | 'missing_hashing_dependency'
   | 'auth_unavailable'
   | 'permissions_error'
   | 'unknown_backend_error';
@@ -25,6 +26,7 @@ export interface PersistenceSchemaHealthResult {
   schemaQualifiedTable?: string;
   failingRpc?: 'apply_save_batch';
   failingColumn?: string;
+  missingExtension?: 'pgcrypto';
   backendContractVersion?: string;
   migrationSignaturePresent?: boolean;
   wrongProjectLikely?: boolean;
@@ -55,6 +57,16 @@ function classifyFailure(normalized: NormalizedPersistenceError): PersistenceSch
     .toLowerCase();
   const code = normalized.code?.toUpperCase();
   const status = Number(normalized.status);
+
+  if (
+    code === '42883'
+    || lower.includes('function digest(text, unknown) does not exist')
+    || lower.includes('function digest(bytea, text) does not exist')
+    || (lower.includes('digest(') && lower.includes('does not exist'))
+    || (lower.includes('pgcrypto') && lower.includes('missing'))
+  ) {
+    return 'missing_hashing_dependency';
+  }
 
   if (
     code === 'PGRST202'
@@ -103,7 +115,10 @@ function toFailureResult(input: {
   migrationSignaturePresent?: boolean;
   wrongProjectLikely?: boolean;
 }): PersistenceSchemaHealthResult {
-  const isBackendContractIssue = input.status === 'missing_table' || input.status === 'missing_column' || input.status === 'missing_rpc';
+  const isBackendContractIssue = input.status === 'missing_table'
+    || input.status === 'missing_column'
+    || input.status === 'missing_rpc'
+    || input.status === 'missing_hashing_dependency';
   return {
     status: input.status,
     checkedAt: new Date().toISOString(),
@@ -112,6 +127,7 @@ function toFailureResult(input: {
     failingTable: input.table,
     schemaQualifiedTable: input.table ? schemaQualified(input.table) : undefined,
     failingColumn: input.status === 'missing_column' ? (input.failingColumn ?? extractMissingColumn(input.normalized)) : undefined,
+    missingExtension: input.status === 'missing_hashing_dependency' ? 'pgcrypto' : undefined,
     failingRpc: input.failingRpc,
     backendContractVersion: input.backendContractVersion,
     migrationSignaturePresent: input.migrationSignaturePresent,
@@ -124,7 +140,7 @@ function toFailureResult(input: {
 }
 
 type ContractRpcReport = {
-  status?: 'healthy' | 'missing_table' | 'missing_column' | 'missing_rpc';
+  status?: 'healthy' | 'missing_table' | 'missing_column' | 'missing_rpc' | 'missing_hashing_dependency';
   failingTable?: RequiredTable;
   failingColumn?: string;
   failingRpc?: 'apply_save_batch';

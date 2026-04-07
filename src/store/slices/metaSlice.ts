@@ -46,11 +46,13 @@ export function createMetaSlice(
   };
   return {
     initializeApp: async () => {
-      let lastCommittedBatchId: string | undefined;
-      let lastReceiptStatus: 'committed' | 'received' | 'rejected' | 'conflict' | undefined;
-      let lastReceiptCommittedTime: string | undefined;
-      let lastFailureMessage: string | undefined;
-      let lastFailedBatchId: string | undefined;
+      const startupReceiptState: {
+        lastCommittedBatchId?: string;
+        lastReceiptStatus?: 'committed' | 'received' | 'rejected' | 'conflict';
+        lastReceiptCommittedTime?: string;
+        lastFailureMessage?: string;
+        lastFailedBatchId?: string;
+      } = {};
       let unresolvedOutbox: Array<{ status: string }> = [];
       try {
         const {
@@ -76,11 +78,11 @@ export function createMetaSlice(
           lastReceiptCommittedTime: loadedLastReceiptCommittedTime,
           lastFailureMessage: loadedLastFailureMessage,
         } = await deps.loadPersistedPayload();
-        lastCommittedBatchId = loadedLastCommittedBatchId;
-        lastReceiptStatus = loadedLastReceiptStatus;
-        lastReceiptCommittedTime = loadedLastReceiptCommittedTime;
-        lastFailureMessage = loadedLastFailureMessage;
-        lastFailedBatchId = loadedLastFailedBatchId;
+        startupReceiptState.lastCommittedBatchId = loadedLastCommittedBatchId;
+        startupReceiptState.lastReceiptStatus = loadedLastReceiptStatus;
+        startupReceiptState.lastReceiptCommittedTime = loadedLastReceiptCommittedTime;
+        startupReceiptState.lastFailureMessage = loadedLastFailureMessage;
+        startupReceiptState.lastFailedBatchId = loadedLastFailedBatchId;
         const syncMeta = deriveSyncMetaFromLoadResult({
           mode,
           source,
@@ -200,18 +202,18 @@ export function createMetaSlice(
           sessionTrustRecoveredAt: syncMeta.sessionTrustRecoveredAt,
           lastSuccessfulPersistAt: syncMeta.lastSuccessfulPersistAt,
           lastSuccessfulCloudPersistAt: syncMeta.lastSuccessfulCloudPersistAt,
-          lastConfirmedBatchId: lastCommittedBatchId,
+          lastConfirmedBatchId: startupReceiptState.lastCommittedBatchId,
           lastConfirmedBatchCommittedAt: undefined,
-          lastReceiptStatus,
+          lastReceiptStatus: startupReceiptState.lastReceiptStatus,
           lastReceiptHashMatch: undefined,
           lastReceiptSchemaVersion: undefined,
           lastReceiptTouchedTables: undefined,
           lastReceiptOperationCount: undefined,
           lastReceiptOperationCountsByEntity: undefined,
-          lastReceiptCommittedAt: lastReceiptCommittedTime,
-          lastFailureMessage,
+          lastReceiptCommittedAt: startupReceiptState.lastReceiptCommittedTime,
+          lastFailureMessage: startupReceiptState.lastFailureMessage,
           unresolvedConflictCount: unresolvedOutbox.filter((e) => e.status === 'conflict').length,
-          lastFailedBatchId,
+          lastFailedBatchId: startupReceiptState.lastFailedBatchId,
           verificationState: 'idle',
           lastVerificationRunId: undefined,
           lastVerificationStartedAt: undefined,
@@ -309,18 +311,18 @@ export function createMetaSlice(
           sessionTrustRecoveredAt: undefined,
           lastSuccessfulPersistAt: undefined,
           lastSuccessfulCloudPersistAt: undefined,
-          lastConfirmedBatchId: lastCommittedBatchId,
+          lastConfirmedBatchId: startupReceiptState.lastCommittedBatchId,
           lastConfirmedBatchCommittedAt: undefined,
-          lastReceiptStatus,
+          lastReceiptStatus: startupReceiptState.lastReceiptStatus,
           lastReceiptHashMatch: undefined,
           lastReceiptSchemaVersion: undefined,
           lastReceiptTouchedTables: undefined,
           lastReceiptOperationCount: undefined,
           lastReceiptOperationCountsByEntity: undefined,
-          lastReceiptCommittedAt: lastReceiptCommittedTime,
-          lastFailureMessage,
+          lastReceiptCommittedAt: startupReceiptState.lastReceiptCommittedTime,
+          lastFailureMessage: startupReceiptState.lastFailureMessage,
           unresolvedConflictCount: unresolvedOutbox.filter((e) => e.status === 'conflict').length,
-          lastFailedBatchId,
+          lastFailedBatchId: startupReceiptState.lastFailedBatchId,
           verificationState: 'idle',
           lastVerificationRunId: undefined,
           lastVerificationStartedAt: undefined,

@@ -118,6 +118,20 @@ function testBackendMissingRpcMapsToExplicitDegradedReason(): void {
   assert(meta.sessionDegradedReason === 'backend-rpc-missing', `expected backend-rpc-missing, got ${meta.sessionDegradedReason}`);
 }
 
+function testBackendMissingHashingSupportMapsToExplicitDegradedReason(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'local-cache',
+    cacheStatus: 'pending',
+    loadedFromFallback: true,
+    cloudReadFailed: true,
+    backendFailureKind: 'missing-hashing-dependency',
+    loadFailureStage: 'schema_preflight',
+    loadFailureMessage: 'function digest(text, unknown) does not exist',
+  });
+  assert(meta.sessionDegradedReason === 'backend-missing-hashing-support', `expected backend-missing-hashing-support, got ${meta.sessionDegradedReason}`);
+}
+
 function testContractFailureActivityIsDeduplicated(): void {
   const first = createPersistenceActivityEvent({
     kind: 'saved',
@@ -181,6 +195,7 @@ async function testInitializeAppCatchDoesNotReferenceTryScopedValues(): Promise<
   testFallbackCopyIsCalmAndNonJargony();
   testBackendSchemaMismatchMapsToExplicitDegradedReason();
   testBackendMissingRpcMapsToExplicitDegradedReason();
+  testBackendMissingHashingSupportMapsToExplicitDegradedReason();
   testContractFailureActivityIsDeduplicated();
   testFallbackPreservesRevisionMetadataHints();
   await testInitializeAppCatchDoesNotReferenceTryScopedValues();

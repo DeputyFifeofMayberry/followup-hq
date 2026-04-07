@@ -15,7 +15,7 @@ export interface DerivedSyncMeta {
   lastLoadRecoveredWithLocalCache?: boolean;
   sessionTrustState: 'healthy' | 'degraded';
   sessionDegraded: boolean;
-  sessionDegradedReason: 'none' | 'backend-schema-mismatch' | 'backend-rpc-missing' | 'cloud-read-failed-fallback' | 'local-newer-than-cloud' | 'local-recovery-fallback';
+  sessionDegradedReason: 'none' | 'backend-schema-mismatch' | 'backend-rpc-missing' | 'backend-missing-hashing-support' | 'cloud-read-failed-fallback' | 'local-newer-than-cloud' | 'local-recovery-fallback';
   sessionDegradedAt?: string;
   sessionDegradedClearedByCloudSave: boolean;
   sessionTrustRecoveredAt?: string;
@@ -28,7 +28,8 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
   const backendSchemaMismatch = didRestoreFallback && load.backendFailureKind === 'schema-mismatch';
   const backendRpcMissing = didRestoreFallback && load.backendFailureKind === 'missing-rpc';
-  const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback && !backendSchemaMismatch && !backendRpcMissing);
+  const backendMissingHashingSupport = didRestoreFallback && load.backendFailureKind === 'missing-hashing-dependency';
+  const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback && !backendSchemaMismatch && !backendRpcMissing && !backendMissingHashingSupport);
   const usedLocalNewerFallback = Boolean(load.localNewerThanCloud && didRestoreFallback);
   const usedGeneralRecovery = Boolean(didRestoreFallback && !usedCloudReadFailureFallback && !usedLocalNewerFallback);
 
@@ -53,6 +54,8 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
       ? 'backend-schema-mismatch'
       : backendRpcMissing
         ? 'backend-rpc-missing'
+        : backendMissingHashingSupport
+          ? 'backend-missing-hashing-support'
         : usedLocalNewerFallback
       ? 'local-newer-than-cloud'
       : usedGeneralRecovery

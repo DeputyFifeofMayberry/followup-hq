@@ -79,6 +79,15 @@ async function run() {
   assert(missingColumn.failingColumn === 'deleted_at', 'missing column should preserve failing column');
 
   reset();
+  mock.contractReport = {
+    status: 'missing_hashing_dependency',
+    details: 'Required extension pgcrypto is missing. Cloud persistence hashing depends on digest().',
+  };
+  const missingHashing = await runPersistenceSchemaHealthCheck('user-1', { force: true });
+  assert(missingHashing.status === 'missing_hashing_dependency', 'missing hashing dependency should classify separately');
+  assert(missingHashing.missingExtension === 'pgcrypto', 'missing hashing dependency should preserve extension metadata');
+
+  reset();
   mock.rpcFailure = { code: 'PGRST202', message: 'Could not find the function public.apply_save_batch(batch)' };
   const missingRpc = await runPersistenceSchemaHealthCheck('user-1', { force: true });
   assert(missingRpc.status === 'missing_rpc', 'missing rpc should classify separately');

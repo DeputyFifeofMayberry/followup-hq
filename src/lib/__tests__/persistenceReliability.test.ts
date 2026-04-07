@@ -371,6 +371,18 @@ async function run() {
   assert(rpcMissingClassified, 'missing RPC should classify as non-retryable backend setup failure');
 
   reset();
+  mock.rpcFailure = { message: 'function digest(text, unknown) does not exist', code: '42883' };
+  let hashingDependencyClassified = false;
+  try {
+    await savePersistedPayload(payloadFixture);
+  } catch (error: any) {
+    hashingDependencyClassified = error?.diagnostics?.failureKind === 'backend_missing_hashing_dependency'
+      && error?.diagnostics?.nonRetryable === true
+      && String(error?.message ?? '').includes('pgcrypto');
+  }
+  assert(hashingDependencyClassified, 'missing pgcrypto should classify as non-retryable backend setup failure');
+
+  reset();
   const originalRpc = (supabase as any).rpc;
   let rpcInvocation = 0;
   (supabase as any).rpc = async (fn: string, args: any) => {

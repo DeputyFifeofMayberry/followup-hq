@@ -102,18 +102,26 @@
   align-items: center;
   justify-content: center;
   padding: clamp(0.6rem, 2vw, 1rem);
+  padding-bottom: max(clamp(0.6rem, 2vw, 1rem), env(safe-area-inset-bottom));
   z-index: 1000;
 }
 .modal-panel {
   width: min(840px, 100%);
-  max-height: calc(100vh - 2rem);
+  max-height: min(calc(100dvh - 2rem), calc(100vh - 2rem));
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   border-radius: calc(var(--radius-xl) + 0.1rem);
   border: 1px solid var(--border-default);
   padding: 0;
   box-shadow: var(--shadow-lg);
+}
+.modal-content-shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 .modal-panel-compact { width: min(560px, 100%); }
 .modal-panel-standard { width: min(840px, 100%); }
@@ -122,6 +130,7 @@
 .modal-header,
 .modal-footer {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
@@ -132,8 +141,16 @@
 .modal-footer { border-top: 1px solid var(--border-default); margin-top: 0; justify-content: flex-end; }
 .modal-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
 .modal-subtitle { margin-top: 0.22rem; font-size: 0.8rem; color: var(--text-muted); }
-.modal-body { padding: var(--space-4) 1.2rem; display: grid; gap: var(--space-4); align-content: start; }
-.modal-body-scroll { overflow-y: auto; }
+.modal-body {
+  padding: var(--space-4) 1.2rem;
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modal-body-scroll { overflow-y: auto; overscroll-behavior: contain; }
+.modal-body-static { overflow: visible; }
 
 .segmented-control { display: inline-flex; gap: 0.28rem; padding: 0.26rem; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-muted); }
 .segmented-control-btn { border: 0; border-radius: 0.62rem; padding: 0.37rem 0.72rem; background: transparent; color: var(--text-muted); font-size: 0.79rem; font-weight: 630; }

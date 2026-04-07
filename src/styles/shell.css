@@ -230,6 +230,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workspace-body-slot {
+    gap: 0.55rem;
+  }
+
   .app-compact-shell-bar {
     display: flex;
   }
@@ -263,6 +267,16 @@
 @media (max-width: 780px) {
   .app-main-pane {
     padding: 0.55rem;
+  }
+
+  .app-compact-shell-bar {
+    padding: 0.4rem 0.48rem;
+    border-radius: 0.82rem;
+  }
+
+  .app-compact-shell-btn {
+    min-height: 2rem;
+    padding: 0.34rem 0.5rem;
   }
 
   .app-brand-block {

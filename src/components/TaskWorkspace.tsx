@@ -32,6 +32,7 @@ import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { buildExecutionSelectedContext, deriveTaskRecommendedAction, describeHandoffMission, executionLaneRegistry, resolveExecutionLaneSelection, resolvePostActionSelection, toExecutionLaneHandoff } from '../domains/shared';
 import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 import { isExecutionReady } from '../domains/records/integrity';
+import { useViewportBand } from '../hooks/useViewport';
 
 type TaskMode = 'dueNow' | 'thisWeek' | 'blocked' | 'allOpen' | 'deferred' | 'atRiskLinked' | 'cleanup' | 'unlinked' | 'recent';
 type SessionPreset = 'workNow' | 'planWeek' | 'resolveBlockers' | 'cleanup' | 'custom';
@@ -102,6 +103,7 @@ function readTaskWorkspacePrefs(): TaskWorkspacePreferences | null {
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const { tasks, items, projects, selectedTaskId, taskOwnerFilter, taskStatusFilter, setSelectedTaskId, setTaskOwnerFilter, setTaskStatusFilter, openCreateTaskModal, updateTask, attemptTaskTransition, executionIntent, clearExecutionIntent, laneItems, executionMetrics, lastExecutionRoute } = useTasksViewModel();
+  const { isMobileLike } = useViewportBand();
 
   const modeConfig = getModeConfig(appMode);
   const prefs = useMemo(() => readTaskWorkspacePrefs(), []);
@@ -419,11 +421,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         </ExecutionLaneSummary>
       </WorkspaceTopStack>
 
-      <WorkspacePrimaryLayout inspectorWidth="420px" className={inspectorCollapsed ? 'workspace-primary-layout-collapsed' : ''}>
+      <WorkspacePrimaryLayout inspectorWidth="420px" className={`${inspectorCollapsed || isMobileLike ? 'workspace-primary-layout-collapsed' : ''} ${isMobileLike ? 'task-workspace-mobile-layout' : ''}`}>
         <ExecutionLaneQueueCard>
           <SectionHeader title="Task queue" subtitle="Fast tactical lane for personal-first execution." compact />
           <div className="workspace-control-stack task-control-stack-calm">
-            <ExecutionLaneToolbarScaffold className="task-primary-toolbar"
+            <ExecutionLaneToolbarScaffold className={`task-primary-toolbar ${isMobileLike ? 'task-primary-toolbar-mobile' : ''}`}
               left={<label className="field-block task-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
               middle={<div className="task-mode-group" role="tablist" aria-label="Primary task modes">
                 {primaryModeOptions.map((option) => (
@@ -586,9 +588,34 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             })}
           </div>
           <ExecutionLaneFooterMeta shownCount={filteredTasks.length} selectedCount={selectedTask ? 1 : 0} scopeSummary={`Mode: ${mode}`} hint="Execution view: next step and timing stay primary" />
+          {isMobileLike && selectedTask ? (
+            <div className="task-mobile-detail-card">
+              <div className="task-mobile-detail-head">
+                <div>
+                  <h3>{selectedTask.title}</h3>
+                  <p>{selectedTask.project} • {selectedTask.assigneeDisplayName || selectedTask.owner}</p>
+                </div>
+                <div className="task-inspector-status-strip">
+                  <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
+                  <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
+                </div>
+              </div>
+              <div className="task-mobile-detail-grid">
+                <span>Due <strong>{formatDate(selectedTask.dueDate)}</strong></span>
+                <span>Next <strong>{selectedTask.nextStep || 'Define next step'}</strong></span>
+                {selectedTask.blockReason ? <span>Blocker <strong>{selectedTask.blockReason}</strong></span> : null}
+              </div>
+              <div className="task-mobile-actions">
+                <button onClick={runRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
+                <button onClick={() => openTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
+                <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
+                <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
+              </div>
+            </div>
+          ) : null}
         </ExecutionLaneQueueCard>
 
-        {!inspectorCollapsed ? (
+        {!inspectorCollapsed && !isMobileLike ? (
           <ExecutionLaneInspectorCard className="task-inspector-panel premium-inspector">
             {selectedTask ? (
               <div className="space-y-3">

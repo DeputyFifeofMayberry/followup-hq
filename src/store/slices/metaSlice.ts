@@ -59,7 +59,7 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
         const fallbackFailure = cloudReadFailed && loadedFromFallback
           ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage)
           : undefined;
-        const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState());
+        const unresolvedOutbox = await listUnresolvedOutboxEntries(await loadOutboxState());
         if (unresolvedOutbox.length > 0) incrementMetric('outboxRestoresOnStartup', unresolvedOutbox.length);
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);
@@ -124,6 +124,11 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
           },
           pendingReminders: [],
           reminderPermissionState: payload.auxiliary.reminderCenterSummary?.permissionState ?? 'default',
+          connectivityState: typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
+          offlineLoadState: source === 'local-cache' && loadedFromFallback ? 'loaded-from-offline-cache' : 'none',
+          pendingOfflineChangeCount: unresolvedOutbox.length,
+          lastConnectivityChangeAt: undefined,
+          lastReconnectAttemptAt: undefined,
           saveError: '',
           syncState: syncMeta.syncState,
           cloudSyncStatus: syncMeta.cloudSyncStatus,
@@ -283,6 +288,11 @@ export function createMetaSlice(set: SliceSet, defaultOutlookConnection: any): P
             summary: 'Could not confirm saved data during startup.',
             detail,
           })],
+          connectivityState: typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline',
+          offlineLoadState: 'offline-no-cache',
+          pendingOfflineChangeCount: 0,
+          lastConnectivityChangeAt: undefined,
+          lastReconnectAttemptAt: undefined,
         });
       }
     },

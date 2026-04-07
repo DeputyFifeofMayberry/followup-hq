@@ -21,6 +21,7 @@ import {
   updateOutboxEntry,
 } from './persistenceOutbox';
 import { incrementMetric } from './persistenceMetrics';
+import { clearPersistenceBlob, loadPersistenceBlob, savePersistenceBlob } from './persistenceStorage';
 import type {
   SaveBatchEntityCounts,
   SaveBatchEnvelope,
@@ -280,10 +281,6 @@ export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-function canUseBrowserStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
 export function buildLocalCacheKey(userId: string | null): string {
   if (!userId) return `${LOCAL_CACHE_KEY_PREFIX}:anonymous`;
   return `${LOCAL_CACHE_KEY_PREFIX}:user:${userId}`;
@@ -293,18 +290,13 @@ export function buildLegacyLocalCacheKey(): string {
   return LEGACY_LOCAL_CACHE_KEY;
 }
 
-export function clearLocalCacheForUser(userId: string): void {
-  if (!canUseBrowserStorage()) return;
-  try {
-    window.localStorage.removeItem(buildLocalCacheKey(userId));
-  } catch {
-    // ignore local cache errors
-  }
+export async function clearLocalCacheForUser(userId: string): Promise<void> {
+  await clearPersistenceBlob(buildLocalCacheKey(userId));
 }
 
-export function clearScopedPersistenceForUser(userId: string): void {
-  clearLocalCacheForUser(userId);
-  clearOutboxForUser(userId);
+export async function clearScopedPersistenceForUser(userId: string): Promise<void> {
+  await clearLocalCacheForUser(userId);
+  await clearOutboxForUser(userId);
 }
 
 function normalizePendingOperation(parsed: unknown): PendingEntityOperation | null {
@@ -361,70 +353,29 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
 function resolveLocalCacheKey(userId?: string | null): string {
   return buildLocalCacheKey(userId ?? getPersistenceScopeUserId());
 }
-
-function migrateLegacyLocalCacheIfNeeded(userId?: string | null): void {
-  if (!canUseBrowserStorage()) return;
-  const scopeUserId = userId ?? getPersistenceScopeUserId();
-  if (!scopeUserId) return;
-  const scopedKey = buildLocalCacheKey(scopeUserId);
-  if (window.localStorage.getItem(scopedKey)) return;
-  const legacyRaw = window.localStorage.getItem(buildLegacyLocalCacheKey());
-  if (!legacyRaw) return;
-  let normalized: LocalCachePayload | null = null;
+async function readLocalCache(userId?: string | null): Promise<LocalCachePayload | null> {
   try {
-    normalized = normalizeLocalCache(JSON.parse(legacyRaw) as unknown);
-  } catch {
-    normalized = null;
-  }
-  if (!normalized) return;
-  try {
-    window.localStorage.setItem(scopedKey, JSON.stringify({ ...normalized, userId: scopeUserId }));
-    window.localStorage.removeItem(buildLegacyLocalCacheKey());
-  } catch {
-    // ignore
-  }
-}
-
-function readLocalCache(userId?: string | null): LocalCachePayload | null {
-  if (!canUseBrowserStorage()) return null;
-  migrateLegacyLocalCacheIfNeeded(userId);
-  try {
-    const raw = window.localStorage.getItem(resolveLocalCacheKey(userId));
+    const raw = await loadPersistenceBlob(resolveLocalCacheKey(userId), buildLegacyLocalCacheKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     const normalized = normalizeLocalCache(parsed);
     if (normalized) return normalized;
-
-    // Backward compatibility with older cache format.
     if (parsed && typeof parsed === 'object' && 'items' in (parsed as Record<string, unknown>)) {
-      return {
-        entities: parsed as PersistedPayload,
-        updatedAt: new Date().toISOString(),
-        cloudStatus: 'pending',
-      };
+      return { entities: parsed as PersistedPayload, updatedAt: new Date().toISOString(), cloudStatus: 'pending' };
     }
-
     return null;
   } catch {
     return null;
   }
 }
 
-function writeLocalCache(cache: LocalCachePayload, userId?: string | null): void {
-  if (!canUseBrowserStorage()) return;
-  try {
-    window.localStorage.setItem(resolveLocalCacheKey(userId), JSON.stringify(cache));
-    if (userId) {
-      window.localStorage.removeItem(buildLegacyLocalCacheKey());
-    }
-    window.localStorage.removeItem(LEGACY_BROWSER_SNAPSHOT_KEY);
-  } catch {
-    // ignore local cache errors
-  }
+async function writeLocalCache(cache: LocalCachePayload, userId?: string | null): Promise<void> {
+  await savePersistenceBlob(resolveLocalCacheKey(userId), JSON.stringify(cache), buildLegacyLocalCacheKey());
+  await clearPersistenceBlob(LEGACY_BROWSER_SNAPSHOT_KEY);
 }
 
 function readLegacySnapshotFromBrowser(): AppSnapshot | null {
-  if (!canUseBrowserStorage()) return null;
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(LEGACY_BROWSER_SNAPSHOT_KEY);
     if (!raw) return null;
@@ -781,7 +732,7 @@ async function migrateLegacySnapshotIfNeeded(userId: string, currentPayload: Per
   await applyEntityUpserts('contacts', userId, migrated.contacts.map((record) => ({ entity: 'contacts', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
   await applyEntityUpserts('companies', userId, migrated.companies.map((record) => ({ entity: 'companies', recordId: record.id, operation: 'upsert', recordSnapshot: record })));
   await saveAuxiliaryState(userId, migrated.auxiliary, true);
-  writeLocalCache({
+  await writeLocalCache({
     entities: migrated,
     updatedAt: new Date().toISOString(),
     cloudStatus: 'confirmed',
@@ -831,7 +782,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   try {
     userId = await getSessionUserId();
   } catch (error) {
-    const cache = readLocalCache();
+    const cache = await readLocalCache();
     const normalized = normalizePersistenceError(error, { stage: 'auth_session', operation: 'load', table: 'auth_session' });
     const loadFailureMessage = formatPersistenceErrorMessage(normalized);
     if (cache) {
@@ -866,7 +817,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       localCacheUpdatedAt: undefined,
     };
   }
-  const cache = readLocalCache(userId);
+  const cache = await readLocalCache(userId);
 
   let cloudPayload: PersistedPayload;
   let cloudUpdatedAt: string | undefined;
@@ -1008,7 +959,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   }
 
   const confirmedAt = cloudUpdatedAt ?? new Date().toISOString();
-  writeLocalCache({
+  await writeLocalCache({
     entities: hydrated,
     updatedAt: confirmedAt,
     cloudStatus: 'confirmed',
@@ -1044,11 +995,11 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
   const currentUserId = scopedUserId ?? await getSessionUserId();
   const saveAttemptAt = new Date().toISOString();
   incrementMetric('saveBatchAttempts');
-  const existingCache = readLocalCache(currentUserId);
+  const existingCache = await readLocalCache(currentUserId);
   const previousPayload = existingCache?.entities ?? buildEmptyPayload();
   const auxiliaryChanged = JSON.stringify(payload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
   const scopedOps = buildScopedEntityOps(payload, previousPayload, options?.dirtyRecords);
-  const unresolvedOutbox = listUnresolvedOutboxEntries(loadOutboxState(currentUserId));
+  const unresolvedOutbox = await listUnresolvedOutboxEntries(await loadOutboxState(currentUserId));
   const unresolvedOps = unresolvedOutbox.flatMap((entry) => entry.operations as PendingEntityOperation[]);
   const pendingOperations = mergePendingOperations([...((existingCache?.pendingOperations ?? []) as PendingEntityOperation[]), ...unresolvedOps], scopedOps);
   const diagnostics: SaveDiagnostics = {
@@ -1058,7 +1009,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     operationCounts: summarizeOperations(pendingOperations),
   };
 
-  writeLocalCache({
+  await writeLocalCache({
     entities: payload,
     updatedAt: saveAttemptAt,
     cloudStatus: 'pending',
@@ -1070,7 +1021,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
   }, currentUserId);
 
   if (!currentUserId) {
-    writeLocalCache({
+    await writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
@@ -1087,7 +1038,11 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     return { mode: 'supabase', diagnostics };
   }
 
-  const provisionalEntry = enqueueOutboxEntry({
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { mode: 'supabase', diagnostics };
+  }
+
+  const provisionalEntry = await enqueueOutboxEntry({
     batchId: diagnostics.batchId ?? `pending-${Date.now().toString(36)}`,
     deviceId: getStableDeviceId(),
     sessionId: getSessionScopedId(),
@@ -1108,7 +1063,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
 
   const envelope = await buildSaveBatchEnvelope({ payload, operations: pendingOperations, clientGeneratedAt: saveAttemptAt });
   diagnostics.batchId = envelope.batchId;
-  updateOutboxEntry(provisionalEntry.outboxEntryId, {
+  await updateOutboxEntry(provisionalEntry.outboxEntryId, {
     batchId: envelope.batchId,
     payloadHash: envelope.clientPayloadHash,
     status: 'flushing',
@@ -1128,7 +1083,7 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     if (receipt.status !== 'committed') {
       if (receipt.status === 'conflict') incrementMetric('saveConflicts');
       else incrementMetric('saveBatchRejects');
-      updateOutboxEntry(provisionalEntry.outboxEntryId, {
+      await updateOutboxEntry(provisionalEntry.outboxEntryId, {
         status: receipt.status === 'conflict' ? 'conflict' : 'failed',
         blockedReason: receipt.status,
         lastError: `Batch ${receipt.batchId} returned ${receipt.status}`,
@@ -1140,14 +1095,14 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
       });
     }
     incrementMetric('saveBatchCommits');
-    updateOutboxEntry(provisionalEntry.outboxEntryId, {
+    await updateOutboxEntry(provisionalEntry.outboxEntryId, {
       status: 'committed',
       blockedReason: undefined,
       lastError: undefined,
     }, currentUserId);
-    clearCommittedOutboxEntries(currentUserId);
+    await clearCommittedOutboxEntries(currentUserId);
 
-    writeLocalCache({
+    await writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
@@ -1165,13 +1120,13 @@ export async function savePersistedPayload(payload: PersistedPayload, options?: 
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     diagnostics.failedBatchId = envelope.batchId;
-    updateOutboxEntry(provisionalEntry.outboxEntryId, {
+    await updateOutboxEntry(provisionalEntry.outboxEntryId, {
       status: diagnostics.receiptStatus === 'conflict' ? 'conflict' : 'failed',
       lastError: rawMessage,
       retryCount: provisionalEntry.retryCount + 1,
     }, currentUserId);
     incrementMetric('outboxRetries');
-    writeLocalCache({
+    await writeLocalCache({
       entities: payload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'pending',

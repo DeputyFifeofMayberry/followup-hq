@@ -29,6 +29,7 @@ import { isE2EMode } from './lib/e2eMode';
 import { ReminderCenterControl } from './components/ReminderCenterControl';
 import { AppToastHost } from './components/app/AppToastHost';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
+import { useConnectivitySync } from './hooks/useConnectivitySync';
 
 type WorkspaceKey = ModeWorkspaceKey;
 
@@ -215,6 +216,7 @@ function MainApp({ session }: { session: Session }) {
     })),
   );
   useReminderScheduler(hydrated);
+  useConnectivitySync(Boolean(session));
 
   const [workspace, setWorkspace] = useState<WorkspaceKey>('worklist');
   const [appMode, setAppMode] = useState<AppMode>(() => {

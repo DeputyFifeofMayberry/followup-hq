@@ -69,6 +69,9 @@ export interface SyncMetaSnapshot {
   lastConflictDetectedAt?: string;
   lastConflictBatchId?: string;
   lastConflictFailureMessage?: string;
+  connectivityState: 'online' | 'offline' | 'degraded';
+  offlineLoadState: 'none' | 'loaded-from-offline-cache' | 'offline-no-cache';
+  pendingOfflineChangeCount: number;
 }
 
 export interface SyncStatusModel {
@@ -165,6 +168,9 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     lastConflictDetectedAt: state.lastConflictDetectedAt,
     lastConflictBatchId: state.lastConflictBatchId,
     lastConflictFailureMessage: state.lastConflictFailureMessage,
+    connectivityState: state.connectivityState,
+    offlineLoadState: state.offlineLoadState,
+    pendingOfflineChangeCount: state.pendingOfflineChangeCount,
   };
 }
 
@@ -312,6 +318,19 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   if (meta.syncState === 'saving' || meta.syncState === 'dirty' || meta.hasLocalUnsavedChanges) {
+    if (meta.connectivityState === 'offline') {
+      const queued = meta.pendingOfflineChangeCount || meta.unsavedChangeCount;
+      return {
+        primaryState: 'saving',
+        stateLabel: 'Offline — saved locally',
+        stateDescription: queued > 0 ? `Offline — ${queued} queued change${queued === 1 ? '' : 's'} pending cloud sync.` : 'Offline — changes are saved locally until connection returns.',
+        reassurance: 'Your work is protected on this device.',
+        tone: 'info',
+        stateTone: 'warn',
+        showSpinner: false,
+        ...modeDetails,
+      };
+    }
     return {
       primaryState: 'saving',
       stateLabel: 'Saving',

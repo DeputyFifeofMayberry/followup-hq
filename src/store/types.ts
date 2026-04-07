@@ -56,6 +56,7 @@ export interface AppStoreActions {
   initializeApp: () => Promise<void>;
   flushPersistenceNow: () => Promise<void>;
   retryPersistenceNow: () => Promise<void>;
+  setConnectivityState: (state: 'online' | 'offline' | 'degraded') => void;
   resetForLogout: () => void;
 
   verifyNow: (mode?: 'manual' | 'post-save' | 'startup-review') => Promise<void>;

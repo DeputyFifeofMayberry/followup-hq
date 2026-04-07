@@ -57,3 +57,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </RootErrorBoundary>
   </React.StrictMode>,
 );
+
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window)) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}

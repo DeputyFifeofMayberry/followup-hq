@@ -306,12 +306,15 @@ export function CreateWorkModal() {
 
   return (
     <AppModal size="wide">
-      <div onKeyDown={(event) => {
+      <div
+        className="flex h-full min-h-0 flex-col"
+        onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           save(false);
         }
-      }}>
+      }}
+      >
         <AppModalHeader
           title={followUpEditing ? 'Edit full follow-up' : taskEditing ? 'Edit full task' : 'Create work item'}
           subtitle={followUpEditing || taskEditing ? 'Full edit is the deep destination for broad record changes.' : 'Choose a work type, then start with quick create fields. Open full editor fields only if needed.'}

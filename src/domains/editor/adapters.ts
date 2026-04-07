@@ -64,7 +64,7 @@ export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, Follow
   validateDraft: (draft) => {
     const issues = [] as Array<{ field: keyof FollowUpFormInput; message: string }>;
     if (!draft.title.trim()) issues.push({ field: 'title', message: 'Title is required.' });
-    if (!draft.projectId) issues.push({ field: 'project', message: 'Select a canonical project from the project picker.' });
+    if (!draft.project.trim()) issues.push({ field: 'project', message: 'Project is required.' });
     if (normalizeIdentity(draft.project) === 'general') issues.push({ field: 'project', message: 'General cannot be used for live execution records.' });
     if (!draft.owner.trim()) issues.push({ field: 'owner', message: 'Owner is required.' });
     if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });
@@ -124,7 +124,7 @@ export const taskEditorAdapter: RecordTypeEditorAdapter<TaskItem, TaskFormInput,
   validateDraft: (draft) => {
     const issues = [] as Array<{ field: keyof TaskFormInput; message: string }>;
     if (!draft.title.trim()) issues.push({ field: 'title', message: 'Title is required.' });
-    if (!draft.projectId) issues.push({ field: 'project', message: 'Select a canonical project from the project picker.' });
+    if (!draft.project.trim()) issues.push({ field: 'project', message: 'Project is required.' });
     if (normalizeIdentity(draft.project) === 'general') issues.push({ field: 'project', message: 'General cannot be used for live execution records.' });
     if (!draft.owner.trim()) issues.push({ field: 'owner', message: 'Owner is required.' });
     if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });

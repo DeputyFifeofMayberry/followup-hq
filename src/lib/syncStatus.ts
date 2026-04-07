@@ -374,7 +374,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       || meta.sessionDegradedReason === 'backend-missing-hashing-support';
     return {
       primaryState: isBackendSetupIssue ? 'saved' : 'needs-attention',
-      stateLabel: isBackendSetupIssue ? 'Saved locally' : 'Needs attention',
+      stateLabel: isBackendSetupIssue ? 'Backend setup issue' : 'Retry needed',
       stateDescription: isBackendSetupIssue
         ? 'Cloud setup required'
         : 'Cloud sync needs attention; your local copy is safe',
@@ -430,7 +430,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   return {
     primaryState: 'saved',
-    stateLabel: 'Saved',
+    stateLabel: 'Confirmed to cloud',
     stateDescription: 'All changes saved',
     reassurance: 'All changes saved',
     tone: 'default',

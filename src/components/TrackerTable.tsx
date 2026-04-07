@@ -16,6 +16,7 @@ import { useViewportBand } from '../hooks/useViewport';
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'nextAction', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
+const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate', 'priority']);
 
 export function TrackerTable({
   personalMode = false,
@@ -94,9 +95,9 @@ export function TrackerTable({
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
     status: { accessorKey: 'status', header: 'Status', cell: ({ row }) => <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge> },
-    priority: { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
-    dueDate: { accessorKey: 'dueDate', header: 'Due', cell: ({ row }) => formatDate(row.original.dueDate) },
-    nextTouchDate: { accessorKey: 'nextTouchDate', header: 'Next touch', cell: ({ row }) => formatDate(row.original.nextTouchDate) },
+    priority: { accessorKey: 'priority', header: 'Priority', enableSorting: true, cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
+    dueDate: { accessorKey: 'dueDate', header: 'Due', enableSorting: true, cell: ({ row }) => formatDate(row.original.dueDate) },
+    nextTouchDate: { accessorKey: 'nextTouchDate', header: 'Next touch', enableSorting: true, cell: ({ row }) => formatDate(row.original.nextTouchDate) },
     promisedDate: { accessorKey: 'promisedDate', header: 'Promised', cell: ({ row }) => formatDate(row.original.promisedDate) },
     waitingOn: { accessorKey: 'waitingOn', header: 'Waiting on', cell: ({ row }) => row.original.waitingOn || '—' },
     escalation: { accessorKey: 'escalationLevel', header: 'Escalation' },
@@ -137,11 +138,17 @@ export function TrackerTable({
         header: 'Actions',
         enableSorting: false,
         cell: ({ row }) => (
-          <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+          <div className="flex flex-wrap gap-1">
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Open</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); setSelectedId(row.original.id); openTouchModal(); }}>Touch</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); markNudged(row.original.id); }}>Nudge</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); snoozeItem(row.original.id, 2); }}>Snooze</button>
+            <button type="button" className="action-btn action-btn-danger !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); updateItem(row.original.id, { status: 'Closed' }); }}>Close</button>
+          </div>
         ),
       },
     ];
-  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, personalMode, baseColumns]);
+  }, [followUpColumns, filteredItems, selectedFollowUpIds, selectAllVisibleFollowUps, toggleFollowUpSelection, markNudged, personalMode, baseColumns, onRowOpen, setSelectedId, openTouchModal, snoozeItem, updateItem]);
 
   const table = useReactTable({ data: filteredItems, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 
@@ -179,11 +186,13 @@ export function TrackerTable({
                     SUPPORT_COLUMNS.has(header.id) ? 'tracker-head-cell-support' : '',
                     header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
                   ].filter(Boolean).join(' ')} aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
-                    {header.isPlaceholder ? null : (
+                    {header.isPlaceholder ? null : header.column.getCanSort() && SORTABLE_COLUMNS.has(header.id) ? (
                       <button type="button" className="tracker-head-btn" onClick={header.column.getToggleSortingHandler()}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() ? <ArrowUpDown className="h-3.5 w-3.5" /> : null}
+                        <ArrowUpDown className="h-3.5 w-3.5" />
                       </button>
+                    ) : (
+                      <span className="tracker-head-btn !cursor-default">{flexRender(header.column.columnDef.header, header.getContext())}</span>
                     )}
                   </th>
                 ))}

@@ -59,10 +59,11 @@ interface ParseOptions {
 }
 
 function normalizeText(raw: string, kind: IntakeAssetKind): string {
+  const printable = raw.replace(/\u0000/g, ' ').replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, ' ');
   if (kind === 'html') {
-    return raw.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return printable.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   }
-  return raw.replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return printable.replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function arrayBufferToText(buffer: ArrayBuffer): string {
@@ -111,14 +112,24 @@ function decodeQuotedPrintable(value: string): string {
   return softBreakStripped.replace(/=([A-Fa-f0-9]{2})/g, (_full, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
-function decodeBodyByEncoding(content: string, encoding?: string): string {
+function resolveDecoder(charset?: string): TextDecoder {
+  const normalized = (charset || 'utf-8').toLowerCase();
+  try {
+    return new TextDecoder(normalized, { fatal: false });
+  } catch {
+    return new TextDecoder('utf-8', { fatal: false });
+  }
+}
+
+function decodeBodyByEncoding(content: string, encoding?: string, charset?: string): string {
   const normalizedEncoding = encoding?.toLowerCase();
+  const decoder = resolveDecoder(charset);
   if (normalizedEncoding === 'base64') {
     try {
       const compact = content.replace(/\s+/g, '');
       const decoded = atob(compact);
       const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
-      return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+      return decoder.decode(bytes);
     } catch {
       return content;
     }
@@ -132,6 +143,21 @@ function parseAddressList(value?: string): string[] {
   const matches = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi);
   if (matches?.length) return [...new Set(matches.map((entry) => entry.toLowerCase()))];
   return value.split(/[;,]/).map((entry) => entry.trim()).filter(Boolean);
+}
+
+function decodeMimeWords(value: string): string {
+  return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_full, charset, encoding, text) => {
+    try {
+      if (String(encoding).toUpperCase() === 'B') {
+        const decoded = atob(text);
+        const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+        return resolveDecoder(charset).decode(bytes);
+      }
+      return decodeQuotedPrintable(text.replace(/_/g, ' '));
+    } catch {
+      return text;
+    }
+  });
 }
 
 function parseMultipartEml(rawText: string): ParsedEmail {
@@ -151,7 +177,8 @@ function parseMultipartEml(rawText: string): ParsedEmail {
       const partHeaders = normalizeHeaderMap(partHeadersRaw);
       const disposition = partHeaders['content-disposition']?.toLowerCase() ?? '';
       const partType = partHeaders['content-type']?.toLowerCase() ?? '';
-      const decoded = decodeBodyByEncoding(partBody, partHeaders['content-transfer-encoding']);
+      const partCharset = /charset="?([^";]+)"?/i.exec(partHeaders['content-type'] ?? '')?.[1];
+      const decoded = decodeBodyByEncoding(partBody, partHeaders['content-transfer-encoding'], partCharset);
 
       if (disposition.includes('attachment')) {
         const nameMatch = /filename\*?="?([^";]+)"?/i.exec(partHeaders['content-disposition'] ?? '') ?? /name\*?="?([^";]+)"?/i.exec(partHeaders['content-type'] ?? '');
@@ -169,15 +196,16 @@ function parseMultipartEml(rawText: string): ParsedEmail {
   }
 
   if (!bodyPlain) {
-    const fallback = decodeBodyByEncoding(bodyText, headers['content-transfer-encoding']);
+    const charset = /charset="?([^";]+)"?/i.exec(headers['content-type'] ?? '')?.[1];
+    const fallback = decodeBodyByEncoding(bodyText, headers['content-transfer-encoding'], charset);
     bodyPlain = normalizeText(fallback, contentType.includes('text/html') ? 'html' : 'text');
   }
 
   if (!bodyPlain.trim()) warnings.push('Email body is weak or empty.');
 
   return {
-    subject: headers.subject,
-    from: headers.from,
+    subject: headers.subject ? decodeMimeWords(headers.subject) : headers.subject,
+    from: headers.from ? decodeMimeWords(headers.from) : headers.from,
     to: parseAddressList(headers.to),
     cc: parseAddressList(headers.cc),
     sentDate: headers.date,

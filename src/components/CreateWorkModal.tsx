@@ -259,6 +259,7 @@ export function CreateWorkModal() {
   };
 
   const canSave = mode === 'followup' ? Boolean(followUpSession?.validation.valid) : Boolean(taskSession?.validation.valid);
+  const validationIssues = mode === 'followup' ? (followUpSession?.validation.issues ?? []) : (taskSession?.validation.issues ?? []);
 
   const save = (addAnother = false) => {
     if (!canSave) return;
@@ -301,6 +302,11 @@ export function CreateWorkModal() {
           onClose={close}
         />
         <AppModalBody>
+          {validationIssues.length > 0 ? (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {validationIssues[0]?.message}
+            </div>
+          ) : null}
           <div className="create-work-controls">
             <div className="create-work-controls-group">
               <label className="create-work-controls-label" id="create-work-type-label">Work type</label>

@@ -27,6 +27,7 @@ export function UniversalIntakeWorkspace() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(intakeAssets[0]?.id ?? null);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(intakeWorkCandidates[0]?.id ?? null);
   const [selectedSheet, setSelectedSheet] = useState<string>('All sheets');
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
@@ -95,7 +96,7 @@ export function UniversalIntakeWorkspace() {
             {assets.map((asset) => (
               <button key={asset.id} className={`w-full rounded-lg border p-2 text-left ${selectedAsset?.id === asset.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200'}`} onClick={() => { setSelectedAssetId(asset.id); setSelectedSheet('All sheets'); }}>
                 <div className="text-sm font-medium text-slate-900">{asset.fileName}</div>
-                <div className="text-xs text-slate-600">{asset.kind} · {prettyStatus(asset)}</div>
+                <div className="text-xs text-slate-600">{asset.kind} · {prettyStatus(asset)} · {asset.mimeType || 'unknown mime'}</div>
                 {asset.warnings[0] ? <div className="mt-1 text-xs text-amber-700">{asset.warnings[0]}</div> : null}
               </button>
             ))}
@@ -125,12 +126,27 @@ export function UniversalIntakeWorkspace() {
               <label className="field-block"><span className="field-label">Project</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { project: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { owner: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Summary</span><textarea className="field-textarea" value={selectedCandidate.summary} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { summary: event.target.value })} /></label>
+              {selectedCandidate.warnings?.length ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                  {selectedCandidate.warnings[0]}
+                </div>
+              ) : null}
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
-                {(selectedCandidate.evidence || []).slice(0, 4).map((entry) => <div key={entry.id}>• {entry.sourceRef}: {entry.snippet.slice(0, 90)}</div>)}
+                {(selectedCandidate.evidence || []).slice(0, 4).map((entry) => <div key={entry.id}>• {entry.sourceRef}: {entry.snippet.replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, ' ').slice(0, 120)}</div>)}
               </div>
+              {actionMessage ? <div className="text-xs text-slate-600">{actionMessage}</div> : null}
               <div className="flex flex-wrap gap-2">
                 <button className="primary-btn" onClick={() => decideIntakeWorkCandidate(selectedCandidate.id, 'approve_followup')}>Create follow-up</button>
-                <button className="action-btn" onClick={() => decideIntakeWorkCandidate(selectedCandidate.id, 'approve_task')}>Create task</button>
+                <button className="action-btn" onClick={() => {
+                  const beforeStatus = selectedCandidate.approvalStatus;
+                  decideIntakeWorkCandidate(selectedCandidate.id, 'approve_task');
+                  const after = useAppStore.getState().intakeWorkCandidates.find((entry) => entry.id === selectedCandidate.id);
+                  if (after && after.approvalStatus === beforeStatus) {
+                    setActionMessage(after.warnings?.[0] || 'Task was not created. Review candidate fields and warnings.');
+                    return;
+                  }
+                  setActionMessage('Task created from intake candidate.');
+                }}>Create task</button>
                 <button className="action-btn" onClick={() => decideIntakeWorkCandidate(selectedCandidate.id, 'reference')}>Save reference</button>
                 <button className="action-btn" onClick={() => decideIntakeWorkCandidate(selectedCandidate.id, 'reject')}>Dismiss</button>
               </div>

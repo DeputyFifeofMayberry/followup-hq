@@ -395,7 +395,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       dueDate: quickDueDateDraft ? fromDateInputValue(quickDueDateDraft) : undefined,
       blockReason: quickBlockReasonDraft.trim() || undefined,
     });
-    setLaneFeedback({ tone: 'success', message: 'Quick execution update saved.' });
+    setLaneFeedback({ tone: 'success', message: 'Quick update saved.' });
   };
 
   const runRecommendedTaskAction = () => {
@@ -411,10 +411,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     <WorkspacePage>
       <WorkspaceTopStack>
         <ExecutionLaneSummary className="overview-hero-card">
-          <SectionHeader title="Task execution lane" subtitle={modeConfig.taskSubtitle} compact />
+          <SectionHeader title="Tasks" subtitle={modeConfig.taskSubtitle} compact />
           <ExecutionLaneToolbar className="followup-summary-meta-row">
             <span className="workspace-support-copy">Open {summary.open} · due soon {summary.dueSoon} · blocked {summary.blocked} · unlinked {summary.unlinked} · review required {summary.reviewRequired}</span>
-            <span className="workspace-support-copy">Task loop: scan → select → act → continue.</span>
+            <span className="workspace-support-copy">Task flow: scan → select → act → continue.</span>
             <span className="workspace-support-copy">Shared metrics: due {executionMetrics.dueNow} · blocked {executionMetrics.blockedOrAtRisk} · ready to close {executionMetrics.readyToClose}</span>
             {executionIntent?.target === 'tasks' ? <span className="workspace-support-copy">{describeExecutionIntent(executionIntent)}</span> : null}
           </ExecutionLaneToolbar>
@@ -423,7 +423,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
       <WorkspacePrimaryLayout inspectorWidth="420px" className={`${inspectorCollapsed || isMobileLike ? 'workspace-primary-layout-collapsed' : ''} ${isMobileLike ? 'task-workspace-mobile-layout' : ''}`}>
         <ExecutionLaneQueueCard>
-          <SectionHeader title="Task queue" subtitle="Fast tactical lane for personal-first execution." compact />
+          <SectionHeader title="Task queue" subtitle="Focused queue for daily work." compact />
           <div className="workspace-control-stack task-control-stack-calm">
             <ExecutionLaneToolbarScaffold className={`task-primary-toolbar ${isMobileLike ? 'task-primary-toolbar-mobile' : ''}`}
               left={<label className="field-block task-search-block"><span className="field-label">Search queue</span><div className="search-field-wrap"><Search className="search-field-icon h-4 w-4" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes, tags" className="field-input search-field-input" />{searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}</div></label>}
@@ -434,7 +434,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
               </div>}
               right={<><button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
                 <SlidersHorizontal className="h-4 w-4" />
-                Filters & layout
+                Filters
                 {(activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount) > 0 ? <AppBadge tone="info">{activeQueueFilterCount + activeQueueShapeCount + activeWorkspacePreferenceCount}</AppBadge> : null}
                 <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
               </button>

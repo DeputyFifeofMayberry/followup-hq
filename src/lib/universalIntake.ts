@@ -15,6 +15,7 @@ import { resolveCandidateMatches } from './intake/reviewPipeline';
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
 const actionSignalRegex = /\b(action item|todo|to do|please|need to|assign|owner|due|follow up|waiting on|respond)\b/i;
+const nonContentRegex = /\b(confidentiality notice|this message and any attachments|unsubscribe|view in browser|click here)\b/i;
 
 interface ExtractionChunk {
   text: string;
@@ -42,6 +43,14 @@ interface ParsedEmail {
   warnings: string[];
 }
 
+interface DateRoleMap {
+  sourceDate?: string;
+  dueDate?: string;
+  promisedDate?: string;
+  nextTouchDate?: string;
+  historicalDates: string[];
+}
+
 interface Stage2Extraction {
   text: string;
   chunks: ExtractionChunk[];
@@ -58,12 +67,53 @@ interface ParseOptions {
   seen?: Set<string>;
 }
 
-function normalizeText(raw: string, kind: IntakeAssetKind): string {
-  const printable = raw.replace(/\u0000/g, ' ').replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, ' ');
-  if (kind === 'html') {
-    return printable.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+function stripQuotedThreadAndSignature(text: string): string {
+  const lines = text.split('\n');
+  const out: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^on .+wrote:$/i.test(trimmed)) break;
+    if (/^(from|sent|to|cc|subject):/i.test(trimmed) && out.length > 3) break;
+    if (/^[-_]{2,}\s*$/.test(trimmed) || /^sent from my/i.test(trimmed)) break;
+    if (trimmed.startsWith('>')) continue;
+    out.push(line);
   }
-  return printable.replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return out.join('\n');
+}
+
+export function sanitizeIntakeText(raw: string): string {
+  return raw
+    .replace(/\u0000/g, ' ')
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .replace(/\uFFFD/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim();
+}
+
+function htmlToReadableText(raw: string): string {
+  return raw
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h\d)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+function normalizeText(raw: string, kind: IntakeAssetKind): string {
+  const printable = sanitizeIntakeText(raw.replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, ' '));
+  if (kind === 'html') {
+    return sanitizeIntakeText(stripQuotedThreadAndSignature(htmlToReadableText(printable)));
+  }
+  return sanitizeIntakeText(stripQuotedThreadAndSignature(printable.replace(/\r/g, '\n')));
 }
 
 function arrayBufferToText(buffer: ArrayBuffer): string {
@@ -361,6 +411,8 @@ function extractSpreadsheet(buffer: ArrayBuffer): Stage2Extraction {
       if (values.length < 2) continue;
       if (values.every((entry) => /^[-–—_ ]+$/.test(entry.value))) continue;
       if (values.some((entry) => /subtotal|total|grand total/i.test(entry.value)) && values.length < 3) continue;
+      if (values.some((entry) => /notes?|legend|key|metadata/i.test(entry.header)) && values.length <= 2) continue;
+      if (values.join(' ').length < 20) continue;
 
       const sourceRef = `${sheetName}#row${rowIdx + 1}`;
       const fields: ExtractionChunk['fields'] = {};
@@ -369,7 +421,7 @@ function extractSpreadsheet(buffer: ArrayBuffer): Stage2Extraction {
         if (mapped && !fields[mapped]) fields[mapped] = entry.value;
       });
       const text = values.map((entry) => `${entry.header}: ${entry.value}`).join(' | ');
-      const quality = Math.min(1, values.length / 6 + (fields.title ? 0.2 : 0));
+      const quality = Math.min(1, values.length / 6 + (fields.title ? 0.2 : 0) + (fields.dueDate ? 0.1 : 0) + (fields.owner ? 0.08 : 0));
       refs.push(sourceRef);
       chunks.push({ text, sourceRef, kind: 'sheet_row', fields, quality });
     }
@@ -404,7 +456,7 @@ function extractEmail(buffer: ArrayBuffer): Stage2Extraction {
   }
   if (parsed.sentDate) {
     refs.push('email:date');
-    chunks.push({ text: parsed.sentDate, sourceRef: 'email:date', kind: 'email_header', fields: { dueDate: parsed.sentDate }, quality: 0.5 });
+    chunks.push({ text: parsed.sentDate, sourceRef: 'email:date', kind: 'email_header', fields: {}, quality: 0.7 });
   }
   if (parsed.bodyText) {
     refs.push('email:body');
@@ -424,7 +476,7 @@ function extractEmail(buffer: ArrayBuffer): Stage2Extraction {
     },
     warnings: parsed.warnings,
     attachments: parsed.attachments,
-    confidence: parsed.bodyText.length > 120 ? 0.86 : 0.62,
+    confidence: parsed.bodyText.length > 120 ? 0.9 : 0.66,
   };
 }
 
@@ -466,6 +518,66 @@ function inferCandidateType(text: string): { type: IntakeCandidateType; reasons:
   return { type: 'reference', reasons, intent: 'reference' };
 }
 
+function cleanCandidateTitle(raw: string, fallback: string): string {
+  const cleaned = sanitizeIntakeText(raw.replace(/^(re|fw|fwd)\s*:\s*/i, '').replace(/^(subject|title)\s*:\s*/i, '').replace(/[|]+/g, ' ').replace(/\s+/g, ' ')).trim();
+  if (!cleaned) return fallback;
+  const sentence = cleaned.split(/[.!?]\s/)[0] || cleaned;
+  const compact = sentence.slice(0, 96).trim();
+  return compact.length < 8 ? fallback : compact;
+}
+
+function classifyDateRoles(text: string, metadata: IntakeAssetRecord['metadata'], chunk: ExtractionChunk): DateRoleMap {
+  const mentions = (text.match(explicitDateRegex) ?? []).map((entry) => entry.trim());
+  const historicalDates: string[] = [];
+  let dueDate: string | undefined;
+  let promisedDate: string | undefined;
+  let nextTouchDate: string | undefined;
+  mentions.forEach((entry) => {
+    const lower = text.toLowerCase();
+    if (!dueDate && new RegExp(`(due|deadline|by)\\s+${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lower)) dueDate = entry;
+    else if (!promisedDate && new RegExp(`(promise|target|commit)\\w*\\s+(for\\s+)?${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lower)) promisedDate = entry;
+    else if (!nextTouchDate && new RegExp(`(follow up|check in|touch base).{0,25}${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lower)) nextTouchDate = entry;
+    else historicalDates.push(entry);
+  });
+  return {
+    sourceDate: String(metadata.sentDate || metadata.lastModified || '') || undefined,
+    dueDate: dueDate || chunk.fields?.dueDate,
+    promisedDate,
+    nextTouchDate,
+    historicalDates: historicalDates.slice(0, 4),
+  };
+}
+
+function detectProject(text: string): { project?: string; confidence: number; reason: string } {
+  const patterns = [
+    /\b(project|job|site|contract)\s*[:#-]?\s*([A-Za-z0-9][A-Za-z0-9 .\-#/]{2,38})/i,
+    /\b([A-Z]{1,3}-\d{2,6})\b/,
+    /\b(B\d{3,6})\b/i,
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (match) {
+      const value = (match[2] ?? match[1]).trim();
+      if (value.length >= 3) return { project: value, confidence: 0.78, reason: 'Project/job token detected.' };
+    }
+  }
+  return { confidence: 0.28, reason: 'No clear project marker.' };
+}
+
+function extractOwnerSignals(text: string, chunk: ExtractionChunk): { owner?: string; requestedParty?: string; confidence: number; warning?: string } {
+  const requestedParty = /(?:assign(?:ed)? to|owner|responsible|please have)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/.exec(text)?.[1];
+  const emailOwner = (text.match(emailRegex) ?? [])[0];
+  const owner = chunk.fields?.owner || requestedParty || emailOwner;
+  if (!owner) return { confidence: 0.2 };
+  const multiplePeople = (text.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g) ?? []).length > 2;
+  return {
+    owner,
+    requestedParty,
+    confidence: requestedParty ? 0.84 : emailOwner ? 0.62 : 0.55,
+    warning: multiplePeople ? 'Multiple possible owners found.' : undefined,
+  };
+}
+
 function scoreDueDateSignals(values: string[]): { picked?: string; confidence: number; warning?: string } {
   const normalized = values.map((entry) => entry.trim()).filter(Boolean);
   if (!normalized.length) return { confidence: 0 };
@@ -505,10 +617,14 @@ function chunksForCandidate(kind: IntakeAssetKind, chunks: ExtractionChunk[]): E
 
 function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChunk, index: number, items: FollowUpItem[], tasks: TaskItem[]): IntakeWorkCandidate {
   const parsedType = inferCandidateType(chunk.text);
-  const title = chunk.fields?.title || chunk.text.split(/[\n|]/)[0].trim().slice(0, 110) || `${asset.fileName} candidate ${index + 1}`;
-  const project = chunk.fields?.project || /project\s*[:-]\s*([A-Za-z0-9- ]{2,40})/i.exec(chunk.text)?.[1]?.trim();
-  const dueCandidates = [chunk.fields?.dueDate, ...((chunk.text.match(explicitDateRegex) ?? []).slice(0, 3))].filter(Boolean) as string[];
+  const fallbackTitle = `${asset.fileName.replace(/\.[^.]+$/, '')} item ${index + 1}`;
+  const title = cleanCandidateTitle(chunk.fields?.title || chunk.text.split(/[\n|]/)[0].trim(), fallbackTitle);
+  const projectSignal = detectProject(`${chunk.text}\n${String(asset.metadata.subject || '')}`);
+  const project = chunk.fields?.project || projectSignal.project;
+  const dateRoles = classifyDateRoles(chunk.text, asset.metadata, chunk);
+  const dueCandidates = [dateRoles.dueDate, ...((chunk.text.match(explicitDateRegex) ?? []).slice(0, 3))].filter(Boolean) as string[];
   const due = scoreDueDateSignals(dueCandidates);
+  const ownerSignals = extractOwnerSignals(chunk.text, chunk);
   const waitingOn = chunk.fields?.waitingOn || /waiting on\s+([^.,;\n]+)/i.exec(chunk.text)?.[1];
 
   const evidence: IntakeEvidence[] = [
@@ -525,6 +641,18 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
   ];
   evidence.push(...buildEvidence(asset, [chunk], 'owner', emailRegex));
   evidence.push(...buildEvidence(asset, [chunk], 'dueDate', explicitDateRegex));
+  if (project) {
+    evidence.push({
+      id: createId('EVD'),
+      field: 'project',
+      snippet: project,
+      sourceRef: `${asset.fileName} • ${chunk.sourceRef}`,
+      assetId: asset.id,
+      locator: chunk.sourceRef,
+      sourceType: chunk.kind,
+      score: projectSignal.confidence,
+    });
+  }
 
   const existing = resolveCandidateMatches({
     id: createId('CANPRE'),
@@ -561,17 +689,25 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
           ? 'reference_only'
           : 'create_new';
 
-  const confidence = Number(Math.max(0.25, Math.min(0.98,
+  const confidence = Number(Math.max(0.2, Math.min(0.98,
     (asset.extractionConfidence ?? 0.6) * 0.48
     + (chunk.quality ?? 0.5) * 0.28
     + (actionSignalRegex.test(chunk.text) ? 0.12 : 0)
     + (due.confidence * 0.12)
+    + (project ? 0.06 : -0.04)
+    + (ownerSignals.owner ? 0.05 : -0.05)
+    - (nonContentRegex.test(chunk.text) ? 0.2 : 0)
     - (due.warning ? 0.12 : 0)
   )).toFixed(2));
 
   const warnings = [
     ...(asset.parseQuality === 'weak' ? ['Low parse quality: keep in review.'] : []),
     ...(due.warning ? [due.warning] : []),
+    ...(ownerSignals.warning ? [ownerSignals.warning] : []),
+    ...(!project ? ['Project uncertain.'] : []),
+    ...(due.picked && !dateRoles.dueDate ? ['Due date inferred from body text.'] : []),
+    ...(asset.kind === 'email' && /on .+wrote:/i.test(chunk.text) ? ['Email thread may contain multiple action items.'] : []),
+    ...(asset.kind === 'spreadsheet' && (chunk.quality ?? 0) < 0.55 ? ['Spreadsheet row context weak.'] : []),
   ];
 
   return {
@@ -585,18 +721,26 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     confidence,
     title,
     project,
-    owner: chunk.fields?.owner || evidence.find((entry) => entry.field === 'owner')?.snippet,
+    owner: ownerSignals.owner,
     assignee: undefined,
-    dueDate: due.picked,
-    nextStep: chunk.fields?.nextStep || chunk.text.slice(0, 120),
+    dueDate: due.picked || dateRoles.dueDate,
+    nextStep: chunk.fields?.nextStep || cleanCandidateTitle(chunk.text, title).slice(0, 120),
     waitingOn,
     priority: /critical|urgent|asap/.test(chunk.text.toLowerCase()) ? 'High' : /low priority/.test(chunk.text.toLowerCase()) ? 'Low' : 'Medium',
     statusHint: chunk.fields?.statusHint || (parsedType.type === 'followup' ? 'Waiting on external' : parsedType.type === 'reference' ? 'In progress' : 'Needs action'),
     summary: chunk.text,
     tags: ['intake', asset.kind],
-    explanation: [...parsedType.reasons, `Source ${chunk.sourceRef}`],
+    explanation: [...parsedType.reasons, projectSignal.reason, `Source ${chunk.sourceRef}`],
     evidence,
-    fieldConfidence: { title: Number((chunk.quality ?? 0.6).toFixed(2)), dueDate: due.confidence },
+    fieldConfidence: {
+      title: Number((chunk.quality ?? 0.6).toFixed(2)),
+      dueDate: due.confidence,
+      project: projectSignal.confidence,
+      owner: ownerSignals.confidence,
+      sourceDate: dateRoles.sourceDate ? 0.9 : 0.2,
+      promisedDate: dateRoles.promisedDate ? 0.68 : 0.15,
+      nextTouchDate: dateRoles.nextTouchDate ? 0.64 : 0.12,
+    },
     warnings,
     duplicateMatches: existing.filter((entry) => entry.strategy === 'duplicate'),
     existingRecordMatches: existing,
@@ -705,7 +849,12 @@ export function buildCandidatesFromAsset(asset: IntakeAssetRecord, items: Follow
 
   return chunksForCandidate(asset.kind, chunks)
     .map((chunk, index) => buildCandidateFromChunk(asset, chunk, index, items, tasks))
-    .filter((candidate, index, arr) => candidate.confidence >= 0.38 && index < (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 80 : 18) && arr.findIndex((entry) => entry.title.toLowerCase() === candidate.title.toLowerCase()) === index);
+    .filter((candidate, index, arr) => {
+      const strongEnough = candidate.confidence >= (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 0.55 : 0.5);
+      const hasSignal = candidate.title.length >= 8 && !!candidate.summary && !nonContentRegex.test(candidate.summary);
+      const deduped = arr.findIndex((entry) => entry.title.toLowerCase() === candidate.title.toLowerCase()) === index;
+      return strongEnough && hasSignal && deduped && index < (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 60 : 16);
+    });
 }
 
 export function buildBatchRecord(assetIds: string[]): IntakeBatchRecord {

@@ -95,17 +95,23 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [tasks]);
   const reviewRequiredTasks = useMemo(() => tasks.filter((task) => !isExecutionReady(task)), [tasks]);
   const executionTasks = useMemo(() => tasks.filter((task) => isExecutionReady(task)), [tasks]);
+  const taskDerived = useMemo(() => executionTasks.map((task) => ({
+    ...task,
+    dueTs: task.dueDate ? new Date(task.dueDate).getTime() : null,
+    updatedTs: new Date(task.updatedAt).getTime(),
+    searchBlob: [task.title, task.project, task.summary, task.nextStep, task.notes, task.contextNote, task.blockReason, task.tags.join(' ')].join(' ').toLowerCase(),
+  })), [executionTasks]);
 
   const filteredTasks = useMemo(() => {
-    const now = Date.now();
-    const endTomorrow = now + 86400000;
-    const endWeek = now + 7 * 86400000;
+    const nowTs = Date.now();
+    const endTomorrowTs = nowTs + 86400000;
+    const endWeekTs = nowTs + 7 * 86400000;
+    const searchQueryLower = searchQuery.toLowerCase();
 
-    const byView = executionTasks.filter((task) => {
+    const byView = taskDerived.filter((task) => {
       if (task.status === 'Done') return false;
-      const due = task.dueDate ? new Date(task.dueDate).getTime() : null;
-      if (view === 'today') return task.status === 'Blocked' || (due !== null && due <= endTomorrow);
-      if (view === 'upcoming') return due !== null && due > endTomorrow && due <= endWeek;
+      if (view === 'today') return task.status === 'Blocked' || (task.dueTs !== null && task.dueTs <= endTomorrowTs);
+      if (view === 'upcoming') return task.dueTs !== null && task.dueTs > endTomorrowTs && task.dueTs <= endWeekTs;
       if (view === 'blocked') return task.status === 'Blocked';
       return true;
     });
@@ -116,7 +122,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       const projectMatch = projectFilter === 'All' || task.project === projectFilter;
       const assigneeMatch = assigneeFilter === 'All' || (task.assigneeDisplayName || task.owner) === assigneeFilter;
       const linkedMatch = linkedFilter === 'all' || (linkedFilter === 'linked' ? !!task.linkedFollowUpId : !task.linkedFollowUpId);
-      const textMatch = [task.title, task.project, task.summary, task.nextStep, task.notes, task.contextNote, task.blockReason, task.tags.join(' ')].join(' ').toLowerCase().includes(searchQuery.toLowerCase());
+      const textMatch = task.searchBlob.includes(searchQueryLower);
       return ownerMatch && statusMatch && projectMatch && assigneeMatch && linkedMatch && textMatch;
     });
 
@@ -125,12 +131,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         const rank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
         return rank[b.priority] - rank[a.priority];
       }
-      if (sortBy === 'updated') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-      const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      if (sortBy === 'updated') return b.updatedTs - a.updatedTs;
+      const aDue = a.dueTs ?? Number.MAX_SAFE_INTEGER;
+      const bDue = b.dueTs ?? Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [executionTasks, view, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, searchQuery, sortBy]);
+  }, [taskDerived, view, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, searchQuery, sortBy]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? null;
   const linkedFollowUp = selectedTask ? (followUpById.get(selectedTask.linkedFollowUpId ?? '') ?? null) : null;
@@ -140,12 +146,16 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks, undefined, linkedTasks) : null;
   const recommendedAction = selectedTask ? deriveTaskRecommendedAction(selectedTask) : null;
 
-  const summary = useMemo(() => ({
-    open: executionTasks.filter((task) => task.status !== 'Done').length,
-    dueSoon: executionTasks.filter((task) => task.status !== 'Done' && task.dueDate && new Date(task.dueDate).getTime() <= Date.now() + 2 * 86400000).length,
-    blocked: executionTasks.filter((task) => task.status === 'Blocked').length,
-    reviewRequired: reviewRequiredTasks.length,
-  }), [executionTasks, reviewRequiredTasks.length]);
+  const summary = useMemo(() => {
+    const dueSoonThresholdTs = Date.now() + 2 * 86400000;
+    const open = taskDerived.filter((task) => task.status !== 'Done');
+    return {
+      open: open.length,
+      dueSoon: open.filter((task) => task.dueTs !== null && task.dueTs <= dueSoonThresholdTs).length,
+      blocked: open.filter((task) => task.status === 'Blocked').length,
+      reviewRequired: reviewRequiredTasks.length,
+    };
+  }, [taskDerived, reviewRequiredTasks.length]);
 
   const activeFilterCount = useMemo(() => (
     [

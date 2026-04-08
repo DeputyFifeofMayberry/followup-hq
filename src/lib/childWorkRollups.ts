@@ -18,8 +18,8 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-export function buildFollowUpChildRollup(followUpId: string, followUpStatus: FollowUpItem['status'], tasks: TaskItem[]): FollowUpChildRollup {
-  const linked = tasks.filter((task) => task.linkedFollowUpId === followUpId);
+export function buildFollowUpChildRollup(followUpId: string, followUpStatus: FollowUpItem['status'], tasks: TaskItem[], linkedTasks?: TaskItem[]): FollowUpChildRollup {
+  const linked = linkedTasks ?? tasks.filter((task) => task.linkedFollowUpId === followUpId);
   const blocked = linked.filter((task) => task.status === 'Blocked').length;
   const overdue = linked.filter((task) => task.status !== 'Done' && isTaskOverdue(task)).length;
   const open = linked.filter((task) => task.status !== 'Done').length;

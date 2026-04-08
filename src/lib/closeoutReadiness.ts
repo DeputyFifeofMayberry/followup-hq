@@ -43,9 +43,9 @@ function hasCompletionContext(item: FollowUpItem, patch?: Partial<FollowUpItem>)
   return Boolean(completionNote) || receipts.some((receipt) => receipt.confirmed);
 }
 
-export function evaluateFollowUpCloseout(item: FollowUpItem, tasks: TaskItem[], patch?: Partial<FollowUpItem>): FollowUpCloseoutEvaluation {
-  const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks);
-  const linkedTasks = tasks.filter((task) => task.linkedFollowUpId === item.id);
+export function evaluateFollowUpCloseout(item: FollowUpItem, tasks: TaskItem[], patch?: Partial<FollowUpItem>, linkedTasksInput?: TaskItem[]): FollowUpCloseoutEvaluation {
+  const linkedTasks = linkedTasksInput ?? tasks.filter((task) => task.linkedFollowUpId === item.id);
+  const childRollup = buildFollowUpChildRollup(item.id, item.status, tasks, linkedTasks);
   const openLinked = linkedTasks.filter((task) => task.status !== 'Done');
   const blockedLinked = linkedTasks.filter((task) => task.status === 'Blocked');
   const overdueLinked = linkedTasks.filter((task) => task.status !== 'Done' && isTaskOverdue(task));

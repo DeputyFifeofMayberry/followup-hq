@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppMode } from '../../types';
-import { useFollowUpLaneContext, useFollowUpsViewModel } from '../../domains/followups';
+import { useFollowUpsViewModel } from '../../domains/followups';
 import {
   AppModal,
   AppModalBody,
@@ -11,56 +11,44 @@ import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
-import { useViewportBand } from '../../hooks/useViewport';
-import { useAppStore } from '../../store/useAppStore';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
-  const { executionIntent, clearExecutionIntent, setSelectedId } = useFollowUpsViewModel();
-  const laneContext = useFollowUpLaneContext();
-  const duplicateReviews = useAppStore((s) => s.duplicateReviews);
-  const { isMobileLike } = useViewportBand();
+  const vm = useFollowUpsViewModel();
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
-  const duplicateCount = duplicateReviews.length;
-
   useEffect(() => {
-    if (executionIntent?.target !== 'followups') return;
-    if (executionIntent.recordType === 'followup' && executionIntent.recordId) {
-      setSelectedId(executionIntent.recordId);
+    if (vm.executionIntent?.target !== 'followups') return;
+    if (vm.executionIntent.recordType === 'followup' && vm.executionIntent.recordId) {
+      vm.setSelectedId(vm.executionIntent.recordId);
       setDetailModalOpen(true);
     }
-    clearExecutionIntent();
-  }, [executionIntent, clearExecutionIntent, setSelectedId]);
+    vm.clearExecutionIntent();
+  }, [vm.executionIntent, vm.clearExecutionIntent, vm.setSelectedId]);
 
   useEffect(() => {
-    if (!laneContext.selectedItem) {
+    if (!vm.selectedFollowUp) {
       setDetailModalOpen(false);
     }
-  }, [laneContext.selectedItem?.id]);
-
-  const tableSubtitle = useMemo(() => {
-    if (!laneContext.selectedItem || !laneContext.attentionSignal) return 'Scan the queue and act on the next best record.';
-    return `${laneContext.attentionSignal.label}: ${laneContext.selectedItem.title}`;
-  }, [laneContext.selectedItem, laneContext.attentionSignal]);
+  }, [vm.selectedFollowUp?.id]);
 
   return (
     <WorkspacePage>
       <div className="tracker-main-single">
         <div className="tracker-workspace-main app-shell-card">
-          <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={duplicateCount} />
+          <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
+          <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
           <TrackerTable
             personalMode={personalMode}
             appMode={appMode}
             embedded
-            selectedAttentionSignal={laneContext.attentionSignal}
+            rows={vm.filteredRows}
             onRowOpen={() => setDetailModalOpen(true)}
-            subtitle={tableSubtitle}
           />
         </div>
       </div>
 
-      {!isMobileLike && detailModalOpen && laneContext.selectedItem ? (
+      {detailModalOpen && vm.selectedFollowUp ? (
         <AppModal size="inspector" onClose={() => setDetailModalOpen(false)} onBackdropClick={() => setDetailModalOpen(false)}>
           <AppModalHeader
             title="Follow-up"
@@ -81,7 +69,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
             onClose={() => setDuplicateModalOpen(false)}
           />
           <AppModalBody>
-            <DuplicateReviewPanel />
+            <DuplicateReviewPanel presentation="modal" />
           </AppModalBody>
         </AppModal>
       ) : null}

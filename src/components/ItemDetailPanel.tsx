@@ -8,23 +8,23 @@ import { AppBadge, AppShellCard, SegmentedControl } from './ui/AppPrimitives';
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 import { getLinkedTasksForFollowUp } from '../lib/recordContext';
-import { useFollowUpLaneContext } from '../domains/followups';
+import { useFollowUpLaneContext, useFollowUpsViewModel } from '../domains/followups';
 import { editSurfaceCtas } from '../lib/editSurfacePolicy';
-import { selectFollowUpRows } from '../lib/followUpSelectors';
 import { deriveFollowUpRecommendedAction } from '../domains/shared';
 import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 
 export function ItemDetailPanel({ personalMode = false, inModal = false, onRequestClose }: { personalMode?: boolean; inModal?: boolean; onRequestClose?: () => void }) {
   const {
     items, tasks, contacts, companies, updateItem, deleteItem, openRecordEditor, addTouchLog,
-    openRecordDrawer, attemptFollowUpTransition, isRecordDirty, search, activeView, followUpFilters, selectedId, setSelectedId, openDraftModal,
+    openRecordDrawer, attemptFollowUpTransition, isRecordDirty, selectedId, setSelectedId, openDraftModal,
   } = useAppStore(useShallow((s) => ({
     items: s.items, tasks: s.tasks, contacts: s.contacts, companies: s.companies, updateItem: s.updateItem, deleteItem: s.deleteItem,
     openRecordEditor: s.openRecordEditor, addTouchLog: s.addTouchLog, openDraftModal: s.openDraftModal,
     openRecordDrawer: s.openRecordDrawer, attemptFollowUpTransition: s.attemptFollowUpTransition, isRecordDirty: s.isRecordDirty,
-    search: s.search, activeView: s.activeView, followUpFilters: s.followUpFilters, selectedId: s.selectedId, setSelectedId: s.setSelectedId,
+    selectedId: s.selectedId, setSelectedId: s.setSelectedId,
   })));
   const laneContext = useFollowUpLaneContext();
+  const viewModel = useFollowUpsViewModel();
   const item = laneContext.selectedItem;
 
   const [detailView, setDetailView] = useState<'focus' | 'context'>('focus');
@@ -33,7 +33,7 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
 
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
   const activityEntries = useMemo(() => (item ? item.timeline.slice(0, 8) : []), [item]);
-  const visibleQueueIds = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }).map((entry) => entry.id), [items, contacts, companies, search, activeView, followUpFilters]);
+  const visibleQueueIds = useMemo(() => viewModel.filteredRows.map((entry) => entry.id), [viewModel.filteredRows]);
 
   const recommendedAction = useMemo(() => {
     if (!item) return null;
@@ -99,7 +99,6 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
           <button onClick={() => setActiveAction('snooze')} className="action-btn">Snooze</button>
           <button onClick={() => setActiveAction('escalate')} className="action-btn">Escalate</button>
           <button onClick={() => setActiveAction('close')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
-          <button onClick={() => setActiveAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
         </div>
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
           <div className="font-medium text-slate-900">Next move</div>
@@ -127,7 +126,8 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
           <div className="mt-2 flex flex-wrap gap-2">
             <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />Open context drawer</button>
             <button className="action-btn" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
-            {inModal ? <button className="action-btn" onClick={onRequestClose}>Close</button> : null}
+            <button className="action-btn action-btn-danger" onClick={() => setActiveAction('delete')}><Trash2 className="h-4 w-4" />Delete</button>
+            {inModal ? <button className="action-btn" onClick={onRequestClose}>Close panel</button> : null}
           </div>
         </details>
       </div> : null}

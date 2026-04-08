@@ -1,59 +1,16 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { buildFollowUpCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../lib/followUpSelectors';
-import { useAppStore } from '../store/useAppStore';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
+import { useFollowUpsViewModel } from '../domains/followups';
 
 const PRIMARY_VIEWS: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
 const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
 export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOpenDuplicateReview?: () => void; duplicateCount?: number }) {
-  const {
-    items,
-    contacts,
-    companies,
-    search,
-    activeView,
-    followUpFilters,
-    selectedFollowUpIds,
-    followUpColumns,
-    followUpTableDensity,
-    setSearch,
-    setActiveView,
-    setFollowUpFilters,
-    resetFollowUpFilters,
-    clearFollowUpSelection,
-    batchUpdateFollowUps,
-    runValidatedBatchFollowUpTransition,
-    setFollowUpColumns,
-    setFollowUpTableDensity,
-    openCreateModal,
-  } = useAppStore(useShallow((s) => ({
-    items: s.items,
-    contacts: s.contacts,
-    companies: s.companies,
-    search: s.search,
-    activeView: s.activeView,
-    followUpFilters: s.followUpFilters,
-    selectedFollowUpIds: s.selectedFollowUpIds,
-    followUpColumns: s.followUpColumns,
-    followUpTableDensity: s.followUpTableDensity,
-    setSearch: s.setSearch,
-    setActiveView: s.setActiveView,
-    setFollowUpFilters: s.setFollowUpFilters,
-    resetFollowUpFilters: s.resetFollowUpFilters,
-    clearFollowUpSelection: s.clearFollowUpSelection,
-    batchUpdateFollowUps: s.batchUpdateFollowUps,
-    runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
-    setFollowUpColumns: s.setFollowUpColumns,
-    setFollowUpTableDensity: s.setFollowUpTableDensity,
-    openCreateModal: s.openCreateModal,
-  })));
-
+  const vm = useFollowUpsViewModel();
   const [showOptions, setShowOptions] = useState(false);
   const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
@@ -64,38 +21,16 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
   const [batchSkipped, setBatchSkipped] = useState(0);
   const [batchResult, setBatchResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
 
-  const projects = useMemo(() => ['All', ...new Set(items.map((item) => item.project))], [items]);
-  const owners = useMemo(() => ['All', ...new Set(items.map((item) => item.owner))], [items]);
-  const assignees = useMemo(() => ['All', ...new Set(items.map((item) => item.assigneeDisplayName || item.owner))], [items]);
-
-  const filteredRows = useMemo(() => selectFollowUpRows({ items, contacts, companies, search, activeView, filters: followUpFilters }), [items, contacts, companies, search, activeView, followUpFilters]);
-  const stats = useMemo(() => selectFollowUpViewCounts({ items, contacts, companies, search, filters: followUpFilters }), [items, contacts, companies, search, followUpFilters]);
-  const queueStats = useMemo(() => buildFollowUpCounts(filteredRows), [filteredRows]);
-
-  const activeAdvancedFilterCount = useMemo(() => (
-    [
-      followUpFilters.project !== 'All',
-      followUpFilters.owner !== 'All',
-      followUpFilters.assignee !== 'All',
-      followUpFilters.priority !== 'All',
-      followUpFilters.escalation !== 'All',
-      followUpFilters.waitingOn !== 'All',
-      followUpFilters.actionState !== 'All',
-      followUpFilters.category !== 'All',
-      followUpFilters.linkedTaskState !== 'all',
-      followUpFilters.dueDateRange !== 'all',
-      followUpFilters.nextTouchDateRange !== 'all',
-      followUpFilters.promisedDateRange !== 'all',
-      followUpFilters.cleanupOnly,
-    ].filter(Boolean).length
-  ), [followUpFilters]);
+  const projects = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.project))], [vm.items]);
+  const owners = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.owner))], [vm.items]);
+  const assignees = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.assigneeDisplayName || item.owner))], [vm.items]);
 
   const toggleColumn = (column: FollowUpColumnKey) => {
-    if (followUpColumns.includes(column)) {
-      setFollowUpColumns(followUpColumns.filter((entry) => entry !== column));
+    if (vm.followUpColumns.includes(column)) {
+      vm.setFollowUpColumns(vm.followUpColumns.filter((entry) => entry !== column));
       return;
     }
-    setFollowUpColumns([...followUpColumns, column]);
+    vm.setFollowUpColumns([...vm.followUpColumns, column]);
   };
 
   const openBatchFlow = (kind: NonNullable<typeof batchFlow>) => {
@@ -103,14 +38,14 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     setBatchWarnings([]);
     setBatchBlockers([]);
     setBatchResult(null);
-    setBatchAffected(selectedFollowUpIds.length);
+    setBatchAffected(vm.selectedFollowUpIds.length);
     setBatchSkipped(0);
     if (kind === 'snooze') setBatchDate(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10));
   };
 
   const applyBatchFlow = () => {
     if (batchFlow === 'close') {
-      const result = runValidatedBatchFollowUpTransition(selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
+      const result = vm.runValidatedBatchFollowUpTransition(vm.selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
       setBatchWarnings(result.warnings);
       setBatchAffected(result.affected);
       setBatchSkipped(result.skipped);
@@ -119,12 +54,12 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     }
 
     if (batchFlow === 'nudge') {
-      batchUpdateFollowUps(selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).');
-      setBatchAffected(selectedFollowUpIds.length);
+      vm.batchUpdateFollowUps(vm.selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).');
+      setBatchAffected(vm.selectedFollowUpIds.length);
       setBatchSkipped(0);
       setBatchWarnings([]);
       setBatchBlockers([]);
-      setBatchResult({ tone: 'success', message: `Marked ${selectedFollowUpIds.length} follow-up(s) nudged.` });
+      setBatchResult({ tone: 'success', message: `Marked ${vm.selectedFollowUpIds.length} follow-up(s) nudged.` });
       return;
     }
 
@@ -135,12 +70,12 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     }
 
     const iso = new Date(`${batchDate}T00:00:00`).toISOString();
-    batchUpdateFollowUps(selectedFollowUpIds, { nextTouchDate: iso, snoozedUntilDate: iso }, `Snoozed until ${batchDate} (batch).`);
-    setBatchAffected(selectedFollowUpIds.length);
+    vm.batchUpdateFollowUps(vm.selectedFollowUpIds, { nextTouchDate: iso, snoozedUntilDate: iso }, `Snoozed until ${batchDate} (batch).`);
+    setBatchAffected(vm.selectedFollowUpIds.length);
     setBatchSkipped(0);
     setBatchWarnings([]);
     setBatchBlockers([]);
-    setBatchResult({ tone: 'success', message: `Snoozed ${selectedFollowUpIds.length} follow-up(s).` });
+    setBatchResult({ tone: 'success', message: `Snoozed ${vm.selectedFollowUpIds.length} follow-up(s).` });
   };
 
   return (
@@ -148,8 +83,8 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
       <FilterBar>
         <div className="followup-view-strip">
           <SegmentedControl
-            value={PRIMARY_VIEWS.includes(activeView) ? activeView : 'All'}
-            onChange={setActiveView}
+            value={PRIMARY_VIEWS.includes(vm.activeView) ? vm.activeView : 'All'}
+            onChange={vm.setActiveView}
             ariaLabel="Follow-up views"
             className="followup-view-segmented"
             options={PRIMARY_VIEWS.map((view) => ({
@@ -157,12 +92,12 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               label: (
                 <span className="followup-view-option">
                   <span>{view === 'All' ? 'All open' : view}</span>
-                  <strong>{view === 'All items' ? stats.allItems : view === 'All' ? stats.allOpen : view === 'Needs nudge' ? stats.needsNudge : view === 'At risk' ? stats.atRisk : view === 'Ready to close' ? stats.readyToClose : stats.closed}</strong>
+                  <strong>{view === 'All items' ? vm.viewCounts.allItems : view === 'All' ? vm.viewCounts.allOpen : view === 'Needs nudge' ? vm.viewCounts.needsNudge : view === 'At risk' ? vm.viewCounts.atRisk : view === 'Ready to close' ? vm.viewCounts.readyToClose : vm.viewCounts.closed}</strong>
                 </span>
               ),
             }))}
           />
-          <select value={SECONDARY_VIEWS.includes(activeView) ? activeView : ''} onChange={(event) => setActiveView((event.target.value || 'All') as SavedViewKey)} className="field-input !w-auto">
+          <select value={SECONDARY_VIEWS.includes(vm.activeView) ? vm.activeView : ''} onChange={(event) => vm.setActiveView((event.target.value || 'All') as SavedViewKey)} className="field-input !w-auto">
             <option value="">More views</option>
             {SECONDARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
           </select>
@@ -176,8 +111,8 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             <span className="field-label">Search</span>
             <div className="search-field-wrap">
               <Search className="search-field-icon h-4 w-4" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, next move, owner, project" className="field-input search-field-input" />
-              {search ? <button type="button" onClick={() => setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+              <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search title, next move, owner, project, tags, waiting on" className="field-input search-field-input" />
+              {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
             </div>
           </label>
         )}
@@ -185,85 +120,76 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           <>
             <button onClick={() => setShowOptions((value) => !value)} className="action-btn">
               <SlidersHorizontal className="h-4 w-4" />
-              View options{activeAdvancedFilterCount > 0 ? ` (${activeAdvancedFilterCount})` : ''}
+              View options{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
               <ChevronDown className={`h-4 w-4 ${showOptions ? 'rotate-180' : ''}`} />
             </button>
-            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn">Duplicates ({duplicateCount})</button> : null}
-            <button onClick={openCreateModal} className="primary-btn">Add follow-up</button>
+            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Duplicates ({duplicateCount})</button> : null}
+            <button onClick={vm.openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}
       />
 
       {showOptions ? (
-        <div className="followup-filter-grid advanced-filter-surface">
-          <select value={followUpFilters.status} onChange={(event) => setFollowUpFilters({ status: event.target.value as typeof followUpFilters.status })} className="field-input">
-            <option value="All">All statuses</option>
-            <option>Needs action</option>
-            <option>Waiting on external</option>
-            <option>Waiting internal</option>
-            <option>In progress</option>
-            <option>At risk</option>
-            <option>Closed</option>
-          </select>
-          <select value={followUpFilters.project} onChange={(event) => setFollowUpFilters({ project: event.target.value })} className="field-input">
-            {projects.map((project) => <option key={project} value={project}>{project}</option>)}
-          </select>
-          <select value={followUpFilters.owner} onChange={(event) => setFollowUpFilters({ owner: event.target.value })} className="field-input">
-            {owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}
-          </select>
-          <select value={followUpFilters.assignee} onChange={(event) => setFollowUpFilters({ assignee: event.target.value })} className="field-input">
-            {assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}
-          </select>
-          <select value={followUpFilters.priority} onChange={(event) => setFollowUpFilters({ priority: event.target.value as typeof followUpFilters.priority })} className="field-input">
-            <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-          </select>
-          <select value={followUpFilters.dueDateRange} onChange={(event) => setFollowUpFilters({ dueDateRange: event.target.value as typeof followUpFilters.dueDateRange })} className="field-input">
-            <option value="all">All due dates</option>
-            <option value="overdue">Overdue</option>
-            <option value="today">Due today</option>
-            <option value="this_week">Due this week</option>
-            <option value="next_7_days">Due in next 7 days</option>
-          </select>
-          <label className="field-block"><span className="field-label">Density</span>
-            <select value={followUpTableDensity} onChange={(event) => setFollowUpTableDensity(event.target.value as typeof followUpTableDensity)} className="field-input">
-              <option value="compact">Compact</option>
-              <option value="comfortable">Expanded</option>
-            </select>
-          </label>
-          <div className="followup-saved-views-row followup-secondary-utility">
-            <span className="followup-secondary-label">Columns</span>
-            {OPTIONAL_COLUMNS.map((column) => (
-              <label key={column} className="inline-flex items-center gap-2 text-xs text-slate-600">
-                <input type="checkbox" checked={followUpColumns.includes(column)} onChange={() => toggleColumn(column)} />
-                {column}
+        <div className="followup-options-panel advanced-filter-surface">
+          <section className="followup-options-section">
+            <h4>Filters</h4>
+            <div className="followup-options-grid">
+              <select value={vm.followUpFilters.status} onChange={(event) => vm.setFollowUpFilters({ status: event.target.value as typeof vm.followUpFilters.status })} className="field-input">
+                <option value="All">All statuses</option>
+                <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+              </select>
+              <select value={vm.followUpFilters.project} onChange={(event) => vm.setFollowUpFilters({ project: event.target.value })} className="field-input">{projects.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
+              <select value={vm.followUpFilters.owner} onChange={(event) => vm.setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
+              <select value={vm.followUpFilters.assignee} onChange={(event) => vm.setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
+              <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
+                <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+              </select>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup only</label>
+            </div>
+          </section>
+
+          <section className="followup-options-section">
+            <h4>Dates</h4>
+            <div className="followup-options-grid">
+              <select value={vm.followUpFilters.dueDateRange} onChange={(event) => vm.setFollowUpFilters({ dueDateRange: event.target.value as typeof vm.followUpFilters.dueDateRange })} className="field-input">
+                <option value="all">All due dates</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="next_7_days">Due in next 7 days</option>
+              </select>
+              <select value={vm.followUpFilters.nextTouchDateRange} onChange={(event) => vm.setFollowUpFilters({ nextTouchDateRange: event.target.value as typeof vm.followUpFilters.nextTouchDateRange })} className="field-input">
+                <option value="all">All next touch dates</option><option value="overdue">Touch overdue</option><option value="today">Touch today</option><option value="this_week">Touch this week</option><option value="next_7_days">Touch in next 7 days</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="followup-options-section">
+            <h4>Layout</h4>
+            <div className="followup-options-grid">
+              <label className="field-block"><span className="field-label">Density</span>
+                <select value={vm.followUpTableDensity} onChange={(event) => vm.setFollowUpTableDensity(event.target.value as typeof vm.followUpTableDensity)} className="field-input"><option value="compact">Compact</option><option value="comfortable">Expanded</option></select>
               </label>
-            ))}
-          </div>
-          <div className="followup-saved-views-row followup-secondary-utility">
-            <label className="inline-flex items-center gap-2 text-xs text-slate-600">
-              <input type="checkbox" checked={followUpFilters.cleanupOnly} onChange={(event) => setFollowUpFilters({ cleanupOnly: event.target.checked })} />
-              Cleanup only
-            </label>
-            <button className="action-btn" onClick={resetFollowUpFilters}>Reset filters</button>
-          </div>
+              <div className="followup-columns-list">
+                {OPTIONAL_COLUMNS.map((column) => (
+                  <label key={column} className="inline-flex items-center gap-2 text-xs text-slate-600">
+                    <input type="checkbox" checked={vm.followUpColumns.includes(column)} onChange={() => toggleColumn(column)} />{column}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+          <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetFollowUpFilters}>Reset visible options</button></div>
         </div>
       ) : null}
 
-      {selectedFollowUpIds.length > 0 ? (
+      {vm.selectedFollowUpIds.length > 0 ? (
         <div className="followup-toolbar-foot bulk-action-strip execution-batch-strip">
-          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{selectedFollowUpIds.length}</span> selected</div>
+          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{vm.selectedFollowUpIds.length}</span> selected</div>
           <div className="followup-action-row">
             <button onClick={() => openBatchFlow('nudge')} className="action-btn">Mark nudged</button>
             <button onClick={() => openBatchFlow('snooze')} className="action-btn">Snooze selected</button>
             <button onClick={() => openBatchFlow('close')} className="action-btn">Close selected</button>
-            <button onClick={clearFollowUpSelection} className="action-btn">Clear</button>
+            <button onClick={vm.clearFollowUpSelection} className="action-btn">Clear</button>
           </div>
         </div>
-      ) : (
-        <div className="followup-toolbar-foot execution-toolbar-foot">
-          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{filteredRows.length}</span> shown · {queueStats.needsNudge} need nudge · {queueStats.readyToClose} ready to close</div>
-        </div>
-      )}
+      ) : null}
 
       <StructuredActionFlow
         open={!!batchFlow}
@@ -276,7 +202,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         blockers={batchBlockers}
         result={batchResult}
       >
-        <BatchSummarySection selected={selectedFollowUpIds.length} affected={batchAffected} skipped={batchSkipped} />
+        <BatchSummarySection selected={vm.selectedFollowUpIds.length} affected={batchAffected} skipped={batchSkipped} />
         {batchFlow === 'close' ? <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" /> : null}
         {batchFlow === 'snooze' ? <DateSection label="Snooze until" value={batchDate} onChange={setBatchDate} /> : null}
       </StructuredActionFlow>

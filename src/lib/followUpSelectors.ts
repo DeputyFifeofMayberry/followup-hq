@@ -26,6 +26,18 @@ function isClosed(item: FollowUpItem): boolean {
   return item.status === 'Closed';
 }
 
+function isOpen(item: FollowUpItem): boolean {
+  return !isClosed(item);
+}
+
+function isAtRisk(item: FollowUpItem): boolean {
+  return item.status === 'At risk' || item.escalationLevel === 'Critical';
+}
+
+function isReadyToClose(item: FollowUpItem): boolean {
+  return isOpen(item) && !!item.allLinkedTasksDone;
+}
+
 function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['dueDateRange']): boolean {
   if (range === 'all') return true;
   if (!iso) return false;
@@ -42,7 +54,7 @@ function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['du
 }
 
 function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem[] {
-  const openItems = items.filter((item) => !isClosed(item));
+  const openItems = items.filter(isOpen);
   switch (view) {
     case 'All items':
       return items;
@@ -58,11 +70,11 @@ function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem
     case 'Needs nudge':
       return openItems.filter(needsNudge);
     case 'At risk':
-      return openItems.filter((item) => item.status === 'At risk' || item.escalationLevel === 'Critical' || item.priority === 'Critical');
+      return openItems.filter(isAtRisk);
     case 'Overdue':
       return openItems.filter(isOverdue);
     case 'Ready to close':
-      return openItems.filter((item) => !!item.allLinkedTasksDone);
+      return openItems.filter(isReadyToClose);
     case 'Promises due this week':
       return openItems.filter((item) => !!item.promisedDate && daysUntil(item.promisedDate) <= 7);
     case 'Blocked by child tasks':
@@ -139,18 +151,22 @@ export function selectFollowUpViewCounts(input: FollowUpViewScopeInput): FollowU
 }
 
 export function buildFollowUpCounts(rows: FollowUpItem[]) {
-  const openRows = rows.filter((item) => !isClosed(item));
+  const openRows = rows.filter(isOpen);
   return {
     total: rows.length,
     allOpen: openRows.length,
     closed: rows.length - openRows.length,
     overdue: openRows.filter(isOverdue).length,
     needsNudge: openRows.filter(needsNudge).length,
-    atRisk: openRows.filter((item) => item.status === 'At risk' || item.escalationLevel === 'Critical').length,
+    atRisk: openRows.filter(isAtRisk).length,
     waiting: openRows.filter((item) => item.status.includes('Waiting') || !!item.waitingOn).length,
-    readyToClose: openRows.filter((item) => !!item.allLinkedTasksDone).length,
+    readyToClose: openRows.filter(isReadyToClose).length,
     promisesDueThisWeek: openRows.filter((item) => !!item.promisedDate && daysUntil(item.promisedDate) <= 7).length,
     blockedByChild: openRows.filter((item) => (item.blockedLinkedTaskCount ?? 0) > 0).length,
+    overdueTouches: openRows.filter((item) => {
+      const touchDelta = daysUntil(item.nextTouchDate);
+      return Number.isFinite(touchDelta) && touchDelta < 0;
+    }).length,
   };
 }
 

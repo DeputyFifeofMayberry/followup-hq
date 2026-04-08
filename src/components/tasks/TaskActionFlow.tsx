@@ -36,14 +36,22 @@ export const TaskActionFlow = memo(function TaskActionFlow({
   onDeferDateChange,
   onNextReviewChange,
 }: TaskActionFlowProps) {
+  const subtitle = flowState?.kind === 'block'
+    ? 'Capture why it is blocked and set the next review date.'
+    : flowState?.kind === 'defer'
+      ? 'Set when this task should return to active work.'
+      : flowState?.kind === 'done'
+        ? 'Confirm completion details before closing this task.'
+        : 'Move this task back into active execution.';
+
   return (
     <StructuredActionFlow
       open={!!flowState}
-      title={flowState?.kind === 'done' ? 'Mark task done' : flowState?.kind === 'block' ? 'Block task' : flowState?.kind === 'unblock' ? 'Resume task' : 'Defer task'}
-      subtitle="Structured task transition with validation and in-app feedback."
+      title={flowState?.kind === 'done' ? 'Complete task' : flowState?.kind === 'block' ? 'Block task' : flowState?.kind === 'unblock' ? 'Unblock task' : 'Defer task'}
+      subtitle={subtitle}
       onCancel={onCancel}
       onConfirm={onConfirm}
-      confirmLabel="Apply action"
+      confirmLabel="Apply"
       warnings={flowWarnings}
       blockers={flowBlockers}
       result={flowResult}

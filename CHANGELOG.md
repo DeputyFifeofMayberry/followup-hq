@@ -2,6 +2,13 @@
 
 ## 2026-04-08
 
+### Tasks refinement pass (execution-first queue + intentional detail edits)
+- Centralized Tasks queue derivation in `useTasksViewModel` so queue filtering/search scope, selected-task linked context, option chips/counting, queue summary copy, and task signal semantics are computed once and consumed by the workspace as a shallow orchestration layer (`src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/TaskWorkspace.tsx`).
+- Rebuilt Tasks toolbar semantics with truthful options counting (panel-local controls only), consistent active-chip rendering even for a single active option, grouped options sections (`Scope`, `Status / linkage`, `Sort`), and an operational search placeholder aligned to real retrieval patterns (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`).
+- Expanded task search derivation to include owner/assignee, summary/context/block text, and linked follow-up title/project context so daily lookup works from remembered operational clues instead of only title/notes (`src/domains/tasks/hooks/useTasksViewModel.ts`).
+- Reworked task rows to a stricter scan hierarchy (`title → why now → next move → quiet metadata`) with urgency-first badge restraint and unchanged quick row actions (`Done`, `Block/Unblock`) for faster execution scanning (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`).
+- Rebuilt task detail modal editing so quick fields use local drafts with explicit save/reset actions and no per-keystroke persistence, while keeping primary actions first, linked context next, and maintenance/full-edit controls secondary (`src/components/tasks/TaskInspectorModal.tsx`, `src/components/tasks/TaskActionFlow.tsx`, `src/styles/workspaces.css`).
+
 ### Follow Ups refinement pass (execution-lane hierarchy + cross-device coherence)
 - Centralized Follow Ups queue derivation in `useFollowUpsViewModel` so filtered rows, queue stats, primary view counts, duplicate counts, visible option counts, and queue summary copy are computed once and reused across workspace composition (`src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`, `src/components/TrackerTable.tsx`).
 - Rebuilt Follow Ups workspace composition to a shallow control bar → stable queue summary → queue surface → detail modal → duplicate modal flow, removing selected-row chatter from the table subtitle path (`src/components/app/TrackerWorkspace.tsx`).

@@ -1,5 +1,5 @@
-import { Link2, Pencil } from 'lucide-react';
-import { memo } from 'react';
+import { Link2, Pencil, RotateCcw, Save } from 'lucide-react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { TaskRecommendedAction } from '../../domains/shared';
 import { editSurfaceCtas, editSurfacePolicy } from '../../lib/editSurfacePolicy';
 import { fromDateInputValue, priorityTone, toDateInputValue } from '../../lib/utils';
@@ -43,7 +43,38 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   onOpenRecordDrawer,
   onOpenRecordEditor,
 }: TaskInspectorModalProps) {
+  const [nextStepDraft, setNextStepDraft] = useState('');
+  const [dueDateDraft, setDueDateDraft] = useState('');
+
+  useEffect(() => {
+    if (!open || !selectedTask) return;
+    setNextStepDraft(selectedTask.nextStep || '');
+    setDueDateDraft(toDateInputValue(selectedTask.dueDate));
+  }, [open, selectedTask?.id, selectedTask?.nextStep, selectedTask?.dueDate]);
+
+  const hasDraftChanges = useMemo(() => {
+    if (!selectedTask) return false;
+    const dueDraftIso = dueDateDraft ? fromDateInputValue(dueDateDraft) : undefined;
+    return (nextStepDraft || '') !== (selectedTask.nextStep || '') || dueDraftIso !== selectedTask.dueDate;
+  }, [selectedTask, nextStepDraft, dueDateDraft]);
+
+  const resetDraft = () => {
+    if (!selectedTask) return;
+    setNextStepDraft(selectedTask.nextStep || '');
+    setDueDateDraft(toDateInputValue(selectedTask.dueDate));
+  };
+
+  const saveQuickEdit = () => {
+    if (!selectedTask || !hasDraftChanges) return;
+    onUpdateTask(selectedTask.id, {
+      nextStep: nextStepDraft,
+      dueDate: dueDateDraft ? fromDateInputValue(dueDateDraft) : undefined,
+    });
+  };
+
   if (!open || !selectedTask) return null;
+
+  const nowSignal = renderNowSignal(selectedTask);
 
   return (
     <AppModal size="inspector" onBackdropClick={onClose} onClose={onClose}>
@@ -61,29 +92,41 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
               <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
               {selectedTask.dueDate && new Date(selectedTask.dueDate).getTime() < Date.now() && selectedTask.status !== 'Done' ? <Badge variant="danger">Overdue</Badge> : null}
             </div>
-            <div className="mt-3 task-execution-focus">
-              <div className="tonal-micro">Why now: <strong>{renderNowSignal(selectedTask).whyNow}</strong></div>
-              <div className="tonal-micro">Best next move: <strong>{renderNowSignal(selectedTask).nextMove}</strong></div>
+          </section>
+
+          <section className="detail-card">
+            <SectionHeader title="Why now" subtitle="Scan the signal and take the next move." compact />
+            <div className="mt-2 task-execution-focus">
+              <div className="tonal-micro"><strong>{nowSignal.whyNow}</strong></div>
+              <div className="tonal-micro">Best next move: <strong>{nowSignal.nextMove}</strong></div>
               <div className="mt-2"><AppBadge tone={recommendedAction?.tone === 'default' ? 'info' : (recommendedAction?.tone ?? 'info')}>Recommended: {recommendedAction?.label ?? 'Update next step'}</AppBadge></div>
             </div>
           </section>
 
           <section className="detail-card">
-            <SectionHeader title="Actions" subtitle={recommendedAction?.reason ?? 'Focused execution actions first.'} compact />
+            <SectionHeader title="Primary actions" subtitle={recommendedAction?.reason ?? 'Fast transitions for active work.'} compact />
             <div className="task-inspector-actions mt-2">
               <button onClick={onRunRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
             </div>
-            <div className="task-quick-edit-grid mt-3">
-              <label className="field-block"><span className="field-label">Next step</span><input value={selectedTask.nextStep || ''} onChange={(event) => onUpdateTask(selectedTask.id, { nextStep: event.target.value })} className="field-input" /></label>
-              <label className="field-block"><span className="field-label">Due date</span><input type="date" value={toDateInputValue(selectedTask.dueDate)} onChange={(event) => onUpdateTask(selectedTask.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
+          </section>
+
+          <section className="detail-card">
+            <SectionHeader title="Quick edit" subtitle="Save changes intentionally." compact />
+            <div className="task-quick-edit-grid mt-2">
+              <label className="field-block"><span className="field-label">Next step</span><input value={nextStepDraft} onChange={(event) => setNextStepDraft(event.target.value)} className="field-input" /></label>
+              <label className="field-block"><span className="field-label">Due date</span><input type="date" value={dueDateDraft} onChange={(event) => setDueDateDraft(event.target.value)} className="field-input" /></label>
+            </div>
+            <div className="task-quick-edit-actions mt-2">
+              <button onClick={resetDraft} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><RotateCcw className="h-3.5 w-3.5" />Reset</button>
+              <button onClick={saveQuickEdit} className="primary-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><Save className="h-3.5 w-3.5" />Save updates</button>
             </div>
           </section>
 
           <section className="detail-card">
-            <SectionHeader title="Linked context" subtitle="Related follow-up details when available." compact />
+            <SectionHeader title="Linked context" subtitle="Parent follow-up and linked-task posture." compact />
             <div className="mt-2 rounded-2xl tonal-panel task-link-context-panel">
               <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
               {linkedFollowUp ? <div className="tonal-micro mt-1">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
@@ -95,8 +138,8 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <details className="detail-card inspector-block">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-900">Maintenance & full edit</summary>
+          <section className="detail-card inspector-block">
+            <SectionHeader title="Maintenance & full edit" subtitle="Low-frequency admin and closeout checks." compact />
             <div className="rounded-2xl tonal-panel task-link-context-panel mt-2">
               {linkedParentCloseout ? (
                 <CloseoutReadinessCard
@@ -109,7 +152,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
                 <button onClick={() => onOpenRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'workspace')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
               </div>
             </div>
-          </details>
+          </section>
         </div>
       </AppModalBody>
       <AppModalFooter>

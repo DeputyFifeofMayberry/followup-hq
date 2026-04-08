@@ -2,6 +2,15 @@
 
 ## 2026-04-08
 
+### Follow Ups refinement pass (execution-lane hierarchy + cross-device coherence)
+- Centralized Follow Ups queue derivation in `useFollowUpsViewModel` so filtered rows, queue stats, primary view counts, duplicate counts, visible option counts, and queue summary copy are computed once and reused across workspace composition (`src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`, `src/components/TrackerTable.tsx`).
+- Rebuilt Follow Ups workspace composition to a shallow control bar → stable queue summary → queue surface → detail modal → duplicate modal flow, removing selected-row chatter from the table subtitle path (`src/components/app/TrackerWorkspace.tsx`).
+- Made `View options (N)` truthful to visible controls only and regrouped options into compact `Filters`, `Dates`, and `Layout` sections without adding new workspace chrome (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`).
+- Tightened selector semantics and queue counts (`All items` vs `All open`, `At risk` based on true risk/escalation signals, `Ready to close` as open + closeable), and aligned queue summary behavior to active queue scope (`src/lib/followUpSelectors.ts`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`).
+- Reworked table and mobile row hierarchy to explicitly show `what matters now` and `next move`, removed destructive delete from fast row actions, and aligned mobile quick actions with desktop execution grammar (`src/components/TrackerTable.tsx`, `src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`).
+- Flattened duplicate review content when opened in a modal (no nested collapse shell), while preserving optional inline-collapsible behavior (`src/components/DuplicateReviewPanel.tsx`, `src/components/app/TrackerWorkspace.tsx`).
+- Tightened detail action priority by keeping daily execution actions in the focus tab and moving delete to maintenance-only context actions with existing confirmation/progression behavior intact (`src/components/ItemDetailPanel.tsx`).
+
 ### Overview refinement pass (triage speed + routing clarity)
 - Moved Overview search, filter, visible-limit, and selection validity ownership into the Overview triage view model so queue derivation follows `active filter -> searched rows -> visible rows`, and show-more now expands searched results rather than pre-search slices (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/components/OverviewPage.tsx`).
 - Strengthened triage row hierarchy to explicitly show why-now and best-next-move lines, added safer metadata/timing fallbacks, and kept urgency-forward + muted-priority badge discipline for faster scan/decide behavior (`src/components/overview/OverviewTriageList.tsx`, `src/styles/workspaces.css`).

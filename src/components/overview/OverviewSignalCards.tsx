@@ -1,9 +1,9 @@
-import type { OverviewSignalCard } from '../../domains/overview/hooks/useOverviewTriageViewModel';
+import type { OverviewFilterKey, OverviewSignalCard } from '../../domains/overview/hooks/useOverviewTriageViewModel';
 
 interface OverviewSignalCardsProps {
   cards: OverviewSignalCard[];
-  selectedFilter: string;
-  onSelectFilter: (filterKey: string) => void;
+  selectedFilter: OverviewFilterKey;
+  onSelectFilter: (filterKey: OverviewFilterKey) => void;
 }
 
 export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: OverviewSignalCardsProps) {
@@ -14,7 +14,7 @@ export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: O
         className={`overview-filter-pill overview-filter-pill-baseline ${selectedFilter === 'all' ? 'overview-filter-pill-active' : ''}`}
         onClick={() => onSelectFilter('all')}
       >
-        All queue
+        <span>All queue</span>
       </button>
       <div className="overview-filter-pill-group" role="group" aria-label="Priority focus filters">
         {cards.map((card) => (

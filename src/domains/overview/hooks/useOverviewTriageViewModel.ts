@@ -10,7 +10,7 @@ const TRIAGE_INCREMENT = 24;
 
 type LaneTarget = Exclude<ExecutionRouteTarget, 'overview'>;
 
-type OverviewFilterKey = 'all' | 'due_now' | 'blocked' | 'waiting' | 'ready_close';
+export type OverviewFilterKey = 'all' | 'due_now' | 'blocked' | 'waiting' | 'ready_close';
 
 export interface OverviewSignalCard {
   key: Exclude<OverviewFilterKey, 'all'>;
@@ -29,6 +29,37 @@ function pickLaneForRows(rows: UnifiedQueueItem[], fallback: LaneTarget): LaneTa
   return taskCount >= followupCount ? 'tasks' : 'followups';
 }
 
+function normalizeSearchValue(value: string | string[] | null | undefined): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => normalizeSearchValue(entry))
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+
+  if (!value) return '';
+  const normalized = String(value).trim().toLowerCase();
+  return normalized;
+}
+
+function buildSearchHaystack(row: UnifiedQueueItem): string {
+  return [
+    row.title,
+    row.project,
+    row.owner,
+    row.assignee,
+    row.primaryNextAction,
+    row.whyInQueue,
+    row.queueReasons,
+    row.summary,
+    row.notesPreview,
+  ]
+    .map((part) => normalizeSearchValue(part))
+    .filter(Boolean)
+    .join(' ');
+}
+
 export function useOverviewTriageViewModel() {
   const store = useAppStore(useShallow((s) => ({
     getUnifiedQueue: s.getUnifiedQueue,
@@ -41,6 +72,7 @@ export function useOverviewTriageViewModel() {
 
   const queue = store.getUnifiedQueue();
   const [selectedFilter, setSelectedFilter] = useState<OverviewFilterKey>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(BASE_TRIAGE_LIMIT);
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
 
@@ -56,21 +88,31 @@ export function useOverviewTriageViewModel() {
     return queue.filter((row) => signalPredicates[selectedFilter]?.(row));
   }, [queue, selectedFilter, signalPredicates]);
 
-  const triageRows = useMemo(() => filteredRows.slice(0, visibleLimit), [filteredRows, visibleLimit]);
-  const triageIds = useMemo(() => triageRows.map((row) => row.id), [triageRows]);
+  const normalizedQuery = useMemo(() => normalizeSearchValue(searchQuery), [searchQuery]);
+  const searchedRows = useMemo(() => {
+    if (!normalizedQuery) return filteredRows;
+    return filteredRows.filter((row) => buildSearchHaystack(row).includes(normalizedQuery));
+  }, [filteredRows, normalizedQuery]);
+
+  const visibleRows = useMemo(() => searchedRows.slice(0, visibleLimit), [searchedRows, visibleLimit]);
+  const searchedIds = useMemo(() => searchedRows.map((row) => row.id), [searchedRows]);
 
   useEffect(() => {
     setVisibleLimit(BASE_TRIAGE_LIMIT);
-  }, [selectedFilter]);
+  }, [selectedFilter, normalizedQuery]);
 
   useEffect(() => {
-    const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds });
+    const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: searchedIds });
     if (resolved !== store.executionSelectedId) {
       store.setExecutionSelectedId(resolved);
     }
-  }, [triageIds, store]);
+  }, [searchedIds, store]);
 
-  const selected = triageRows.find((row) => row.id === resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: triageIds })) || null;
+  const selected = useMemo(() => {
+    const selectedId = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: searchedIds });
+    if (!selectedId) return null;
+    return searchedRows.find((row) => row.id === selectedId) || null;
+  }, [store.executionSelectedId, searchedIds, searchedRows]);
 
   const signalCards = useMemo<OverviewSignalCard[]>(() => {
     const dueNowRows = queue.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday);
@@ -86,13 +128,13 @@ export function useOverviewTriageViewModel() {
         filterSummary: 'Requires same-day movement.',
         lane: pickLaneForRows(dueNowRows, 'tasks'),
         section: 'now',
-        intentLabel: 'handle due now commitments',
+        intentLabel: 'move due commitments forward now',
       },
       {
         key: 'blocked',
         label: 'Blocked',
         count: blockedRows.length,
-        filterSummary: 'Needs unblock or risk response.',
+        filterSummary: 'Stalled work that needs unblock decisions.',
         lane: pickLaneForRows(blockedRows, 'tasks'),
         section: 'blocked',
         intentLabel: 'unblock at-risk work',
@@ -110,7 +152,7 @@ export function useOverviewTriageViewModel() {
         key: 'ready_close',
         label: 'Ready to close',
         count: readyToCloseRows.length,
-        filterSummary: 'Can close with quick verification.',
+        filterSummary: 'Items ready for close confirmation.',
         lane: 'followups',
         section: 'ready_to_close',
         intentLabel: 'close ready follow-ups',
@@ -136,16 +178,22 @@ export function useOverviewTriageViewModel() {
 
   return {
     stats,
-    triageRows,
     selectedFilter,
+    setSelectedFilter,
+    searchQuery,
+    setSearchQuery,
+    filteredRows,
+    searchedRows,
+    visibleRows,
+    filteredCount: filteredRows.length,
+    searchedCount: searchedRows.length,
+    visibleCount: visibleRows.length,
     selected,
     signalCards,
-    totalFilteredCount: filteredRows.length,
-    hasMoreRows: filteredRows.length > triageRows.length,
+    hasMoreRows: searchedRows.length > visibleRows.length,
     showMoreRows: () => setVisibleLimit((current) => current + TRIAGE_INCREMENT),
     openCreateWorkModal: store.openCreateWorkModal,
     setSelectedId: store.setExecutionSelectedId,
-    setSelectedFilter,
     routeToLane,
     openSelectedDetail,
   };

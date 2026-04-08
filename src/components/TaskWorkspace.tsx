@@ -18,7 +18,6 @@ import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
-import { getLinkedFollowUpForTask, getLinkedTasksForFollowUp } from '../lib/recordContext';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
 import { CloseoutReadinessCard } from './CloseoutReadinessCard';
@@ -80,6 +79,20 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const owners = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.owner))).sort()], [tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [tasks]);
   const projectOptions = useMemo(() => ['All', ...projects.map((project) => project.name)], [projects]);
+  const followUpById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const tasksByFollowUpId = useMemo(() => {
+    const grouped = new Map<string, TaskItem[]>();
+    for (const task of tasks) {
+      if (!task.linkedFollowUpId) continue;
+      const existing = grouped.get(task.linkedFollowUpId);
+      if (existing) {
+        existing.push(task);
+      } else {
+        grouped.set(task.linkedFollowUpId, [task]);
+      }
+    }
+    return grouped;
+  }, [tasks]);
   const reviewRequiredTasks = useMemo(() => tasks.filter((task) => !isExecutionReady(task)), [tasks]);
   const executionTasks = useMemo(() => tasks.filter((task) => isExecutionReady(task)), [tasks]);
 
@@ -120,10 +133,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [executionTasks, view, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, searchQuery, sortBy]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? null;
-  const linkedFollowUp = selectedTask ? getLinkedFollowUpForTask(selectedTask, items) : null;
-  const linkedTaskOpenCount = linkedFollowUp ? getLinkedTasksForFollowUp(linkedFollowUp.id, tasks).filter((task) => task.status !== 'Done').length : 0;
-  const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks) : null;
-  const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks) : null;
+  const linkedFollowUp = selectedTask ? (followUpById.get(selectedTask.linkedFollowUpId ?? '') ?? null) : null;
+  const linkedTasks = linkedFollowUp ? (tasksByFollowUpId.get(linkedFollowUp.id) ?? []) : [];
+  const linkedTaskOpenCount = linkedTasks.filter((task) => task.status !== 'Done').length;
+  const linkedParentRollup = linkedFollowUp ? buildFollowUpChildRollup(linkedFollowUp.id, linkedFollowUp.status, tasks, linkedTasks) : null;
+  const linkedParentCloseout = linkedFollowUp ? evaluateFollowUpCloseout(linkedFollowUp, tasks, undefined, linkedTasks) : null;
   const recommendedAction = selectedTask ? deriveTaskRecommendedAction(selectedTask) : null;
 
   const summary = useMemo(() => ({
@@ -315,7 +329,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         <div className="workspace-list-content task-list-content">
           {laneFeedback ? <div className={`task-lane-feedback ${laneFeedback.tone === 'warn' ? 'task-lane-feedback-warn' : 'task-lane-feedback-success'}`}>{laneFeedback.message}</div> : null}
           {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try another view or open Options to adjust filters." /> : filteredTasks.map((task) => {
-            const parent = getLinkedFollowUpForTask(task, items) ?? undefined;
+            const parent = followUpById.get(task.linkedFollowUpId ?? '') ?? undefined;
             const signal = renderNowSignal(task);
             return (
               <button

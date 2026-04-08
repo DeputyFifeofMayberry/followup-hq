@@ -94,7 +94,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
           onSaving: ({ reason }) => set((state) => {
             const backendBlocked = state.sessionDegradedReason === 'backend-schema-mismatch'
               || state.sessionDegradedReason === 'backend-rpc-missing'
-              || state.sessionDegradedReason === 'backend-missing-hashing-support';
+              || state.sessionDegradedReason === 'backend-missing-hashing-support'
+              || state.sessionDegradedReason === 'payload-invalid';
             const summary = backendBlocked
               ? state.sessionDegradedReason === 'backend-rpc-missing'
                 ? 'Cloud sync blocked by missing RPC.'
@@ -190,6 +191,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastReceiptOperationCount: postSave.lastReceiptOperationCount,
                 lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
                 lastFailedBatchId: postSave.lastFailedBatchId,
+                lastFailureClass: undefined,
+                lastFailureNonRetryable: undefined,
+                lastSanitizedFieldCount: diagnostics?.sanitizedFieldCount,
+                lastSanitizedEntityTypes: diagnostics?.sanitizedEntityTypes,
                 lastCloudConfirmedRevision: hasConfirmedCloudReceipt
                   ? Math.max(nextLocalRevision, state.lastCloudConfirmedRevision)
                   : state.lastCloudConfirmedRevision,
@@ -262,14 +267,16 @@ export const useAppStore = create<AppStore>()((set, get) => {
             lastFailedSyncAt: timestamp,
             sessionTrustState: 'degraded',
             sessionDegraded: true,
-            sessionDegradedReason: diagnostics?.failureKind === 'backend_missing_rpc'
-              || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
-              ? 'backend-rpc-missing'
-              : diagnostics?.failureKind === 'backend_hashing_failure'
-                ? 'backend-missing-hashing-support'
-              : diagnostics?.failureKind === 'backend_schema_mismatch'
-                ? 'backend-schema-mismatch'
-                : 'cloud-save-failed',
+            sessionDegradedReason: diagnostics?.failureKind === 'payload_invalid'
+              ? 'payload-invalid'
+              : diagnostics?.failureKind === 'backend_missing_rpc'
+                || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
+                ? 'backend-rpc-missing'
+                : diagnostics?.failureKind === 'backend_hashing_failure'
+                  ? 'backend-missing-hashing-support'
+                : diagnostics?.failureKind === 'backend_schema_mismatch'
+                  ? 'backend-schema-mismatch'
+                  : 'cloud-save-failed',
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
             lastFailedBatchId: diagnostics?.failedBatchId,
@@ -278,6 +285,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
             cloudSyncState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
             trustState: 'degraded',
             lastFailureMessage: message,
+            lastFailureClass: diagnostics?.failureClass ?? 'unknown',
+            lastFailureNonRetryable: diagnostics?.nonRetryable,
+            lastSanitizedFieldCount: diagnostics?.sanitizedFieldCount ?? state.lastSanitizedFieldCount,
+            lastSanitizedEntityTypes: diagnostics?.sanitizedEntityTypes ?? state.lastSanitizedEntityTypes,
             unresolvedConflictCount: diagnostics?.receiptStatus === 'conflict' ? state.unresolvedConflictCount + 1 : state.unresolvedConflictCount,
             conflictReviewNeeded: diagnostics?.receiptStatus === 'conflict' || state.conflictReviewNeeded,
             openConflictCount: (diagnostics?.receiptStatus === 'conflict'
@@ -289,22 +300,26 @@ export const useAppStore = create<AppStore>()((set, get) => {
             persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
               kind: 'failed',
               at: timestamp,
-              summary: diagnostics?.failureKind === 'backend_missing_rpc'
-                ? 'Cloud setup required: missing RPC.'
-                : diagnostics?.failureKind === 'backend_hashing_failure'
-                  ? 'Cloud setup required: backend hashing failure.'
+              summary: diagnostics?.failureKind === 'payload_invalid'
+                ? 'Cloud save blocked by invalid content.'
+                : diagnostics?.failureKind === 'backend_missing_rpc'
+                  ? 'Cloud setup required: missing RPC.'
+                  : diagnostics?.failureKind === 'backend_hashing_failure'
+                    ? 'Cloud setup required: backend hashing failure.'
+                  : diagnostics?.failureKind === 'backend_rpc_exposure_cache'
+                    ? 'Cloud sync waiting on REST schema cache.'
+                    : diagnostics?.failureKind === 'backend_schema_mismatch'
+                      ? 'Cloud setup required: schema mismatch.'
+                      : reason === 'retry'
+                        ? 'Retry failed. Protected local copy retained.'
+                        : 'Save failed. Protected local copy retained.',
+              detail: diagnostics?.failureKind === 'payload_invalid'
+                ? `Cloud save is paused until invalid text content is repaired. Sanitized fields: ${diagnostics?.sanitizedFieldCount ?? 0}.`
                 : diagnostics?.failureKind === 'backend_rpc_exposure_cache'
-                  ? 'Cloud sync waiting on REST schema cache.'
-                  : diagnostics?.failureKind === 'backend_schema_mismatch'
-                    ? 'Cloud setup required: schema mismatch.'
-                    : reason === 'retry'
-                      ? 'Retry failed. Protected local copy retained.'
-                      : 'Save failed. Protected local copy retained.',
-              detail: diagnostics?.failureKind === 'backend_rpc_exposure_cache'
-                ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
-                : diagnostics?.failureKind === 'backend_hashing_failure'
-                  ? 'Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.'
-                : diagnostics?.failedBatchId
+                  ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
+                  : diagnostics?.failureKind === 'backend_hashing_failure'
+                    ? 'Cloud persistence backend hashing failed. A stale SQL function or invalid digest() signature is still deployed.'
+                  : diagnostics?.failedBatchId
                   ? `${message} (Technical detail: batch ${diagnostics.failedBatchId}${diagnostics.failedTable ? `; table ${diagnostics.failedTable}` : ''}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                   : diagnostics?.failedTable
                     ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`

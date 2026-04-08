@@ -2,6 +2,14 @@
 
 ## 2026-04-07
 
+
+### Save/sync reliability hardening (payload sanitization + deterministic failure handling)
+- Added a dedicated persistence sanitization layer that recursively normalizes all string fields in save payloads (including auxiliary/import-derived content), strips invalid control characters such as `\u0000`, records per-field/entity sanitization diagnostics, and persists sanitized payloads to local cache and cloud envelopes (`src/lib/persistenceSanitization.ts`, `src/lib/persistence.ts`).
+- Hardened save failure classification with explicit payload-invalid detection (`22P05`, unicode escape errors, null-byte conversion failures), richer diagnostics (`failureClass`, sanitized-field/entity metrics, payload paths), and non-retryable handling for deterministic content/backend failures to prevent blind retry loops (`src/lib/persistence.ts`, `src/lib/persistenceError.ts`, `src/store/persistenceQueue.ts`).
+- Extended sync/trust state modeling and UI messaging to distinguish payload-repair-needed from retryable failures, block Retry when repair/setup is required, and surface actionable technical diagnostics (failure class, sanitized field count, affected entities) without duplicative summary copy (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`, `src/lib/syncStatus.ts`, `src/components/SyncStatusControl.tsx`).
+- Added intake-source sanitization at ingestion/email parsing boundaries to reduce spread of invalid text into store state before persistence (`src/lib/ingestion.ts`, `src/lib/emailDrop.ts`).
+- Added regression coverage for sanitization behavior, payload-invalid classification, and persistence diagnostics under invalid text failure conditions (`src/lib/__tests__/persistenceSanitization.test.ts`, `src/lib/__tests__/persistenceError.test.ts`, `src/lib/__tests__/persistenceReliability.test.ts`).
+
 ### Intake workspace refactor (manual-ingestion workbench)
 - Reframed Intake as a dedicated manual-ingestion workspace with a compact top intro, stronger workflow framing, and removal of stale Outlook/admin shell treatment so users land directly in upload → review → create behavior (`src/components/OutlookPanel.tsx`, `src/components/app/WorkspaceRenderer.tsx`, `src/components/UniversalIntakeWorkspace.tsx`).
 - Rebuilt the upload zone into a trust-forward import surface with explicit supported file categories (email, Word, spreadsheet, PDF, CSV), clearer parse-state feedback, and stronger loading/status reassurance during ingestion (`src/components/UniversalIntakeWorkspace.tsx`).

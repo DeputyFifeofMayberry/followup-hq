@@ -175,3 +175,37 @@ export function formatPersistenceErrorMessage(normalized: NormalizedPersistenceE
   if (suffix.length === 0) return prefix || 'Persistence operation failed';
   return `${prefix} (${suffix.join('; ')})`;
 }
+
+
+export type PersistenceFailureClass =
+  | 'payload-invalid'
+  | 'backend-setup'
+  | 'network-transient'
+  | 'rpc-receipt'
+  | 'conflict-revision'
+  | 'cloud-read-fallback'
+  | 'unknown';
+
+export function classifyPersistenceFailure(input: {
+  normalized?: NormalizedPersistenceError;
+  diagnostics?: { failureKind?: string; failureClass?: PersistenceFailureClass; nonRetryable?: boolean };
+}): { failureClass: PersistenceFailureClass; nonRetryable: boolean } {
+  const hintedClass = input.diagnostics?.failureClass;
+  if (hintedClass) {
+    return { failureClass: hintedClass, nonRetryable: Boolean(input.diagnostics?.nonRetryable) || hintedClass === 'payload-invalid' || hintedClass === 'backend-setup' };
+  }
+
+  const failureKind = input.diagnostics?.failureKind;
+  if (failureKind === 'payload_invalid') return { failureClass: 'payload-invalid', nonRetryable: true };
+  if (failureKind === 'backend_schema_mismatch' || failureKind === 'backend_missing_rpc' || failureKind === 'backend_hashing_failure' || failureKind === 'backend_rpc_exposure_cache') {
+    return { failureClass: 'backend-setup', nonRetryable: true };
+  }
+  if (failureKind === 'conflict' || failureKind === 'revision_conflict') return { failureClass: 'conflict-revision', nonRetryable: false };
+
+  const message = `${input.normalized?.message ?? ''} ${input.normalized?.details ?? ''}`.toLowerCase();
+  const code = input.normalized?.code?.toUpperCase();
+  if (code === '22P05' || message.includes('unsupported unicode escape sequence') || message.includes('cannot be converted to text') || message.includes('\u0000')) {
+    return { failureClass: 'payload-invalid', nonRetryable: true };
+  }
+  return { failureClass: 'network-transient', nonRetryable: Boolean(input.diagnostics?.nonRetryable) };
+}

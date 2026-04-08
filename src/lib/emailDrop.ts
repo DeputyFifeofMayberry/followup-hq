@@ -1,10 +1,12 @@
 import { createId, todayIso, uniqueStrings } from './utils';
 import type { DroppedEmailImport } from '../types';
+import { sanitizePersistenceString } from './persistenceSanitization';
 
 const PROJECT_HINT_RE = /\b(B\d{3,4}|BOSC|NAVFAC|PSNS|Shop\s*\d+|Weld\s*Shop|Chillers?)\b/i;
 
 function cleanWhitespace(value: string): string {
-  return value.replace(/\r/g, '').replace(/[\t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const sanitized = sanitizePersistenceString(value).value;
+  return sanitized.replace(/\r/g, '').replace(/[\t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function collapsePreview(value: string, maxLength = 420): string {

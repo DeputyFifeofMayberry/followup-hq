@@ -42,9 +42,12 @@ export function SyncStatusControl() {
     || syncMeta.sessionDegradedReason === 'backend-rpc-missing'
     || syncMeta.sessionDegradedReason === 'backend-missing-hashing-support';
   const isNeedsAttention = statusModel.primaryState === 'needs-attention';
-  const showRetry = syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict';
+  const retryBlocked = Boolean(syncMeta.lastFailureNonRetryable || syncMeta.sessionDegradedReason === 'payload-invalid' || isBackendSetupIssue);
+  const showRetry = !retryBlocked && (syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict');
   const trustAction = syncMeta.persistenceMode === 'supabase'
-    ? 'Cloud sync retries automatically. Use Retry only if attention is required.'
+    ? retryBlocked
+      ? 'Retry is paused because this issue requires repair before cloud sync can continue.'
+      : 'Cloud sync retries automatically. Use Retry only if attention is required.'
     : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
   const lastSavedLabel = syncMeta.lastCloudConfirmedAt
     ? `Last confirmed save: ${formatDateTime(syncMeta.lastCloudConfirmedAt)}`
@@ -114,13 +117,12 @@ export function SyncStatusControl() {
             <div className="sync-status-row-detail">Connectivity: {syncMeta.connectivityState}</div>
             {syncMeta.pendingOfflineChangeCount > 0 ? <div className="sync-status-row-detail">Queued offline changes: {syncMeta.pendingOfflineChangeCount}</div> : null}
             {syncMeta.offlineLoadState !== 'none' ? <div className="sync-status-row-detail">Startup mode: {syncMeta.offlineLoadState.replaceAll('-', ' ')}</div> : null}
-            {isNeedsAttention ? <div className="sync-status-row-detail">{statusModel.stateDescription}</div> : null}
             {statusModel.trustRecoveryMessage ? <div className="sync-status-row-detail">{statusModel.trustRecoveryMessage}</div> : null}
           </div>
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Session trust</span>
-            <div className="sync-status-row-detail">{statusModel.trustLabel ?? (isBackendSetupIssue ? 'Cloud trust blocked by backend contract issue.' : 'Session trust status unavailable.')}</div>
+            <div className="sync-status-row-detail">{statusModel.trustLabel ?? (syncMeta.sessionDegradedReason === 'payload-invalid' ? 'Cloud trust paused until invalid content is repaired.' : isBackendSetupIssue ? 'Cloud trust blocked by backend contract issue.' : syncMeta.persistenceMode === 'supabase' ? 'Cloud-backed trust is healthy.' : 'Local device trust is active.')}</div>
             {statusModel.trustDescription ? <div className="sync-status-row-detail">{statusModel.trustDescription}</div> : null}
             {syncMeta.sessionDegraded ? (
               <>
@@ -138,6 +140,11 @@ export function SyncStatusControl() {
               </div>
             ) : null}
           </div>
+
+
+          {retryBlocked && syncMeta.sessionDegradedReason === 'payload-invalid' ? (
+            <div className="sync-status-row-detail">Cloud retry is paused: invalid text content must be repaired before cloud confirmation can resume.</div>
+          ) : null}
 
           {(syncMeta.hasLocalUnsavedChanges || showRetry) ? (
             <div className="sync-status-actions">
@@ -282,6 +289,8 @@ export function SyncStatusControl() {
             {syncMeta.lastFailedBatchId ? (
               <div className="sync-status-row-detail">Failed batch ID: {syncMeta.lastFailedBatchId}</div>
             ) : null}
+            {syncMeta.lastFailureClass ? <div className="sync-status-row-detail">Failure class: {syncMeta.lastFailureClass}</div> : null}
+            {syncMeta.lastSanitizedFieldCount ? <div className="sync-status-row-detail">Sanitized fields before save: {syncMeta.lastSanitizedFieldCount}{syncMeta.lastSanitizedEntityTypes?.length ? ` (${syncMeta.lastSanitizedEntityTypes.join(', ')})` : ''}</div> : null}
             {syncMeta.lastFallbackRestoreAt ? <div className="sync-status-row-detail">Last fallback restore: {formatDateTime(syncMeta.lastFallbackRestoreAt)}</div> : null}
             {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureStage ? <div className="sync-status-row-detail">Fallback reason: {syncMeta.lastLoadFailureStage}</div> : null}
             {syncMeta.lastLoadRecoveredWithLocalCache && syncMeta.lastLoadFailureMessage ? <div className="sync-status-row-detail">Load detail: {syncMeta.lastLoadFailureMessage}</div> : null}

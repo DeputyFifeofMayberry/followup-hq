@@ -1,7 +1,7 @@
 import type { PersistedPayload, SaveResult } from '../lib/persistence';
 import { savePersistedPayload } from '../lib/persistence';
 import { todayIso } from '../lib/utils';
-import { formatPersistenceErrorMessage, normalizePersistenceError } from '../lib/persistenceError';
+import { classifyPersistenceFailure, formatPersistenceErrorMessage, normalizePersistenceError } from '../lib/persistenceError';
 
 interface QueueConfig {
   debounceMs?: number;
@@ -87,7 +87,8 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
       const diagnostics = typeof error === 'object' && error !== null && 'diagnostics' in error
         ? (error as { diagnostics?: SaveResult['diagnostics'] }).diagnostics
         : undefined;
-      const nonRetryable = Boolean((error as { nonRetryable?: boolean })?.nonRetryable || diagnostics?.nonRetryable);
+      const classification = classifyPersistenceFailure({ normalized: normalizePersistenceError(error), diagnostics });
+      const nonRetryable = Boolean((error as { nonRetryable?: boolean })?.nonRetryable || diagnostics?.nonRetryable || classification.nonRetryable);
       if (nonRetryable) {
         handlers.onError(message, todayIso(), reason, diagnostics);
         return;

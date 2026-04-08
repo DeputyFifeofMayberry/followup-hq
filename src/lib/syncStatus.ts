@@ -76,6 +76,10 @@ export interface SyncMetaSnapshot {
   connectivityState: 'online' | 'offline' | 'degraded';
   offlineLoadState: 'none' | 'loaded-from-offline-cache' | 'offline-no-cache';
   pendingOfflineChangeCount: number;
+  lastFailureClass?: 'payload-invalid' | 'backend-setup' | 'network-transient' | 'rpc-receipt' | 'conflict-revision' | 'cloud-read-fallback' | 'unknown';
+  lastFailureNonRetryable?: boolean;
+  lastSanitizedFieldCount?: number;
+  lastSanitizedEntityTypes?: string[];
 }
 
 export interface SyncStatusModel {
@@ -179,6 +183,10 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     connectivityState: state.connectivityState,
     offlineLoadState: state.offlineLoadState,
     pendingOfflineChangeCount: state.pendingOfflineChangeCount,
+    lastFailureClass: state.lastFailureClass,
+    lastFailureNonRetryable: state.lastFailureNonRetryable,
+    lastSanitizedFieldCount: state.lastSanitizedFieldCount,
+    lastSanitizedEntityTypes: state.lastSanitizedEntityTypes,
   };
 }
 
@@ -217,6 +225,15 @@ function describePersistenceMode(mode: PersistenceMode, backendSetupBlocked: boo
 }
 
 function getAttentionNarrative(meta: SyncMetaSnapshot): Pick<SyncStatusModel, 'stateDescription' | 'reassurance' | 'tone' | 'stateTone'> {
+
+  if (meta.sessionDegradedReason === 'payload-invalid') {
+    return {
+      reassurance: 'Your local copy is safe.',
+      stateDescription: 'Cloud save is paused because one or more records contained invalid text content. Sync resumes after content is repaired.',
+      tone: 'warn',
+      stateTone: 'danger',
+    };
+  }
   if (meta.sessionDegradedReason === 'load-failed-no-local-copy') {
     return {
       reassurance: 'Save or load confirmation needs review.',
@@ -372,17 +389,16 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     const isBackendSetupIssue = meta.sessionDegradedReason === 'backend-rpc-missing'
       || meta.sessionDegradedReason === 'backend-schema-mismatch'
       || meta.sessionDegradedReason === 'backend-missing-hashing-support';
+    const narrative = getAttentionNarrative(meta);
     return {
       primaryState: isBackendSetupIssue ? 'saved' : 'needs-attention',
-      stateLabel: isBackendSetupIssue ? 'Backend setup issue' : 'Retry needed',
-      stateDescription: isBackendSetupIssue
-        ? 'Cloud setup required'
-        : 'Cloud sync needs attention; your local copy is safe',
+      stateLabel: isBackendSetupIssue ? 'Backend setup issue' : meta.sessionDegradedReason === 'payload-invalid' ? 'Repair needed' : 'Retry needed',
+      stateDescription: isBackendSetupIssue ? 'Cloud setup required' : narrative.stateDescription,
       reassurance: isBackendSetupIssue
         ? 'Changes are saved locally. Cloud setup is required to resume sync.'
-        : 'Cloud sync needs attention; your local copy is safe',
-      tone: 'warn',
-      stateTone: 'danger',
+        : narrative.reassurance,
+      tone: narrative.tone,
+      stateTone: isBackendSetupIssue ? 'danger' : narrative.stateTone,
       showSpinner: false,
       ...modeDetails,
       trustLabel: meta.sessionDegradedReason === 'backend-rpc-missing'
@@ -430,7 +446,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   return {
     primaryState: 'saved',
-    stateLabel: 'Confirmed to cloud',
+    stateLabel: 'Saved',
     stateDescription: 'All changes saved',
     reassurance: 'All changes saved',
     tone: 'default',

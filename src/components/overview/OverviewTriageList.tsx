@@ -18,8 +18,24 @@ function urgencySignal(row: UnifiedQueueItem) {
   if (row.queueFlags.waitingTooLong) return { label: 'Waiting too long', variant: 'neutral' as const };
   if (row.queueFlags.waiting) return { label: 'Waiting on response', variant: 'neutral' as const };
   if (row.queueFlags.readyToCloseParent) return { label: 'Ready to close', variant: 'info' as const };
-  if (row.queueFlags.cleanupRequired || row.queueFlags.orphanedTask) return { label: 'Needs cleanup review', variant: 'neutral' as const };
+  if (row.queueFlags.cleanupRequired || row.queueFlags.orphanedTask) return { label: 'Needs review', variant: 'neutral' as const };
   return { label: 'Needs decision', variant: 'neutral' as const };
+}
+
+function recordTypeLabel(recordType: UnifiedQueueItem['recordType']) {
+  return recordType === 'task' ? 'Task' : 'Follow-up';
+}
+
+function nextMoveLabel(row: UnifiedQueueItem) {
+  if (row.primaryNextAction?.trim()) return row.primaryNextAction.trim();
+  return row.recordType === 'task' ? 'Continue in Tasks' : 'Continue in Follow Ups';
+}
+
+function timingLabel(row: UnifiedQueueItem) {
+  if (row.dueDate) return `Due ${formatDate(row.dueDate)}`;
+  if (row.promisedDate) return `Promised ${formatDate(row.promisedDate)}`;
+  if (row.nextTouchDate) return `Touch ${formatDate(row.nextTouchDate)}`;
+  return 'No date set';
 }
 
 export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriageListProps) {
@@ -32,8 +48,8 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
       {rows.map((row) => {
         const active = selectedId === row.id;
         const urgency = urgencySignal(row);
-        const dueLabel = row.dueDate || row.nextTouchDate ? formatDate(row.dueDate || row.nextTouchDate) : 'No date';
-        const ownerLabel = row.assignee || row.owner || 'Unassigned';
+        const projectLabel = row.project?.trim() || 'No project';
+        const accountableLabel = row.assignee?.trim() || row.owner?.trim() || 'Unassigned';
         const reason = row.queueReasons[0] || row.whyInQueue;
 
         return (
@@ -57,7 +73,10 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
               <div className="overview-triage-row-content">
                 <div className="scan-row-primary">{row.title}</div>
                 <div className="overview-row-why-now">{reason}</div>
-                <div className="scan-row-meta">{row.project} · {row.recordType === 'task' ? 'Task' : 'Follow-up'} · {ownerLabel} · {dueLabel}</div>
+                <div className="overview-row-next-move">Best next move: {nextMoveLabel(row)}</div>
+                <div className="scan-row-meta">
+                  {projectLabel} · {recordTypeLabel(row.recordType)} · {accountableLabel} · {timingLabel(row)}
+                </div>
               </div>
               <div className="overview-triage-row-sidecar">
                 <div className="scan-row-badge-cluster">

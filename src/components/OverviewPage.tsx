@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { AppModal, AppModalBody, AppModalHeader, AppShellCard, NoMatchesState, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
+import { useEffect, useMemo, useState } from 'react';
+import { AppModal, AppModalBody, AppModalHeader, AppShellCard, NoMatchesState, WorkspacePage } from './ui/AppPrimitives';
 import type { AppMode } from '../types';
 import { OverviewStartStrip } from './overview/OverviewStartStrip';
 import { OverviewSignalCards } from './overview/OverviewSignalCards';
@@ -20,11 +20,14 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   void appMode;
   const {
     stats,
-    triageRows,
     selectedFilter,
     selected,
     signalCards,
-    totalFilteredCount,
+    searchQuery,
+    setSearchQuery,
+    visibleRows,
+    searchedCount,
+    visibleCount,
     hasMoreRows,
     showMoreRows,
     openCreateWorkModal,
@@ -34,14 +37,24 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     openSelectedDetail,
   } = useOverviewTriageViewModel();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const visibleRows = useMemo(
-    () => triageRows.filter((row) => [row.title, row.project, row.owner, row.assignee, row.primaryNextAction, row.whyInQueue].join(' ').toLowerCase().includes(searchQuery.toLowerCase())),
-    [triageRows, searchQuery],
-  );
+  useEffect(() => {
+    if (detailOpen && !selected) {
+      setDetailOpen(false);
+    }
+  }, [detailOpen, selected]);
+
   const activeFilterMeta = signalCards.find((card) => card.key === selectedFilter);
+  const queueStateText = useMemo(() => {
+    const activeLabel = activeFilterMeta?.label ?? 'All queue';
+    const summary = activeFilterMeta?.filterSummary ?? 'Highest-priority work across follow-ups and tasks.';
+    const countPhrase = activeFilterMeta ? `${searchedCount} matches` : `${searchedCount} items`;
+    const visiblePhrase = searchedCount > visibleCount ? ` · showing ${visibleCount}` : '';
+    return `${activeLabel} · ${countPhrase}${visiblePhrase}. ${summary}`;
+  }, [activeFilterMeta, searchedCount, visibleCount]);
+
+  const modalTitle = selected ? `Route ${selected.recordType === 'task' ? 'task' : 'follow-up'}` : 'Route item';
 
   return (
     <WorkspacePage>
@@ -68,15 +81,11 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
             </label>
             <OverviewSignalCards cards={signalCards} selectedFilter={selectedFilter} onSelectFilter={setSelectedFilter} />
           </div>
-          <div className="overview-live-context" role="status" aria-live="polite">
-            <strong>{activeFilterMeta?.label ?? 'All queue'}</strong>
-            <span>{visibleRows.length} visible · {totalFilteredCount} in scope</span>
-            <span>{selected ? `Focused: ${selected.title}` : 'No item selected'}</span>
-          </div>
         </div>
 
+        <div className="overview-queue-state-line" role="status" aria-live="polite">{queueStateText}</div>
+
         <section className="overview-triage-main" aria-label="Overview triage queue">
-          <SectionHeader title="Priority queue" subtitle="Open → scan → decide → move." compact />
           {visibleRows.length === 0 && searchQuery ? (
             <NoMatchesState message="Nothing matches this overview search." />
           ) : (
@@ -89,20 +98,20 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
               }}
             />
           )}
-          {hasMoreRows ? (
-            <div className="overview-show-more-row">
+          <div className="overview-show-more-row">
+            {hasMoreRows ? (
               <button type="button" className="action-btn" onClick={showMoreRows}>Show more</button>
-              <button type="button" className="action-btn" onClick={() => onOpenWorkspace('queue')}>Open full queue</button>
-            </div>
-          ) : null}
+            ) : <span />}
+            <button type="button" className="action-btn" onClick={() => onOpenWorkspace('queue')}>Open full queue</button>
+          </div>
         </section>
       </AppShellCard>
 
       {detailOpen ? (
         <AppModal size="inspector" onClose={() => setDetailOpen(false)} onBackdropClick={() => setDetailOpen(false)}>
           <AppModalHeader
-            title="Selected item"
-            subtitle="Record context first, then choose the best next move."
+            title={modalTitle}
+            subtitle="Review context, then continue in the right lane."
             onClose={() => setDetailOpen(false)}
           />
           <AppModalBody>
@@ -112,7 +121,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                 routeToLane(destination, {
                   record: selected,
                   section: destination === 'tasks' ? 'now' : 'triage',
-                  intentLabel: `route selected overview item to ${destination}`,
+                  intentLabel: `continue in ${destination === 'tasks' ? 'Tasks' : 'Follow Ups'}`,
                 });
                 setDetailOpen(false);
                 onOpenWorkspace(destination);

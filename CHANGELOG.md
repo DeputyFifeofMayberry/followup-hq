@@ -2,6 +2,12 @@
 
 ## 2026-04-08
 
+### Overview refinement pass (triage speed + routing clarity)
+- Moved Overview search, filter, visible-limit, and selection validity ownership into the Overview triage view model so queue derivation follows `active filter -> searched rows -> visible rows`, and show-more now expands searched results rather than pre-search slices (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/components/OverviewPage.tsx`).
+- Strengthened triage row hierarchy to explicitly show why-now and best-next-move lines, added safer metadata/timing fallbacks, and kept urgency-forward + muted-priority badge discipline for faster scan/decide behavior (`src/components/overview/OverviewTriageList.tsx`, `src/styles/workspaces.css`).
+- Reworked the route modal to prioritize recommendation-driven routing actions, demoted `Open full detail` to secondary, and clarified recommendation wording/urgency context for direct lane continuation (`src/components/overview/OverviewRouteInspector.tsx`, `src/domains/overview/lib/getOverviewInspectorRecommendation.ts`, `src/components/OverviewPage.tsx`, `src/styles/workspaces.css`).
+- Tightened Overview summary semantics/copy for trustworthiness by renaming cleanup language to `Needs review` and aligning shared queue stats so `Ready to close` counts only `readyToCloseParent` records (`src/components/overview/OverviewSummaryStats.tsx`, `src/domains/shared/selectors/executionQueueSelectors.ts`).
+
 ### Intake reliability/workbench refactor (record-first + extraction-quality hardening)
 - Rebuilt Universal Intake into a record-first manual-ingestion workbench: the persistent `Uploaded files` primary column was removed and replaced by a queue-centered review surface (`Ready to create`, `Needs correction`, `Reference only`), a stronger correction workbench, compact selected-source context, and a compact intake-session summary/issue tray (`src/components/UniversalIntakeWorkspace.tsx`, `src/components/OutlookPanel.tsx`).
 - Added a dedicated low-emphasis session issues surface for weak/failed parses so parse problems no longer visually compete with normal review work, while preserving source context visibility only for the selected record (`src/components/UniversalIntakeWorkspace.tsx`).

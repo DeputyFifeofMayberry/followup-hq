@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { Badge } from '../Badge';
 import { EmptyState } from '../ui/AppPrimitives';
-import { priorityTone } from '../../lib/utils';
 import type { TaskItem } from '../../types';
 
 type TaskSignal = {
@@ -22,6 +21,13 @@ type TaskListProps = {
   renderNowSignal: (task: TaskItem) => TaskSignal;
 };
 
+function summarizeMeta(task: TaskItem) {
+  if (!task.summary) return '';
+  const clean = task.summary.trim();
+  if (!clean) return '';
+  return clean.length > 78 ? `${clean.slice(0, 75)}…` : clean;
+}
+
 export const TaskList = memo(function TaskList({
   filteredTasks,
   selectedTaskId,
@@ -39,6 +45,9 @@ export const TaskList = memo(function TaskList({
         const hasParent = getParentLinkedFollowUpId(task.linkedFollowUpId);
         const signal = renderNowSignal(task);
         const isSelected = selectedTaskId === task.id;
+        const metaSummary = summarizeMeta(task);
+        const showCritical = task.priority === 'Critical' && !signal.isOverdue && task.status !== 'Blocked';
+
         return (
           <button
             key={task.id}
@@ -49,14 +58,15 @@ export const TaskList = memo(function TaskList({
             <div className="scan-row-layout scan-row-layout-quiet">
               <div className="scan-row-content">
                 <div className="scan-row-primary">{task.title}</div>
-                <div className="scan-row-secondary">{signal.whyNow} • Next: {signal.nextMove}</div>
-                <div className="scan-row-meta">{(task.assigneeDisplayName || task.owner)} • {task.project}{task.summary ? ` • ${task.summary}` : ''}</div>
+                <div className="task-row-why-now">{signal.whyNow}</div>
+                <div className="task-row-next-move">Next move: {signal.nextMove}</div>
+                <div className="scan-row-meta">{(task.assigneeDisplayName || task.owner)} • {task.project}{metaSummary ? ` • ${metaSummary}` : ''}</div>
               </div>
               <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                 <div className="scan-row-badge-cluster">
                   {task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : null}
                   {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : signal.dueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
-                  <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
+                  {showCritical ? <Badge variant="danger">Critical</Badge> : null}
                   {!hasParent ? <Badge variant="neutral">Unlinked</Badge> : null}
                 </div>
                 <div className="scan-row-action-cluster">

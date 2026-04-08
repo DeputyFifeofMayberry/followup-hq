@@ -19,7 +19,6 @@ import {
   getNextBatchToSend,
   listUnresolvedOutboxEntries,
   loadOutboxState,
-  loadPendingBatchesForUser,
   markBatchCommitted,
   markBatchConflict,
   markBatchFailed,
@@ -44,7 +43,7 @@ import type {
 } from '../types';
 import type { DirtyRecordRef } from '../store/persistenceQueue';
 import { getDefaultForwardedRules } from './intakeRules';
-import { sanitizePersistedPayload, type PersistenceSanitizationReport } from './persistenceSanitization';
+import { sanitizePersistedPayload } from './persistenceSanitization';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 const LOCAL_CACHE_KEY_PREFIX = 'followup_hq_entities_cache_v2';
@@ -393,6 +392,7 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
 function resolveLocalCacheKey(userId?: string | null): string {
   return buildLocalCacheKey(userId ?? getPersistenceScopeUserId());
 }
+
 async function readLocalCache(userId?: string | null): Promise<LocalCachePayload | null> {
   try {
     const raw = await loadPersistenceBlob(resolveLocalCacheKey(userId), buildLegacyLocalCacheKey());
@@ -715,7 +715,7 @@ async function applyEntityDeletes(table: string, userId: string, operations: Pen
   const rows = deletes.map((operation) => ({
     user_id: userId,
     record_id: operation.recordId,
-    record: operation.recordSnapshot ?? { id: operation.recordId },
+    record: operation.recordSnapshot ?? { id: operation.recordId, _tombstone: true },
     deleted_at: operation.deletedAt ?? new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }));
@@ -841,6 +841,27 @@ function isRpcExposureCacheMismatch(normalized: NormalizedPersistenceError): boo
   return code === 'PGRST202'
     || lower.includes('could not find the function public.apply_save_batch')
     || lower.includes('function public.apply_save_batch');
+}
+
+function isNullRecordConstraintFailure(normalized: NormalizedPersistenceError, rawMessage?: string): boolean {
+  const lower = [
+    rawMessage,
+    normalized.message,
+    normalized.details,
+    normalized.hint,
+    normalized.rawSummary,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return normalized.code?.toUpperCase() === '23502'
+    || lower.includes('null value in column "record"')
+    || lower.includes('relation "follow_up_items"')
+    || lower.includes('relation "tasks"')
+    || lower.includes('relation "projects"')
+    || lower.includes('relation "contacts"')
+    || lower.includes('relation "companies"');
 }
 
 function classifyBackendFailureKind(normalized: NormalizedPersistenceError): NonNullable<LoadResult['backendFailureKind']> {
@@ -1113,6 +1134,34 @@ export class PersistenceSaveError extends Error {
   }
 }
 
+function normalizeOperationsForCommit(
+  operations: PendingEntityOperation[],
+  diagnostics: SaveDiagnostics,
+): PendingEntityOperation[] {
+  return operations.map((operation) => {
+    if (operation.operation === 'delete' && !operation.recordSnapshot) {
+      return {
+        ...operation,
+        recordSnapshot: { id: operation.recordId, _tombstone: true },
+      };
+    }
+
+    if (operation.operation === 'upsert' && !operation.recordSnapshot) {
+      throw new PersistenceSaveError(
+        `Cloud save blocked before send. Missing recordSnapshot for upsert ${operation.entity}:${operation.recordId}.`,
+        {
+          ...diagnostics,
+          failureKind: 'payload_invalid',
+          failureClass: 'payload-invalid',
+          nonRetryable: true,
+        },
+      );
+    }
+
+    return operation;
+  });
+}
+
 export async function savePersistedPayload(
   payload: PersistedPayload,
   options?: { dirtyRecords?: DirtyRecordRef[]; forceSchemaCheck?: boolean },
@@ -1244,6 +1293,7 @@ export async function savePersistedPayload(
     }, currentUserId);
   }
   if (!batchEntry) return { mode: 'supabase', diagnostics };
+
   const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
   if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
     diagnostics.staleDeleteGuardTriggered = true;
@@ -1253,9 +1303,20 @@ export async function savePersistedPayload(
     );
   }
 
-  const envelope = await buildSaveBatchEnvelope({ payload: sanitizedPayload, operations: batchEntry.operations as PendingEntityOperation[], clientGeneratedAt: saveAttemptAt });
+  const normalizedOperations = normalizeOperationsForCommit(
+    batchEntry.operations as PendingEntityOperation[],
+    diagnostics,
+  );
+
+  const envelope = await buildSaveBatchEnvelope({
+    payload: sanitizedPayload,
+    operations: normalizedOperations,
+    clientGeneratedAt: saveAttemptAt,
+  });
+
   diagnostics.batchId = envelope.batchId;
   await markBatchSending(batchEntry.outboxEntryId, currentUserId);
+
   try {
     const receipt = await commitSaveBatch(envelope);
     diagnostics.receiptStatus = receipt.status;
@@ -1268,11 +1329,15 @@ export async function savePersistedPayload(
     diagnostics.completedTables = receipt.touchedTables;
     diagnostics.conflictedOperationCount = receipt.conflictedOperationCount;
     diagnostics.conflictIds = receipt.conflictIds;
+
     if (receipt.status !== 'committed') {
       if (receipt.status === 'conflict') incrementMetric('saveConflicts');
       else incrementMetric('saveBatchRejects');
-      if (receipt.status === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned conflict`, currentUserId);
-      else await markBatchFailed(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned ${receipt.status}`, currentUserId);
+      if (receipt.status === 'conflict') {
+        await markBatchConflict(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned conflict`, currentUserId);
+      } else {
+        await markBatchFailed(batchEntry.outboxEntryId, `Batch ${receipt.batchId} returned ${receipt.status}`, currentUserId);
+      }
       throw new PersistenceSaveError('Cloud save did not fully complete. Server did not commit the save batch.', {
         ...diagnostics,
         failedBatchId: envelope.batchId,
@@ -1281,6 +1346,7 @@ export async function savePersistedPayload(
         failureClass: receipt.status === 'conflict' ? 'conflict-revision' : 'rpc-receipt',
       });
     }
+
     incrementMetric('saveBatchCommits');
     await markBatchCommitted(batchEntry.outboxEntryId, currentUserId);
     await compactSupersededBatches(batchEntry.localRevision, currentUserId);
@@ -1301,54 +1367,75 @@ export async function savePersistedPayload(
       lastReceiptCommittedTime: receipt.committedAt,
       lastFailureMessage: undefined,
     }, currentUserId);
+
     return { mode: 'supabase', diagnostics };
   } catch (error) {
     const normalized = normalizePersistenceError(error, { operation: 'save' });
     const rawMessage = formatPersistenceErrorMessage(normalized);
     const failedMatch = rawMessage.match(/for table ([a-z_]+)/) || rawMessage.match(/for ([a-z_]+):/) || rawMessage.match(/save failed:([a-z_]+)/);
+
     diagnostics.failedTable = failedMatch?.[1] ?? normalized.table;
     diagnostics.staleDeleteGuardTriggered = rawMessage.includes('Delete safety guard triggered');
     diagnostics.failedBatchId = envelope.batchId;
+
     const lowerMessage = rawMessage.toLowerCase();
+    const nullRecordConstraint = isNullRecordConstraintFailure(normalized, rawMessage);
     const payloadInvalid = normalized.code?.toUpperCase() === '22P05'
       || lowerMessage.includes('unsupported unicode escape sequence')
       || lowerMessage.includes('cannot be converted to text')
-      || lowerMessage.includes('\u0000');
+      || lowerMessage.includes('\\u0000');
+
     diagnostics.failureKind = diagnostics.receiptStatus === 'conflict'
       ? 'conflict'
       : payloadInvalid
         ? 'payload_invalid'
-        : isRpcExposureCacheMismatch(normalized) && diagnostics.backendHealthStatus === 'healthy'
-          ? 'backend_rpc_exposure_cache'
-          : (normalized.code?.toUpperCase() === '42883' || lowerMessage.includes('digest('))
-            ? 'backend_hashing_failure'
-            : isRpcExposureCacheMismatch(normalized)
-            ? 'backend_missing_rpc'
-            : normalized.code?.toUpperCase() === '42703'
-              ? 'backend_schema_mismatch'
-              : 'transient_cloud_failure';
+        : nullRecordConstraint
+          ? 'backend_schema_mismatch'
+          : isRpcExposureCacheMismatch(normalized) && diagnostics.backendHealthStatus === 'healthy'
+            ? 'backend_rpc_exposure_cache'
+            : (normalized.code?.toUpperCase() === '42883' || lowerMessage.includes('digest('))
+              ? 'backend_hashing_failure'
+              : isRpcExposureCacheMismatch(normalized)
+                ? 'backend_missing_rpc'
+                : normalized.code?.toUpperCase() === '42703'
+                  ? 'backend_schema_mismatch'
+                  : 'transient_cloud_failure';
+
     diagnostics.nonRetryable = diagnostics.failureKind === 'backend_missing_rpc'
       || diagnostics.failureKind === 'backend_hashing_failure'
       || diagnostics.failureKind === 'backend_schema_mismatch'
       || diagnostics.failureKind === 'backend_rpc_exposure_cache'
       || diagnostics.failureKind === 'payload_invalid';
+
     const rawMessageWithClassification = diagnostics.failureKind === 'backend_rpc_exposure_cache'
       ? 'Cloud save RPC exists in Postgres but is not yet visible through the REST schema cache.'
       : diagnostics.failureKind === 'payload_invalid'
         ? `Cloud save payload was blocked by invalid text content. ${rawMessage}`
-        : rawMessage;
+        : nullRecordConstraint
+          ? `Cloud save failed because the backend save function attempted to write a null record into a table that requires JSON data. ${rawMessage}`
+          : rawMessage;
+
     diagnostics.failureClass = diagnostics.failureKind === 'payload_invalid'
       ? 'payload-invalid'
-      : diagnostics.failureKind === 'backend_missing_rpc' || diagnostics.failureKind === 'backend_hashing_failure' || diagnostics.failureKind === 'backend_schema_mismatch' || diagnostics.failureKind === 'backend_rpc_exposure_cache'
+      : diagnostics.failureKind === 'backend_missing_rpc'
+        || diagnostics.failureKind === 'backend_hashing_failure'
+        || diagnostics.failureKind === 'backend_schema_mismatch'
+        || diagnostics.failureKind === 'backend_rpc_exposure_cache'
         ? 'backend-setup'
         : diagnostics.failureKind === 'conflict'
           ? 'conflict-revision'
           : diagnostics.failureKind === 'transient_cloud_failure'
             ? 'network-transient'
             : 'unknown';
-    if (diagnostics.receiptStatus === 'conflict') await markBatchConflict(batchEntry.outboxEntryId, rawMessage, currentUserId);
-    else await markBatchFailed(batchEntry.outboxEntryId, rawMessage, currentUserId);
+
+    if (diagnostics.receiptStatus === 'conflict') {
+      await markBatchConflict(batchEntry.outboxEntryId, rawMessage, currentUserId);
+    } else {
+      await markBatchFailed(batchEntry.outboxEntryId, rawMessage, currentUserId);
+    }
+
     incrementMetric('outboxRetries');
+
     await writeLocalCache({
       entities: sanitizedPayload,
       updatedAt: saveAttemptAt,
@@ -1365,6 +1452,7 @@ export async function savePersistedPayload(
       lastReceiptCommittedTime: undefined,
       lastFailureMessage: rawMessageWithClassification,
     }, currentUserId);
+
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessageWithClassification}`, diagnostics);
   }
 }

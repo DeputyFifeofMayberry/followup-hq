@@ -117,12 +117,13 @@ begin
       using v_user_id, v_record_id, v_record, v_device_id, v_batch_id;
 
       v_count_field := 'upserts';
-    else
+        else
       execute format(
         'insert into public.%I (user_id, record_id, record, deleted_at, updated_at, record_version, updated_by_device, last_batch_id, last_operation_at, conflict_marker)
-         values ($1, $2, null, now(), now(), 1, $3, $4, now(), false)
+         values ($1, $2, coalesce($3, jsonb_build_object(''id'', $2, ''_tombstone'', true)), now(), now(), 1, $4, $5, now(), false)
          on conflict (user_id, record_id) do update
-         set deleted_at = now(),
+         set record = coalesce(public.%I.record, excluded.record),
+             deleted_at = now(),
              updated_at = now(),
              record_version = coalesce(public.%I.record_version, 1) + 1,
              updated_by_device = excluded.updated_by_device,
@@ -130,9 +131,10 @@ begin
              last_operation_at = now(),
              conflict_marker = false',
         v_table,
+        v_table,
         v_table
       )
-      using v_user_id, v_record_id, v_device_id, v_batch_id;
+      using v_user_id, v_record_id, v_record, v_device_id, v_batch_id;
 
       v_count_field := 'deletes';
     end if;

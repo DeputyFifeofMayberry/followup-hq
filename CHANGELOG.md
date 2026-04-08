@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-08
+
+### Intake reliability/workbench refactor (record-first + extraction-quality hardening)
+- Rebuilt Universal Intake into a record-first manual-ingestion workbench: the persistent `Uploaded files` primary column was removed and replaced by a queue-centered review surface (`Ready to create`, `Needs correction`, `Reference only`), a stronger correction workbench, compact selected-source context, and a compact intake-session summary/issue tray (`src/components/UniversalIntakeWorkspace.tsx`, `src/components/OutlookPanel.tsx`).
+- Added a dedicated low-emphasis session issues surface for weak/failed parses so parse problems no longer visually compete with normal review work, while preserving source context visibility only for the selected record (`src/components/UniversalIntakeWorkspace.tsx`).
+- Hardened intake text normalization with a shared sanitization layer that strips null/invalid control characters, reduces malformed artifacts, and removes email thread/signature junk before extraction evidence/candidate generation (`src/lib/universalIntake.ts`).
+- Strengthened email/HTML cleanup with a tighter readable-text path (HTML cleanup + quote/signature stripping) and improved email extraction confidence behavior so thread/layout noise is less likely to become candidate content (`src/lib/universalIntake.ts`).
+- Improved candidate quality gating and synthesis: stronger title cleanup, stronger project/owner/date heuristics, date-role-aware due-date selection, field-specific confidence expansion, and stricter weak/non-content filtering to reduce noisy candidate creation (`src/lib/universalIntake.ts`).
+- Improved spreadsheet extraction selectivity by skipping low-signal/noise rows and boosting row-quality scoring when actionable fields are present, yielding cleaner workbook-derived candidates (`src/lib/universalIntake.ts`).
+- Added regression coverage for sanitization, candidate-noise suppression, action-signal extraction, and spreadsheet candidate generation (`src/lib/__tests__/universalIntakePipeline.test.ts`).
+
 ## 2026-04-07
 
 

@@ -1,30 +1,19 @@
-import { ChevronDown, Link2, Pencil, Plus, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { Badge } from './Badge';
-import { addDaysIso, formatDate, fromDateInputValue, isTaskDeferred, priorityTone, toDateInputValue, todayIso } from '../lib/utils';
-import {
-  AppBadge,
-  AppModal,
-  AppModalBody,
-  AppModalFooter,
-  AppModalHeader,
-  EmptyState,
-  ExecutionLaneFooterMeta,
-  SectionHeader,
-  WorkspacePage,
-} from './ui/AppPrimitives';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { addDaysIso, formatDate, isTaskDeferred, todayIso } from '../lib/utils';
+import { ExecutionLaneFooterMeta, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
-import { BlockReasonSection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { buildFollowUpChildRollup } from '../lib/childWorkRollups';
 import { evaluateFollowUpCloseout } from '../lib/closeoutReadiness';
-import { CloseoutReadinessCard } from './CloseoutReadinessCard';
 import { deriveTaskRecommendedAction } from '../domains/shared';
-import { editSurfaceCtas, editSurfacePolicy } from '../lib/editSurfacePolicy';
 import { isExecutionReady } from '../domains/records/integrity';
 import { useViewportBand } from '../hooks/useViewport';
+import { TaskToolbar } from './tasks/TaskToolbar';
+import { TaskList } from './tasks/TaskList';
+import { TaskInspectorModal } from './tasks/TaskInspectorModal';
+import { TaskActionFlow } from './tasks/TaskActionFlow';
 
 type TaskView = 'today' | 'upcoming' | 'blocked' | 'all';
 type TaskSort = 'due' | 'priority' | 'updated';
@@ -50,6 +39,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<TaskSort>('due');
   const [view, setView] = useState<TaskView>('today');
   const [projectFilter, setProjectFilter] = useState(defaultFilterState.project);
@@ -66,6 +56,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 160);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (executionIntent?.target !== 'tasks') return;
@@ -106,7 +101,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     const nowTs = Date.now();
     const endTomorrowTs = nowTs + 86400000;
     const endWeekTs = nowTs + 7 * 86400000;
-    const searchQueryLower = searchQuery.toLowerCase();
+    const searchQueryLower = debouncedSearchQuery.toLowerCase();
 
     const byView = taskDerived.filter((task) => {
       if (task.status === 'Done') return false;
@@ -136,7 +131,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       const bDue = b.dueTs ?? Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [taskDerived, view, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, searchQuery, sortBy]);
+  }, [taskDerived, view, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, sortBy]);
 
   const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId) ?? tasks.find((task) => task.id === selectedTaskId) ?? null;
   const linkedFollowUp = selectedTask ? (followUpById.get(selectedTask.linkedFollowUpId ?? '') ?? null) : null;
@@ -169,17 +164,23 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     ].filter(Boolean).length
   ), [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, linkedFilter, searchQuery, sortBy]);
 
+  const onProjectFilterReset = useCallback(() => setProjectFilter(defaultFilterState.project), []);
+  const onAssigneeFilterReset = useCallback(() => setAssigneeFilter(defaultFilterState.assignee), []);
+  const onTaskOwnerFilterReset = useCallback(() => setTaskOwnerFilter('All'), [setTaskOwnerFilter]);
+  const onTaskStatusFilterReset = useCallback(() => setTaskStatusFilter('All'), [setTaskStatusFilter]);
+  const onLinkedFilterReset = useCallback(() => setLinkedFilter(defaultFilterState.linked), []);
+
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
-    if (projectFilter !== defaultFilterState.project) chips.push({ key: 'project', label: projectFilter, clear: () => setProjectFilter(defaultFilterState.project) });
-    if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: assigneeFilter, clear: () => setAssigneeFilter(defaultFilterState.assignee) });
-    if (!personalMode && taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${taskOwnerFilter}`, clear: () => setTaskOwnerFilter('All') });
-    if (taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${taskStatusFilter}`, clear: () => setTaskStatusFilter('All') });
-    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: linkedFilter === 'linked' ? 'Linked only' : 'Unlinked only', clear: () => setLinkedFilter(defaultFilterState.linked) });
+    if (projectFilter !== defaultFilterState.project) chips.push({ key: 'project', label: projectFilter, clear: onProjectFilterReset });
+    if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: assigneeFilter, clear: onAssigneeFilterReset });
+    if (!personalMode && taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${taskOwnerFilter}`, clear: onTaskOwnerFilterReset });
+    if (taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${taskStatusFilter}`, clear: onTaskStatusFilterReset });
+    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: linkedFilter === 'linked' ? 'Linked only' : 'Unlinked only', clear: onLinkedFilterReset });
     return chips;
-  }, [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, linkedFilter, setTaskOwnerFilter, setTaskStatusFilter]);
+  }, [projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, linkedFilter, onProjectFilterReset, onAssigneeFilterReset, onTaskOwnerFilterReset, onTaskStatusFilterReset, onLinkedFilterReset]);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setTaskOwnerFilter('All');
     setTaskStatusFilter('All');
     setProjectFilter(defaultFilterState.project);
@@ -187,9 +188,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     setLinkedFilter(defaultFilterState.linked);
     setSortBy('due');
     setSearchQuery('');
-  };
+  }, [setTaskOwnerFilter, setTaskStatusFilter]);
 
-  const openTaskFlow = (task: TaskItem, kind: 'done' | 'block' | 'unblock' | 'defer') => {
+  const openTaskFlow = useCallback((task: TaskItem, kind: 'done' | 'block' | 'unblock' | 'defer') => {
     setFlowState({ kind, taskId: task.id });
     setCompletionNoteDraft(task.completionNote || '');
     setBlockReasonDraft(task.blockReason || '');
@@ -198,9 +199,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
     setFlowWarnings([]);
     setFlowBlockers([]);
     setFlowResult(null);
-  };
+  }, []);
 
-  const runTaskFlow = () => {
+  const closeTaskFlow = useCallback(() => setFlowState(null), []);
+
+  const runTaskFlow = useCallback(() => {
     if (!flowState) return;
     const task = tasks.find((entry) => entry.id === flowState.taskId);
     if (!task) return;
@@ -238,17 +241,17 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
             ? `Unblocked "${task.title}".`
             : `Deferred "${task.title}".`,
     });
-  };
+  }, [flowState, tasks, attemptTaskTransition, completionNoteDraft, blockReasonDraft, nextReviewDraft, deferDateDraft]);
 
-  const runRecommendedTaskAction = () => {
+  const runRecommendedTaskAction = useCallback(() => {
     if (!selectedTask || !recommendedAction) return;
     if (recommendedAction.id === 'complete') return openTaskFlow(selectedTask, 'done');
     if (recommendedAction.id === 'defer') return openTaskFlow(selectedTask, 'defer');
     if (recommendedAction.id === 'block') return openTaskFlow(selectedTask, 'block');
     if (recommendedAction.id === 'unblock') return openTaskFlow(selectedTask, 'unblock');
-  };
+  }, [selectedTask, recommendedAction, openTaskFlow]);
 
-  const renderNowSignal = (task: TaskItem) => {
+  const renderNowSignal = useCallback((task: TaskItem) => {
     const dueTimestamp = task.dueDate ? new Date(task.dueDate).getTime() : null;
     const now = Date.now();
     const isOverdue = Boolean(dueTimestamp && dueTimestamp < now && task.status !== 'Done');
@@ -269,7 +272,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         : (task.nextStep || task.recommendedAction || 'Define next step');
 
     return { whyNow, nextMove, isOverdue, dueSoon };
-  };
+  }, []);
+
+  const handleSelectTask = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+    setTaskDetailOpen(true);
+  }, [setSelectedTaskId]);
+
+  const handleDoneTask = useCallback((task: TaskItem) => openTaskFlow(task, 'done'), [openTaskFlow]);
+  const handleToggleBlockTask = useCallback((task: TaskItem) => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block'), [openTaskFlow]);
+  const hasLinkedParent = useCallback((linkedFollowUpId?: string | null) => Boolean(linkedFollowUpId && followUpById.get(linkedFollowUpId)), [followUpById]);
+
+  const closeTaskDetail = useCallback(() => setTaskDetailOpen(false), []);
+  const handleSearchQueryChange = useCallback((value: string) => setSearchQuery(value), []);
+  const clearSearch = useCallback(() => setSearchQuery(''), []);
+  const toggleViewOptions = useCallback(() => setViewOptionsOpen((prev) => !prev), []);
 
   return (
     <WorkspacePage>
@@ -284,186 +301,86 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
       </div>
 
       <section className="detail-card task-workspace-main-card">
-        <div className="workspace-control-stack task-control-stack-calm">
-          <div className={`task-primary-toolbar-slim ${isMobileLike ? 'task-primary-toolbar-slim-mobile' : ''}`}>
-            <label className="field-block task-search-block">
-              <span className="field-label">Search</span>
-              <div className="search-field-wrap">
-                <Search className="search-field-icon h-4 w-4" />
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, next step, notes" className="field-input search-field-input" />
-                {searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
-              </div>
-            </label>
+        <TaskToolbar
+          isMobileLike={isMobileLike}
+          searchQuery={searchQuery}
+          onSearchQueryChange={handleSearchQueryChange}
+          onClearSearch={clearSearch}
+          view={view}
+          onViewChange={setView}
+          taskViewOptions={taskViewOptions}
+          viewOptionsOpen={viewOptionsOpen}
+          onToggleViewOptions={toggleViewOptions}
+          onOpenCreateTaskModal={openCreateTaskModal}
+          activeFilterCount={activeFilterCount}
+          personalMode={personalMode}
+          projectFilter={projectFilter}
+          projectOptions={projectOptions}
+          onProjectFilterChange={setProjectFilter}
+          assigneeFilter={assigneeFilter}
+          assignees={assignees}
+          onAssigneeFilterChange={setAssigneeFilter}
+          taskOwnerFilter={taskOwnerFilter}
+          owners={owners}
+          onTaskOwnerFilterChange={setTaskOwnerFilter}
+          taskStatusFilter={taskStatusFilter}
+          onTaskStatusFilterChange={setTaskStatusFilter}
+          linkedFilter={linkedFilter}
+          onLinkedFilterChange={setLinkedFilter}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          onResetFilters={resetFilters}
+          activeFilterChips={activeFilterChips}
+        />
 
-            <label className="field-block task-view-picker">
-              <span className="field-label">View</span>
-              <select value={view} onChange={(event) => setView(event.target.value as TaskView)} className="field-input">
-                {taskViewOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-
-            <div className="task-toolbar-actions">
-              <button onClick={() => setViewOptionsOpen((prev) => !prev)} className="action-btn">
-                <SlidersHorizontal className="h-4 w-4" />
-                Options
-                {activeFilterCount > 0 ? <AppBadge tone="info">{activeFilterCount}</AppBadge> : null}
-                <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
-              </button>
-              <button onClick={openCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
-            </div>
-          </div>
-
-          {viewOptionsOpen ? (
-            <div className="task-filters-panel-slim">
-              <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
-                <label className="field-block"><span className="field-label">Project</span><select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select></label>
-                <label className="field-block"><span className="field-label">Assignee</span><select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select></label>
-                {!personalMode ? <label className="field-block"><span className="field-label">Owner</span><select value={taskOwnerFilter} onChange={(event) => setTaskOwnerFilter(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select></label> : null}
-                <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
-                <label className="field-block"><span className="field-label">Linked</span><select value={linkedFilter} onChange={(event) => setLinkedFilter(event.target.value as typeof linkedFilter)} className="field-input"><option value="all">All</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select></label>
-                <label className="field-block"><span className="field-label">Sort</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as TaskSort)} className="field-input"><option value="due">Due date</option><option value="priority">Priority</option><option value="updated">Recently updated</option></select></label>
-              </div>
-              <div className="task-view-options-reset-row">
-                <button onClick={resetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
-              </div>
-            </div>
-          ) : null}
-
-          {activeFilterChips.length > 1 ? (
-            <div className="task-filter-chip-row task-filter-chip-row-muted">
-              {activeFilterChips.map((chip) => <button key={chip.key} onClick={chip.clear} className="task-filter-chip task-filter-chip-quiet">{chip.label} <span aria-hidden="true">×</span></button>)}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="workspace-list-content task-list-content">
-          {laneFeedback ? <div className={`task-lane-feedback ${laneFeedback.tone === 'warn' ? 'task-lane-feedback-warn' : 'task-lane-feedback-success'}`}>{laneFeedback.message}</div> : null}
-          {filteredTasks.length === 0 ? <EmptyState title="No tasks in this view" message="Try another view or open Options to adjust filters." /> : filteredTasks.map((task) => {
-            const parent = followUpById.get(task.linkedFollowUpId ?? '') ?? undefined;
-            const signal = renderNowSignal(task);
-            return (
-              <button
-                key={task.id}
-                onClick={() => { setSelectedTaskId(task.id); setTaskDetailOpen(true); }}
-                className={`workspace-data-row task-work-row ${selectedTask?.id === task.id ? 'workspace-data-row-active list-row-family-active' : ''}`}
-                aria-current={selectedTask?.id === task.id ? 'true' : undefined}
-              >
-                <div className="scan-row-layout scan-row-layout-quiet">
-                  <div className="scan-row-content">
-                    <div className="scan-row-primary">{task.title}</div>
-                    <div className="scan-row-secondary">{signal.whyNow} • Next: {signal.nextMove}</div>
-                    <div className="scan-row-meta">{(task.assigneeDisplayName || task.owner)} • {task.project}{task.summary ? ` • ${task.summary}` : ''}</div>
-                  </div>
-                  <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
-                    <div className="scan-row-badge-cluster">
-                      {task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : null}
-                      {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : signal.dueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
-                      <Badge variant={priorityTone(task.priority)}>{task.priority}</Badge>
-                      {!parent ? <Badge variant="neutral">Unlinked</Badge> : null}
-                    </div>
-                    <div className="scan-row-action-cluster">
-                      {task.status !== 'Done' ? <button onClick={() => openTaskFlow(task, 'done')} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
-                      <button onClick={() => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        <TaskList
+          filteredTasks={filteredTasks}
+          selectedTaskId={selectedTask?.id ?? null}
+          laneFeedback={laneFeedback}
+          onSelectTask={handleSelectTask}
+          onDoneTask={handleDoneTask}
+          onToggleBlockTask={handleToggleBlockTask}
+          getParentLinkedFollowUpId={hasLinkedParent}
+          renderNowSignal={renderNowSignal}
+        />
 
         <ExecutionLaneFooterMeta shownCount={filteredTasks.length} selectedCount={selectedTask ? 1 : 0} scopeSummary={`View: ${taskViewOptions.find((entry) => entry.value === view)?.label || view}`} hint="Open a task when you need more detail." />
       </section>
 
-      {taskDetailOpen && selectedTask ? (
-        <AppModal size="inspector" onBackdropClick={() => setTaskDetailOpen(false)} onClose={() => setTaskDetailOpen(false)}>
-          <AppModalHeader
-            title={selectedTask.title}
-            subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}
-            onClose={() => setTaskDetailOpen(false)}
-            closeLabel="Close"
-          />
-          <AppModalBody>
-            <div className="space-y-3">
-              <section className="detail-card">
-                <div className="task-inspector-status-strip">
-                  <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
-                  <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
-                  {selectedTask.dueDate && new Date(selectedTask.dueDate).getTime() < Date.now() && selectedTask.status !== 'Done' ? <Badge variant="danger">Overdue</Badge> : null}
-                </div>
-                <div className="mt-3 task-execution-focus">
-                  <div className="tonal-micro">Why now: <strong>{renderNowSignal(selectedTask).whyNow}</strong></div>
-                  <div className="tonal-micro">Best next move: <strong>{renderNowSignal(selectedTask).nextMove}</strong></div>
-                  <div className="mt-2"><AppBadge tone={recommendedAction?.tone === 'default' ? 'info' : (recommendedAction?.tone ?? 'info')}>Recommended: {recommendedAction?.label ?? 'Update next step'}</AppBadge></div>
-                </div>
-              </section>
+      <TaskInspectorModal
+        open={taskDetailOpen}
+        selectedTask={selectedTask}
+        linkedFollowUp={linkedFollowUp}
+        linkedTaskOpenCount={linkedTaskOpenCount}
+        linkedParentRollup={linkedParentRollup}
+        linkedParentCloseout={linkedParentCloseout}
+        recommendedAction={recommendedAction}
+        renderNowSignal={renderNowSignal}
+        onClose={closeTaskDetail}
+        onRunRecommendedTaskAction={runRecommendedTaskAction}
+        onOpenTaskFlow={openTaskFlow}
+        onUpdateTask={updateTask}
+        onOpenLinkedFollowUp={onOpenLinkedFollowUp}
+        onOpenRecordDrawer={openRecordDrawer}
+        onOpenRecordEditor={openRecordEditor}
+      />
 
-              <section className="detail-card">
-                <SectionHeader title="Actions" subtitle={recommendedAction?.reason ?? 'Focused execution actions first.'} compact />
-                <div className="task-inspector-actions mt-2">
-                  <button onClick={runRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
-                  <button onClick={() => openTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
-                  <button onClick={() => openTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                  <button onClick={() => openTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
-                </div>
-                <div className="task-quick-edit-grid mt-3">
-                  <label className="field-block"><span className="field-label">Next step</span><input value={selectedTask.nextStep || ''} onChange={(event) => updateTask(selectedTask.id, { nextStep: event.target.value })} className="field-input" /></label>
-                  <label className="field-block"><span className="field-label">Due date</span><input type="date" value={toDateInputValue(selectedTask.dueDate)} onChange={(event) => updateTask(selectedTask.id, { dueDate: event.target.value ? fromDateInputValue(event.target.value) : undefined })} className="field-input" /></label>
-                </div>
-              </section>
-
-              <section className="detail-card">
-                <SectionHeader title="Linked context" subtitle="Related follow-up details when available." compact />
-                <div className="mt-2 rounded-2xl tonal-panel task-link-context-panel">
-                  <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
-                  {linkedFollowUp ? <div className="tonal-micro mt-1">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
-                  {linkedFollowUp && linkedParentRollup?.explanations?.length ? <div className="mt-2 space-y-1 text-xs text-slate-600">{linkedParentRollup.explanations.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open linked follow-up</button> : null}
-                    <button onClick={() => openRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
-                  </div>
-                </div>
-              </section>
-
-              <details className="detail-card inspector-block">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-900">Maintenance & full edit</summary>
-                <div className="rounded-2xl tonal-panel task-link-context-panel mt-2">
-                  {linkedParentCloseout ? (
-                    <CloseoutReadinessCard
-                      evaluation={linkedParentCloseout}
-                      onOpenTask={(taskId) => openRecordDrawer({ type: 'task', id: taskId })}
-                      onReviewLinkedRecords={() => linkedFollowUp ? openRecordDrawer({ type: 'followup', id: linkedFollowUp.id }) : undefined}
-                    />
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => openRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'workspace')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </AppModalBody>
-          <AppModalFooter>
-            <button onClick={() => setTaskDetailOpen(false)} className="action-btn">Close</button>
-          </AppModalFooter>
-        </AppModal>
-      ) : null}
-
-      <StructuredActionFlow
-        open={!!flowState}
-        title={flowState?.kind === 'done' ? 'Mark task done' : flowState?.kind === 'block' ? 'Block task' : flowState?.kind === 'unblock' ? 'Resume task' : 'Defer task'}
-        subtitle="Structured task transition with validation and in-app feedback."
-        onCancel={() => setFlowState(null)}
+      <TaskActionFlow
+        flowState={flowState}
+        flowWarnings={flowWarnings}
+        flowBlockers={flowBlockers}
+        flowResult={flowResult}
+        completionNoteDraft={completionNoteDraft}
+        blockReasonDraft={blockReasonDraft}
+        deferDateDraft={deferDateDraft}
+        nextReviewDraft={nextReviewDraft}
+        onCancel={closeTaskFlow}
         onConfirm={runTaskFlow}
-        confirmLabel="Apply action"
-        warnings={flowWarnings}
-        blockers={flowBlockers}
-        result={flowResult}
-      >
-        {flowState?.kind === 'done' ? <CompletionNoteSection value={completionNoteDraft} onChange={setCompletionNoteDraft} /> : null}
-        {flowState?.kind === 'block' ? <BlockReasonSection value={blockReasonDraft} onChange={setBlockReasonDraft} /> : null}
-        {flowState?.kind === 'block' ? <DateSection label="Next review date" value={nextReviewDraft} onChange={setNextReviewDraft} /> : null}
-        {flowState?.kind === 'defer' ? <DateSection label="Deferred until" value={deferDateDraft} onChange={setDeferDateDraft} /> : null}
-      </StructuredActionFlow>
+        onCompletionNoteChange={setCompletionNoteDraft}
+        onBlockReasonChange={setBlockReasonDraft}
+        onDeferDateChange={setDeferDateDraft}
+        onNextReviewChange={setNextReviewDraft}
+      />
     </WorkspacePage>
   );
 }

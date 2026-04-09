@@ -1081,6 +1081,60 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
   const localNewerThanCloud = cache ? isLocalNewer(cache.updatedAt, cloudUpdatedAt) : false;
 
   if (cache && localNewerThanCloud) {
+    // Compute the diff between local and cloud to determine what needs syncing.
+    const diffOps = buildScopedEntityOps(cache.entities, hydrated);
+
+    if (diffOps.length === 0) {
+      // False positive: timestamps drifted but content is identical.
+      // Treat as cloud-confirmed to avoid incorrect session degradation.
+      const confirmedAt = cloudUpdatedAt ?? new Date().toISOString();
+      await writeLocalCache({
+        entities: cache.entities,
+        updatedAt: confirmedAt,
+        cloudStatus: 'confirmed',
+        localRevision: (cache.localRevision ?? 0) + 1,
+        lastCloudConfirmedRevision: (cache.localRevision ?? 0) + 1,
+        lastCloudConfirmedAt: confirmedAt,
+        userId,
+        lastCommittedBatchId: cache.lastCommittedBatchId,
+        lastReceiptStatus: cache.lastReceiptStatus,
+        lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+        lastFailureMessage: undefined,
+      }, userId);
+      return {
+        payload: cache.entities,
+        mode: 'supabase',
+        source: 'supabase',
+        cacheStatus: 'confirmed',
+        cloudUpdatedAt: confirmedAt,
+        backendFailureKind: 'none',
+        localCacheUpdatedAt: confirmedAt,
+        localCacheLastCloudConfirmedAt: confirmedAt,
+        localRevision: (cache.localRevision ?? 0) + 1,
+        lastCloudConfirmedRevision: (cache.localRevision ?? 0) + 1,
+      };
+    }
+
+    // Genuine local-newer-than-cloud: local has changes not yet in cloud.
+    // Store the diff ops so the next auto-save can push them to cloud and
+    // recover the session without requiring a new user edit first.
+    const nextRevision = (cache.localRevision ?? 0) + 1;
+    await writeLocalCache({
+      entities: cache.entities,
+      updatedAt: cache.updatedAt ?? new Date().toISOString(),
+      cloudStatus: 'pending',
+      localRevision: nextRevision,
+      lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision ?? 0,
+      lastCloudConfirmedAt: cache.lastCloudConfirmedAt,
+      pendingOperations: diffOps,
+      userId,
+      lastCommittedBatchId: cache.lastCommittedBatchId,
+      lastFailedBatchId: cache.lastFailedBatchId,
+      lastReceiptStatus: cache.lastReceiptStatus,
+      lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+      lastFailureMessage: cache.lastFailureMessage,
+    }, userId);
+
     return {
       payload: cache.entities,
       mode: 'supabase',
@@ -1092,6 +1146,13 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       localCacheLastCloudConfirmedAt: cache.lastCloudConfirmedAt,
       cloudUpdatedAt,
       backendFailureKind: 'none',
+      localRevision: nextRevision,
+      lastCloudConfirmedRevision: cache.lastCloudConfirmedRevision ?? 0,
+      lastCommittedBatchId: cache.lastCommittedBatchId,
+      lastFailedBatchId: cache.lastFailedBatchId,
+      lastReceiptStatus: cache.lastReceiptStatus,
+      lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
+      lastFailureMessage: cache.lastFailureMessage,
     };
   }
 
@@ -1275,6 +1336,7 @@ export async function savePersistedPayload(
     }, currentUserId);
     throw new PersistenceSaveError(errorMessage, diagnostics);
   }
+  diagnostics.backendHealthStatus = 'healthy';
 
   let batchEntry = await getNextBatchToSend(currentUserId);
   if (!batchEntry && pendingOperations.length > 0) {

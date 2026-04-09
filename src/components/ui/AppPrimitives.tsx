@@ -520,12 +520,16 @@ export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' 
   );
 }
 
-export function AppModalBody({ children, scrollable = true }: PropsWithChildren<{ scrollable?: boolean }>) {
-  return <div className={scrollable ? 'modal-body modal-body-scroll' : 'modal-body modal-body-static'}>{children}</div>;
+export function AppModalBody({
+  children,
+  scrollable = true,
+  className = '',
+}: PropsWithChildren<{ scrollable?: boolean; className?: string }>) {
+  return <div className={`${scrollable ? 'modal-body modal-body-scroll' : 'modal-body modal-body-static'} ${className}`.trim()}>{children}</div>;
 }
 
-export function AppModalFooter({ children }: PropsWithChildren) {
-  return <div className="modal-footer">{children}</div>;
+export function AppModalFooter({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`modal-footer ${className}`.trim()}>{children}</div>;
 }
 
 export function RecordEditorShell({ children }: PropsWithChildren) {

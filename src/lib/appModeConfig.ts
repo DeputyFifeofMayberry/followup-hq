@@ -51,7 +51,7 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
   overview: {
     userLabel: 'Overview',
     shellTitle: 'Overview',
-    shellPurpose: 'Start here to triage today's work and route it into execution.',
+    shellPurpose: "Start here to triage today's work and route it into execution.",
     category: 'core',
     startSurface: true,
     primaryAction: { label: 'Create work item', actionKey: 'new-work', primary: true },

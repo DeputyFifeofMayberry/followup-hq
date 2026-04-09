@@ -80,7 +80,7 @@ export function SyncStatusControl() {
 
       {open ? (
         <section className="sync-status-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Sync status details">
-          <div className="sync-status-panel-title">Save status</div>
+          <div className="sync-status-panel-title">Save & sync trust center</div>
 
           <div className="sync-status-row">
             <span className="sync-status-row-label">Current state</span>
@@ -99,7 +99,7 @@ export function SyncStatusControl() {
             </div>
             <div className="sync-status-row-detail">{statusModel.modeDescription}</div>
             <div className="sync-status-row-detail">
-              Account session: {syncMeta.persistenceMode === 'supabase' ? 'Signed in' : 'Local workspace session'}.
+              {syncMeta.persistenceMode === 'supabase' ? 'Signed in as cloud workspace user.' : 'Local/browser mode (no cloud account session).'}
             </div>
           </div>
 

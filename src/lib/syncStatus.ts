@@ -379,7 +379,12 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  const hasHardFailure = meta.syncState === 'error' || meta.cloudSyncState === 'failed' || meta.cloudSyncState === 'conflict' || meta.sessionDegraded;
+  const fallbackAttention = meta.cloudSyncStatus === 'local-recovery'
+    || meta.cloudSyncStatus === 'local-newer-than-cloud'
+    || meta.cloudSyncStatus === 'cloud-read-failed-local-fallback'
+    || meta.cloudSyncStatus === 'cloud-save-failed-local-preserved'
+    || meta.cloudSyncStatus === 'load-failed-no-local-copy';
+  const hasHardFailure = meta.syncState === 'error' || meta.cloudSyncState === 'failed' || meta.cloudSyncState === 'conflict' || meta.sessionDegraded || fallbackAttention;
   const hasLocalOnly = meta.cloudSyncState === 'offline-pending' || meta.loadedFromLocalRecoveryCache || meta.lastCloudConfirmedRevision < meta.localRevision;
   const queuedWithActiveUnsavedWork = meta.cloudSyncState === 'queued'
     && (meta.syncState === 'dirty' || meta.outboxState === 'flushing' || meta.hasLocalUnsavedChanges || meta.unsavedChangeCount > 0);
@@ -392,7 +397,13 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     const narrative = getAttentionNarrative(meta);
     return {
       primaryState: isBackendSetupIssue ? 'saved' : 'needs-attention',
-      stateLabel: isBackendSetupIssue ? 'Backend setup issue' : meta.sessionDegradedReason === 'payload-invalid' ? 'Repair needed' : 'Retry needed',
+      stateLabel: isBackendSetupIssue
+        ? 'Saved locally'
+        : meta.sessionDegradedReason === 'payload-invalid'
+          ? 'Repair needed'
+          : fallbackAttention
+            ? 'Needs attention'
+            : 'Retry needed',
       stateDescription: isBackendSetupIssue ? 'Cloud setup required' : narrative.stateDescription,
       reassurance: isBackendSetupIssue
         ? 'Changes are saved locally. Cloud setup is required to resume sync.'
@@ -418,6 +429,35 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
+  const hasVerifiedMismatchSummary = (meta.verificationState === 'mismatch-found' || meta.recoveryReviewNeeded)
+    && Boolean(meta.verificationSummary && meta.verificationSummary.mismatchCount > 0);
+
+  if (hasVerifiedMismatchSummary || meta.conflictReviewNeeded || meta.outboxState === 'conflict') {
+    return {
+      primaryState: 'needs-attention',
+      stateLabel: 'Needs attention',
+      stateDescription: 'Review recovery or conflict details to confirm trusted sync state.',
+      reassurance: 'Your local changes are preserved while review is pending.',
+      tone: 'warn',
+      stateTone: 'warn',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  if (meta.verificationState === 'verified-match' || meta.verificationSummary?.verified) {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved',
+      stateDescription: 'Verified match with current cloud data.',
+      reassurance: 'Verified match with current cloud data.',
+      tone: 'default',
+      stateTone: 'success',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
   if (isSaving) {
     return {
       primaryState: 'saving',
@@ -431,6 +471,19 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
+  if (meta.persistenceMode === 'browser' && !meta.sessionDegraded) {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved',
+      stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
+      reassurance: 'Changes saved on this device; cloud sync will resume automatically',
+      tone: 'default',
+      stateTone: 'success',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
   if (hasLocalOnly) {
     return {
       primaryState: 'saved',
@@ -438,7 +491,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
       reassurance: 'Changes saved on this device; cloud sync will resume automatically',
       tone: 'info',
-      stateTone: 'warn',
+      stateTone: 'info',
       showSpinner: false,
       ...modeDetails,
     };

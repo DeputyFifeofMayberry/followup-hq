@@ -1,4 +1,4 @@
-import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
@@ -24,6 +24,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
   const projects = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.project))], [vm.items]);
   const owners = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.owner))], [vm.items]);
   const assignees = useMemo(() => ['All', ...new Set(vm.items.map((item) => item.assigneeDisplayName || item.owner))], [vm.items]);
+  const selectedIdsInScope = vm.actionableSelectedFollowUpIds;
 
   const toggleColumn = (column: FollowUpColumnKey) => {
     if (vm.followUpColumns.includes(column)) {
@@ -38,28 +39,35 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     setBatchWarnings([]);
     setBatchBlockers([]);
     setBatchResult(null);
-    setBatchAffected(vm.selectedFollowUpIds.length);
-    setBatchSkipped(0);
+    setBatchAffected(selectedIdsInScope.length);
+    setBatchSkipped(vm.hiddenSelectionCount);
     if (kind === 'snooze') setBatchDate(new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10));
   };
 
   const applyBatchFlow = () => {
+    if (!selectedIdsInScope.length) {
+      setBatchBlockers(['No selected follow-ups are in the current view. Select visible rows or clear hidden selection.']);
+      setBatchResult({ tone: 'danger', message: 'Batch action not applied.' });
+      return;
+    }
+
     if (batchFlow === 'close') {
-      const result = vm.runValidatedBatchFollowUpTransition(vm.selectedFollowUpIds, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
-      setBatchWarnings(result.warnings);
+      const result = vm.runValidatedBatchFollowUpTransition(selectedIdsInScope, 'Closed', { status: 'Closed', actionState: 'Complete', completionNote: batchNote.trim() || undefined });
+      const hiddenMessage = vm.hiddenSelectionCount ? [`${vm.hiddenSelectionCount} hidden selection(s) were not changed.`] : [];
+      setBatchWarnings([...result.warnings, ...hiddenMessage]);
       setBatchAffected(result.affected);
-      setBatchSkipped(result.skipped);
-      setBatchResult({ tone: result.skipped || result.warnings.length ? 'warn' : 'success', message: `Batch close affected ${result.affected} and skipped ${result.skipped}.` });
+      setBatchSkipped(result.skipped + vm.hiddenSelectionCount);
+      setBatchResult({ tone: result.skipped || result.warnings.length || vm.hiddenSelectionCount ? 'warn' : 'success', message: `Batch close affected ${result.affected} and skipped ${result.skipped + vm.hiddenSelectionCount}.` });
       return;
     }
 
     if (batchFlow === 'nudge') {
-      vm.batchUpdateFollowUps(vm.selectedFollowUpIds, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).');
-      setBatchAffected(vm.selectedFollowUpIds.length);
-      setBatchSkipped(0);
-      setBatchWarnings([]);
+      vm.batchUpdateFollowUps(selectedIdsInScope, { lastNudgedAt: new Date().toISOString() }, 'Marked nudged (batch).');
+      setBatchAffected(selectedIdsInScope.length);
+      setBatchSkipped(vm.hiddenSelectionCount);
+      setBatchWarnings(vm.hiddenSelectionCount ? [`${vm.hiddenSelectionCount} hidden selection(s) were not changed.`] : []);
       setBatchBlockers([]);
-      setBatchResult({ tone: 'success', message: `Marked ${vm.selectedFollowUpIds.length} follow-up(s) nudged.` });
+      setBatchResult({ tone: vm.hiddenSelectionCount ? 'warn' : 'success', message: `Marked ${selectedIdsInScope.length} follow-up(s) nudged.` });
       return;
     }
 
@@ -70,12 +78,12 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     }
 
     const iso = new Date(`${batchDate}T00:00:00`).toISOString();
-    vm.batchUpdateFollowUps(vm.selectedFollowUpIds, { nextTouchDate: iso, snoozedUntilDate: iso }, `Snoozed until ${batchDate} (batch).`);
-    setBatchAffected(vm.selectedFollowUpIds.length);
-    setBatchSkipped(0);
-    setBatchWarnings([]);
+    vm.batchUpdateFollowUps(selectedIdsInScope, { nextTouchDate: iso, snoozedUntilDate: iso }, `Snoozed until ${batchDate} (batch).`);
+    setBatchAffected(selectedIdsInScope.length);
+    setBatchSkipped(vm.hiddenSelectionCount);
+    setBatchWarnings(vm.hiddenSelectionCount ? [`${vm.hiddenSelectionCount} hidden selection(s) were not changed.`] : []);
     setBatchBlockers([]);
-    setBatchResult({ tone: 'success', message: `Snoozed ${vm.selectedFollowUpIds.length} follow-up(s).` });
+    setBatchResult({ tone: vm.hiddenSelectionCount ? 'warn' : 'success', message: `Snoozed ${selectedIdsInScope.length} follow-up(s).` });
   };
 
   return (
@@ -179,9 +187,19 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         </div>
       ) : null}
 
-      {vm.selectedFollowUpIds.length > 0 ? (
+      {vm.hiddenSelectionCount > 0 ? (
+        <div className="execution-batch-strip followup-selection-warning" role="status" aria-live="polite">
+          <div className="text-sm text-amber-800 inline-flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{vm.hiddenSelectionCount} selected outside this view and will be skipped.</div>
+          <div className="followup-action-row">
+            <button onClick={() => vm.selectAllVisibleFollowUps(selectedIdsInScope)} className="action-btn">Keep shown only</button>
+            <button onClick={vm.clearFollowUpSelection} className="action-btn">Clear all selection</button>
+          </div>
+        </div>
+      ) : null}
+
+      {vm.followUpStats.selectedCount > 0 ? (
         <div className="followup-toolbar-foot bulk-action-strip execution-batch-strip">
-          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{vm.selectedFollowUpIds.length}</span> selected</div>
+          <div className="text-sm text-slate-500"><span className="font-medium text-slate-900">{selectedIdsInScope.length}</span> in view selected{vm.hiddenSelectionCount > 0 ? ` (${vm.followUpStats.selectedCount} total)` : ''}</div>
           <div className="followup-action-row">
             <button onClick={() => openBatchFlow('nudge')} className="action-btn">Mark nudged</button>
             <button onClick={() => openBatchFlow('snooze')} className="action-btn">Snooze selected</button>
@@ -194,7 +212,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
       <StructuredActionFlow
         open={!!batchFlow}
         title={batchFlow === 'nudge' ? 'Bulk mark nudged' : batchFlow === 'snooze' ? 'Bulk snooze follow-ups' : 'Bulk close follow-ups'}
-        subtitle="Apply one action to selected follow-ups."
+        subtitle="Apply one action to selected follow-ups in the current view."
         onCancel={() => setBatchFlow(null)}
         onConfirm={applyBatchFlow}
         confirmLabel={batchFlow === 'nudge' ? 'Apply nudge' : batchFlow === 'snooze' ? 'Apply snooze' : 'Apply batch close'}
@@ -202,7 +220,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         blockers={batchBlockers}
         result={batchResult}
       >
-        <BatchSummarySection selected={vm.selectedFollowUpIds.length} affected={batchAffected} skipped={batchSkipped} />
+        <BatchSummarySection selected={selectedIdsInScope.length} affected={batchAffected} skipped={batchSkipped} />
         {batchFlow === 'close' ? <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" /> : null}
         {batchFlow === 'snooze' ? <DateSection label="Snooze until" value={batchDate} onChange={setBatchDate} /> : null}
       </StructuredActionFlow>

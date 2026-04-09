@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildFollowUpCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { deriveFollowUpSelectionScope } from '../helpers/selectionScope';
 
 export function useFollowUpsViewModel() {
   const store = useAppStore(
@@ -54,6 +55,16 @@ export function useFollowUpsViewModel() {
     [store.items, store.contacts, store.companies, store.search, store.activeView, store.followUpFilters],
   );
 
+  const selectionScope = useMemo(
+    () => deriveFollowUpSelectionScope(store.items, filteredRows, store.selectedFollowUpIds),
+    [store.items, filteredRows, store.selectedFollowUpIds],
+  );
+
+  useEffect(() => {
+    if (!selectionScope.missingIds.length) return;
+    store.selectAllVisibleFollowUps(selectionScope.selectedIds);
+  }, [selectionScope.missingIds.length, selectionScope.selectedIds, store.selectAllVisibleFollowUps]);
+
   const viewCounts = useMemo(
     () => selectFollowUpViewCounts({
       items: store.items,
@@ -69,8 +80,9 @@ export function useFollowUpsViewModel() {
 
   const followUpStats = useMemo(() => ({
     openTaskCount: store.tasks.filter((task) => task.status !== 'Done').length,
-    selectedCount: store.selectedFollowUpIds.length,
-  }), [store.tasks, store.selectedFollowUpIds.length]);
+    selectedCount: selectionScope.selectedIds.length,
+    actionableSelectedCount: selectionScope.actionableIds.length,
+  }), [store.tasks, selectionScope.selectedIds.length, selectionScope.actionableIds.length]);
 
   const activeOptionCount = useMemo(() => (
     [
@@ -109,6 +121,9 @@ export function useFollowUpsViewModel() {
     duplicateCount,
     activeOptionCount,
     queueSummary,
+    selectionScope,
+    actionableSelectedFollowUpIds: selectionScope.actionableIds,
+    hiddenSelectionCount: selectionScope.hiddenIds.length,
     selectedFollowUp: store.items.find((item) => item.id === store.selectedId) ?? null,
   };
 }

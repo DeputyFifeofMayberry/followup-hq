@@ -383,6 +383,34 @@ export interface IntakeExistingMatch {
   matchedFields?: string[];
 }
 
+export type IntakeExtractionChunkKind = 'email_header' | 'email_body' | 'pdf_page' | 'docx_paragraph' | 'sheet_row' | 'text';
+
+export interface IntakeExtractionChunk {
+  id: string;
+  sourceRef: string;
+  locator?: string;
+  kind: IntakeExtractionChunkKind;
+  text: string;
+  fieldHints?: Partial<Record<'title' | 'project' | 'owner' | 'dueDate' | 'waitingOn' | 'priority' | 'statusHint' | 'summary' | 'nextStep', string>>;
+  quality?: number;
+  confidence?: number;
+  sheetName?: string;
+  rowNumber?: number;
+  rowContext?: string[];
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface IntakeDateSignalSet {
+  sourceDate?: string;
+  dueDate?: string;
+  dueDateRaw?: string;
+  promisedDate?: string;
+  promisedDateRaw?: string;
+  nextTouchDate?: string;
+  nextTouchDateRaw?: string;
+  historicalDates: string[];
+}
+
 export interface IntakeAssetRecord {
   id: string;
   batchId: string;
@@ -406,6 +434,7 @@ export interface IntakeAssetRecord {
   sourceRefs: string[];
   contentHash: string;
   extractionConfidence?: number;
+  extractionChunks?: IntakeExtractionChunk[];
   parserStages?: string[];
 }
 
@@ -414,13 +443,14 @@ export interface IntakeBatchRecord {
   createdAt: string;
   source: IntakeAssetSource;
   assetIds: string[];
-  status: 'active' | 'review' | 'completed' | 'failed';
+  status: 'active' | 'review' | 'completed' | 'failed' | 'archived';
   stats: {
     filesProcessed: number;
     candidatesCreated: number;
     highConfidence: number;
     failedParses: number;
     duplicatesFlagged: number;
+    parseFailures?: number;
   };
 }
 
@@ -437,6 +467,7 @@ export interface IntakeWorkCandidate {
   owner?: string;
   assignee?: string;
   dueDate?: string;
+  dateSignals?: IntakeDateSignalSet;
   nextStep?: string;
   waitingOn?: string;
   priority: FollowUpPriority;
@@ -449,6 +480,7 @@ export interface IntakeWorkCandidate {
   warnings: string[];
   duplicateMatches: IntakeExistingMatch[];
   existingRecordMatches: IntakeExistingMatch[];
+  suspectedDuplicateGroupId?: string;
   approvalStatus: IntakeCandidateDecision;
   createdRecordId?: string;
   linkedRecordId?: string;
@@ -529,6 +561,7 @@ export interface IntakeReviewRecord {
   candidateOutcomes: Array<{ outcome: IntakeReviewOutcome; confidence: number; reason: string }>;
   selectedOutcome: IntakeReviewOutcome;
   existingRecordMatches: IntakeExistingMatch[];
+  suspectedDuplicateGroupId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -9,7 +9,8 @@ import type { SliceContext, SliceGet, SliceSet } from './types';
 
 export function createIntakeSlice(set: SliceSet, get: SliceGet, { queuePersist }: SliceContext): Pick<AppStoreActions,
   'stageIntakeCandidate' | 'approveIntakeCandidate' | 'discardIntakeCandidate' | 'saveIntakeCandidateAsReference' |
-  'ingestIntakeFiles' | 'updateIntakeWorkCandidate' | 'decideIntakeWorkCandidate' | 'batchApproveHighConfidence'
+  'ingestIntakeFiles' | 'updateIntakeWorkCandidate' | 'decideIntakeWorkCandidate' | 'batchApproveHighConfidence' |
+  'ingestIntakeText' | 'archiveIntakeBatch' | 'clearFinalizedIntakeCandidates' | 'removeIntakeAsset' | 'retryIntakeAssetParse' | 'deleteIntakeBatchIfEmpty'
 > {
   const enforceCandidateApprovalIntegrity = (candidateId: string, asType: 'task' | 'followup') => {
     const state = get();
@@ -114,5 +115,56 @@ export function createIntakeSlice(set: SliceSet, get: SliceGet, { queuePersist }
       queuePersist();
     },
     batchApproveHighConfidence: () => { const state = get(); state.intakeWorkCandidates.filter((candidate) => candidate.approvalStatus === 'pending' && evaluateIntakeImportSafety(candidate).safeToBatchApprove).forEach((candidate) => { const action = candidate.candidateType === 'task' || candidate.candidateType === 'update_existing_task' ? 'approve_task' : 'approve_followup'; state.decideIntakeWorkCandidate(candidate.id, action); }); },
+
+    ingestIntakeText: async (rawText, titleHint = 'Pasted intake note') => {
+      const trimmed = rawText.trim();
+      if (!trimmed) return;
+      const file = new File([trimmed], `${titleHint.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'pasted-note'}.txt`, { type: 'text/plain' });
+      await get().ingestIntakeFiles([file], 'manual_paste');
+    },
+    archiveIntakeBatch: (batchId) => {
+      set((state: AppStore) => ({ intakeBatches: state.intakeBatches.map((batch) => batch.id === batchId ? { ...batch, status: 'archived' } : batch) }));
+      queuePersist();
+    },
+    clearFinalizedIntakeCandidates: (batchId) => {
+      set((state: AppStore) => ({ intakeWorkCandidates: state.intakeWorkCandidates.filter((candidate) => {
+        if (candidate.approvalStatus === 'pending') return true;
+        return batchId ? candidate.batchId !== batchId : false;
+      }) }));
+      queuePersist();
+    },
+    removeIntakeAsset: (assetId) => {
+      set((state: AppStore) => ({
+        intakeAssets: state.intakeAssets.filter((asset) => asset.id !== assetId),
+        intakeWorkCandidates: state.intakeWorkCandidates.filter((candidate) => candidate.assetId !== assetId),
+        intakeBatches: state.intakeBatches.map((batch) => ({ ...batch, assetIds: batch.assetIds.filter((id) => id !== assetId) })),
+      }));
+      queuePersist();
+    },
+    retryIntakeAssetParse: async (assetId) => {
+      const state = get();
+      const asset = state.intakeAssets.find((entry) => entry.id === assetId);
+      if (!asset) return;
+      const placeholder = new File([asset.extractedText || asset.extractedPreview || asset.fileName], asset.fileName, { type: asset.fileType });
+      const reparsed = await parseIntakeFile(placeholder, asset.batchId);
+      const reparsedAsset = reparsed.find((entry) => !entry.parentAssetId);
+      if (!reparsedAsset) return;
+      const candidates = buildCandidatesFromAsset(reparsedAsset, state.items, state.tasks);
+      set((inner: AppStore) => ({
+        intakeAssets: [reparsedAsset, ...inner.intakeAssets.filter((entry) => entry.id !== assetId)],
+        intakeWorkCandidates: [...candidates, ...inner.intakeWorkCandidates.filter((entry) => entry.assetId !== assetId)],
+      }));
+      queuePersist();
+    },
+    deleteIntakeBatchIfEmpty: (batchId) => {
+      set((state: AppStore) => {
+        const hasAssets = state.intakeAssets.some((asset) => asset.batchId === batchId);
+        const hasCandidates = state.intakeWorkCandidates.some((candidate) => candidate.batchId === batchId);
+        if (hasAssets || hasCandidates) return state;
+        return { intakeBatches: state.intakeBatches.filter((batch) => batch.id !== batchId) };
+      });
+      queuePersist();
+    },
+
   };
 }

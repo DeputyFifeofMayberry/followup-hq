@@ -1,6 +1,6 @@
 import type { AppMode, SavedViewKey } from '../../types';
 import { ExportWorkspace } from '../ExportWorkspace';
-import { IntakeWorkspacePanel } from '../OutlookPanel';
+import { IntakeWorkspacePanel } from '../IntakeWorkspacePanel';
 import { DirectoryWorkspace } from '../DirectoryWorkspace';
 import { TaskWorkspace } from '../TaskWorkspace';
 import { OverviewPage } from '../OverviewPage';

@@ -11,6 +11,8 @@ import type {
 } from '../types';
 import { createId, todayIso } from './utils';
 import { resolveCandidateMatches } from './intake/reviewPipeline';
+import { getIntakeFileCapability } from './intakeFileCapabilities';
+import { buildDateSignalSet } from './intakeDates';
 
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
@@ -122,11 +124,11 @@ function arrayBufferToText(buffer: ArrayBuffer): string {
 
 export function detectAssetKind(fileName: string, fileType: string): IntakeAssetKind {
   const lower = fileName.toLowerCase();
-  if (lower.endsWith('.eml') || lower.endsWith('.msg')) return 'email';
+  if (lower.endsWith('.eml')) return 'email';
   if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) return 'spreadsheet';
   if (lower.endsWith('.csv')) return 'csv';
   if (lower.endsWith('.pdf')) return 'pdf';
-  if (lower.endsWith('.docx') || lower.endsWith('.doc')) return 'document';
+  if (lower.endsWith('.docx')) return 'document';
   if (lower.endsWith('.pptx')) return 'presentation';
   if (lower.endsWith('.txt')) return 'text';
   if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'html';
@@ -624,6 +626,13 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
   const dateRoles = classifyDateRoles(chunk.text, asset.metadata, chunk);
   const dueCandidates = [dateRoles.dueDate, ...((chunk.text.match(explicitDateRegex) ?? []).slice(0, 3))].filter(Boolean) as string[];
   const due = scoreDueDateSignals(dueCandidates);
+  const { signals: dateSignals, warnings: dateWarnings } = buildDateSignalSet({
+    sourceDate: dateRoles.sourceDate,
+    dueDate: due.picked || dateRoles.dueDate,
+    promisedDate: dateRoles.promisedDate,
+    nextTouchDate: dateRoles.nextTouchDate,
+    historicalDates: dateRoles.historicalDates,
+  });
   const ownerSignals = extractOwnerSignals(chunk.text, chunk);
   const waitingOn = chunk.fields?.waitingOn || /waiting on\s+([^.,;\n]+)/i.exec(chunk.text)?.[1];
 
@@ -708,6 +717,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     ...(due.picked && !dateRoles.dueDate ? ['Due date inferred from body text.'] : []),
     ...(asset.kind === 'email' && /on .+wrote:/i.test(chunk.text) ? ['Email thread may contain multiple action items.'] : []),
     ...(asset.kind === 'spreadsheet' && (chunk.quality ?? 0) < 0.55 ? ['Spreadsheet row context weak.'] : []),
+    ...dateWarnings,
   ];
 
   return {
@@ -744,6 +754,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     warnings,
     duplicateMatches: existing.filter((entry) => entry.strategy === 'duplicate'),
     existingRecordMatches: existing,
+    suspectedDuplicateGroupId: undefined,
     approvalStatus: 'pending',
     createdAt: todayIso(),
     updatedAt: todayIso(),
@@ -752,6 +763,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
 
 export async function parseIntakeFile(file: File, batchId: string, options: ParseOptions = {}): Promise<IntakeAssetRecord[]> {
   const uploadedAt = todayIso();
+  const capability = getIntakeFileCapability(file.name);
   const kind = detectAssetKind(file.name, file.type);
   const buffer = await file.arrayBuffer();
   const seen = options.seen ?? new Set<string>();
@@ -784,6 +796,17 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
     parserStages: ['stage1-route', 'stage2-extract'],
   };
 
+  if (capability.state === 'blocked') {
+    return [{
+      ...base,
+      parseStatus: 'failed',
+      parseQuality: 'failed',
+      errors: [capability.reason || 'Unsupported file type for intake.'],
+      warnings: [capability.reason || 'Unsupported file type for intake.'],
+      parserStages: [...(base.parserStages ?? []), 'stage1-blocked'],
+    }];
+  }
+
   try {
     const extracted = await runStage2(kind, buffer);
     const quality = extracted.confidence >= 0.82 ? 'strong' : extracted.confidence >= 0.55 ? 'partial' : 'weak';
@@ -799,13 +822,26 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
       sourceRefs: extracted.refs,
       warnings: extracted.warnings,
       extractionConfidence: Number(extracted.confidence.toFixed(2)),
+      extractionChunks: extracted.chunks.map((chunk, index) => ({
+        id: createId(`CHK${index}`),
+        sourceRef: chunk.sourceRef,
+        locator: chunk.sourceRef,
+        kind: chunk.kind,
+        text: chunk.text,
+        fieldHints: chunk.fields,
+        quality: chunk.quality,
+        confidence: chunk.quality,
+        sheetName: chunk.sourceRef.includes('#row') ? chunk.sourceRef.split('#row')[0] : undefined,
+        rowNumber: chunk.sourceRef.includes('#row') ? Number(chunk.sourceRef.split('#row')[1]) || undefined : undefined,
+      })),
       parserStages: [...(base.parserStages ?? []), 'stage3-semantic-ready', 'stage4-validated'],
     };
 
     const assets: IntakeAssetRecord[] = [asset];
     for (const attachment of extracted.attachments.slice(0, 15)) {
       const attachmentType = attachment.contentType || 'application/octet-stream';
-      const attachmentFile = new File([attachment.bytes], attachment.fileName, { type: attachmentType, lastModified: file.lastModified });
+      const attachmentBytes = attachment.bytes instanceof Uint8Array ? new Uint8Array(attachment.bytes) : new Uint8Array(attachment.bytes);
+      const attachmentFile = new File([attachmentBytes], attachment.fileName, { type: attachmentType, lastModified: file.lastModified });
       const childAssets = await parseIntakeFile(attachmentFile, batchId, {
         seen,
         parentAssetId: asset.id,
@@ -829,32 +865,41 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
   }
 }
 
-export function buildCandidatesFromAsset(asset: IntakeAssetRecord, items: FollowUpItem[], tasks: TaskItem[]): IntakeWorkCandidate[] {
-  if (!asset.extractedText) return [];
-  const chunks: ExtractionChunk[] = asset.extractedText
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const locatorMatch = /^\[([^\]]+)\]\s*/.exec(line);
-      const sourceRef = locatorMatch?.[1] ?? asset.fileName;
-      const text = line.replace(/^\[[^\]]+\]\s*/, '').trim();
-      let kind: ExtractionChunk['kind'] = 'text';
-      if (sourceRef.startsWith('page')) kind = 'pdf_page';
-      else if (sourceRef.startsWith('paragraph')) kind = 'docx_paragraph';
-      else if (sourceRef.includes('#row')) kind = 'sheet_row';
-      else if (sourceRef.startsWith('email:')) kind = sourceRef === 'email:body' ? 'email_body' : 'email_header';
-      return { text, sourceRef, kind, quality: Math.min(1, text.length / 200) };
-    });
+function chunkSignature(candidate: IntakeWorkCandidate, chunk: ExtractionChunk): string {
+  const summaryKey = candidate.summary.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 64);
+  const due = candidate.dueDate || candidate.dateSignals?.dueDateRaw || '';
+  const rowIdentity = chunk.sourceRef.includes('#row') ? chunk.sourceRef : '';
+  return [candidate.title.toLowerCase(), (candidate.project || '').toLowerCase(), due, rowIdentity, summaryKey].join('|');
+}
 
-  return chunksForCandidate(asset.kind, chunks)
-    .map((chunk, index) => buildCandidateFromChunk(asset, chunk, index, items, tasks))
-    .filter((candidate, index, arr) => {
+export function buildCandidatesFromAsset(asset: IntakeAssetRecord, items: FollowUpItem[], tasks: TaskItem[]): IntakeWorkCandidate[] {
+  const chunkSource = (asset.extractionChunks ?? []).map((chunk) => ({
+    text: chunk.text,
+    sourceRef: chunk.sourceRef || chunk.locator || asset.fileName,
+    kind: chunk.kind,
+    fields: chunk.fieldHints,
+    quality: chunk.quality,
+  } as ExtractionChunk));
+  if (!chunkSource.length && !asset.extractedText) return [];
+  const fallbackChunks = chunkSource.length ? chunkSource : [{ text: asset.extractedText, sourceRef: asset.fileName, kind: 'text', quality: 0.4 } as ExtractionChunk];
+
+  const generated = chunksForCandidate(asset.kind, fallbackChunks)
+    .map((chunk, index) => ({ candidate: buildCandidateFromChunk(asset, chunk, index, items, tasks), chunk }))
+    .filter(({ candidate }, index) => {
       const strongEnough = candidate.confidence >= (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 0.55 : 0.5);
       const hasSignal = candidate.title.length >= 8 && !!candidate.summary && !nonContentRegex.test(candidate.summary);
-      const deduped = arr.findIndex((entry) => entry.title.toLowerCase() === candidate.title.toLowerCase()) === index;
-      return strongEnough && hasSignal && deduped && index < (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 60 : 16);
+      return strongEnough && hasSignal && index < (asset.kind === 'spreadsheet' || asset.kind === 'csv' ? 60 : 16);
     });
+
+  const signatures = generated.map(({ candidate, chunk }) => chunkSignature(candidate, chunk));
+  const counts = signatures.reduce((acc, sig) => { acc.set(sig, (acc.get(sig) ?? 0) + 1); return acc; }, new Map<string, number>());
+  return generated.map(({ candidate }, index) => {
+    const signature = signatures[index];
+    return {
+      ...candidate,
+      suspectedDuplicateGroupId: (counts.get(signature) ?? 0) > 1 ? `dup-${signature}` : undefined,
+    };
+  });
 }
 
 export function buildBatchRecord(assetIds: string[]): IntakeBatchRecord {

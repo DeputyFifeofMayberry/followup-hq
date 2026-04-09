@@ -792,6 +792,7 @@ export interface FollowUpItem {
   lastTouchDate: string;
   nextTouchDate: string;
   lastNudgedAt?: string;
+  lastReviewedDate?: string;
   snoozedUntilDate?: string;
   nextAction: string;
   summary: string;

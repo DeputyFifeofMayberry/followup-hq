@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { BellRing, CalendarClock, Clock3, PauseCircle, Siren } from 'lucide-react';
+import { BellRing, CalendarClock, CheckCircle2, Clock3, PauseCircle, Siren } from 'lucide-react';
 import { Badge } from './Badge';
-import { buildReviewBuckets, escalationTone, formatDate, followUpHealthScore, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
+import { buildReviewBuckets, escalationTone, formatDate, followUpHealthScore, isOverdue, isReviewedToday, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { ReviewBucketKey } from '../types';
@@ -60,34 +60,57 @@ export function DailyReviewBoard() {
             <div className="text-sm font-semibold text-slate-900">{bucket.label}</div>
             <div className="text-xs text-slate-500">{bucket.helper}</div>
           </div>
+          {bucketItems.length > 0 ? (() => {
+            const reviewedCount = bucketItems.filter(isReviewedToday).length;
+            const remaining = bucketItems.length - reviewedCount;
+            return (
+              <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                {reviewedCount}/{bucketItems.length} reviewed today{remaining > 0 ? ` · ${remaining} left` : ' · done!'}
+              </div>
+            );
+          })() : null}
         </div>
         <div className="grid gap-3">
-          {bucketItems.map((item) => (
-            <div key={item.id} className={selectedId === item.id ? 'rounded-2xl border border-sky-300 bg-sky-50 p-4' : 'rounded-2xl border border-slate-200 p-4'}>
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                <button onClick={() => setSelectedId(item.id)} className="text-left">
-                  <div className="text-sm font-semibold text-slate-900">{item.title}</div>
-                  <div className="mt-1 text-xs text-slate-500">{item.project} • {item.owner} • next touch {formatDate(item.nextTouchDate)}</div>
-                </button>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={statusTone(item.status)}>{item.status}</Badge>
-                  <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge>
-                  <Badge variant={escalationTone(item.escalationLevel)}>{item.escalationLevel}</Badge>
-                  {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
-                  {needsNudge(item) ? <Badge variant="warn">Nudge now</Badge> : null}
+          {bucketItems.map((item) => {
+            const reviewedToday = isReviewedToday(item);
+            return (
+              <div
+                key={item.id}
+                className={[
+                  'rounded-2xl border p-4 transition-opacity',
+                  selectedId === item.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200',
+                  reviewedToday ? 'opacity-50' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <button onClick={() => setSelectedId(item.id)} className="text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-900">{item.title}</span>
+                      {reviewedToday ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"><CheckCircle2 className="h-3 w-3" />Reviewed</span> : null}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">{item.project} • {item.owner} • next touch {formatDate(item.nextTouchDate)}</div>
+                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={statusTone(item.status)}>{item.status}</Badge>
+                    <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge>
+                    <Badge variant={escalationTone(item.escalationLevel)}>{item.escalationLevel}</Badge>
+                    {isOverdue(item) ? <Badge variant="danger">Overdue</Badge> : null}
+                    {needsNudge(item) ? <Badge variant="warn">Nudge now</Badge> : null}
+                  </div>
+                </div>
+                <div className="mt-3 text-sm text-slate-600">{item.nextAction}</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => openDraftModal(item.id)} className="action-btn">Draft follow-up</button>
+                  <button onClick={() => markNudged(item.id)} className="action-btn">Mark nudged</button>
+                  <button onClick={() => cycleEscalation(item.id)} className="action-btn">Cycle escalation</button>
+                  <button onClick={() => snoozeItem(item.id, 1)} className="action-btn">Snooze 1d</button>
+                  <button onClick={() => snoozeItem(item.id, 3)} className="action-btn">Snooze 3d</button>
+                  <button onClick={() => snoozeItem(item.id, 7)} className="action-btn">Snooze 7d</button>
                 </div>
               </div>
-              <div className="mt-3 text-sm text-slate-600">{item.nextAction}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => openDraftModal(item.id)} className="action-btn">Draft follow-up</button>
-                <button onClick={() => markNudged(item.id)} className="action-btn">Mark nudged</button>
-                <button onClick={() => cycleEscalation(item.id)} className="action-btn">Cycle escalation</button>
-                <button onClick={() => snoozeItem(item.id, 1)} className="action-btn">Snooze 1d</button>
-                <button onClick={() => snoozeItem(item.id, 3)} className="action-btn">Snooze 3d</button>
-                <button onClick={() => snoozeItem(item.id, 7)} className="action-btn">Snooze 7d</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {bucketItems.length === 0 ? <div className="text-sm text-slate-500">Nothing in this queue right now.</div> : null}
         </div>
       </div>

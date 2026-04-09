@@ -60,13 +60,23 @@ export function daysUntil(dateIso?: string): number {
 }
 
 export function isOverdue(item: FollowUpItem): boolean {
-  return item.status !== 'Closed' && new Date(item.dueDate).getTime() < Date.now();
+  if (item.status === 'Closed') return false;
+  // Compare at day granularity so items due today are not overdue until tomorrow,
+  // regardless of the time-of-day stored in the ISO string.
+  const dueDay = item.dueDate.slice(0, 10);
+  const todayDay = new Date().toISOString().slice(0, 10);
+  return dueDay < todayDay;
 }
 
 export function isDueToday(item: FollowUpItem): boolean {
   const due = new Date(item.dueDate);
   const now = new Date();
   return due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth() && due.getDate() === now.getDate();
+}
+
+export function isReviewedToday(item: FollowUpItem): boolean {
+  if (!item.lastReviewedDate) return false;
+  return item.lastReviewedDate.slice(0, 10) === new Date().toISOString().slice(0, 10);
 }
 
 export function isSnoozed(item: FollowUpItem): boolean {

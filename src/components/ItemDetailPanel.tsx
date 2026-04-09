@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, FileEdit, Link2, Send, Trash2 } from 'lucide-react';
+import { CheckCircle2, FileEdit, Link2, Send, Trash2, Zap } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from './Badge';
 import { addDaysIso, formatDate, formatDateTime, parseRunningNotes, priorityTone, statusTone, todayIso } from '../lib/utils';
@@ -12,6 +12,74 @@ import { useFollowUpLaneContext, useFollowUpsViewModel } from '../domains/follow
 import { editSurfaceCtas } from '../lib/editSurfacePolicy';
 import { deriveFollowUpRecommendedAction } from '../domains/shared';
 import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
+import type { FollowUpItem, FollowUpStatus } from '../types';
+
+// Quick one-click touch logging keyed to current status, eliminating the modal for the most common daily actions.
+interface QuickTouchOption {
+  label: string;
+  summary: string;
+  nextStatus?: FollowUpStatus;
+}
+
+function getQuickTouchOptions(status: FollowUpStatus): QuickTouchOption[] {
+  switch (status) {
+    case 'Waiting on external':
+      return [
+        { label: 'No reply yet', summary: 'No reply yet — holding.' },
+        { label: 'Reply received', summary: 'Reply received.', nextStatus: 'In progress' },
+        { label: 'Following up again', summary: 'Sent a follow-up nudge.' },
+      ];
+    case 'Waiting internal':
+      return [
+        { label: 'Still waiting', summary: 'Still waiting on internal response.' },
+        { label: 'Internal response in', summary: 'Internal response received.', nextStatus: 'In progress' },
+      ];
+    case 'Needs action':
+      return [
+        { label: 'Drafted & sent', summary: 'Drafted and sent outbound.', nextStatus: 'Waiting on external' },
+        { label: 'On it', summary: 'Actively working this.', nextStatus: 'In progress' },
+        { label: 'Needs more info', summary: 'Awaiting more information before action.' },
+      ];
+    case 'In progress':
+      return [
+        { label: 'On track', summary: 'On track — continuing.' },
+        { label: 'Sent update', summary: 'Sent a status update.', nextStatus: 'Waiting on external' },
+        { label: 'Hit a snag', summary: 'Encountered a snag, monitoring.', nextStatus: 'At risk' },
+      ];
+    case 'At risk':
+      return [
+        { label: 'Escalated', summary: 'Escalated to team for resolution.' },
+        { label: 'Risk contained', summary: 'Risk contained, back on track.', nextStatus: 'In progress' },
+      ];
+    default:
+      return [{ label: 'Checked in', summary: 'Checked in — no update.' }];
+  }
+}
+
+function QuickTouchBar({ item, addTouchLog, onFeedback }: {
+  item: FollowUpItem;
+  addTouchLog: (entry: { id: string; summary: string; status?: FollowUpStatus; nextTouchDate?: string }) => void;
+  onFeedback: (feedback: FollowUpActionFeedback) => void;
+}) {
+  const options = getQuickTouchOptions(item.status);
+  const logQuick = (option: QuickTouchOption) => {
+    const nextTouchDate = addDaysIso(todayIso(), item.cadenceDays || 3);
+    addTouchLog({ id: item.id, summary: option.summary, status: option.nextStatus, nextTouchDate });
+    onFeedback({ tone: 'success', message: `${option.summary} Next touch ${formatDate(nextTouchDate)}.` });
+  };
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1">
+        <Zap className="h-3 w-3" />Quick log
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button key={option.label} onClick={() => logQuick(option)} className="action-btn">{option.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ItemDetailPanel({ personalMode = false, inModal = false, onRequestClose }: { personalMode?: boolean; inModal?: boolean; onRequestClose?: () => void }) {
   const {
@@ -91,10 +159,10 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
       {actionFeedback ? <div className={`mb-3 rounded-xl border p-2 text-xs ${actionFeedback.tone === 'danger' ? 'border-rose-200 bg-rose-50 text-rose-900' : actionFeedback.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{actionFeedback.message}</div> : null}
 
       {detailView === 'focus' ? <div className="detail-card inspector-block">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Take action</div>
+        <QuickTouchBar item={item} addTouchLog={addTouchLog} onFeedback={setActionFeedback} />
+        <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">More actions</div>
         <div className="mt-2 flex flex-wrap gap-2">
           <button onClick={() => openDraftModal(item.id)} className="action-btn"><Send className="h-4 w-4" />Draft</button>
-          <button onClick={() => { const nextTouchDate = addDaysIso(todayIso(), item.cadenceDays || 3); addTouchLog({ id: item.id, summary: 'Logged touch from detail panel.', status: 'Waiting on external', nextTouchDate }); setActionFeedback({ tone: 'success', message: `Touch logged. Next touch ${formatDate(nextTouchDate)}.` }); }} className="action-btn">Log touch</button>
           <button onClick={() => setActiveAction('waiting_on_response')} className="action-btn">Waiting</button>
           <button onClick={() => setActiveAction('snooze')} className="action-btn">Snooze</button>
           <button onClick={() => setActiveAction('escalate')} className="action-btn">Escalate</button>

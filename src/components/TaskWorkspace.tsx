@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addDaysIso, todayIso } from '../lib/utils';
+import { addDaysIso, createId, todayIso } from '../lib/utils';
 import { ExecutionLaneFooterMeta, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
@@ -24,6 +24,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const modeConfig = getModeConfig(appMode);
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
+  const addTask = useAppStore((s) => s.addTask);
 
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -124,6 +125,33 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   const handleDoneTask = useCallback((task: TaskItem) => openTaskFlow(task, 'done'), [openTaskFlow]);
   const handleToggleBlockTask = useCallback((task: TaskItem) => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block'), [openTaskFlow]);
 
+  // Fix 2: Inline quick-add — create a minimal task with smart defaults from existing data.
+  const handleQuickAdd = useCallback((title: string) => {
+    const defaultProject = vm.projects[0]?.name || 'General';
+    const defaultOwner = vm.tasks[0]?.owner || 'Current user';
+    const now = todayIso();
+    addTask({
+      id: createId('TSK'),
+      title,
+      summary: title,
+      project: defaultProject,
+      owner: defaultOwner,
+      status: 'To do',
+      priority: 'Medium',
+      nextStep: '',
+      notes: '',
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+      provenance: { sourceType: 'quick_capture', sourceRef: 'Quick add', capturedAt: now },
+      auditHistory: [],
+      reviewReasons: [],
+      cleanupReasons: [],
+      lifecycleState: 'draft',
+      dataQuality: 'draft',
+    });
+  }, [addTask, vm.projects, vm.tasks]);
+
   return (
     <WorkspacePage>
       <div className="task-workspace-header-slim">
@@ -171,9 +199,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           filteredTasks={vm.filteredTasks}
           selectedTaskId={vm.selectedTask?.id ?? null}
           laneFeedback={laneFeedback}
+          completedToday={vm.completedToday}
           onSelectTask={handleSelectTask}
           onDoneTask={handleDoneTask}
           onToggleBlockTask={handleToggleBlockTask}
+          onQuickAdd={handleQuickAdd}
           getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
           renderNowSignal={vm.getTaskSignal}
         />

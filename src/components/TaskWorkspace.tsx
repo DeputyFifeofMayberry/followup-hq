@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addDaysIso, createId, todayIso } from '../lib/utils';
+import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
 import { ExecutionLaneFooterMeta, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
@@ -12,9 +12,14 @@ import { TaskInspectorModal } from './tasks/TaskInspectorModal';
 import { TaskActionFlow } from './tasks/TaskActionFlow';
 
 const taskViewOptions = [
-  { value: 'today' as const, label: 'Today' },
+  { value: 'today' as const, label: 'Now' },
+  { value: 'overdue' as const, label: 'Overdue' },
   { value: 'upcoming' as const, label: 'Upcoming' },
   { value: 'blocked' as const, label: 'Blocked' },
+  { value: 'review' as const, label: 'Review needed' },
+  { value: 'deferred' as const, label: 'Deferred' },
+  { value: 'unlinked' as const, label: 'Unlinked' },
+  { value: 'recent' as const, label: 'Done today' },
   { value: 'all' as const, label: 'All open' },
 ];
 
@@ -124,40 +129,59 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   const handleDoneTask = useCallback((task: TaskItem) => openTaskFlow(task, 'done'), [openTaskFlow]);
   const handleToggleBlockTask = useCallback((task: TaskItem) => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block'), [openTaskFlow]);
+  const handleDeferTask = useCallback((task: TaskItem) => openTaskFlow(task, 'defer'), [openTaskFlow]);
 
-  // Fix 2: Inline quick-add — create a minimal task with smart defaults from existing data.
-  const handleQuickAdd = useCallback((title: string) => {
-    const defaultProject = vm.projects[0]?.name || 'General';
-    const defaultOwner = vm.tasks[0]?.owner || 'Current user';
+  const handleQuickAdd = useCallback((payload: { title: string; project: string; owner: string; assignee?: string; nextStep: string }) => {
+    if (!payload.title || !payload.project || !payload.owner || !payload.nextStep) {
+      return { ok: false, message: 'Title, project, owner, and next step are required.' };
+    }
     const now = todayIso();
+    const newTaskId = createId('TSK');
     addTask({
-      id: createId('TSK'),
-      title,
-      summary: title,
-      project: defaultProject,
-      owner: defaultOwner,
+      id: newTaskId,
+      title: payload.title,
+      summary: payload.title,
+      project: payload.project,
+      owner: payload.owner,
+      assigneeDisplayName: payload.assignee,
       status: 'To do',
       priority: 'Medium',
-      nextStep: '',
+      nextStep: payload.nextStep,
       notes: '',
       tags: [],
       createdAt: now,
       updatedAt: now,
-      provenance: { sourceType: 'quick_capture', sourceRef: 'Quick add', capturedAt: now },
-      auditHistory: [],
+      lifecycleState: 'ready',
+      dataQuality: 'valid_live',
       reviewReasons: [],
       cleanupReasons: [],
-      lifecycleState: 'draft',
-      dataQuality: 'draft',
+      provenance: { sourceType: 'quick_capture', sourceRef: 'Tasks lane fast capture', capturedAt: now },
+      auditHistory: [],
     });
-  }, [addTask, vm.projects, vm.tasks]);
+    vm.setSelectedTaskId(newTaskId);
+    setTaskDetailOpen(true);
+    setLaneFeedback({ tone: 'success', message: `Created "${payload.title}" and queued it for execution.` });
+    return { ok: true };
+  }, [addTask, vm]);
+
+  const setDueToday = useCallback((task: TaskItem) => {
+    vm.updateTask(task.id, { dueDate: fromDateInputValue(todayIso()) });
+    setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due today.` });
+  }, [vm]);
+
+  const setDueTomorrow = useCallback((task: TaskItem) => {
+    vm.updateTask(task.id, { dueDate: fromDateInputValue(addDaysIso(todayIso(), 1)) });
+    setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due tomorrow.` });
+  }, [vm]);
 
   return (
     <WorkspacePage>
       <div className="task-workspace-header-slim">
-        <SectionHeader title="Tasks" subtitle={modeConfig.taskSubtitle} compact />
+        <SectionHeader title="Tasks execution lane" subtitle={modeConfig.taskSubtitle} compact />
         <div className="task-workspace-header-metrics">
           <span>{vm.queueSummary}</span>
+          <span>Review queue: {vm.taskSummary.reviewRequired}</span>
+          <span>Unlinked: {vm.taskSummary.unlinked}</span>
         </div>
       </div>
 
@@ -188,6 +212,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           onTaskStatusFilterChange={vm.setTaskStatusFilter}
           linkedFilter={vm.linkedFilter}
           onLinkedFilterChange={vm.setLinkedFilter}
+          timingFilter={vm.timingFilter}
+          onTimingFilterChange={vm.setTimingFilter}
+          stateFilter={vm.stateFilter}
+          onStateFilterChange={vm.setStateFilter}
+          priorityFilter={vm.priorityFilter}
+          onPriorityFilterChange={vm.setPriorityFilter}
           sortBy={vm.sortBy}
           onSortByChange={vm.setSortBy}
           onResetFilters={vm.resetPanelFilters}
@@ -200,15 +230,23 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           selectedTaskId={vm.selectedTask?.id ?? null}
           laneFeedback={laneFeedback}
           completedToday={vm.completedToday}
+          projectOptions={vm.projectOptions}
+          ownerOptions={vm.ownerOptions}
+          assigneeOptions={vm.assigneeOptions}
+          quickCaptureDefaults={vm.quickCaptureDefaults}
           onSelectTask={handleSelectTask}
           onDoneTask={handleDoneTask}
           onToggleBlockTask={handleToggleBlockTask}
+          onDeferTask={handleDeferTask}
+          onSetDueToday={setDueToday}
+          onSetDueTomorrow={setDueTomorrow}
+          onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
           onQuickAdd={handleQuickAdd}
           getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
           renderNowSignal={vm.getTaskSignal}
         />
 
-        <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`View: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} hint="Open a task for actions and detail." />
+        <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} hint="Select a task and act without leaving this lane." />
       </section>
 
       <TaskInspectorModal
@@ -219,6 +257,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         linkedParentRollup={vm.linkedParentRollup}
         linkedParentCloseout={vm.linkedParentCloseout}
         recommendedAction={vm.recommendedAction}
+        ownerOptions={vm.ownerOptions}
+        assigneeOptions={vm.assigneeOptions}
         renderNowSignal={vm.getTaskSignal}
         onClose={() => setTaskDetailOpen(false)}
         onRunRecommendedTaskAction={runRecommendedTaskAction}

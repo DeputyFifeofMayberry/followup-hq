@@ -2,6 +2,13 @@
 
 ## 2026-04-09
 
+### Tasks execution-console refinement pass
+- Reworked Tasks into an execution-console flow with expanded queue views (`Now`, `Overdue`, `Review needed`, `Deferred`, `Unlinked`, `Done today`) and stronger queue pressure summaries that keep trust/repair work visible in-lane instead of filtering it out.
+- Rebuilt task fast capture into an inline compact form requiring title/project/owner/next step with keyboard-first save/cancel behavior, grounded defaults from recent work context, and immediate queue selection after create.
+- Expanded task options controls with grouped advanced filters (`Scope`, `State`, `Timing`, `Linkage`, `Sort`) including review-needed/deferred/blocker quality filters, parent-at-risk linkage filtering, and priority/date-window controls.
+- Upgraded row scan hierarchy and quick actions to better support triage + execution (today/tomorrow due shortcuts, defer action, linked follow-up jump, calmer review-needed signaling, richer metadata line).
+- Expanded task inspector quick edits to cover high-frequency daily fields (priority, owner/assignee, due/defer dates, status, block reason, linked project context) with local draft + reset/save intent, plus trust/integrity visibility for lifecycle/data-quality/review reasons/provenance.
+
 ### Create Work modal quick/full refinement pass
 - Refactored `CreateWorkModal` into distinct quick-create and full-editor layout paths so quick mode no longer shares the full editor’s section-shell/card stack, now using a dedicated fast-entry grid with earlier responsive collapse behavior for laptop widths (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
 - Removed inline in-form save status/actions and reduced top status messaging to one concise summary helper sentence per mode, leaving validation at field-level + single blocking alert + footer action state (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).

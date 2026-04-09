@@ -1,6 +1,6 @@
 import type { AppMode } from '../types';
 
-export type WorkspaceKey = 'worklist' | 'followups' | 'tasks' | 'projects' | 'relationships' | 'outlook' | 'exports';
+export type WorkspaceKey = 'overview' | 'followups' | 'tasks' | 'intake' | 'directory' | 'exports';
 export type WorkspaceCategory = 'core' | 'support';
 export type WorkspaceActionKey = 'new-followup' | 'new-task' | 'new-work' | 'none';
 
@@ -37,24 +37,25 @@ export interface AppModeConfig {
   trackerOwnerContext: 'compact' | 'full';
   overviewSubtitle: string;
   taskSubtitle: string;
+  directorySubtitle: string;
   projectsSubtitle: string;
   relationshipsSubtitle: string;
   workspaceMeta: Record<WorkspaceKey, WorkspaceMeta>;
 }
 
-const workspaceOrder: WorkspaceKey[] = ['worklist', 'followups', 'tasks', 'outlook', 'projects', 'relationships', 'exports'];
+const workspaceOrder: WorkspaceKey[] = ['overview', 'followups', 'tasks', 'intake', 'directory', 'exports'];
 
 export const getWorkspaceOrder = () => workspaceOrder;
 
 const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> => ({
-  worklist: {
+  overview: {
     userLabel: 'Overview',
     shellTitle: 'Overview',
     shellPurpose: 'Start-of-day cockpit for triage, routing decisions, and immediate execution control.',
     category: 'core',
     startSurface: true,
     primaryAction: { label: 'Create work item', actionKey: 'new-work', primary: true },
-    healthLabel: ({ navCounts }) => `${navCounts.worklist || 0} require same-day direction`,
+    healthLabel: ({ navCounts }) => `${navCounts.overview || 0} require same-day direction`,
   },
   followups: {
     userLabel: 'Follow Ups',
@@ -78,7 +79,7 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     primaryAction: { label: 'Add task', actionKey: 'new-task', primary: true },
     healthLabel: ({ navCounts }) => `${navCounts.tasks || 0} open tasks`,
   },
-  outlook: {
+  intake: {
     userLabel: 'Intake',
     shellTitle: 'Intake',
     shellPurpose: mode === 'personal'
@@ -88,25 +89,15 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     startSurface: false,
     healthLabel: ({ combinedCleanup }) => `${combinedCleanup} need cleanup`,
   },
-  projects: {
-    userLabel: 'Projects',
-    shellTitle: 'Projects',
+  directory: {
+    userLabel: 'Directory',
+    shellTitle: 'Directory',
     shellPurpose: mode === 'personal'
-      ? 'Project context lens for pressure checks, risk visibility, and routing context.'
-      : 'Project pressure lens for risk, ownership friction, and escalation context.',
+      ? 'Master-data directory for projects, people, and companies with optional operational pressure context.'
+      : 'Unified operations directory for projects and relationships with routing context as a secondary panel.',
     category: 'support',
     startSurface: false,
     healthLabel: ({ totalItems }) => `${totalItems} linked follow-ups`,
-  },
-  relationships: {
-    userLabel: 'Relationships',
-    shellTitle: 'Relationships',
-    shellPurpose: mode === 'personal'
-      ? 'Stakeholder lens for relationship context, next-touch awareness, and coordination pressure.'
-      : 'Stakeholder coordination lens for relationship health, history, and ownership pressure.',
-    category: 'support',
-    startSurface: false,
-    healthLabel: ({ totalItems }) => `${totalItems} connected threads`,
   },
   exports: {
     userLabel: 'Exports',
@@ -124,7 +115,7 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
   personal: {
     displayName: 'Personal mode',
     shellLabel: 'SetPoint personal execution workspace',
-    shellDescription: 'Execution lanes stay primary while intake, pressure, and reporting context remain one click away.',
+    shellDescription: 'Overview starts the day, Follow Ups + Tasks execute work, and support views maintain context from intake to closeout.',
     supportViewsMuted: true,
     supportActionsSecondary: true,
     emphasizeCoordinationActions: false,
@@ -132,8 +123,9 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
     trackerOwnerContext: 'compact',
     overviewSubtitle: 'Start-of-day cockpit: intake triage, execution routing, and closeout control.',
     taskSubtitle: 'Execution-first work lane for assigned actions and measurable completion.',
-    projectsSubtitle: 'Project pressure lens for risk, context, and lane routing decisions.',
-    relationshipsSubtitle: 'Stakeholder coordination lens for accountability, pressure, and next-touch routing.',
+    directorySubtitle: 'Unified project and relationship directory for clear master-data management.',
+    projectsSubtitle: 'Operational project pressure is available in Directory > Operational context.',
+    relationshipsSubtitle: 'People and company relationship context now lives inside Directory.',
     workspaceMeta: buildWorkspaceMeta('personal'),
   },
   team: {
@@ -147,8 +139,9 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
     trackerOwnerContext: 'full',
     overviewSubtitle: 'Start-of-day cockpit with ownership, blockers, and intervention points.',
     taskSubtitle: 'Coordination-ready work lane with owner, assignee, and parent commitment context.',
-    projectsSubtitle: 'Project pressure lens for ownership context, blockers, and route-to-lane control.',
-    relationshipsSubtitle: 'Stakeholder coordination lens for pressure, risk, and accountable follow-through.',
+    directorySubtitle: 'Unified project and relationship directory for operational accountability.',
+    projectsSubtitle: 'Operational project pressure is available in Directory > Operational context.',
+    relationshipsSubtitle: 'People and company relationship context now lives inside Directory.',
     workspaceMeta: buildWorkspaceMeta('team'),
   },
 };

@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
 import { StatePanel } from './ui/AppPrimitives';
 
-type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'directory';
 
 export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void }) {
   const hydrated = useAppStore((s) => s.hydrated);
@@ -35,7 +35,7 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"><BriefcaseBusiness className="h-4 w-4" />Project exposure</div>
           <div className="space-y-2">
             {!hydrated ? <StatePanel compact tone="loading" title="Loading project exposure" message="Preparing project-level health and risk counts." /> : projectSummary.slice(0, 8).map((project) => (
-              <button key={project.project} onClick={() => onOpenWorkspace('projects')} className="w-full rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:bg-slate-50">
+              <button key={project.project} onClick={() => onOpenWorkspace('directory')} className="w-full rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:bg-slate-50">
                 <div className="font-medium text-slate-900">{project.project}</div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
                   <div>Open: {project.openCount}</div><div>Waiting: {project.waitingCount}</div>

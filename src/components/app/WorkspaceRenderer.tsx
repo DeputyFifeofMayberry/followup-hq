@@ -1,8 +1,7 @@
 import type { AppMode, SavedViewKey } from '../../types';
 import { ExportWorkspace } from '../ExportWorkspace';
 import { IntakeWorkspacePanel } from '../OutlookPanel';
-import { ProjectCommandCenter } from '../ProjectCommandCenter';
-import { RelationshipBoard } from '../RelationshipBoard';
+import { DirectoryWorkspace } from '../DirectoryWorkspace';
 import { TaskWorkspace } from '../TaskWorkspace';
 import { OverviewPage } from '../OverviewPage';
 import { TrackerWorkspace } from './TrackerWorkspace';
@@ -18,6 +17,7 @@ interface WorkspaceRendererProps {
 }
 
 export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTrackerItem, setWorkspace }: WorkspaceRendererProps) {
+  void openTrackerView;
   switch (workspace) {
     case 'followups':
       return <TrackerWorkspace personalMode={appMode === 'personal'} appMode={appMode} />;
@@ -25,12 +25,10 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTra
       return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
     case 'exports':
       return <ExportWorkspace />;
-    case 'outlook':
+    case 'intake':
       return <IntakeWorkspacePanel />;
-    case 'projects':
-      return <ProjectCommandCenter onFocusTracker={openTrackerView} onOpenItem={openTrackerItem} appMode={appMode} setWorkspace={setWorkspace} />;
-    case 'relationships':
-      return <RelationshipBoard appMode={appMode} setWorkspace={setWorkspace} />;
+    case 'directory':
+      return <DirectoryWorkspace onOpenItem={(id) => openTrackerItem(id)} />;
     default:
       return (
         <OverviewPage

@@ -1,11 +1,11 @@
-import { BellRing, BriefcaseBusiness, Inbox, LayoutDashboard, Network, Plus, Rocket } from 'lucide-react';
+import { BellRing, Building2, Inbox, LayoutDashboard, Plus, Rocket } from 'lucide-react';
 import { useMemo } from 'react';
 import { isOverdue, needsNudge } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { PersistenceBanner } from './PersistenceBanner';
 
-export type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'projects' | 'relationships';
+export type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'directory';
 
 interface WorkspaceSidebarProps {
   workspace: WorkspaceKey;
@@ -16,8 +16,7 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; helper: string; icon
   { key: 'overview', label: 'Overview', helper: 'Start here each day', icon: LayoutDashboard },
   { key: 'tracker', label: 'Tracker', helper: 'Main follow-up list', icon: BellRing },
   { key: 'intake', label: 'Intake', helper: 'Drop emails and imports', icon: Inbox },
-  { key: 'projects', label: 'Projects', helper: 'Project command center', icon: BriefcaseBusiness },
-  { key: 'relationships', label: 'Relationships', helper: 'Contacts and companies', icon: Network },
+  { key: 'directory', label: 'Directory', helper: 'Projects, people, companies', icon: Building2 },
 ];
 
 export function WorkspaceSidebar({ workspace, onChange }: WorkspaceSidebarProps) {

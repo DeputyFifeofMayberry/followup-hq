@@ -21,6 +21,17 @@ const defaultFilterState = {
 
 const priorityRank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
 
+// Urgency tiers for Today view compound sort (Fix 4).
+// Lower number = higher urgency = sorts first.
+function getUrgencyTier(task: { dueTs: number | null; status: string; deferredUntil?: string }, nowTs: number): number {
+  if (task.dueTs !== null && task.dueTs < nowTs) return 0; // Overdue
+  if (task.dueTs !== null && task.dueTs <= nowTs + 86400000) return 1; // Due today/tomorrow
+  if (task.status === 'Blocked') return 2; // Blocked (no due date context)
+  if (task.deferredUntil && new Date(task.deferredUntil).getTime() <= nowTs) return 3; // Deferred wake-up
+  if (task.dueTs !== null) return 4; // Due in future
+  return 5; // No due date
+}
+
 function normalizeSearchBlob(parts: Array<string | undefined | null>) {
   return parts
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -50,8 +61,19 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<TaskSort>(defaultFilterState.sortBy);
-  const [view, setView] = useState<TaskView>(defaultFilterState.view);
+
+  // Fix 3: Persist view and sort preferences across sessions via localStorage.
+  const [view, setViewState] = useState<TaskView>(() => {
+    const saved = localStorage.getItem('tasks_pref_view');
+    return (saved as TaskView) || defaultFilterState.view;
+  });
+  const [sortBy, setSortByState] = useState<TaskSort>(() => {
+    const saved = localStorage.getItem('tasks_pref_sortBy');
+    return (saved as TaskSort) || defaultFilterState.sortBy;
+  });
+  const setView = (v: TaskView) => { setViewState(v); localStorage.setItem('tasks_pref_view', v); };
+  const setSortBy = (s: TaskSort) => { setSortByState(s); localStorage.setItem('tasks_pref_sortBy', s); };
+
   const [projectFilter, setProjectFilter] = useState(defaultFilterState.project);
   const [assigneeFilter, setAssigneeFilter] = useState(defaultFilterState.assignee);
   const [linkedFilter, setLinkedFilter] = useState<'all' | 'linked' | 'unlinked'>(defaultFilterState.linked);
@@ -95,7 +117,13 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
     return derivedTasks.filter((task) => {
       if (task.status === 'Done') return false;
-      if (view === 'today') return task.status === 'Blocked' || (task.dueTs !== null && task.dueTs <= endTomorrowTs);
+      if (view === 'today') {
+        if (task.status === 'Blocked') return true;
+        if (task.dueTs !== null && task.dueTs <= endTomorrowTs) return true;
+        // Fix 1: Surface tasks whose deferral snooze has expired — they are actionable again.
+        if (task.deferredUntil && !isTaskDeferred(task)) return true;
+        return false;
+      }
       if (view === 'upcoming') return task.dueTs !== null && task.dueTs > endTomorrowTs && task.dueTs <= endWeekTs;
       if (view === 'blocked') return task.status === 'Blocked';
       return true;
@@ -113,14 +141,21 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
       return ownerMatch && statusMatch && projectMatch && assigneeMatch && linkedMatch && textMatch;
     });
 
+    // Fix 4: In the Today view, apply urgency tiers before the user-selected sort so that
+    // overdue tasks always surface above due-today tasks, which surface above blocked/deferred.
     return [...byFilters].sort((a, b) => {
+      if (view === 'today') {
+        const nowTs = Date.now();
+        const tierDiff = getUrgencyTier(a, nowTs) - getUrgencyTier(b, nowTs);
+        if (tierDiff !== 0) return tierDiff;
+      }
       if (sortBy === 'priority') return priorityRank[b.priority] - priorityRank[a.priority];
       if (sortBy === 'updated') return b.updatedTs - a.updatedTs;
       const aDue = a.dueTs ?? Number.MAX_SAFE_INTEGER;
       const bDue = b.dueTs ?? Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [viewScopedTasks, store.taskOwnerFilter, store.taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, sortBy]);
+  }, [viewScopedTasks, view, store.taskOwnerFilter, store.taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, sortBy]);
 
   const selectedTask = useMemo(
     () => filteredTasks.find((task) => task.id === store.selectedTaskId) ?? store.tasks.find((task) => task.id === store.selectedTaskId) ?? null,
@@ -199,6 +234,15 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const sortSummary = sortBy === 'due' ? '' : sortBy === 'priority' ? 'Sorted by priority' : 'Sorted by recently updated';
 
+  // Fix 5: Compute tasks completed today for the "Done today" footer in the Today view.
+  const completedToday = useMemo(() => {
+    if (view !== 'today') return [];
+    const todayStartTs = new Date().setHours(0, 0, 0, 0);
+    return store.tasks.filter(
+      (task) => task.status === 'Done' && task.completedAt && new Date(task.completedAt).getTime() >= todayStartTs,
+    );
+  }, [store.tasks, view]);
+
   const resetPanelFilters = () => {
     store.setTaskOwnerFilter('All');
     store.setTaskStatusFilter('All');
@@ -269,6 +313,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     sortSummary,
     getTaskSignal,
     hasLinkedFollowUp,
+    completedToday,
   };
 }
 

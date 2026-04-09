@@ -2,8 +2,12 @@ import { ChevronDown, Plus, Search, SlidersHorizontal, Undo2, X } from 'lucide-r
 import { memo } from 'react';
 import { AppBadge } from '../ui/AppPrimitives';
 
-type TaskView = 'today' | 'upcoming' | 'blocked' | 'all';
+type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 type TaskSort = 'due' | 'priority' | 'updated';
+type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
+type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';
+type LinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
+type PriorityFilter = 'All' | 'Low' | 'Medium' | 'High' | 'Critical';
 
 type FilterChip = { key: string; label: string; clear: () => void };
 
@@ -31,8 +35,14 @@ type TaskToolbarProps = {
   onTaskOwnerFilterChange: (value: string) => void;
   taskStatusFilter: 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done';
   onTaskStatusFilterChange: (value: 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done') => void;
-  linkedFilter: 'all' | 'linked' | 'unlinked';
-  onLinkedFilterChange: (value: 'all' | 'linked' | 'unlinked') => void;
+  linkedFilter: LinkageFilter;
+  onLinkedFilterChange: (value: LinkageFilter) => void;
+  timingFilter: TimingFilter;
+  onTimingFilterChange: (value: TimingFilter) => void;
+  stateFilter: StateFilter;
+  onStateFilterChange: (value: StateFilter) => void;
+  priorityFilter: PriorityFilter;
+  onPriorityFilterChange: (value: PriorityFilter) => void;
   sortBy: TaskSort;
   onSortByChange: (value: TaskSort) => void;
   onResetFilters: () => void;
@@ -66,6 +76,12 @@ export const TaskToolbar = memo(function TaskToolbar({
   onTaskStatusFilterChange,
   linkedFilter,
   onLinkedFilterChange,
+  timingFilter,
+  onTimingFilterChange,
+  stateFilter,
+  onStateFilterChange,
+  priorityFilter,
+  onPriorityFilterChange,
   sortBy,
   onSortByChange,
   onResetFilters,
@@ -79,20 +95,20 @@ export const TaskToolbar = memo(function TaskToolbar({
           <span className="field-label">Search</span>
           <div className="search-field-wrap">
             <Search className="search-field-icon h-4 w-4" />
-            <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Title, next step, owner, project, blocker" className="field-input search-field-input" />
+            <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Title, queue reason, review reason, owner, project" className="field-input search-field-input" />
             {searchQuery ? <button type="button" onClick={onClearSearch} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
           </div>
         </label>
 
         <label className="field-block task-view-picker">
-          <span className="field-label">View</span>
+          <span className="field-label">Queue</span>
           <select value={view} onChange={(event) => onViewChange(event.target.value as TaskView)} className="field-input">
             {taskViewOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
 
         <div className="task-toolbar-actions">
-          <button onClick={onToggleViewOptions} className="action-btn">
+          <button onClick={onToggleViewOptions} className="action-btn" aria-expanded={viewOptionsOpen}>
             <SlidersHorizontal className="h-4 w-4" />
             Options
             {activeFilterCount > 0 ? <AppBadge tone="info">{activeFilterCount}</AppBadge> : null}
@@ -114,10 +130,25 @@ export const TaskToolbar = memo(function TaskToolbar({
           </section>
 
           <section className="task-view-options-section">
-            <h4 className="task-view-options-title">Status / linkage</h4>
+            <h4 className="task-view-options-title">State</h4>
             <div className="task-view-options-grid task-view-options-grid-personal">
               <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => onTaskStatusFilterChange(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
-              <label className="field-block"><span className="field-label">Linked state</span><select value={linkedFilter} onChange={(event) => onLinkedFilterChange(event.target.value as 'all' | 'linked' | 'unlinked')} className="field-input"><option value="all">All</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option></select></label>
+              <label className="field-block"><span className="field-label">Operational state</span><select value={stateFilter} onChange={(event) => onStateFilterChange(event.target.value as StateFilter)} className="field-input"><option value="all">All</option><option value="deferred_only">Deferred only</option><option value="review_needed_only">Review needed only</option><option value="blocked_without_unblock">Blocked without next step</option></select></label>
+            </div>
+          </section>
+
+          <section className="task-view-options-section">
+            <h4 className="task-view-options-title">Timing</h4>
+            <div className="task-view-options-grid task-view-options-grid-personal">
+              <label className="field-block"><span className="field-label">Date window</span><select value={timingFilter} onChange={(event) => onTimingFilterChange(event.target.value as TimingFilter)} className="field-input"><option value="all">All timing</option><option value="overdue">Overdue only</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="no_due_date">No due date</option></select></label>
+              <label className="field-block"><span className="field-label">Priority</span><select value={priorityFilter} onChange={(event) => onPriorityFilterChange(event.target.value as PriorityFilter)} className="field-input"><option value="All">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
+            </div>
+          </section>
+
+          <section className="task-view-options-section">
+            <h4 className="task-view-options-title">Linkage</h4>
+            <div className="task-view-options-grid task-view-options-grid-personal">
+              <label className="field-block"><span className="field-label">Parent linkage</span><select value={linkedFilter} onChange={(event) => onLinkedFilterChange(event.target.value as LinkageFilter)} className="field-input"><option value="all">All</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option><option value="parent_at_risk">Parent at risk</option></select></label>
             </div>
           </section>
 

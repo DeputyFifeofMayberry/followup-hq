@@ -6,37 +6,52 @@ import { addDaysIso, formatDate, isTaskDeferred, todayIso } from '../../../lib/u
 import { isExecutionReady } from '../../records/integrity';
 import { deriveTaskRecommendedAction } from '../../shared';
 import { useAppStore } from '../../../store/useAppStore';
-import type { TaskItem } from '../../../types';
+import type { TaskItem, TaskPriority } from '../../../types';
 
-export type TaskView = 'today' | 'upcoming' | 'blocked' | 'all';
+export type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 export type TaskSort = 'due' | 'priority' | 'updated';
+
+type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
+type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';
+type LinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
+type PriorityFilter = 'All' | TaskPriority;
 
 const defaultFilterState = {
   project: 'All',
   assignee: 'All',
-  linked: 'all' as const,
+  linked: 'all' as LinkageFilter,
   sortBy: 'due' as TaskSort,
   view: 'today' as TaskView,
+  timingFilter: 'all' as TimingFilter,
+  stateFilter: 'all' as StateFilter,
+  priorityFilter: 'All' as PriorityFilter,
 };
 
 const priorityRank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
-
-// Urgency tiers for Today view compound sort (Fix 4).
-// Lower number = higher urgency = sorts first.
-function getUrgencyTier(task: { dueTs: number | null; status: string; deferredUntil?: string }, nowTs: number): number {
-  if (task.dueTs !== null && task.dueTs < nowTs) return 0; // Overdue
-  if (task.dueTs !== null && task.dueTs <= nowTs + 86400000) return 1; // Due today/tomorrow
-  if (task.status === 'Blocked') return 2; // Blocked (no due date context)
-  if (task.deferredUntil && new Date(task.deferredUntil).getTime() <= nowTs) return 3; // Deferred wake-up
-  if (task.dueTs !== null) return 4; // Due in future
-  return 5; // No due date
-}
 
 function normalizeSearchBlob(parts: Array<string | undefined | null>) {
   return parts
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
     .map((part) => part.trim().toLowerCase())
     .join(' ');
+}
+
+function getTaskDueTs(task: TaskItem) {
+  return task.dueDate ? new Date(task.dueDate).getTime() : null;
+}
+
+function isOverdueTask(task: TaskItem, nowTs: number) {
+  const dueTs = getTaskDueTs(task);
+  return Boolean(task.status !== 'Done' && dueTs !== null && dueTs < nowTs);
+}
+
+function isDueToday(task: TaskItem, nowTs: number) {
+  const dueTs = getTaskDueTs(task);
+  if (dueTs === null) return false;
+  const todayStart = new Date(nowTs);
+  todayStart.setHours(0, 0, 0, 0);
+  const tomorrowStart = todayStart.getTime() + 86400000;
+  return dueTs >= todayStart.getTime() && dueTs < tomorrowStart;
 }
 
 export function useTasksViewModel({ personalMode = false }: { personalMode?: boolean } = {}) {
@@ -62,7 +77,6 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
-  // Fix 3: Persist view and sort preferences across sessions via localStorage.
   const [view, setViewState] = useState<TaskView>(() => {
     const saved = localStorage.getItem('tasks_pref_view');
     return (saved as TaskView) || defaultFilterState.view;
@@ -76,7 +90,10 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const [projectFilter, setProjectFilter] = useState(defaultFilterState.project);
   const [assigneeFilter, setAssigneeFilter] = useState(defaultFilterState.assignee);
-  const [linkedFilter, setLinkedFilter] = useState<'all' | 'linked' | 'unlinked'>(defaultFilterState.linked);
+  const [linkedFilter, setLinkedFilter] = useState<LinkageFilter>(defaultFilterState.linked);
+  const [timingFilter, setTimingFilter] = useState<TimingFilter>(defaultFilterState.timingFilter);
+  const [stateFilter, setStateFilter] = useState<StateFilter>(defaultFilterState.stateFilter);
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(defaultFilterState.priorityFilter);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery.trim().toLowerCase()), 160);
@@ -85,69 +102,121 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const followUpById = useMemo(() => new Map(store.items.map((item) => [item.id, item])), [store.items]);
 
-  const derivedTasks = useMemo(() => store.tasks
-    .filter((task) => isExecutionReady(task))
-    .map((task) => {
-      const linkedFollowUp = task.linkedFollowUpId ? followUpById.get(task.linkedFollowUpId) : undefined;
-      return {
-        ...task,
-        dueTs: task.dueDate ? new Date(task.dueDate).getTime() : null,
-        updatedTs: new Date(task.updatedAt).getTime(),
-        searchBlob: normalizeSearchBlob([
-          task.title,
-          task.project,
-          task.owner,
-          task.assigneeDisplayName,
-          task.summary,
-          task.nextStep,
-          task.notes,
-          task.contextNote,
-          task.blockReason,
-          task.tags.join(' '),
-          linkedFollowUp?.title,
-          linkedFollowUp?.project,
-        ]),
-      };
-    }), [store.tasks, followUpById]);
+  const derivedTasks = useMemo(() => store.tasks.map((task) => {
+    const linkedFollowUp = task.linkedFollowUpId ? followUpById.get(task.linkedFollowUpId) : undefined;
+    const executionReady = isExecutionReady(task);
+    const dueTs = task.dueDate ? new Date(task.dueDate).getTime() : null;
+    const updatedTs = new Date(task.updatedAt).getTime();
+    const needsReview = !executionReady || task.lifecycleState === 'review_required' || task.dataQuality === 'review_required';
+    const reviewLabels = [
+      ...(task.reviewReasons ?? []),
+      ...(task.cleanupReasons ?? []),
+      ...(task.lifecycleState ? [`lifecycle:${task.lifecycleState}`] : []),
+      ...(task.dataQuality ? [`quality:${task.dataQuality}`] : []),
+    ];
+    return {
+      ...task,
+      dueTs,
+      updatedTs,
+      executionReady,
+      needsReview,
+      linkedParentAtRisk: linkedFollowUp?.status === 'At risk',
+      reviewLabels,
+      searchBlob: normalizeSearchBlob([
+        task.title,
+        task.project,
+        task.owner,
+        task.assigneeDisplayName,
+        task.summary,
+        task.nextStep,
+        task.notes,
+        task.contextNote,
+        task.blockReason,
+        task.tags.join(' '),
+        linkedFollowUp?.title,
+        linkedFollowUp?.project,
+        task.lifecycleState,
+        task.dataQuality,
+        reviewLabels.join(' '),
+      ]),
+    };
+  }), [store.tasks, followUpById]);
+
+  const taskSummary = useMemo(() => {
+    const nowTs = Date.now();
+    const dueSoonThresholdTs = nowTs + 2 * 86400000;
+    const open = derivedTasks.filter((task) => task.status !== 'Done');
+    const reviewRequired = open.filter((task) => task.needsReview);
+    return {
+      open: open.length,
+      blocked: open.filter((task) => task.status === 'Blocked').length,
+      overdue: open.filter((task) => task.dueTs !== null && task.dueTs < nowTs).length,
+      dueSoon: open.filter((task) => task.dueTs !== null && task.dueTs <= dueSoonThresholdTs && task.dueTs >= nowTs).length,
+      deferred: open.filter((task) => Boolean(task.deferredUntil) && isTaskDeferred(task)).length,
+      reviewRequired: reviewRequired.length,
+      reviewNotReady: reviewRequired.filter((task) => !task.executionReady).length,
+      unlinked: open.filter((task) => !task.linkedFollowUpId).length,
+    };
+  }, [derivedTasks]);
 
   const viewScopedTasks = useMemo(() => {
     const nowTs = Date.now();
-    const endTomorrowTs = nowTs + 86400000;
+    const todayEndTs = new Date().setHours(23, 59, 59, 999);
     const endWeekTs = nowTs + 7 * 86400000;
+    const todayStartTs = new Date().setHours(0, 0, 0, 0);
+
+    if (view === 'recent') {
+      return derivedTasks.filter((task) => task.status === 'Done' && task.completedAt && new Date(task.completedAt).getTime() >= todayStartTs);
+    }
 
     return derivedTasks.filter((task) => {
       if (task.status === 'Done') return false;
       if (view === 'today') {
-        if (task.status === 'Blocked') return true;
-        if (task.dueTs !== null && task.dueTs <= endTomorrowTs) return true;
-        // Fix 1: Surface tasks whose deferral snooze has expired — they are actionable again.
-        if (task.deferredUntil && !isTaskDeferred(task)) return true;
-        return false;
+        const dueToday = task.dueTs !== null && task.dueTs <= todayEndTs;
+        const actionableUnscheduled = !task.dueTs && task.status !== 'Blocked' && !isTaskDeferred(task) && !task.needsReview;
+        const deferredReady = Boolean(task.deferredUntil && !isTaskDeferred(task));
+        return dueToday || actionableUnscheduled || deferredReady;
       }
-      if (view === 'upcoming') return task.dueTs !== null && task.dueTs > endTomorrowTs && task.dueTs <= endWeekTs;
+      if (view === 'overdue') return isOverdueTask(task, nowTs);
+      if (view === 'upcoming') return task.dueTs !== null && task.dueTs > todayEndTs && task.dueTs <= endWeekTs;
       if (view === 'blocked') return task.status === 'Blocked';
+      if (view === 'review') return task.needsReview;
+      if (view === 'deferred') return Boolean(task.deferredUntil) && isTaskDeferred(task);
+      if (view === 'unlinked') return !task.linkedFollowUpId;
       return true;
     });
   }, [derivedTasks, view]);
 
   const filteredTasks = useMemo(() => {
+    const nowTs = Date.now();
+    const weekEndTs = nowTs + 7 * 86400000;
+
     const byFilters = viewScopedTasks.filter((task) => {
       const ownerMatch = store.taskOwnerFilter === 'All' || task.owner === store.taskOwnerFilter;
       const statusMatch = store.taskStatusFilter === 'All' || task.status === store.taskStatusFilter;
       const projectMatch = projectFilter === 'All' || task.project === projectFilter;
       const assigneeMatch = assigneeFilter === 'All' || (task.assigneeDisplayName || task.owner) === assigneeFilter;
-      const linkedMatch = linkedFilter === 'all' || (linkedFilter === 'linked' ? Boolean(task.linkedFollowUpId) : !task.linkedFollowUpId);
       const textMatch = !debouncedSearchQuery || task.searchBlob.includes(debouncedSearchQuery);
-      return ownerMatch && statusMatch && projectMatch && assigneeMatch && linkedMatch && textMatch;
+      const linkedMatch = linkedFilter === 'all'
+        || (linkedFilter === 'linked' ? Boolean(task.linkedFollowUpId) : linkedFilter === 'unlinked' ? !task.linkedFollowUpId : task.linkedParentAtRisk);
+      const timingMatch = timingFilter === 'all'
+        || (timingFilter === 'overdue' ? isOverdueTask(task, nowTs)
+          : timingFilter === 'today' ? isDueToday(task, nowTs)
+            : timingFilter === 'this_week' ? task.dueTs !== null && task.dueTs <= weekEndTs
+              : task.dueTs === null);
+      const stateMatch = stateFilter === 'all'
+        || (stateFilter === 'deferred_only' ? Boolean(task.deferredUntil) && isTaskDeferred(task)
+          : stateFilter === 'review_needed_only' ? task.needsReview
+            : task.status === 'Blocked' && !(task.nextStep || '').trim());
+      const priorityMatch = priorityFilter === 'All' || task.priority === priorityFilter;
+      return ownerMatch && statusMatch && projectMatch && assigneeMatch && linkedMatch && textMatch && timingMatch && stateMatch && priorityMatch;
     });
 
-    // Fix 4: In the Today view, apply urgency tiers before the user-selected sort so that
-    // overdue tasks always surface above due-today tasks, which surface above blocked/deferred.
     return [...byFilters].sort((a, b) => {
       if (view === 'today') {
-        const nowTs = Date.now();
-        const tierDiff = getUrgencyTier(a, nowTs) - getUrgencyTier(b, nowTs);
-        if (tierDiff !== 0) return tierDiff;
+        const aOverdue = isOverdueTask(a, nowTs);
+        const bOverdue = isOverdueTask(b, nowTs);
+        if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
       }
       if (sortBy === 'priority') return priorityRank[b.priority] - priorityRank[a.priority];
       if (sortBy === 'updated') return b.updatedTs - a.updatedTs;
@@ -155,7 +224,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
       const bDue = b.dueTs ?? Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [viewScopedTasks, view, store.taskOwnerFilter, store.taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, sortBy]);
+  }, [viewScopedTasks, view, sortBy, store.taskOwnerFilter, store.taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, timingFilter, stateFilter, priorityFilter]);
 
   const selectedTask = useMemo(
     () => filteredTasks.find((task) => task.id === store.selectedTaskId) ?? store.tasks.find((task) => task.id === store.selectedTaskId) ?? null,
@@ -184,32 +253,33 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const recommendedAction = selectedTask ? deriveTaskRecommendedAction(selectedTask) : null;
 
-  const owners = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.owner))).sort()], [store.tasks]);
-  const assignees = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.assigneeDisplayName || task.owner))).sort()], [store.tasks]);
+  const owners = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.owner).filter(Boolean))).sort()], [store.tasks]);
+  const assignees = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.assigneeDisplayName || task.owner).filter(Boolean))).sort()], [store.tasks]);
   const projectOptions = useMemo(() => ['All', ...store.projects.map((project) => project.name)], [store.projects]);
 
-  const reviewRequiredTasks = useMemo(() => store.tasks.filter((task) => !isExecutionReady(task)), [store.tasks]);
+  const quickCaptureDefaults = useMemo(() => {
+    const recentOpenTask = [...derivedTasks]
+      .filter((task) => task.status !== 'Done')
+      .sort((a, b) => b.updatedTs - a.updatedTs)[0];
+    const fallbackProject = projectFilter !== 'All' ? projectFilter : recentOpenTask?.project || (projectOptions[1] ?? '');
+    const fallbackOwner = !personalMode && store.taskOwnerFilter !== 'All' ? store.taskOwnerFilter : recentOpenTask?.owner || '';
+    const fallbackAssignee = assigneeFilter !== 'All' ? assigneeFilter : (recentOpenTask?.assigneeDisplayName || recentOpenTask?.owner || '');
 
-  const taskSummary = useMemo(() => {
-    const dueSoonThresholdTs = Date.now() + 2 * 86400000;
-    const open = derivedTasks.filter((task) => task.status !== 'Done');
     return {
-      open: open.length,
-      shown: filteredTasks.length,
-      dueSoon: open.filter((task) => task.dueTs !== null && task.dueTs <= dueSoonThresholdTs).length,
-      blocked: open.filter((task) => task.status === 'Blocked').length,
-      reviewRequired: reviewRequiredTasks.length,
-      dueThisWeekShown: filteredTasks.filter((task) => task.dueTs !== null && task.dueTs <= (Date.now() + 7 * 86400000)).length,
-      blockedNeedUnblockStep: filteredTasks.filter((task) => task.status === 'Blocked' && !task.nextStep.trim()).length,
+      project: fallbackProject,
+      owner: fallbackOwner,
+      assignee: fallbackAssignee,
+      nextStep: recentOpenTask?.nextStep || 'Define the next executable move',
     };
-  }, [derivedTasks, filteredTasks, reviewRequiredTasks]);
+  }, [assigneeFilter, derivedTasks, personalMode, projectFilter, projectOptions, store.taskOwnerFilter]);
 
   const queueSummary = useMemo(() => {
-    if (view === 'blocked') return `Blocked ${taskSummary.shown} shown · ${taskSummary.blockedNeedUnblockStep} need unblock step`;
-    if (view === 'upcoming') return `Upcoming ${taskSummary.shown} shown · ${taskSummary.dueThisWeekShown} due this week`;
-    if (view === 'all') return `All open ${taskSummary.shown} shown · due soon ${taskSummary.dueSoon} · blocked ${taskSummary.blocked}`;
-    return `Open ${taskSummary.open} · due soon ${taskSummary.dueSoon} · blocked ${taskSummary.blocked} · review needed ${taskSummary.reviewRequired}`;
-  }, [view, taskSummary]);
+    if (view === 'review') return `Repair queue: ${taskSummary.reviewRequired} tasks need trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
+    if (view === 'overdue') return `Overdue pressure: ${taskSummary.overdue} tasks are late — clear blockers and commit a next move.`;
+    if (view === 'deferred') return `Deferred queue: ${taskSummary.deferred} snoozed tasks waiting to re-enter execution.`;
+    if (view === 'recent') return `Recently completed: ${filteredTasks.length} tasks finished today.`;
+    return `Execution pressure: ${taskSummary.open} open · ${taskSummary.overdue} overdue · ${taskSummary.blocked} blocked · ${taskSummary.reviewRequired} review needed.`;
+  }, [filteredTasks.length, taskSummary, view]);
 
   const activeFilterCount = useMemo(() => (
     [
@@ -218,9 +288,12 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
       !personalMode && store.taskOwnerFilter !== 'All',
       store.taskStatusFilter !== 'All',
       linkedFilter !== defaultFilterState.linked,
+      timingFilter !== defaultFilterState.timingFilter,
+      stateFilter !== defaultFilterState.stateFilter,
+      priorityFilter !== defaultFilterState.priorityFilter,
       sortBy !== defaultFilterState.sortBy,
     ].filter(Boolean).length
-  ), [projectFilter, assigneeFilter, personalMode, store.taskOwnerFilter, store.taskStatusFilter, linkedFilter, sortBy]);
+  ), [projectFilter, assigneeFilter, personalMode, store.taskOwnerFilter, store.taskStatusFilter, linkedFilter, timingFilter, stateFilter, priorityFilter, sortBy]);
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
@@ -228,20 +301,21 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => setAssigneeFilter(defaultFilterState.assignee) });
     if (!personalMode && store.taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${store.taskOwnerFilter}`, clear: () => store.setTaskOwnerFilter('All') });
     if (store.taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${store.taskStatusFilter}`, clear: () => store.setTaskStatusFilter('All') });
-    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: linkedFilter === 'linked' ? 'Linked only' : 'Unlinked only', clear: () => setLinkedFilter(defaultFilterState.linked) });
+    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: `Linkage: ${linkedFilter.replaceAll('_', ' ')}`, clear: () => setLinkedFilter(defaultFilterState.linked) });
+    if (timingFilter !== defaultFilterState.timingFilter) chips.push({ key: 'timing', label: `Timing: ${timingFilter.replaceAll('_', ' ')}`, clear: () => setTimingFilter(defaultFilterState.timingFilter) });
+    if (stateFilter !== defaultFilterState.stateFilter) chips.push({ key: 'state', label: `State: ${stateFilter.replaceAll('_', ' ')}`, clear: () => setStateFilter(defaultFilterState.stateFilter) });
+    if (priorityFilter !== defaultFilterState.priorityFilter) chips.push({ key: 'priority', label: `Priority: ${priorityFilter}`, clear: () => setPriorityFilter(defaultFilterState.priorityFilter) });
     return chips;
-  }, [projectFilter, assigneeFilter, personalMode, store, linkedFilter]);
+  }, [projectFilter, assigneeFilter, personalMode, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const sortSummary = sortBy === 'due' ? '' : sortBy === 'priority' ? 'Sorted by priority' : 'Sorted by recently updated';
 
-  // Fix 5: Compute tasks completed today for the "Done today" footer in the Today view.
   const completedToday = useMemo(() => {
-    if (view !== 'today') return [];
     const todayStartTs = new Date().setHours(0, 0, 0, 0);
-    return store.tasks.filter(
-      (task) => task.status === 'Done' && task.completedAt && new Date(task.completedAt).getTime() >= todayStartTs,
-    );
-  }, [store.tasks, view]);
+    return store.tasks.filter((task) => task.status === 'Done' && task.completedAt && new Date(task.completedAt).getTime() >= todayStartTs);
+  }, [store.tasks]);
+
+  const reviewRequiredTasks = useMemo(() => derivedTasks.filter((task) => task.needsReview), [derivedTasks]);
 
   const resetPanelFilters = () => {
     store.setTaskOwnerFilter('All');
@@ -249,6 +323,9 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     setProjectFilter(defaultFilterState.project);
     setAssigneeFilter(defaultFilterState.assignee);
     setLinkedFilter(defaultFilterState.linked);
+    setTimingFilter(defaultFilterState.timingFilter);
+    setStateFilter(defaultFilterState.stateFilter);
+    setPriorityFilter(defaultFilterState.priorityFilter);
     setSortBy(defaultFilterState.sortBy);
   };
 
@@ -258,21 +335,23 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     const isOverdue = Boolean(dueTimestamp && dueTimestamp < now && task.status !== 'Done');
     const dueSoon = Boolean(dueTimestamp && dueTimestamp > now && dueTimestamp <= now + (3 * 86400000) && task.status !== 'Done');
 
-    const whyNow = task.status === 'Blocked'
-      ? (task.blockReason ? `Blocked: ${task.blockReason}` : 'Blocked: capture unblock reason')
-      : isOverdue
-        ? `Overdue since ${formatDate(task.dueDate)}`
-        : dueSoon
-          ? `Due soon: ${formatDate(task.dueDate)}`
-          : task.dueDate
-            ? `Due ${formatDate(task.dueDate)}`
-            : (isTaskDeferred(task) ? `Deferred until ${formatDate(task.deferredUntil)}` : 'No due date set');
+    const whyNow = task.needsCleanup || task.lifecycleState === 'review_required' || task.dataQuality === 'review_required'
+      ? `Review needed: ${(task.reviewReasons?.[0] || task.cleanupReasons?.[0] || 'Resolve task integrity details').replaceAll('_', ' ')}`
+      : task.status === 'Blocked'
+        ? (task.blockReason ? `Blocked: ${task.blockReason}` : 'Blocked: capture unblock reason')
+        : isOverdue
+          ? `Overdue since ${formatDate(task.dueDate)}`
+          : dueSoon
+            ? `Due soon: ${formatDate(task.dueDate)}`
+            : task.dueDate
+              ? `Due ${formatDate(task.dueDate)}`
+              : (isTaskDeferred(task) ? `Deferred until ${formatDate(task.deferredUntil)}` : 'Active queue: no due date yet');
 
     const nextMove = task.status === 'Done'
       ? 'Completed'
       : (task.nextStep || task.recommendedAction || 'Define next step');
 
-    return { whyNow, nextMove, isOverdue, dueSoon };
+    return { whyNow, nextMove, isOverdue, dueSoon, needsReview: Boolean(task.reviewReasons?.length || task.cleanupReasons?.length || task.lifecycleState === 'review_required' || task.dataQuality === 'review_required') };
   };
 
   const hasLinkedFollowUp = (linkedFollowUpId?: string | null) => Boolean(linkedFollowUpId && followUpById.get(linkedFollowUpId));
@@ -282,8 +361,9 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     tasks: store.tasks,
     items: store.items,
     projects: store.projects,
-    selectedTask: selectedTask,
+    selectedTask,
     filteredTasks,
+    reviewRequiredTasks,
     taskSummary,
     projectOptions,
     ownerOptions: owners,
@@ -309,6 +389,13 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     setAssigneeFilter,
     linkedFilter,
     setLinkedFilter,
+    timingFilter,
+    setTimingFilter,
+    stateFilter,
+    setStateFilter,
+    priorityFilter,
+    setPriorityFilter,
+    quickCaptureDefaults,
     resetPanelFilters,
     sortSummary,
     getTaskSignal,

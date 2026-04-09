@@ -24,7 +24,7 @@ export const starterContacts: ContactRecord[] = [
 export const starterProjects: ProjectRecord[] = [
   { id: 'PRJ-001', name: 'B995 Weld Shop', owner: 'Jared', status: 'Active', notes: 'Primary active buyout and coordination project.', tags: ['Design-Build', 'NAVFAC'], createdAt: day(-40), updatedAt: day(0) },
   { id: 'PRJ-002', name: 'B880 Chillers', owner: 'Andrew', status: 'Closeout', notes: 'Commissioning and closeout push.', tags: ['Closeout', 'Cx'], createdAt: day(-60), updatedAt: day(-1) },
-  { id: 'PRJ-003', name: 'General', owner: 'Jared', status: 'Active', notes: 'Catch-all for work not yet classified.', tags: ['General'], createdAt: day(-90), updatedAt: day(-2) },
+  { id: 'PRJ-003', name: 'General', systemProjectKind: 'unclassified', owner: 'Jared', status: 'Active', notes: 'Catch-all for work not yet classified.', tags: ['General'], createdAt: day(-90), updatedAt: day(-2) },
 ];
 
 export const starterItems: FollowUpItem[] = [

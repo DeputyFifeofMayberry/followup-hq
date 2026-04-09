@@ -152,6 +152,10 @@ export interface AppStoreActions {
   generateDraftForItem: (id: string) => void;
   addProject: (input: Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateProject: (id: string, patch: Partial<ProjectRecord>) => void;
+  linkContactToProject: (projectId: string, contactId: string) => void;
+  unlinkContactFromProject: (projectId: string, contactId: string) => void;
+  linkCompanyToProject: (projectId: string, companyId: string) => void;
+  unlinkCompanyFromProject: (projectId: string, companyId: string) => void;
   reassignProjectRecords: (fromProjectId: string, toProjectId: string, recordTypes?: Array<'followups' | 'tasks' | 'docs'>) => void;
   deleteProject: (id: string, reassignToProjectId?: string) => void;
   addIntakeDocument: (input: { name: string; kind: IntakeDocumentKind; projectId?: string; project?: string; owner?: string; sourceRef?: string; notes?: string; tags?: string[] }) => string;

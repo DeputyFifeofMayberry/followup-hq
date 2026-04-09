@@ -71,14 +71,17 @@ export function getLinkedTasksForFollowUp(followUpId: string, tasks: TaskItem[])
 }
 
 export function getProjectLinkedRecords(projectIdOrName: string, state: RecordContextState) {
+  const project = state.projects.find((entry) => entry.id === projectIdOrName || entry.name === projectIdOrName);
   const followups = state.items.filter((item) => projectMatches(item.project, item.projectId, projectIdOrName));
   const tasks = state.tasks.filter((task) => projectMatches(task.project, task.projectId, projectIdOrName));
   const followUpContactIds = followups.map((item) => item.contactId).filter(Boolean) as string[];
   const taskContactIds = tasks.map((task) => task.contactId).filter(Boolean) as string[];
   const followUpCompanyIds = followups.map((item) => item.companyId).filter(Boolean) as string[];
   const taskCompanyIds = tasks.map((task) => task.companyId).filter(Boolean) as string[];
-  const contacts = uniqueById(state.contacts.filter((contact) => [...followUpContactIds, ...taskContactIds].includes(contact.id)));
-  const companies = uniqueById(state.companies.filter((company) => [...followUpCompanyIds, ...taskCompanyIds, ...contacts.map((contact) => contact.companyId).filter(Boolean) as string[]].includes(company.id)));
+  const directContactIds = project?.linkedContactIds ?? [];
+  const directCompanyIds = project?.linkedCompanyIds ?? [];
+  const contacts = uniqueById(state.contacts.filter((contact) => [...followUpContactIds, ...taskContactIds, ...directContactIds].includes(contact.id)));
+  const companies = uniqueById(state.companies.filter((company) => [...followUpCompanyIds, ...taskCompanyIds, ...directCompanyIds, ...contacts.map((contact) => contact.companyId).filter(Boolean) as string[]].includes(company.id)));
   return { followups, tasks, contacts, companies };
 }
 
@@ -91,7 +94,7 @@ export function getCompanyLinkedRecords(companyId: string, state: RecordContextS
     ...followups.map((item) => item.projectId || item.project),
     ...tasks.map((task) => task.projectId || task.project),
   ].filter(Boolean));
-  const projects = state.projects.filter((project) => projectKeys.has(project.id) || projectKeys.has(project.name));
+  const projects = state.projects.filter((project) => projectKeys.has(project.id) || projectKeys.has(project.name) || (project.linkedCompanyIds ?? []).includes(companyId));
   return { followups, tasks, contacts, projects };
 }
 
@@ -104,7 +107,7 @@ export function getContactLinkedRecords(contactId: string, state: RecordContextS
     ...followups.map((item) => item.projectId || item.project),
     ...tasks.map((task) => task.projectId || task.project),
   ].filter(Boolean));
-  const projects = state.projects.filter((project) => projectKeys.has(project.id) || projectKeys.has(project.name));
+  const projects = state.projects.filter((project) => projectKeys.has(project.id) || projectKeys.has(project.name) || (project.linkedContactIds ?? []).includes(contactId));
   return { contact, company, followups, tasks, projects };
 }
 

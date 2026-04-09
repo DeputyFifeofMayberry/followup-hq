@@ -712,6 +712,7 @@ export interface TeamMember {
 export interface ProjectRecord {
   id: string;
   name: string;
+  systemProjectKind?: 'unclassified';
   aliases?: string[];
   code?: string;
   contractReference?: string;
@@ -735,6 +736,8 @@ export interface ProjectRecord {
   building?: string;
   lastReviewedAt?: string;
   notes: string;
+  linkedContactIds?: string[];
+  linkedCompanyIds?: string[];
   completionNote?: string;
   tags: string[];
   createdAt: string;

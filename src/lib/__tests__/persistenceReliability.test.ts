@@ -1,6 +1,7 @@
-import { loadPersistedPayload, PersistenceLoadError, savePersistedPayload, type PersistedPayload } from '../persistence';
+import { buildLocalCacheKey, loadPersistedPayload, PersistenceLoadError, savePersistedPayload, type PersistedPayload } from '../persistence';
 import { supabase } from '../supabase';
 import { resetPersistenceSchemaHealthCache } from '../persistenceSchemaHealth';
+import { buildOutboxKey } from '../persistenceOutbox';
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -148,10 +149,40 @@ function buildSelectResult(table: string, columns: string) {
 });
 
 (supabase as any).rpc = async (fn: string, args: any) => {
+  // Simulate a legacy deployment that doesn't have get_persistence_contract_report yet.
+  // PGRST202 signals "function not found" which the health check treats as "legacy — skip to per-table probes".
+  if (fn === 'get_persistence_contract_report') return { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.get_persistence_contract_report' } };
   if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
   mock.rpcCallCount += 1;
-  if (mock.rpcFailure) return { data: null, error: mock.rpcFailure };
   const batch = args.batch;
+  if (batch?.batchId === '__schema_health_check__') {
+    // Health check probe: only fail for structural backend errors that genuinely indicate
+    // the RPC or hashing function is missing/broken in the backend.
+    // - 22P05 (invalid text) and PGRST301 (auth/transient) must NOT fail the health check:
+    //   they surface on the actual save call, where savePersistedPayload classifies them
+    //   correctly (payload_invalid, transient_cloud_failure) and records the failedBatchId.
+    const structuralCodes = ['PGRST202', '42883'];
+    if (mock.rpcFailure && structuralCodes.includes(String(mock.rpcFailure.code ?? '').toUpperCase())) {
+      return { data: null, error: mock.rpcFailure };
+    }
+    return {
+      data: {
+        batchId: '__schema_health_check__',
+        userId: mock.sessionUserId ?? 'user-1',
+        status: 'committed',
+        committedAt: '2026-04-06T10:00:00.000Z',
+        schemaVersion: 1,
+        operationCount: 0,
+        operationCountsByEntity: {},
+        touchedTables: [],
+        clientPayloadHash: null,
+        serverPayloadHash: null,
+        hashMatch: true,
+      },
+      error: null,
+    };
+  }
+  if (mock.rpcFailure) return { data: null, error: mock.rpcFailure };
   const previous = mock.receiptReplayCountByBatchId.get(batch.batchId) ?? 0;
   mock.receiptReplayCountByBatchId.set(batch.batchId, previous + 1);
   return {
@@ -191,9 +222,14 @@ function reset() {
   mock.receiptReplayCountByBatchId = new Map<string, number>();
 }
 
+// Reads the user-scoped local cache (the key writeLocalCache actually writes to).
+function readUserCache(): Record<string, unknown> {
+  return JSON.parse(storage.getItem(buildLocalCacheKey(mock.sessionUserId)) ?? '{}') as Record<string, unknown>;
+}
+
 async function run() {
   reset();
-  let cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
+  let cache = readUserCache();
 
   reset();
   mock.rows.tasks = [
@@ -215,9 +251,9 @@ async function run() {
   const successful = await savePersistedPayload(payloadFixture);
   assert(successful.diagnostics?.completedTables.includes('user_preferences') === true, 'successful save should report touched tables from receipt');
   assert(successful.diagnostics?.receiptStatus === 'committed', 'successful save should include committed receipt status');
-  cache = JSON.parse(storage.getItem('followup_hq_entities_cache_v2') ?? '{}');
+  cache = readUserCache();
   assert(cache.cloudStatus === 'confirmed', 'cache should be confirmed after successful cloud save');
-  assert(Boolean(cache.lastSaveReceipt?.batchId), 'successful save should persist receipt metadata');
+  assert(Boolean((cache.lastSaveReceipt as any)?.batchId), 'successful save should persist receipt metadata');
 
   reset();
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending' }));
@@ -337,7 +373,7 @@ async function run() {
 
   // H. unchanged payload with unresolved outbox must still retry
   reset();
-  storage.setItem('followup_hq_persistence_outbox_v2', JSON.stringify({
+  storage.setItem(buildOutboxKey(mock.sessionUserId), JSON.stringify({
     entries: [{
       outboxEntryId: 'outbox-1',
       batchId: 'batch-pending-1',
@@ -355,7 +391,7 @@ async function run() {
     }],
     updatedAt: '2026-04-05T10:00:00.000Z',
   }));
-  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending', localRevision: 1, lastCloudConfirmedRevision: 0 }));
+  storage.setItem(buildLocalCacheKey(mock.sessionUserId), JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending', localRevision: 1, lastCloudConfirmedRevision: 0 }));
   mock.rpcCallCount = 0;
   await savePersistedPayload(payloadFixture);
   assert(mock.rpcCallCount >= 2, 'retry should probe rpc health and then send unresolved outbox work when payload JSON is unchanged');
@@ -440,6 +476,65 @@ async function run() {
   }
   assert(cacheExposureMismatchClassified, `rpc exposure/cache mismatch should surface specific non-retryable diagnostics (calls=${rpcInvocation})`);
 
+  // I. local-newer-than-cloud: false positive (identical content, timestamp drifted)
+  // When the local cache has the same data as the cloud but a newer updatedAt,
+  // loadPersistedPayload should NOT degrade the session — it should treat it as cloud-confirmed.
+  reset();
+  mock.rows.follow_up_items = [{ record_id: 'item-1', record: { id: 'item-1' }, deleted_at: null }];
+  mock.rows.tasks = [];
+  mock.rows.projects = [];
+  mock.rows.contacts = [];
+  mock.rows.companies = [];
+  mock.auxiliary = payloadFixture.auxiliary;
+  mock.auxiliaryUpdatedAt = '2026-04-07T17:20:00.000Z';
+  // Cache entity uses the same shape readEntityRows produces: record fields + metadata columns.
+  // Without these fields the diff would be non-empty (metadata mismatch) even though the
+  // business data is identical, triggering a false-positive degradation.
+  const cachedItem1 = { id: 'item-1', deletedAt: null, recordVersion: 1, conflictMarker: false };
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({
+    entities: { ...payloadFixture, items: [cachedItem1], tasks: [], projects: [], contacts: [], companies: [] },
+    updatedAt: '2026-04-07T17:30:00.000Z',
+    cloudStatus: 'confirmed',
+    localRevision: 2,
+    lastCloudConfirmedRevision: 2,
+  }));
+  loaded = await loadPersistedPayload();
+  assert(!loaded.localNewerThanCloud, 'false-positive: identical content should not flag local-newer-than-cloud');
+  assert(loaded.source === 'supabase', 'false-positive: identical content with newer timestamp should load as supabase-confirmed');
+  assert(loaded.cacheStatus === 'confirmed', 'false-positive: cache status should be confirmed, not pending');
+  const cacheAfterFalsePositive = readUserCache();
+  assert(cacheAfterFalsePositive.cloudStatus === 'confirmed', 'false-positive: local cache should be written as confirmed');
+
+  // J. local-newer-than-cloud: genuine diff — diff ops must be stored so auto-save can recover
+  // When the local cache has entities not in the cloud, the session should degrade but
+  // the pending diff ops must be stored so that the next savePersistedPayload call pushes
+  // them to the cloud (bypassing the no-op guard) and clears the degradation.
+  reset();
+  mock.rows.follow_up_items = [];
+  mock.rows.tasks = [];
+  mock.rows.projects = [];
+  mock.rows.contacts = [];
+  mock.rows.companies = [];
+  mock.auxiliary = payloadFixture.auxiliary;
+  mock.auxiliaryUpdatedAt = '2026-04-07T17:20:00.000Z';
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({
+    entities: { ...payloadFixture, items: [{ id: 'item-local-only' }], tasks: [], projects: [], contacts: [], companies: [] },
+    updatedAt: '2026-04-07T17:30:00.000Z',
+    cloudStatus: 'confirmed',
+    localRevision: 1,
+    lastCloudConfirmedRevision: 1,
+  }));
+  loaded = await loadPersistedPayload();
+  assert(loaded.localNewerThanCloud === true, 'genuine diff: localNewerThanCloud should be set');
+  assert(loaded.localRevision !== undefined && (loaded.localRevision ?? 0) > 0, 'genuine diff: localRevision should be passed through (not defaulted to 0)');
+  assert((loaded.lastCloudConfirmedRevision ?? 0) < (loaded.localRevision ?? 0), 'genuine diff: confirmedRevision should be less than localRevision to reflect pending state');
+  const cacheAfterGenuineDiff = readUserCache();
+  assert(cacheAfterGenuineDiff.cloudStatus === 'pending', 'genuine diff: cache should be written as pending');
+  assert(Array.isArray(cacheAfterGenuineDiff.pendingOperations) && (cacheAfterGenuineDiff.pendingOperations as unknown[]).length > 0, 'genuine diff: diff ops must be stored in cache so auto-save can send them');
+  mock.rpcCallCount = 0;
+  await savePersistedPayload(loaded.payload);
+  assert(mock.rpcCallCount >= 1, 'genuine diff: auto-save after local-newer-than-cloud must call RPC (no-op guard must not fire when diff ops are pending)');
+
   reset();
   mock.rpcFailure = { message: 'rpc unavailable', code: 'PGRST301' };
   let failureHasBatch = false;
@@ -453,6 +548,7 @@ async function run() {
   // G. conflict receipt should preserve unresolved outbox entries
   reset();
   (supabase as any).rpc = async (fn: string, args: any) => {
+    if (fn === 'get_persistence_contract_report') return { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.get_persistence_contract_report' } };
     if (fn !== 'apply_save_batch') return { data: null, error: new Error('unknown rpc') };
     return {
       data: {
@@ -481,7 +577,7 @@ async function run() {
     conflictThrown = String(error?.message ?? '').includes('did not fully complete');
   }
   assert(conflictThrown, 'conflict receipt should reject save completion');
-  const outboxRaw = JSON.parse(storage.getItem('followup_hq_persistence_outbox_v2') ?? storage.getItem('followup_hq_persistence_outbox_v1') ?? '{\"entries\":[]}');
+  const outboxRaw = JSON.parse(storage.getItem(buildOutboxKey(mock.sessionUserId)) ?? '{"entries":[]}');
   assert((outboxRaw.entries ?? []).length > 0, 'conflict should keep durable outbox entry');
 }
 

@@ -43,7 +43,7 @@ function MissingSupabaseConfigScreen() {
           <StatePanel
             tone="warning"
             title="Supabase setup needed"
-            message="SetPoint needs valid Supabase environment variables before the app can load."
+            message="FollowUp HQ needs valid Supabase environment variables before the app can load."
           />
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
             <div className="font-medium text-slate-900">Current issue</div>
@@ -90,11 +90,11 @@ function LoginScreen() {
       <div className="login-layout">
         <section className="login-brand-panel">
           <div className="login-brand-header">
-            <div className="login-brand-badge">SetPoint • Construction execution workspace</div>
+            <div className="login-brand-badge">FollowUp HQ • Daily construction workflow</div>
             <div className="login-brand-copy">
-              <h1>From intake to closeout.</h1>
+              <h1>Daily construction execution.</h1>
               <p>
-                Capture inbound work, route it into execution lanes, and close it out with accountable coordination across projects and stakeholders.
+                Capture inbound work, triage it quickly, and move it through accountable follow-up and task execution.
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ function LoginScreen() {
 
             <div className="login-card-copy">
               <h2>Sign in</h2>
-              <p>Enter your execution workspace to move inbound work through routing, accountability, and closeout.</p>
+              <p>Enter your daily operations workspace to triage work, track commitments, and finish execution.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form">
@@ -169,7 +169,7 @@ function LoginScreen() {
               ) : null}
 
               <button type="submit" disabled={submitting} className="login-submit-btn">
-                {submitting ? 'Signing in...' : 'Sign in to SetPoint'}
+                {submitting ? 'Signing in...' : 'Sign in to FollowUp HQ'}
               </button>
             </form>
 
@@ -483,7 +483,7 @@ function MainApp({ session }: { session: Session }) {
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
             <SetPointWordmark variant="shell" className="app-brand-title" decorative />
-            <div className="app-brand-subline">From intake to closeout.</div>
+            <div className="app-brand-subline">Daily construction execution.</div>
           </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
@@ -531,7 +531,7 @@ function MainApp({ session }: { session: Session }) {
               </section>
             ))}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open SetPoint command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open FollowUp HQ command palette</button></div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 
@@ -551,13 +551,12 @@ function MainApp({ session }: { session: Session }) {
               </div>
             </div>
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
-              <div className="workspace-header-main">
-                <div className="workspace-label">{modeConfig.displayName}</div>
-                <h1>{currentMeta.shellTitle}</h1>
-                <p>{currentMeta.shellPurpose}</p>
-                <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
-              </div>
-              <div className="workspace-header-meta">
+              <div className="workspace-header-row workspace-header-row-top">
+                <div className="workspace-header-main">
+                  <div className="workspace-label">{modeConfig.displayName}</div>
+                  <h1>{currentMeta.shellTitle}</h1>
+                  <p>{currentMeta.shellPurpose}</p>
+                </div>
                 <div className="workspace-header-meta-top">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
                   <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
@@ -577,6 +576,9 @@ function MainApp({ session }: { session: Session }) {
                     testReminderNotification={testReminderNotification}
                   />
                 </div>
+              </div>
+
+              <div className="workspace-header-row workspace-header-row-bottom">
                 <div className="workspace-header-actions">
                   {currentMeta.primaryAction ? (
                     <button type="button" onClick={() => runPrimaryAction(currentMeta.primaryAction?.actionKey ?? 'none')} className={currentMeta.primaryAction.primary ? 'primary-btn' : 'action-btn'}>
@@ -586,25 +588,25 @@ function MainApp({ session }: { session: Session }) {
                   ) : null}
                   <button type="button" className="action-btn" onClick={() => runPrimaryAction('new-followup')} title="Quick capture (Ctrl/Cmd+Shift+N)">
                     <Sparkles className="h-4 w-4" />
-                    Quick capture
+                    Quick add
                   </button>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white/70 p-2 text-xs text-slate-700">
-                  <span className="font-semibold text-slate-900">Daily focus</span>
-                  <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>
-                    Overdue: {dailyFocus.pressure}
-                  </button>
-                  <button type="button" className="action-chip" onClick={() => openTrackerView('Today')}>
-                    Due today: {dailyFocus.dueTodayFollowUps}
-                  </button>
-                  <button type="button" className="action-chip" onClick={() => openTrackerView('Needs nudge')}>
-                    Needs nudge: {dailyFocus.nudgeFollowUps}
-                  </button>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-                    Tasks: {dailyFocus.overdueTasks} overdue • {dailyFocus.dueSoonTasks} due soon
-                  </span>
-                </div>
+
+                <details className="daily-focus-strip" open={dailyFocus.pressure > 0}>
+                  <summary>
+                    <span className="daily-focus-label">Daily focus</span>
+                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today • {dailyFocus.nudgeFollowUps} need nudge</span>
+                  </summary>
+                  <div className="daily-focus-actions">
+                    <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>Overdue</button>
+                    <button type="button" className="action-chip" onClick={() => openTrackerView('Today')}>Due today</button>
+                    <button type="button" className="action-chip" onClick={() => openTrackerView('Needs nudge')}>Needs nudge</button>
+                    <span className="daily-focus-task-meta">Tasks: {dailyFocus.overdueTasks} overdue · {dailyFocus.dueSoonTasks} due soon</span>
+                  </div>
+                </details>
               </div>
+
+              <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
             </header>
             <section className="workspace-body-slot">
               {workspaceBody}
@@ -702,7 +704,7 @@ function MainApp({ session }: { session: Session }) {
             />
             <AppModalBody>
               <p className="text-sm text-slate-600">
-                You have pending local changes or recovery items. Choose how you want SetPoint to handle this account before signing out.
+                You have pending local changes or recovery items. Choose how FollowUp HQ should handle this account before signing out.
               </p>
               <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                 <div>Unsaved local changes: {hasLocalUnsavedChanges || unsavedChangeCount > 0 ? `${Math.max(unsavedChangeCount, 1)} pending` : 'none'}</div>
@@ -828,7 +830,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
         <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center justify-center">
-          <StatePanel tone="loading" title="Loading session" message="Checking your SetPoint session and workspace context..." />
+          <StatePanel tone="loading" title="Loading session" message="Checking your FollowUp HQ session and workspace context..." />
         </div>
       </div>
     );

@@ -1,6 +1,5 @@
 import { ChevronDown, Plus, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
-import { AppBadge } from '../ui/AppPrimitives';
 
 type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 type TaskSort = 'due' | 'priority' | 'updated';
@@ -92,10 +91,9 @@ export const TaskToolbar = memo(function TaskToolbar({
     <div className="workspace-control-stack task-control-stack-calm">
       <div className={`task-primary-toolbar-slim ${isMobileLike ? 'task-primary-toolbar-slim-mobile' : ''}`}>
         <label className="field-block task-search-block">
-          <span className="field-label">Search</span>
           <div className="search-field-wrap">
             <Search className="search-field-icon h-4 w-4" />
-            <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Title, queue reason, review reason, owner, project" className="field-input search-field-input" />
+            <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Search tasks" className="field-input search-field-input" />
             {searchQuery ? <button type="button" onClick={onClearSearch} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
           </div>
         </label>
@@ -110,8 +108,7 @@ export const TaskToolbar = memo(function TaskToolbar({
         <div className="task-toolbar-actions">
           <button onClick={onToggleViewOptions} className="action-btn" aria-expanded={viewOptionsOpen}>
             <SlidersHorizontal className="h-4 w-4" />
-            Options
-            {activeFilterCount > 0 ? <AppBadge tone="info">{activeFilterCount}</AppBadge> : null}
+            Options{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
           </button>
           <button onClick={onOpenCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
@@ -119,7 +116,8 @@ export const TaskToolbar = memo(function TaskToolbar({
       </div>
 
       {viewOptionsOpen ? (
-        <div className="task-filters-panel-slim">
+        <details className="task-filters-panel-slim" open>
+          <summary className="task-view-options-title">Advanced filters and layout</summary>
           <section className="task-view-options-section">
             <h4 className="task-view-options-title">Scope</h4>
             <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
@@ -162,7 +160,7 @@ export const TaskToolbar = memo(function TaskToolbar({
           <div className="task-view-options-reset-row">
             <button onClick={onResetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
           </div>
-        </div>
+        </details>
       ) : null}
 
       {activeFilterChips.length > 0 || sortSummary ? (

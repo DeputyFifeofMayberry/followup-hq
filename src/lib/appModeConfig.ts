@@ -51,7 +51,7 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
   overview: {
     userLabel: 'Overview',
     shellTitle: 'Overview',
-    shellPurpose: 'Start-of-day cockpit for triage, routing decisions, and immediate execution control.',
+    shellPurpose: 'Start here to triage today's work and route it into execution.',
     category: 'core',
     startSurface: true,
     primaryAction: { label: 'Create work item', actionKey: 'new-work', primary: true },
@@ -61,8 +61,8 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Follow Ups',
     shellTitle: 'Follow Ups',
     shellPurpose: mode === 'personal'
-      ? 'Commitment execution lane for owner follow-through, nudges, and closeout readiness.'
-      : 'Team commitment lane for accountable follow-through, escalation, and closeout.',
+      ? 'Track follow-up commitments, nudges, and closeout readiness.'
+      : 'Track team commitments, escalations, and closeout readiness.',
     category: 'core',
     startSurface: false,
     primaryAction: { label: 'Add follow-up', actionKey: 'new-followup', primary: true },
@@ -72,8 +72,8 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Tasks',
     shellTitle: 'Tasks',
     shellPurpose: mode === 'personal'
-      ? 'Work execution lane for assigned production tasks and handoffs.'
-      : 'Team work lane for assignees, throughput, and linked commitment support.',
+      ? 'Execute assigned tasks and handoffs.'
+      : 'Execute team tasks with ownership and linked commitment context.',
     category: 'core',
     startSurface: false,
     primaryAction: { label: 'Add task', actionKey: 'new-task', primary: true },
@@ -83,8 +83,8 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Intake',
     shellTitle: 'Intake',
     shellPurpose: mode === 'personal'
-      ? 'Inbound capture and review funnel for routing approved work into execution lanes.'
-      : 'Team intake funnel for inbound material, review safety, and disciplined routing.',
+      ? 'Review inbound work before routing it into Follow Ups or Tasks.'
+      : 'Review inbound team updates before routing them into Follow Ups or Tasks.',
     category: 'support',
     startSurface: false,
     healthLabel: ({ combinedCleanup }) => `${combinedCleanup} need cleanup`,
@@ -93,8 +93,8 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Directory',
     shellTitle: 'Directory',
     shellPurpose: mode === 'personal'
-      ? 'Master-data directory for projects, people, and companies with optional operational pressure context.'
-      : 'Unified operations directory for projects and relationships with routing context as a secondary panel.',
+      ? 'Master directory for projects, people, and companies.'
+      : 'Operational directory for projects, people, and companies.',
     category: 'support',
     startSurface: false,
     healthLabel: ({ totalItems }) => `${totalItems} linked follow-ups`,
@@ -103,8 +103,8 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     userLabel: 'Exports',
     shellTitle: 'Exports',
     shellPurpose: mode === 'personal'
-      ? 'Reporting support surface for operational snapshots and closeout-ready exports.'
-      : 'Reporting support surface for team snapshots, status packs, and audit-ready exports.',
+      ? 'Reporting and export surface for daily status snapshots.'
+      : 'Reporting and export surface for team snapshots and audit packs.',
     category: 'support',
     startSurface: false,
     healthLabel: () => 'Export-ready data',
@@ -114,32 +114,32 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
 export const appModeConfig: Record<AppMode, AppModeConfig> = {
   personal: {
     displayName: 'Personal mode',
-    shellLabel: 'SetPoint personal execution workspace',
-    shellDescription: 'Overview starts the day, Follow Ups + Tasks execute work, and support views maintain context from intake to closeout.',
+    shellLabel: 'FollowUp HQ personal operations',
+    shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
     supportViewsMuted: true,
     supportActionsSecondary: true,
     emphasizeCoordinationActions: false,
     showOwnerHeavyControls: false,
     trackerOwnerContext: 'compact',
-    overviewSubtitle: 'Start-of-day cockpit: intake triage, execution routing, and closeout control.',
-    taskSubtitle: 'Execution-first work lane for assigned actions and measurable completion.',
-    directorySubtitle: 'Unified project and relationship directory for clear master-data management.',
+    overviewSubtitle: 'Start here: triage and route the highest-priority work.',
+    taskSubtitle: 'Execution queue for assigned actions and measurable completion.',
+    directorySubtitle: 'Master context for projects, people, and companies.',
     projectsSubtitle: 'Operational project pressure is available in Directory > Operational context.',
     relationshipsSubtitle: 'People and company relationship context now lives inside Directory.',
     workspaceMeta: buildWorkspaceMeta('personal'),
   },
   team: {
     displayName: 'Team mode',
-    shellLabel: 'SetPoint team execution workspace',
-    shellDescription: 'Overview starts the day, Follow Ups + Tasks execute work, and support views maintain context from intake to closeout.',
+    shellLabel: 'FollowUp HQ team operations',
+    shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
     supportViewsMuted: false,
     supportActionsSecondary: false,
     emphasizeCoordinationActions: true,
     showOwnerHeavyControls: true,
     trackerOwnerContext: 'full',
-    overviewSubtitle: 'Start-of-day cockpit with ownership, blockers, and intervention points.',
-    taskSubtitle: 'Coordination-ready work lane with owner, assignee, and parent commitment context.',
-    directorySubtitle: 'Unified project and relationship directory for operational accountability.',
+    overviewSubtitle: 'Start here: triage team work, blockers, and interventions.',
+    taskSubtitle: 'Execution queue with owner, assignee, and linked commitment context.',
+    directorySubtitle: 'Master context for operational projects, people, and companies.',
     projectsSubtitle: 'Operational project pressure is available in Directory > Operational context.',
     relationshipsSubtitle: 'People and company relationship context now lives inside Directory.',
     workspaceMeta: buildWorkspaceMeta('team'),

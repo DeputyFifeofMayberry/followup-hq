@@ -18,12 +18,12 @@
 .app-main-pane {
   min-width: 0;
   display: grid;
-  gap: clamp(0.7rem, 1.1vw, 1rem);
+  gap: clamp(0.45rem, 0.9vw, 0.72rem);
   border-radius: calc(var(--radius-xl) - 0.1rem);
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: var(--surface-shell-pane);
   box-shadow: 0 24px 50px rgba(2, 6, 23, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  padding: clamp(0.68rem, 0.95vw, 0.9rem);
+  padding: clamp(0.5rem, 0.8vw, 0.68rem);
 }
 
 .app-nav-rail {
@@ -85,9 +85,9 @@
 .nav-card-muted .nav-label-primary { color: #9fb2cb; font-weight: 580; }
 .nav-card-muted .nav-label-icon { color: #91a4bf; }
 .nav-section-support .nav-card:not(.nav-card-active) { background: rgba(15, 23, 42, 0.07); }
-.nav-pill { min-width: 1.2rem; padding: 0.02rem 0.28rem; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.28); background: rgba(30, 41, 59, 0.24); text-align: center; }
+.nav-pill { min-width: 1rem; padding: 0.01rem 0.24rem; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.22); background: rgba(30, 41, 59, 0.2); text-align: center; }
 .nav-card-active .nav-pill { border-color: rgba(45, 212, 191, 0.42); background: rgba(15, 118, 110, 0.36); }
-.nav-pill-text { color: #dbe7f7; font-size: 0.64rem; font-weight: 600; }
+.nav-pill-text { color: #dbe7f7; font-size: 0.6rem; font-weight: 560; }
 .nav-command-btn { width: 100%; justify-content: flex-start; display: inline-flex; align-items: center; gap: var(--space-2); border-radius: 0.78rem; padding: 0.5rem 0.64rem; border: 1px dashed rgba(100, 116, 139, 0.42); background: rgba(15, 23, 42, 0.16); color: #9db2cd; font-size: 0.75rem; font-weight: 540; }
 .nav-command-btn:hover { border-color: rgba(148, 163, 184, 0.56); color: #d5e1f1; background: rgba(30, 41, 59, 0.26); }
 
@@ -215,11 +215,33 @@
 .action-chip {
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 999px;
-  padding: 0.24rem 0.55rem;
+  padding: 0.18rem 0.46rem;
   background: rgba(241, 245, 249, 0.95);
   color: #334155;
   font-weight: 620;
 }
+
+.daily-focus-strip {
+  border: 1px solid var(--border-default);
+  background: rgba(248, 250, 252, 0.9);
+  border-radius: 0.72rem;
+  padding: 0.35rem 0.48rem;
+  min-width: min(520px, 100%);
+}
+.daily-focus-strip summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+.daily-focus-strip summary::-webkit-details-marker { display: none; }
+.daily-focus-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 700; }
+.daily-focus-summary { font-size: 0.74rem; color: #334155; }
+.daily-focus-actions { margin-top: 0.38rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+.daily-focus-task-meta { font-size: 0.7rem; color: #64748b; }
 
 .action-chip:hover {
   border-color: rgba(100, 116, 139, 0.45);

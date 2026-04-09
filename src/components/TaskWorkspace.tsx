@@ -177,11 +177,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   return (
     <WorkspacePage>
       <div className="task-workspace-header-slim">
-        <SectionHeader title="Tasks execution lane" subtitle={modeConfig.taskSubtitle} compact />
+        <SectionHeader title="Tasks" subtitle={modeConfig.taskSubtitle} compact />
         <div className="task-workspace-header-metrics">
-          <span>{vm.queueSummary}</span>
-          <span>Review queue: {vm.taskSummary.reviewRequired}</span>
-          <span>Unlinked: {vm.taskSummary.unlinked}</span>
+          <span>{vm.queueSummary}</span><span>Review: {vm.taskSummary.reviewRequired}</span><span>Unlinked: {vm.taskSummary.unlinked}</span>
         </div>
       </div>
 
@@ -246,7 +244,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           renderNowSignal={vm.getTaskSignal}
         />
 
-        <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} hint="Select a task and act without leaving this lane." />
+        <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} />
       </section>
 
       <TaskInspectorModal

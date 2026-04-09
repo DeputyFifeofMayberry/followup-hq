@@ -4,6 +4,7 @@ import { DirectoryProjectsPane } from './DirectoryProjectsPane';
 import { PeopleDirectoryPane } from './PeopleDirectoryPane';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { ProjectDeleteModal } from './ProjectDeleteModal';
+import { AppShellCard, SectionHeader, SegmentedControl, WorkspacePage } from '../ui/AppPrimitives';
 
 interface DirectoryWorkspaceProps {
   onOpenFollowUp: (recordId: string) => void;
@@ -13,20 +14,25 @@ interface DirectoryWorkspaceProps {
 
 export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectoryRecord }: DirectoryWorkspaceProps) {
   const vm = useDirectoryViewModel();
+  const tabOptions = [
+    { value: 'projects', label: 'Projects' },
+    { value: 'people', label: 'People' },
+    { value: 'companies', label: 'Companies' },
+  ] as const;
 
   return (
-    <div className="workspace-page">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-950">Directory</h2>
-          <p className="text-sm text-slate-600">Master data for projects, people, and companies. Operational pressure is available as secondary context.</p>
+    <WorkspacePage>
+      <AppShellCard className="workspace-summary-strip directory-summary-strip" surface="hero">
+        <SectionHeader
+          title="Directory"
+          subtitle="Master context for projects, people, and companies."
+          compact
+          actions={<SegmentedControl value={vm.tab} onChange={(value) => vm.setTab(value as typeof vm.tab)} options={tabOptions.map((option) => ({ value: option.value, label: option.label }))} />}
+        />
+        <div className="directory-summary-note">
+          Keep project records, key contacts, and company relationships current so triage and execution surfaces stay accurate.
         </div>
-        <div className="flex gap-2">
-          {(['projects', 'people', 'companies'] as const).map((tab) => (
-            <button key={tab} className={vm.tab === tab ? 'primary-btn' : 'action-btn'} onClick={() => vm.setTab(tab)}>{tab[0].toUpperCase()}{tab.slice(1)}</button>
-          ))}
-        </div>
-      </div>
+      </AppShellCard>
 
       {vm.tab === 'projects' ? <DirectoryProjectsPane vm={vm} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
       {vm.tab === 'people' ? <PeopleDirectoryPane onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
@@ -56,6 +62,6 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
         onClose={() => vm.setDeleteModalOpen(false)}
         onDelete={vm.confirmDeleteProject}
       />
-    </div>
+    </WorkspacePage>
   );
 }

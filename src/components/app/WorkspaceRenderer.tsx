@@ -12,23 +12,24 @@ interface WorkspaceRendererProps {
   workspace: WorkspaceKey;
   appMode: AppMode;
   openTrackerView: (view: SavedViewKey, project?: string) => void;
-  openTrackerItem: (itemId: string, view?: SavedViewKey, project?: string) => void;
+  openFollowUp: (itemId: string, view?: SavedViewKey, project?: string) => void;
+  openTask: (taskId: string, project?: string) => void;
   setWorkspace: (workspace: WorkspaceKey) => void;
 }
 
-export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openTrackerItem, setWorkspace }: WorkspaceRendererProps) {
+export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFollowUp, openTask, setWorkspace }: WorkspaceRendererProps) {
   void openTrackerView;
   switch (workspace) {
     case 'followups':
       return <TrackerWorkspace personalMode={appMode === 'personal'} appMode={appMode} />;
     case 'tasks':
-      return <TaskWorkspace onOpenLinkedFollowUp={(id) => openTrackerItem(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
+      return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
     case 'exports':
       return <ExportWorkspace />;
     case 'intake':
       return <IntakeWorkspacePanel />;
     case 'directory':
-      return <DirectoryWorkspace onOpenItem={(id) => openTrackerItem(id)} />;
+      return <DirectoryWorkspace onOpenFollowUp={(id) => openFollowUp(id)} onOpenTask={(id) => openTask(id)} onOpenDirectoryRecord={() => setWorkspace('directory')} />;
     default:
       return (
         <OverviewPage

@@ -339,6 +339,11 @@ function MainApp({ session }: { session: Session }) {
     openTrackerView(view, project);
   }, [openTrackerView, setSelectedId]);
 
+  const openTaskItem = useCallback((_taskId: string, project = 'All') => {
+    setProjectFilter(project);
+    setWorkspace('tasks');
+  }, [setProjectFilter]);
+
   const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed').length;
   const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done').length;
   const combinedCleanup = cleanupFollowUps + cleanupTasks;
@@ -355,10 +360,11 @@ function MainApp({ session }: { session: Session }) {
       workspace={workspace}
       appMode={appMode}
       openTrackerView={openTrackerView}
-      openTrackerItem={openTrackerItem}
+      openFollowUp={openTrackerItem}
+      openTask={openTaskItem}
       setWorkspace={setWorkspace}
     />
-  ), [workspace, appMode, openTrackerItem, openTrackerView]);
+  ), [workspace, appMode, openTrackerItem, openTaskItem, openTrackerView]);
 
   const navSections = useMemo(() => {
     const workspaceEntries = orderedWorkspaces.map((key) => ({ key, meta: modeConfig.workspaceMeta[key] }));

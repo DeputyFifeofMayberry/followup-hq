@@ -134,7 +134,7 @@ export function TrackerTable({
     <TrackerMobileList
       items={rows}
       selectedId={vm.selectedId}
-      selectedCount={vm.selectedFollowUpIds.length}
+      selectedCount={vm.actionableSelectedFollowUpIds.length}
       appMode={appMode}
       personalMode={personalMode}
       onOpenDetails={(id) => {
@@ -214,7 +214,7 @@ export function TrackerTable({
       </div>
       <ExecutionLaneFooterMeta
         shownCount={rows.length}
-        selectedCount={vm.selectedFollowUpIds.length}
+        selectedCount={vm.actionableSelectedFollowUpIds.length}
         scopeSummary={modeConfig.trackerOwnerContext === 'compact' ? 'Execution view' : 'Coordination view'}
         hint={modeConfig.trackerOwnerContext === 'compact' ? 'Next move and timing stay primary.' : 'Owner and assignee remain visible for handoff decisions.'}
       />

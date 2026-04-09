@@ -187,10 +187,16 @@ export interface AppStoreActions {
   approveIntakeCandidate: (candidateId: string, mode?: 'task' | 'followup') => void;
   discardIntakeCandidate: (candidateId: string) => void;
   saveIntakeCandidateAsReference: (candidateId: string) => void;
-  ingestIntakeFiles: (files: File[], source?: 'drop' | 'file_picker') => Promise<void>;
+  ingestIntakeFiles: (files: File[], source?: 'drop' | 'file_picker' | 'manual_paste') => Promise<void>;
   updateIntakeWorkCandidate: (candidateId: string, patch: any) => void;
   decideIntakeWorkCandidate: (candidateId: string, decision: 'approve_task' | 'approve_followup' | 'link' | 'reference' | 'reject', linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => void;
   batchApproveHighConfidence: () => void;
+  ingestIntakeText: (rawText: string, titleHint?: string) => Promise<void>;
+  archiveIntakeBatch: (batchId: string) => void;
+  clearFinalizedIntakeCandidates: (batchId?: string) => void;
+  removeIntakeAsset: (assetId: string) => void;
+  retryIntakeAssetParse: (assetId: string) => Promise<void>;
+  deleteIntakeBatchIfEmpty: (batchId: string) => void;
   confirmFollowUpSent: (id: string, notes?: string) => void;
   updateOutlookSettings: (patch: Partial<OutlookConnectionSettings>) => void;
   startOutlookAuth: () => Promise<void>;

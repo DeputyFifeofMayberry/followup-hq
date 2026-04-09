@@ -2,6 +2,19 @@
 
 ## 2026-04-09
 
+
+### Intake professionalization pass (trustworthy daily workflow)
+- Introduced a single intake file-capability matrix with explicit states (`parse_supported`, `manual_review_only`, `blocked`) and wired both picker accept list + drop validation to it; `.msg` and legacy `.doc` are now rejected with clear inline reasons, while degraded formats (e.g. `.pptx`) are accepted with manual-review caveats (`src/lib/intakeFileCapabilities.ts`, `src/components/UniversalIntakeWorkspace.tsx`, `src/lib/universalIntake.ts`).
+- Preserved stage-2 structured extraction chunks on `IntakeAssetRecord` and switched candidate generation to use persisted chunks directly (including row/email locator context), leaving `extractedText` as display-only fallback (`src/types.ts`, `src/lib/universalIntake.ts`).
+- Expanded Intake into explicit operational lanes including `Link / duplicate review`, surfaced existing-match details and compare context, and required explicit unsafe-create override confirmation when duplicate risk blocks normal create (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeImportSafety.ts`).
+- Added session/batch lifecycle operations (archive batch, clear finalized candidates by batch, remove failed assets, retry parse, delete empty batch) and surfaced active vs archived batches in the workspace (`src/store/slices/intakeSlice.ts`, `src/components/UniversalIntakeWorkspace.tsx`, `src/store/types.ts`, `src/types.ts`).
+- Upgraded correction panel into a fuller reviewer workbench covering type/project/owner/assignee/due/priority/waiting-on/next-step/summary with confidence pressure visibility and explicit critical-field review prompts (`src/components/UniversalIntakeWorkspace.tsx`).
+- Added date normalization utilities and date-signal separation (`source`, `due`, `promised`, `next touch`, historical mentions), prevented non-ISO strings from binding to date inputs, and surfaced date-conflict warnings (`src/lib/intakeDates.ts`, `src/lib/universalIntake.ts`, `src/types.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Replaced title-only batch dedupe behavior with signature-based suspected-duplicate grouping that preserves valid same-title spreadsheet rows instead of silently dropping them (`src/lib/universalIntake.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Reduced intake naming fragmentation by introducing `IntakeWorkspacePanel` as the active entry point while keeping a documented temporary `OutlookPanel` compatibility export (`src/components/IntakeWorkspacePanel.tsx`, `src/components/OutlookPanel.tsx`, `src/components/app/WorkspaceRenderer.tsx`).
+- Added fast manual non-file capture (`Quick paste intake`) that routes through the same ingestion/review pipeline via `ingestIntakeText` (`src/components/UniversalIntakeWorkspace.tsx`, `src/store/slices/intakeSlice.ts`, `src/store/types.ts`).
+- Added new intake-focused tests for file capability validation, structured chunk preservation, date normalization/conflicts, safer within-batch grouping, and duplicate/link-review workflow safety (`src/lib/__tests__/intakeFileCapabilities.test.ts`, `src/lib/__tests__/intakeStructuredChunkPreservation.test.ts`, `src/lib/__tests__/intakeDates.test.ts`, `src/lib/__tests__/intakeBatchDedupe.test.ts`, `src/lib/__tests__/intakeWorkflowPaths.test.ts`).
+
 ### Tasks execution-console refinement pass
 - Reworked Tasks into an execution-console flow with expanded queue views (`Now`, `Overdue`, `Review needed`, `Deferred`, `Unlinked`, `Done today`) and stronger queue pressure summaries that keep trust/repair work visible in-lane instead of filtering it out.
 - Rebuilt task fast capture into an inline compact form requiring title/project/owner/next step with keyboard-first save/cancel behavior, grounded defaults from recent work context, and immediate queue selection after create.

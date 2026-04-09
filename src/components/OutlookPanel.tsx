@@ -1,12 +1,5 @@
-import { UniversalIntakeWorkspace } from './UniversalIntakeWorkspace';
+import { IntakeWorkspacePanel } from './IntakeWorkspacePanel';
 
-export function IntakeWorkspacePanel() {
-  return (
-    <div className="space-y-3">
-      <UniversalIntakeWorkspace />
-    </div>
-  );
-}
-
-// Backward-compatible export while workspace keys still use `outlook` internally.
+// Temporary compatibility shim while route/storage keys migrate from `outlook` to `intake` naming.
+export { IntakeWorkspacePanel };
 export const OutlookPanel = IntakeWorkspacePanel;

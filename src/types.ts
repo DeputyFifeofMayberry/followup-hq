@@ -436,6 +436,18 @@ export interface IntakeAssetRecord {
   extractionConfidence?: number;
   extractionChunks?: IntakeExtractionChunk[];
   parserStages?: string[];
+  retrySource?: {
+    encoding: 'base64';
+    payload: string;
+    fileName: string;
+    fileType: string;
+    lastModified: number;
+    sizeBytes: number;
+  };
+  retryUnavailableReason?: string;
+  lastRetryAt?: string;
+  lastRetryStatus?: 'success' | 'failed';
+  lastRetryMessage?: string;
 }
 
 export interface IntakeBatchRecord {
@@ -451,6 +463,8 @@ export interface IntakeBatchRecord {
     failedParses: number;
     duplicatesFlagged: number;
     parseFailures?: number;
+    activeCandidates?: number;
+    finalizedCandidates?: number;
   };
 }
 

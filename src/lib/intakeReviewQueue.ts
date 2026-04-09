@@ -1,6 +1,6 @@
 import { buildForwardedFieldReviews, buildWorkCandidateFieldReviews, summarizeFieldReviews } from './intakeEvidence';
 import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from './intakeImportSafety';
-import type { ForwardedIntakeCandidate, ForwardedRoutingAuditEntry, IntakeAssetRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
+import type { ForwardedIntakeCandidate, ForwardedRoutingAuditEntry, IntakeAssetRecord, IntakeBatchRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
 import { buildIntakeTuningModel, type IntakeTuningModel } from './intakeTuningModel';
 import { evaluateIntakeDecisionPolicy, ruleIdsForForwardedCandidate, type IntakeDecisionPolicyResult } from './intakeDecisionPolicy';
 
@@ -107,12 +107,14 @@ function tuningReviewPressure(model: IntakeTuningModel, source: string): boolean
 export function buildIntakeReviewQueue(
   candidates: IntakeWorkCandidate[],
   assets: IntakeAssetRecord[],
+  batches: IntakeBatchRecord[] = [],
   tuningModel?: IntakeTuningModel,
   feedback: IntakeReviewerFeedback[] = [],
 ): IntakeQueueItem[] {
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const archivedBatchIds = new Set(batches.filter((batch) => batch.status === 'archived').map((batch) => batch.id));
 
-  return candidates.map((candidate) => {
+  return candidates.filter((candidate) => !archivedBatchIds.has(candidate.batchId)).map((candidate) => {
     const asset = assetsById.get(candidate.assetId);
     const model = tuningModel;
     const fieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
@@ -400,7 +402,7 @@ export function buildTuningAwareReviewQueue(input: {
     forwardedRoutingAudit: [],
     feedback: input.feedback,
   });
-  return { queue: buildIntakeReviewQueue(input.intakeWorkCandidates, input.intakeAssets, tuningModel, input.feedback), tuningModel };
+  return { queue: buildIntakeReviewQueue(input.intakeWorkCandidates, input.intakeAssets, [], tuningModel, input.feedback), tuningModel };
 }
 
 export function filterReviewQueue(queue: IntakeQueueItem[], filters: IntakeQueueFilters): IntakeQueueItem[] {

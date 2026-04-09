@@ -35,7 +35,9 @@ function isAtRisk(item: FollowUpItem): boolean {
 }
 
 function isReadyToClose(item: FollowUpItem): boolean {
-  return isOpen(item) && !!item.allLinkedTasksDone;
+  // An item with no linked tasks is a close candidate the moment it's open.
+  // An item with linked tasks is only a close candidate once all tasks are done.
+  return isOpen(item) && ((item.linkedTaskCount ?? 0) === 0 || !!item.allLinkedTasksDone);
 }
 
 function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['dueDateRange']): boolean {

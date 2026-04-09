@@ -2,6 +2,13 @@
 
 ## 2026-04-09
 
+### Create Work modal quick/full refinement pass
+- Refactored `CreateWorkModal` into distinct quick-create and full-editor layout paths so quick mode no longer shares the full editor’s section-shell/card stack, now using a dedicated fast-entry grid with earlier responsive collapse behavior for laptop widths (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
+- Removed inline in-form save status/actions and reduced top status messaging to one concise summary helper sentence per mode, leaving validation at field-level + single blocking alert + footer action state (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
+- Reduced quick-mode top-bar density and replaced wide preset button rows with a compact `Templates` select that preserves follow-up/task-specific presets while reducing horizontal clutter (`src/components/CreateWorkModal.tsx`).
+- Polished full-editor disclosure sections with clearer header rows (title + purpose + chevron affordance), preserved collapse state, and added smarter default expansion for relationships/notes/advanced based on existing draft context (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
+- Tightened create-modal operational copy across subtitle, summary strip, quick helper text, and conditional guidance text to emphasize direct daily-use language (`src/components/CreateWorkModal.tsx`).
+
 ### Create Work daily-driver workflow redesign
 - Reworked `CreateWorkModal` into a sectioned capture workflow with explicit `Quick create` vs `Full editor` modes, a keyboard-accessible section rail with active-section tracking, sticky in-form save state/actions, and persistent user preferences for editor mode and advanced-detail visibility per work type (`src/components/CreateWorkModal.tsx`).
 - Removed the permanent wide create sidebar and replaced it with a compact completion/status strip plus inline checklist signaling to recover primary form width and improve completion speed on laptop/split-screen layouts (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).

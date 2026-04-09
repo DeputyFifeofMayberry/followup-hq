@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
@@ -278,6 +278,20 @@ export function CreateWorkModal() {
     return () => observer.disconnect();
   }, [editorMode, showAdvanced, mode, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const shouldOpenRelationships = mode === 'followup'
+      ? Boolean(followUpForm.contactId || followUpForm.companyId)
+      : Boolean(taskForm.linkedFollowUpId || taskForm.contactId || taskForm.companyId || taskForm.linkedProjectContext);
+    const shouldOpenNotes = mode === 'followup'
+      ? followUpForm.status === 'Closed' || Boolean(followUpForm.completionNote)
+      : taskForm.status === 'Done' || Boolean(taskForm.completionNote);
+    const shouldOpenAdvanced = mode === 'followup'
+      ? Boolean(followUpForm.sourceRef || followUpForm.threadKey || followUpForm.draftFollowUp || followUpForm.actionState)
+      : Boolean(taskForm.contextNote);
+    setExpandedAdvanced({ core: true, schedule: true, relationships: shouldOpenRelationships, notes: shouldOpenNotes, advanced: shouldOpenAdvanced });
+  }, [open, mode, followUpSession?.recordRef.id, taskSession?.recordRef.id]);
+
   if (!open) return null;
 
   const close = () => {
@@ -294,29 +308,6 @@ export function CreateWorkModal() {
   const canSave = mode === 'followup' ? Boolean(followUpSession?.validation.valid) : Boolean(taskSession?.validation.valid);
   const validationIssues = mode === 'followup' ? (followUpSession?.validation.issues ?? []) : (taskSession?.validation.issues ?? []);
   const issuesByField = toFieldIssueMap(validationIssues as Array<{ field: string; message: string }>);
-  const dirty = mode === 'followup' ? Boolean(followUpSession?.dirty) : Boolean(taskSession?.dirty);
-
-  const requiredChecklist = mode === 'followup'
-    ? [
-      { label: 'Title', done: Boolean(followUpForm.title.trim()) },
-      { label: 'Project', done: Boolean(followUpForm.project.trim()) },
-      { label: 'Owner', done: Boolean(followUpForm.owner.trim()) },
-      { label: 'Due date', done: Boolean(followUpForm.dueDate) },
-      { label: 'Next move', done: Boolean(followUpForm.nextAction.trim()) },
-      { label: 'Status', done: Boolean(followUpForm.status) },
-      { label: 'Priority', done: Boolean(followUpForm.priority) },
-    ]
-    : [
-      { label: 'Title', done: Boolean(taskForm.title.trim()) },
-      { label: 'Project', done: Boolean(taskForm.project.trim()) },
-      { label: 'Owner', done: Boolean(taskForm.owner.trim()) },
-      { label: 'Next step', done: Boolean(taskForm.nextStep.trim()) },
-      { label: 'Status', done: Boolean(taskForm.status) },
-      { label: 'Priority', done: Boolean(taskForm.priority) },
-      { label: 'Due date', done: Boolean(taskForm.dueDate) },
-    ];
-
-  const completedCount = requiredChecklist.filter((item) => item.done).length;
 
   const save = (forceAddAnother?: boolean) => {
     if (!canSave) return;
@@ -367,13 +358,21 @@ export function CreateWorkModal() {
   const blockedTask = mode === 'task' && taskForm.status === 'Blocked';
   const deferredTask = mode === 'task' && Boolean(taskForm.deferredUntil);
 
-  const maybeRenderAdvancedToggle = (
-    <button type="button" className="action-btn create-work-inline-control" onClick={() => setShowAdvanced((prev) => !prev)}>
-      {showAdvanced ? 'Hide advanced details' : 'Show advanced details'}
-    </button>
-  );
-
   const quickMode = editorMode === 'quick' && creating;
+  const summaryMessage = quickMode
+    ? 'Capture the essentials and save. Switch to Full editor for notes, linkage, and tracking fields.'
+    : 'Use section navigation to move through the form. Ctrl/⌘ + Enter saves.';
+
+  const applyPreset = (presetId: string) => {
+    if (!presetId) return;
+    if (mode === 'followup') {
+      const preset = followUpPresets.find((entry) => entry.id === presetId);
+      if (preset) setFollowUpForm(preset.apply(followUpForm));
+      return;
+    }
+    const preset = taskPresets.find((entry) => entry.id === presetId);
+    if (preset) setTaskForm(preset.apply(taskForm));
+  };
 
   return (
     <AppModal size="wide" ariaLabel="Create or edit work item">
@@ -386,12 +385,12 @@ export function CreateWorkModal() {
         <AppModalHeader
           title={followUpEditing ? 'Edit follow-up' : taskEditing ? 'Edit task' : 'Create work item'}
           subtitle={quickMode
-            ? 'Quick create captures essentials first. Switch to full editor any time.'
-            : 'Structured workflow editor with section navigation and conditional guidance.'}
+            ? 'Capture essentials fast. Switch to Full editor for complete context.'
+            : 'Full editor for complete context, linkage, and tracking.'}
           onClose={close}
         />
         <AppModalBody scrollable={false} className="create-work-modal-body">
-          <div className="create-work-topbar">
+          <div className={quickMode ? 'create-work-topbar create-work-topbar-quick' : 'create-work-topbar'}>
             <div className="create-work-controls-group">
               <label className="create-work-controls-label">Work type</label>
               <SegmentedControl
@@ -411,7 +410,11 @@ export function CreateWorkModal() {
                 options={[{ value: 'quick', label: 'Quick create' }, { value: 'full', label: 'Full editor' }]}
               />
             </div>
-            {creating ? maybeRenderAdvancedToggle : null}
+            {!quickMode && creating ? (
+              <button type="button" className="action-btn create-work-inline-control" onClick={() => setShowAdvanced((prev) => !prev)}>
+                {showAdvanced ? 'Hide advanced' : 'Show advanced'}
+              </button>
+            ) : null}
             {creating ? (
               <label className="create-work-toggle">
                 <input type="checkbox" checked={saveAndContinue} onChange={(event) => setSaveAndContinue(event.target.checked)} />
@@ -421,53 +424,26 @@ export function CreateWorkModal() {
           </div>
 
           <div className="create-work-summary-strip" role="status" aria-live="polite">
-            <span>{completedCount}/{requiredChecklist.length} essentials complete</span>
-            <span>• {validationIssues.length ? `${validationIssues.length} issue${validationIssues.length > 1 ? 's' : ''}` : 'Ready to save'}</span>
-            <span>• {dirty ? 'Unsaved changes' : 'Saved state'}</span>
-            <span>• Save shortcut: Ctrl/⌘ + Enter</span>
+            <span>{summaryMessage}</span>
           </div>
 
-          <div className="create-work-shell">
-            {!quickMode ? (
-              <nav className="create-work-section-nav" aria-label="Form sections">
-                {SECTION_LABELS.filter((section) => showAdvanced || (section.key !== 'relationships' && section.key !== 'notes' && section.key !== 'advanced')).map((section) => (
-                  <button
-                    key={section.key}
-                    type="button"
-                    onClick={() => scrollToSection(section.key)}
-                    className={activeSection === section.key ? 'create-work-section-link create-work-section-link-active' : 'create-work-section-link'}
-                    aria-current={activeSection === section.key ? 'true' : undefined}
-                  >
-                    {section.label}
-                  </button>
-                ))}
-              </nav>
-            ) : null}
-
-            <div className="create-work-editor-scroll" ref={scrollRegionRef}>
-              <div className="create-work-inline-actions">
-                <span className={canSave ? 'workspace-meta-pill workspace-meta-pill-info' : 'workspace-meta-pill workspace-meta-pill-warn'}>
-                  {canSave ? 'Ready to save' : 'Missing required fields'}
-                </span>
-                <button className="action-btn" onClick={() => save(false)} disabled={!canSave}>Save now</button>
-              </div>
+          {quickMode ? (
+            <div className="create-work-quick-shell">
               {validationIssues.length > 0 ? (
                 <div className="create-work-alert" role="alert">
-                  <div className="font-semibold">Resolve these before save:</div>
+                  <div className="font-semibold">Fix before saving:</div>
                   <ul className="mt-1 list-disc pl-4">
                     {validationIssues.map((issue) => <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>)}
                   </ul>
                 </div>
               ) : null}
-
-              <section id="create-work-core" data-section-key="core" ref={(node) => { sectionRefs.current.core = node; }} className="create-work-form-section">
-                <h3>Core</h3>
-                <div className="form-grid-two">
-                  <div className="field-block">
-                    <label className="field-label">Title *</label>
-                    <input autoFocus value={mode === 'followup' ? followUpForm.title : taskForm.title} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, title: e.target.value }) : setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" placeholder="What needs to happen?" />
-                    <FieldHint error={issuesByField.title} />
-                  </div>
+              <section className="create-work-quick-grid" aria-label="Quick create fields">
+                <div className="field-block create-work-quick-title">
+                  <label className="field-label">Title *</label>
+                  <input autoFocus value={mode === 'followup' ? followUpForm.title : taskForm.title} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, title: e.target.value }) : setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" placeholder="What needs to happen?" />
+                  <FieldHint error={issuesByField.title} />
+                </div>
+                <div className="create-work-quick-row create-work-quick-row-project">
                   <EntityCombobox label="Project *" valueId={mode === 'followup' ? followUpForm.projectId : taskForm.projectId} valueLabel={mode === 'followup' ? followUpForm.project : taskForm.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => {
                     if (mode === 'followup') setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id });
                     else setTaskForm({ ...taskForm, project: option.label, projectId: option.id });
@@ -481,6 +457,8 @@ export function CreateWorkModal() {
                     <input value={mode === 'followup' ? followUpForm.owner : taskForm.owner} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, owner: e.target.value, assigneeDisplayName: e.target.value }) : setTaskForm({ ...taskForm, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who is accountable?" />
                     <FieldHint error={issuesByField.owner} />
                   </div>
+                </div>
+                <div className="create-work-quick-row create-work-quick-row-status">
                   <div className="field-block">
                     <label className="field-label">Status *</label>
                     {mode === 'followup' ? (
@@ -502,129 +480,235 @@ export function CreateWorkModal() {
                     <input type="date" value={toDateInputValue(mode === 'followup' ? followUpForm.dueDate : taskForm.dueDate)} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' }) : setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" />
                     <FieldHint error={issuesByField.dueDate} />
                   </div>
-                  <div className="field-block field-block-span-2">
-                    <label className="field-label">{mode === 'followup' ? 'Next move *' : 'Next step *'}</label>
-                    <textarea value={mode === 'followup' ? followUpForm.nextAction : taskForm.nextStep} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, nextAction: e.target.value }) : setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" placeholder={mode === 'followup' ? 'Explicit next action to keep movement.' : 'Most immediate executable step.'} />
-                    <FieldHint error={issuesByField[mode === 'followup' ? 'nextAction' : 'nextStep']} />
-                  </div>
                 </div>
-
-                {creating && mode === 'followup' ? (
-                  <div className="create-work-preset-row">
-                    <span className="create-work-preset-label">Presets</span>
-                    {followUpPresets.map((preset) => <button key={preset.id} type="button" className="action-btn create-work-preset-btn" onClick={() => setFollowUpForm(preset.apply(followUpForm))}>{preset.label}</button>)}
+                <div className="field-block create-work-quick-next">
+                  <label className="field-label">{mode === 'followup' ? 'Next move *' : 'Next step *'}</label>
+                  <textarea value={mode === 'followup' ? followUpForm.nextAction : taskForm.nextStep} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, nextAction: e.target.value }) : setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea create-work-quick-textarea" placeholder={mode === 'followup' ? 'What is the next move?' : 'What is the next step?'} />
+                  <FieldHint error={issuesByField[mode === 'followup' ? 'nextAction' : 'nextStep']} />
+                </div>
+                {creating ? (
+                  <div className="field-block create-work-quick-presets">
+                    <label className="field-label">Templates</label>
+                    <select className="field-input" value="" onChange={(event) => applyPreset(event.target.value)}>
+                      <option value="">Select a template</option>
+                      {(mode === 'followup' ? followUpPresets : taskPresets).map((preset) => (
+                        <option key={preset.id} value={preset.id}>{preset.label}</option>
+                      ))}
+                    </select>
                   </div>
                 ) : null}
-                {creating && mode === 'task' ? (
-                  <div className="create-work-preset-row">
-                    <span className="create-work-preset-label">Presets</span>
-                    {taskPresets.map((preset) => <button key={preset.id} type="button" className="action-btn create-work-preset-btn" onClick={() => setTaskForm(preset.apply(taskForm))}>{preset.label}</button>)}
-                  </div>
-                ) : null}
-              </section>
-
-              <section id="create-work-schedule" data-section-key="schedule" ref={(node) => { sectionRefs.current.schedule = node; }} className="create-work-form-section">
-                <h3>Schedule</h3>
-                <div className="form-grid-two">
-                  {mode === 'followup' ? (
-                    <>
-                      <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-                      <div className="field-block"><label className="field-label">Promised date</label><input type="date" value={toDateInputValue(followUpForm.promisedDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, promisedDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
-                      <div className="field-block"><label className="field-label">Cadence days</label><input type="number" min={1} max={30} value={followUpForm.cadenceDays} onChange={(e) => setFollowUpForm({ ...followUpForm, cadenceDays: Number(e.target.value || 1) })} className="field-input" /><FieldHint error={issuesByField.cadenceDays} /></div>
-                      <div className="field-block"><label className="field-label">Escalation</label><select value={followUpForm.escalationLevel} onChange={(e) => setFollowUpForm({ ...followUpForm, escalationLevel: e.target.value as FollowUpFormInput['escalationLevel'] })} className="field-input"><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option></select></div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="field-block"><label className="field-label">Start date</label><input type="date" value={toDateInputValue(taskForm.startDate)} onChange={(e) => setTaskForm({ ...taskForm, startDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-                      <div className="field-block"><label className="field-label">Next review</label><input type="date" value={toDateInputValue(taskForm.nextReviewAt)} onChange={(e) => setTaskForm({ ...taskForm, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
-                      <div className="field-block"><label className="field-label">Deferred until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /><FieldHint text="Use for intentional deferral windows." error={issuesByField.deferredUntil} /></div>
-                      <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'none'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskFormInput['completionImpact'] })} className="field-input"><option value="none">None</option><option value="advance_parent">Advance parent</option><option value="close_parent">Close parent</option></select></div>
-                    </>
-                  )}
-                </div>
                 {waitingStatus ? (
-                  <div className="field-block field-block-highlight"><label className="field-label">Waiting on *</label><input value={followUpForm.waitingOn || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, waitingOn: e.target.value })} className="field-input" placeholder="Person, company, or team you are waiting on" /><FieldHint text="Waiting statuses require this field so handoffs stay clear." error={issuesByField.waitingOn} /></div>
+                  <div className="field-block field-block-highlight create-work-quick-conditional">
+                    <label className="field-label">Waiting on *</label>
+                    <input value={followUpForm.waitingOn || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, waitingOn: e.target.value })} className="field-input" placeholder="Who are you waiting on?" />
+                    <FieldHint text="Waiting items need a waiting-on owner." error={issuesByField.waitingOn} />
+                  </div>
                 ) : null}
                 {blockedTask ? (
-                  <div className="field-block field-block-highlight"><label className="field-label">Block reason *</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" placeholder="Why this cannot move" /><FieldHint text="Blocked tasks need an explicit blocker for escalation and unblock routing." error={issuesByField.blockReason} /></div>
+                  <div className="field-block field-block-highlight create-work-quick-conditional">
+                    <label className="field-label">Block reason *</label>
+                    <input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" placeholder="What is blocking this?" />
+                    <FieldHint text="Blocked tasks need a blocker." error={issuesByField.blockReason} />
+                  </div>
                 ) : null}
-                {deferredTask ? <FieldHint text="This task is currently deferred; confirm the deferred-until date stays realistic." /> : null}
+                <p className="create-work-quick-helper">Need notes, relationships, or tracking metadata? Switch to Full editor.</p>
               </section>
-
-              {!quickMode && showAdvanced ? (
-                <>
-                  <section id="create-work-relationships" data-section-key="relationships" ref={(node) => { sectionRefs.current.relationships = node; }} className="create-work-form-section">
-                    <button type="button" className="create-work-section-toggle" onClick={() => toggleAdvancedSection('relationships')}>{expandedAdvanced.relationships ? 'Hide' : 'Show'} relationships</button>
-                    {expandedAdvanced.relationships ? (
-                      <div className="form-grid-two">
-                        {mode === 'task' ? (
-                          <div className="field-block field-block-span-2"><label className="field-label">Linked follow-up</label><select className="field-input" value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })}><option value="">None</option>{linkedFollowUpOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
-                        ) : null}
-                        <EntityCombobox label="External contact" valueId={mode === 'followup' ? followUpForm.contactId : taskForm.contactId} valueLabel={(mode === 'followup' ? entityOptions.contactOptions.find((contact) => contact.id === followUpForm.contactId)?.label : entityOptions.contactOptions.find((contact) => contact.id === taskForm.contactId)?.label)} options={entityOptions.contactOptions} onSelect={(option) => {
-                          if (mode === 'followup') setFollowUpForm({ ...followUpForm, contactId: option.id });
-                          else setTaskForm({ ...taskForm, contactId: option.id });
-                        }} onCreate={(label) => {
-                          const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
-                          if (mode === 'followup') setFollowUpForm({ ...followUpForm, contactId: id });
-                          else setTaskForm({ ...taskForm, contactId: id });
-                        }} />
-                        <EntityCombobox label="Company" valueId={mode === 'followup' ? followUpForm.companyId : taskForm.companyId} valueLabel={(mode === 'followup' ? entityOptions.companyOptions.find((company) => company.id === followUpForm.companyId)?.label : entityOptions.companyOptions.find((company) => company.id === taskForm.companyId)?.label)} options={entityOptions.companyOptions} onSelect={(option) => {
-                          if (mode === 'followup') setFollowUpForm({ ...followUpForm, companyId: option.id });
-                          else setTaskForm({ ...taskForm, companyId: option.id });
-                        }} onCreate={(label) => {
-                          const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
-                          if (mode === 'followup') setFollowUpForm({ ...followUpForm, companyId: id });
-                          else setTaskForm({ ...taskForm, companyId: id });
-                        }} />
-                        {mode === 'task' ? <div className="field-block field-block-span-2"><label className="field-label">Linked project context</label><input value={taskForm.linkedProjectContext || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedProjectContext: e.target.value })} className="field-input" placeholder="Where this task fits in the larger project context" /></div> : null}
-                      </div>
-                    ) : null}
-                  </section>
-
-                  <section id="create-work-notes" data-section-key="notes" ref={(node) => { sectionRefs.current.notes = node; }} className="create-work-form-section">
-                    <button type="button" className="create-work-section-toggle" onClick={() => toggleAdvancedSection('notes')}>{expandedAdvanced.notes ? 'Hide' : 'Show'} notes & handoff</button>
-                    {expandedAdvanced.notes ? (
-                      <div className="form-grid-two">
-                        <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={mode === 'followup' ? followUpForm.summary : taskForm.summary} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, summary: e.target.value }) : setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
-                        <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={mode === 'followup' ? followUpForm.notes : taskForm.notes} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, notes: e.target.value }) : setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
-                        {(mode === 'followup' && followUpForm.status === 'Closed') || (mode === 'task' && taskForm.status === 'Done') ? (
-                          <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={mode === 'followup' ? followUpForm.completionNote || '' : taskForm.completionNote || ''} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, completionNote: e.target.value }) : setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" placeholder="Capture outcome and what matters for audit/handoff" /></div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </section>
-
-                  <section id="create-work-advanced" data-section-key="advanced" ref={(node) => { sectionRefs.current.advanced = node; }} className="create-work-form-section create-work-form-section-last">
-                    <button type="button" className="create-work-section-toggle" onClick={() => toggleAdvancedSection('advanced')}>{expandedAdvanced.advanced ? 'Hide' : 'Show'} advanced metadata</button>
-                    {expandedAdvanced.advanced ? (
-                      <div className="form-grid-two">
-                        {mode === 'followup' ? (
-                          <>
-                            <div className="field-block"><label className="field-label">Source</label><select value={followUpForm.source} onChange={(e) => setFollowUpForm({ ...followUpForm, source: e.target.value as FollowUpFormInput['source'] })} className="field-input"><option>Email</option><option>Notes</option><option>To-do</option><option>Excel</option></select></div>
-                            <div className="field-block"><label className="field-label">Source reference</label><input value={followUpForm.sourceRef} onChange={(e) => setFollowUpForm({ ...followUpForm, sourceRef: e.target.value })} className="field-input" placeholder="Email id, report name, meeting context" /></div>
-                            <div className="field-block"><label className="field-label">Thread key</label><input value={followUpForm.threadKey || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, threadKey: e.target.value })} className="field-input" /></div>
-                            <div className="field-block"><label className="field-label">Action lifecycle</label><select value={followUpForm.actionState || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, actionState: (e.target.value || undefined) as ActionLifecycleState | undefined })} className="field-input"><option value="">Not set</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option></select></div>
-                            <div className="field-block field-block-span-2"><label className="field-label">Draft follow-up</label><textarea value={followUpForm.draftFollowUp || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, draftFollowUp: e.target.value })} className="field-textarea" placeholder="Optional message draft for quick send workflows" /></div>
-                            <div className="field-block"><label className="field-label">Category</label><select value={followUpForm.category} onChange={(e) => setFollowUpForm({ ...followUpForm, category: e.target.value as FollowUpFormInput['category'] })} className="field-input"><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option></select></div>
-                            <div className="field-block"><label className="field-label">Owes next action</label><select value={followUpForm.owesNextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, owesNextAction: e.target.value as FollowUpFormInput['owesNextAction'] })} className="field-input"><option>Internal</option><option>Client</option><option>Government</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Unknown</option></select></div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="field-block field-block-span-2"><label className="field-label">Context note</label><textarea value={taskForm.contextNote || ''} onChange={(e) => setTaskForm({ ...taskForm, contextNote: e.target.value })} className="field-textarea" /></div>
-                          </>
-                        )}
-                        <div className="field-block field-block-span-2"><label className="field-label">Tags</label><input value={formatTags(mode === 'followup' ? followUpForm.tags : taskForm.tags)} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, tags: parseTags(e.target.value) }) : setTaskForm({ ...taskForm, tags: parseTags(e.target.value) })} className="field-input" placeholder="comma, separated, tags" /></div>
-                      </div>
-                    ) : null}
-                  </section>
-                </>
-              ) : null}
-
-              {quickMode ? (
-                <div className="create-work-quick-footnote"><Sparkles size={14} /> Need relationships, notes, source metadata, waiting/blocked context, or lifecycle tracking? Switch to Full editor.</div>
-              ) : null}
             </div>
-          </div>
+          ) : (
+            <div className="create-work-full-shell">
+              <nav className="create-work-section-nav" aria-label="Form sections">
+                {SECTION_LABELS.filter((section) => showAdvanced || (section.key !== 'relationships' && section.key !== 'notes' && section.key !== 'advanced')).map((section) => (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => scrollToSection(section.key)}
+                    className={activeSection === section.key ? 'create-work-section-link create-work-section-link-active' : 'create-work-section-link'}
+                    aria-current={activeSection === section.key ? 'true' : undefined}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="create-work-full-editor" ref={scrollRegionRef}>
+                {validationIssues.length > 0 ? (
+                  <div className="create-work-alert" role="alert">
+                    <div className="font-semibold">Fix before saving:</div>
+                    <ul className="mt-1 list-disc pl-4">
+                      {validationIssues.map((issue) => <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <section id="create-work-core" data-section-key="core" ref={(node) => { sectionRefs.current.core = node; }} className="create-work-form-section">
+                  <h3>Core details</h3>
+                  <p className="create-work-section-support">Capture owner, priority, and the next move.</p>
+                  <div className="form-grid-two">
+                    <div className="field-block">
+                      <label className="field-label">Title *</label>
+                      <input autoFocus value={mode === 'followup' ? followUpForm.title : taskForm.title} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, title: e.target.value }) : setTaskForm({ ...taskForm, title: e.target.value })} className="field-input" placeholder="What needs to happen?" />
+                      <FieldHint error={issuesByField.title} />
+                    </div>
+                    <EntityCombobox label="Project *" valueId={mode === 'followup' ? followUpForm.projectId : taskForm.projectId} valueLabel={mode === 'followup' ? followUpForm.project : taskForm.project} options={entityOptions.projectOptions} placeholder="Select or create project" hideMeta onSelect={(option) => {
+                      if (mode === 'followup') setFollowUpForm({ ...followUpForm, project: option.label, projectId: option.id });
+                      else setTaskForm({ ...taskForm, project: option.label, projectId: option.id });
+                    }} onCreate={(label) => {
+                      const id = addProject({ name: label, owner: mode === 'followup' ? followUpForm.owner : taskForm.owner, status: 'Active', notes: '', tags: [] });
+                      if (mode === 'followup') setFollowUpForm({ ...followUpForm, project: label, projectId: id });
+                      else setTaskForm({ ...taskForm, project: label, projectId: id });
+                    }} />
+                    <div className="field-block">
+                      <label className="field-label">Owner / assignee *</label>
+                      <input value={mode === 'followup' ? followUpForm.owner : taskForm.owner} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, owner: e.target.value, assigneeDisplayName: e.target.value }) : setTaskForm({ ...taskForm, owner: e.target.value, assigneeDisplayName: e.target.value })} className="field-input" placeholder="Who is accountable?" />
+                      <FieldHint error={issuesByField.owner} />
+                    </div>
+                    <div className="field-block">
+                      <label className="field-label">Status *</label>
+                      {mode === 'followup' ? (
+                        <select value={followUpForm.status} onChange={(e) => setFollowUpForm({ ...followUpForm, status: e.target.value as FollowUpFormInput['status'] })} className="field-input"><option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option></select>
+                      ) : (
+                        <select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value as TaskItem['status'] })} className="field-input"><option>To do</option><option>In progress</option><option>Blocked</option><option>Done</option></select>
+                      )}
+                    </div>
+                    <div className="field-block">
+                      <label className="field-label">Priority *</label>
+                      {mode === 'followup' ? (
+                        <select value={followUpForm.priority} onChange={(e) => setFollowUpForm({ ...followUpForm, priority: e.target.value as FollowUpFormInput['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+                      ) : (
+                        <select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskItem['priority'] })} className="field-input"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+                      )}
+                    </div>
+                    <div className="field-block">
+                      <label className="field-label">Due date {mode === 'followup' ? '*' : ''}</label>
+                      <input type="date" value={toDateInputValue(mode === 'followup' ? followUpForm.dueDate : taskForm.dueDate)} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' }) : setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" />
+                      <FieldHint error={issuesByField.dueDate} />
+                    </div>
+                    <div className="field-block field-block-span-2">
+                      <label className="field-label">{mode === 'followup' ? 'Next move *' : 'Next step *'}</label>
+                      <textarea value={mode === 'followup' ? followUpForm.nextAction : taskForm.nextStep} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, nextAction: e.target.value }) : setTaskForm({ ...taskForm, nextStep: e.target.value })} className="field-textarea" placeholder={mode === 'followup' ? 'What is the next move?' : 'What is the next step?'} />
+                      <FieldHint error={issuesByField[mode === 'followup' ? 'nextAction' : 'nextStep']} />
+                    </div>
+                  </div>
+                </section>
+
+                <section id="create-work-schedule" data-section-key="schedule" ref={(node) => { sectionRefs.current.schedule = node; }} className="create-work-form-section">
+                  <h3>Schedule</h3>
+                  <p className="create-work-section-support">Set dates and workflow timing.</p>
+                  <div className="form-grid-two">
+                    {mode === 'followup' ? (
+                      <>
+                        <div className="field-block"><label className="field-label">Next touch date</label><input type="date" value={toDateInputValue(followUpForm.nextTouchDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, nextTouchDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+                        <div className="field-block"><label className="field-label">Promised date</label><input type="date" value={toDateInputValue(followUpForm.promisedDate)} onChange={(e) => setFollowUpForm({ ...followUpForm, promisedDate: e.target.value ? fromDateInputValue(e.target.value) : '' })} className="field-input" /></div>
+                        <div className="field-block"><label className="field-label">Cadence days</label><input type="number" min={1} max={30} value={followUpForm.cadenceDays} onChange={(e) => setFollowUpForm({ ...followUpForm, cadenceDays: Number(e.target.value || 1) })} className="field-input" /><FieldHint error={issuesByField.cadenceDays} /></div>
+                        <div className="field-block"><label className="field-label">Escalation</label><select value={followUpForm.escalationLevel} onChange={(e) => setFollowUpForm({ ...followUpForm, escalationLevel: e.target.value as FollowUpFormInput['escalationLevel'] })} className="field-input"><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option></select></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="field-block"><label className="field-label">Start date</label><input type="date" value={toDateInputValue(taskForm.startDate)} onChange={(e) => setTaskForm({ ...taskForm, startDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+                        <div className="field-block"><label className="field-label">Next review</label><input type="date" value={toDateInputValue(taskForm.nextReviewAt)} onChange={(e) => setTaskForm({ ...taskForm, nextReviewAt: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /></div>
+                        <div className="field-block"><label className="field-label">Deferred until</label><input type="date" value={toDateInputValue(taskForm.deferredUntil)} onChange={(e) => setTaskForm({ ...taskForm, deferredUntil: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" /><FieldHint text="Use for intentional deferral windows." error={issuesByField.deferredUntil} /></div>
+                        <div className="field-block"><label className="field-label">Completion impact</label><select value={taskForm.completionImpact || 'none'} onChange={(e) => setTaskForm({ ...taskForm, completionImpact: e.target.value as TaskFormInput['completionImpact'] })} className="field-input"><option value="none">None</option><option value="advance_parent">Advance parent</option><option value="close_parent">Close parent</option></select></div>
+                      </>
+                    )}
+                  </div>
+                  {waitingStatus ? (
+                    <div className="field-block field-block-highlight"><label className="field-label">Waiting on *</label><input value={followUpForm.waitingOn || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, waitingOn: e.target.value })} className="field-input" placeholder="Person, company, or team you are waiting on" /><FieldHint text="Waiting items need a waiting-on owner." error={issuesByField.waitingOn} /></div>
+                  ) : null}
+                  {blockedTask ? (
+                    <div className="field-block field-block-highlight"><label className="field-label">Block reason *</label><input value={taskForm.blockReason || ''} onChange={(e) => setTaskForm({ ...taskForm, blockReason: e.target.value })} className="field-input" placeholder="Why this cannot move" /><FieldHint text="Blocked tasks need a blocker." error={issuesByField.blockReason} /></div>
+                  ) : null}
+                  {deferredTask ? <FieldHint text="This task is deferred. Confirm the date still makes sense." /> : null}
+                </section>
+
+                {showAdvanced ? (
+                  <>
+                    <section id="create-work-relationships" data-section-key="relationships" ref={(node) => { sectionRefs.current.relationships = node; }} className="create-work-form-section">
+                      <button type="button" className={expandedAdvanced.relationships ? 'create-work-disclosure create-work-disclosure-open' : 'create-work-disclosure'} onClick={() => toggleAdvancedSection('relationships')} aria-expanded={expandedAdvanced.relationships}>
+                        <span>
+                          <span className="create-work-disclosure-title">Relationships</span>
+                          <span className="create-work-disclosure-subtitle">Link contacts, companies, and related records.</span>
+                        </span>
+                        <ChevronDown size={16} />
+                      </button>
+                      {expandedAdvanced.relationships ? (
+                        <div className="form-grid-two">
+                          {mode === 'task' ? (
+                            <div className="field-block field-block-span-2"><label className="field-label">Linked follow-up</label><select className="field-input" value={taskForm.linkedFollowUpId || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedFollowUpId: e.target.value || undefined })}><option value="">None</option>{linkedFollowUpOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
+                          ) : null}
+                          <EntityCombobox label="External contact" valueId={mode === 'followup' ? followUpForm.contactId : taskForm.contactId} valueLabel={(mode === 'followup' ? entityOptions.contactOptions.find((contact) => contact.id === followUpForm.contactId)?.label : entityOptions.contactOptions.find((contact) => contact.id === taskForm.contactId)?.label)} options={entityOptions.contactOptions} onSelect={(option) => {
+                            if (mode === 'followup') setFollowUpForm({ ...followUpForm, contactId: option.id });
+                            else setTaskForm({ ...taskForm, contactId: option.id });
+                          }} onCreate={(label) => {
+                            const id = addContact({ name: label, role: 'PM', notes: '', tags: [] });
+                            if (mode === 'followup') setFollowUpForm({ ...followUpForm, contactId: id });
+                            else setTaskForm({ ...taskForm, contactId: id });
+                          }} />
+                          <EntityCombobox label="Company" valueId={mode === 'followup' ? followUpForm.companyId : taskForm.companyId} valueLabel={(mode === 'followup' ? entityOptions.companyOptions.find((company) => company.id === followUpForm.companyId)?.label : entityOptions.companyOptions.find((company) => company.id === taskForm.companyId)?.label)} options={entityOptions.companyOptions} onSelect={(option) => {
+                            if (mode === 'followup') setFollowUpForm({ ...followUpForm, companyId: option.id });
+                            else setTaskForm({ ...taskForm, companyId: option.id });
+                          }} onCreate={(label) => {
+                            const id = addCompany({ name: label, type: 'Other', notes: '', tags: [] });
+                            if (mode === 'followup') setFollowUpForm({ ...followUpForm, companyId: id });
+                            else setTaskForm({ ...taskForm, companyId: id });
+                          }} />
+                          {mode === 'task' ? <div className="field-block field-block-span-2"><label className="field-label">Linked project context</label><input value={taskForm.linkedProjectContext || ''} onChange={(e) => setTaskForm({ ...taskForm, linkedProjectContext: e.target.value })} className="field-input" placeholder="Where this task fits in project execution" /></div> : null}
+                        </div>
+                      ) : null}
+                    </section>
+
+                    <section id="create-work-notes" data-section-key="notes" ref={(node) => { sectionRefs.current.notes = node; }} className="create-work-form-section">
+                      <button type="button" className={expandedAdvanced.notes ? 'create-work-disclosure create-work-disclosure-open' : 'create-work-disclosure'} onClick={() => toggleAdvancedSection('notes')} aria-expanded={expandedAdvanced.notes}>
+                        <span>
+                          <span className="create-work-disclosure-title">Notes</span>
+                          <span className="create-work-disclosure-subtitle">Capture supporting details and handoff context.</span>
+                        </span>
+                        <ChevronDown size={16} />
+                      </button>
+                      {expandedAdvanced.notes ? (
+                        <div className="form-grid-two">
+                          <div className="field-block field-block-span-2"><label className="field-label">Summary</label><textarea value={mode === 'followup' ? followUpForm.summary : taskForm.summary} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, summary: e.target.value }) : setTaskForm({ ...taskForm, summary: e.target.value })} className="field-textarea" /></div>
+                          <div className="field-block field-block-span-2"><label className="field-label">Notes</label><textarea value={mode === 'followup' ? followUpForm.notes : taskForm.notes} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, notes: e.target.value }) : setTaskForm({ ...taskForm, notes: e.target.value })} className="field-textarea" /></div>
+                          {(mode === 'followup' && followUpForm.status === 'Closed') || (mode === 'task' && taskForm.status === 'Done') ? (
+                            <div className="field-block field-block-span-2"><label className="field-label">Completion note</label><textarea value={mode === 'followup' ? followUpForm.completionNote || '' : taskForm.completionNote || ''} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, completionNote: e.target.value }) : setTaskForm({ ...taskForm, completionNote: e.target.value })} className="field-textarea" placeholder="Capture the outcome and next handoff detail" /></div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </section>
+
+                    <section id="create-work-advanced" data-section-key="advanced" ref={(node) => { sectionRefs.current.advanced = node; }} className="create-work-form-section create-work-form-section-last">
+                      <button type="button" className={expandedAdvanced.advanced ? 'create-work-disclosure create-work-disclosure-open' : 'create-work-disclosure'} onClick={() => toggleAdvancedSection('advanced')} aria-expanded={expandedAdvanced.advanced}>
+                        <span>
+                          <span className="create-work-disclosure-title">Advanced</span>
+                          <span className="create-work-disclosure-subtitle">Track metadata, provenance, and tags.</span>
+                        </span>
+                        <ChevronDown size={16} />
+                      </button>
+                      {expandedAdvanced.advanced ? (
+                        <div className="form-grid-two">
+                          {mode === 'followup' ? (
+                            <>
+                              <div className="field-block"><label className="field-label">Source</label><select value={followUpForm.source} onChange={(e) => setFollowUpForm({ ...followUpForm, source: e.target.value as FollowUpFormInput['source'] })} className="field-input"><option>Email</option><option>Notes</option><option>To-do</option><option>Excel</option></select></div>
+                              <div className="field-block"><label className="field-label">Source reference</label><input value={followUpForm.sourceRef} onChange={(e) => setFollowUpForm({ ...followUpForm, sourceRef: e.target.value })} className="field-input" placeholder="Email id, report, or meeting context" /></div>
+                              <div className="field-block"><label className="field-label">Thread key</label><input value={followUpForm.threadKey || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, threadKey: e.target.value })} className="field-input" /></div>
+                              <div className="field-block"><label className="field-label">Action lifecycle</label><select value={followUpForm.actionState || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, actionState: (e.target.value || undefined) as ActionLifecycleState | undefined })} className="field-input"><option value="">Not set</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option></select></div>
+                              <div className="field-block field-block-span-2"><label className="field-label">Draft follow-up</label><textarea value={followUpForm.draftFollowUp || ''} onChange={(e) => setFollowUpForm({ ...followUpForm, draftFollowUp: e.target.value })} className="field-textarea" placeholder="Optional draft message for quick sending" /></div>
+                              <div className="field-block"><label className="field-label">Category</label><select value={followUpForm.category} onChange={(e) => setFollowUpForm({ ...followUpForm, category: e.target.value as FollowUpFormInput['category'] })} className="field-input"><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option></select></div>
+                              <div className="field-block"><label className="field-label">Owes next action</label><select value={followUpForm.owesNextAction} onChange={(e) => setFollowUpForm({ ...followUpForm, owesNextAction: e.target.value as FollowUpFormInput['owesNextAction'] })} className="field-input"><option>Internal</option><option>Client</option><option>Government</option><option>Vendor</option><option>Subcontractor</option><option>Consultant</option><option>Unknown</option></select></div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="field-block field-block-span-2"><label className="field-label">Context note</label><textarea value={taskForm.contextNote || ''} onChange={(e) => setTaskForm({ ...taskForm, contextNote: e.target.value })} className="field-textarea" /></div>
+                            </>
+                          )}
+                          <div className="field-block field-block-span-2"><label className="field-label">Tags</label><input value={formatTags(mode === 'followup' ? followUpForm.tags : taskForm.tags)} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, tags: parseTags(e.target.value) }) : setTaskForm({ ...taskForm, tags: parseTags(e.target.value) })} className="field-input" placeholder="comma, separated, tags" /></div>
+                        </div>
+                      ) : null}
+                    </section>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          )}
         </AppModalBody>
         <AppModalFooter className="create-work-modal-footer">
           <RecordEditorFooter>

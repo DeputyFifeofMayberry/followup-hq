@@ -79,6 +79,74 @@
 .action-btn-danger { border-color: #fda4af; color: var(--danger); background: #fff1f2; }
 
 .field-block { display: grid; gap: 0.3rem; }
+
+.field-block-span-2 { grid-column: span 2; }
+
+.create-work-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.create-work-toggle input { accent-color: var(--accent); }
+.create-work-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 1rem;
+  align-items: start;
+}
+.create-work-sidebar {
+  display: grid;
+  gap: 0.8rem;
+  position: sticky;
+  top: 0;
+  max-height: calc(100dvh - 16rem);
+  overflow-y: auto;
+}
+.create-work-sidebar-card {
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  background: var(--surface-secondary);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.create-work-sidebar-title {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.create-work-sidebar-copy { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
+.create-work-checklist { display: grid; gap: 0.38rem; }
+.create-work-check-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.create-work-check-item-complete { color: #166534; }
+.create-work-tip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.create-work-tip-list li { display: flex; align-items: flex-start; gap: 0.35rem; }
+.create-work-alert {
+  border-radius: 0.8rem;
+  border: 1px solid #fcd34d;
+  background: #fff7e8;
+  padding: 0.62rem 0.72rem;
+  font-size: 0.78rem;
+  color: #92400e;
+}
 .field-label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
 .field-input,
 .field-textarea {
@@ -147,7 +215,7 @@
   flex: 1 1 auto;
   min-height: 0;
 }
-.record-editor-shell { display: grid; gap: 1rem; min-height: min-content; padding-bottom: 0.5rem; }
+.record-editor-shell { display: grid; gap: 1rem; min-height: min-content; min-width: 0; padding-bottom: 0.5rem; }
 .modal-body-scroll { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0.8rem; }
 .modal-body-static { overflow: visible; }
 
@@ -225,7 +293,9 @@
 
 @media (max-width: 900px) {
   .form-grid-two { grid-template-columns: 1fr; }
-  .span-two { grid-column: span 1; }
+  .span-two, .field-block-span-2 { grid-column: span 1; }
+  .create-work-layout { grid-template-columns: 1fr; }
+  .create-work-sidebar { position: static; max-height: none; overflow: visible; }
   .modal-header,
   .modal-footer,
   .modal-body { padding-left: 0.9rem; padding-right: 0.9rem; }

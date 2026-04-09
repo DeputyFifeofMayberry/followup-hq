@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-09
+
+### Create Work daily-driver workflow redesign
+- Rebuilt `CreateWorkModal` from a flat form into a full daily-driver workflow with explicit required-first sections, richer execution-context coverage, relationship metadata capture, save-confidence checklist sidebar, sticky guidance, reusable create-another mode, keyboard save acceleration, and success toasts for feedback on repeated entry loops (`src/components/CreateWorkModal.tsx`).
+- Expanded Create Work field coverage for both records (follow-up: source/promise/waiting/category/escalation/cadence/tags/thread/source ref + richer linkage; task: start/review/defer/completion-impact/context/tags/linked follow-up + richer linkage), substantially reducing follow-up edit passes after initial create (`src/components/CreateWorkModal.tsx`, `src/types.ts`).
+- Hardened editor-domain validation rules used by create/edit flows: due-date requirements/format checks, waiting-status dependency checks, cadence bounds, task scheduling coherence checks, and improved assignee propagation into save payloads (`src/domains/editor/adapters.ts`).
+- Strengthened modal/editor primitives and styles for large-form reliability: explicit modal aria labeling support, robust two-column create layout with sticky right rail, overflow-safe responsive collapse, required-check item styles, and alert/toggle affordances to fix cut-off/scroll friction in everyday use (`src/components/ui/AppPrimitives.tsx`, `src/styles/primitives.css`).
+
 ## 2026-04-08
 
 ### Tasks refinement pass (execution-first queue + intentional detail edits)

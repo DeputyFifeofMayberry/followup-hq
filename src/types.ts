@@ -919,6 +919,7 @@ export interface TaskFormInput {
   project: string;
   projectId?: string;
   owner: string;
+  assigneeDisplayName?: string;
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: string;

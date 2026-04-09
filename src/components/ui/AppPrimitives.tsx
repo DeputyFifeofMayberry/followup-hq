@@ -465,7 +465,8 @@ export function AppModal({
   onBackdropClick,
   onClose,
   closeOnEscape = true,
-}: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector'; onBackdropClick?: () => void; onClose?: () => void; closeOnEscape?: boolean }>) {
+  ariaLabel = 'Modal dialog',
+}: PropsWithChildren<{ size?: 'compact' | 'standard' | 'wide' | 'inspector'; onBackdropClick?: () => void; onClose?: () => void; closeOnEscape?: boolean; ariaLabel?: string }>) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -492,7 +493,7 @@ export function AppModal({
         className={`modal-panel app-shell-card app-shell-card-modal modal-panel-${size}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Modal dialog"
+        aria-label={ariaLabel}
         ref={panelRef}
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}

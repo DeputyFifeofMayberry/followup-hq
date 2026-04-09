@@ -116,10 +116,9 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         className="followup-primary-toolbar"
         left={(
           <label className="field-block followup-search-block">
-            <span className="field-label">Search</span>
             <div className="search-field-wrap">
               <Search className="search-field-icon h-4 w-4" />
-              <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search title, next move, owner, project, tags, waiting on" className="field-input search-field-input" />
+              <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
               {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
             </div>
           </label>
@@ -128,10 +127,10 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           <>
             <button onClick={() => setShowOptions((value) => !value)} className="action-btn">
               <SlidersHorizontal className="h-4 w-4" />
-              View options{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
+              Options{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
               <ChevronDown className={`h-4 w-4 ${showOptions ? 'rotate-180' : ''}`} />
             </button>
-            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Duplicates ({duplicateCount})</button> : null}
+            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
             <button onClick={vm.openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}
@@ -183,7 +182,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               </div>
             </div>
           </section>
-          <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetFollowUpFilters}>Reset visible options</button></div>
+          <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetFollowUpFilters}>Reset options</button></div>
         </div>
       ) : null}
 

@@ -68,7 +68,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const queuedEvent = createPersistenceActivityEvent({
                 kind: 'queued',
                 summary: 'Changes queued to save.',
-                detail: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} added to the save queue.` : 'SetPoint will save your latest updates automatically.',
+                detail: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} added to the save queue.` : 'FollowUp HQ will save your latest updates automatically.',
               });
               const pendingRecordCount = merged.size;
               return {
@@ -168,7 +168,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   kind: 'saved',
                   at: timestamp,
                   summary: 'Cloud-backed trust restored for this session.',
-                  detail: 'SetPoint confirmed a cloud-backed save and cleared the session trust warning.',
+                  detail: 'FollowUp HQ confirmed a cloud-backed save and cleared the session trust warning.',
                 })
                 : null;
               return {
@@ -558,8 +558,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
         kind: 'task_due_soon' as const,
         recordType: 'task' as const,
         recordId: 'test',
-        title: 'SetPoint reminder test',
-        project: 'SetPoint',
+        title: 'FollowUp HQ reminder test',
+        project: 'FollowUp HQ',
         owner: 'You',
         severity: 'info' as const,
         workspaceTarget: 'worklist' as const,

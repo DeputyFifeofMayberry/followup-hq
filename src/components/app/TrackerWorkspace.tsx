@@ -5,6 +5,8 @@ import {
   AppModal,
   AppModalBody,
   AppModalHeader,
+  ExecutionLaneInspectorCard,
+  WorkspacePrimaryLayout,
   WorkspacePage,
 } from '../ui/AppPrimitives';
 import { ControlBar } from '../ControlBar';
@@ -34,32 +36,27 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
 
   return (
     <WorkspacePage>
-      <div className="tracker-main-single">
-        <div className="tracker-workspace-main app-shell-card">
-          <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
-          <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
-          <TrackerTable
-            personalMode={personalMode}
-            appMode={appMode}
-            embedded
-            rows={vm.filteredRows}
-            onRowOpen={() => setDetailModalOpen(true)}
-          />
+      <WorkspacePrimaryLayout inspectorWidth="430px">
+        <div className="tracker-main-single">
+          <div className="tracker-workspace-main app-shell-card">
+            <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
+            <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
+            <TrackerTable
+              personalMode={personalMode}
+              appMode={appMode}
+              embedded
+              rows={vm.filteredRows}
+              onRowOpen={() => setDetailModalOpen(true)}
+            />
+          </div>
         </div>
-      </div>
+        {detailModalOpen && vm.selectedFollowUp ? (
+          <ExecutionLaneInspectorCard>
+            <ItemDetailPanel personalMode={personalMode} onRequestClose={() => setDetailModalOpen(false)} />
+          </ExecutionLaneInspectorCard>
+        ) : null}
+      </WorkspacePrimaryLayout>
 
-      {detailModalOpen && vm.selectedFollowUp ? (
-        <AppModal size="inspector" onClose={() => setDetailModalOpen(false)} onBackdropClick={() => setDetailModalOpen(false)}>
-          <AppModalHeader
-            title="Follow-up"
-            subtitle="What matters now, next action, and supporting context."
-            onClose={() => setDetailModalOpen(false)}
-          />
-          <AppModalBody>
-            <ItemDetailPanel personalMode={personalMode} inModal onRequestClose={() => setDetailModalOpen(false)} />
-          </AppModalBody>
-        </AppModal>
-      ) : null}
 
       {duplicateModalOpen ? (
         <AppModal size="wide" onClose={() => setDuplicateModalOpen(false)} onBackdropClick={() => setDuplicateModalOpen(false)}>

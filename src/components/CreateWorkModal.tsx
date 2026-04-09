@@ -360,8 +360,8 @@ export function CreateWorkModal() {
 
   const quickMode = editorMode === 'quick' && creating;
   const summaryMessage = quickMode
-    ? 'Capture the essentials and save. Switch to Full editor for notes, linkage, and tracking fields.'
-    : 'Use section navigation to move through the form. Ctrl/⌘ + Enter saves.';
+    ? 'Quick create captures only the essentials.'
+    : 'Full editor keeps all context and tracking fields.';
 
   const applyPreset = (presetId: string) => {
     if (!presetId) return;
@@ -424,7 +424,7 @@ export function CreateWorkModal() {
           </div>
 
           <div className="create-work-summary-strip" role="status" aria-live="polite">
-            <span>{summaryMessage}</span>
+            <span>{summaryMessage}</span><span>Ctrl/⌘ + Enter saves.</span>
           </div>
 
           {quickMode ? (
@@ -487,15 +487,15 @@ export function CreateWorkModal() {
                   <FieldHint error={issuesByField[mode === 'followup' ? 'nextAction' : 'nextStep']} />
                 </div>
                 {creating ? (
-                  <div className="field-block create-work-quick-presets">
-                    <label className="field-label">Templates</label>
-                    <select className="field-input" value="" onChange={(event) => applyPreset(event.target.value)}>
+                  <details className="field-block create-work-quick-presets">
+                    <summary className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Use template (optional)</summary>
+                    <select className="field-input mt-2" value="" onChange={(event) => applyPreset(event.target.value)}>
                       <option value="">Select a template</option>
                       {(mode === 'followup' ? followUpPresets : taskPresets).map((preset) => (
                         <option key={preset.id} value={preset.id}>{preset.label}</option>
                       ))}
                     </select>
-                  </div>
+                  </details>
                 ) : null}
                 {waitingStatus ? (
                   <div className="field-block field-block-highlight create-work-quick-conditional">
@@ -511,24 +511,26 @@ export function CreateWorkModal() {
                     <FieldHint text="Blocked tasks need a blocker." error={issuesByField.blockReason} />
                   </div>
                 ) : null}
-                <p className="create-work-quick-helper">Need notes, relationships, or tracking metadata? Switch to Full editor.</p>
+                <p className="create-work-quick-helper">Need more fields? Switch to Full editor.</p>
               </section>
             </div>
           ) : (
             <div className="create-work-full-shell">
-              <nav className="create-work-section-nav" aria-label="Form sections">
-                {SECTION_LABELS.filter((section) => showAdvanced || (section.key !== 'relationships' && section.key !== 'notes' && section.key !== 'advanced')).map((section) => (
-                  <button
-                    key={section.key}
-                    type="button"
-                    onClick={() => scrollToSection(section.key)}
-                    className={activeSection === section.key ? 'create-work-section-link create-work-section-link-active' : 'create-work-section-link'}
-                    aria-current={activeSection === section.key ? 'true' : undefined}
-                  >
-                    {section.label}
-                  </button>
-                ))}
-              </nav>
+              {showAdvanced ? (
+                <nav className="create-work-section-nav" aria-label="Form sections">
+                  {SECTION_LABELS.filter((section) => showAdvanced || (section.key !== 'relationships' && section.key !== 'notes' && section.key !== 'advanced')).map((section) => (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={() => scrollToSection(section.key)}
+                      className={activeSection === section.key ? 'create-work-section-link create-work-section-link-active' : 'create-work-section-link'}
+                      aria-current={activeSection === section.key ? 'true' : undefined}
+                    >
+                      {section.label}
+                    </button>
+                  ))}
+                </nav>
+              ) : null}
 
               <div className="create-work-full-editor" ref={scrollRegionRef}>
                 {validationIssues.length > 0 ? (
@@ -713,9 +715,9 @@ export function CreateWorkModal() {
         <AppModalFooter className="create-work-modal-footer">
           <RecordEditorFooter>
             <button onClick={close} className="action-btn">Cancel</button>
-            {creating ? <button onClick={() => save(true)} className="action-btn">Save and create another</button> : null}
+            {creating ? <button onClick={() => save(true)} className="action-btn">Save + add another</button> : null}
             <button onClick={() => save(false)} disabled={!canSave} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
-              {followUpEditing || taskEditing ? 'Save changes' : 'Save work item'}
+              {followUpEditing || taskEditing ? 'Save changes' : 'Create'}
             </button>
           </RecordEditorFooter>
         </AppModalFooter>

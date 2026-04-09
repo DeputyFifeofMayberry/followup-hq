@@ -25,12 +25,14 @@ import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
+import { isDueToday, isOverdue, isTaskDueWithin, isTaskOverdue, needsNudge } from './lib/utils';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 
 type WorkspaceKey = ModeWorkspaceKey;
+const LAST_WORKSPACE_STORAGE_KEY = 'followup-hq:last-workspace';
 
 
 function MissingSupabaseConfigScreen() {
@@ -234,6 +236,7 @@ function MainApp({ session }: { session: Session }) {
   const modeConfig = getModeConfig(appMode);
   const [showCommand, setShowCommand] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
+  const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutInProgress, setSignOutInProgress] = useState(false);
@@ -241,6 +244,33 @@ function MainApp({ session }: { session: Session }) {
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const commandSearchRef = useRef<HTMLInputElement | null>(null);
   const commandOpenTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'new-work' | 'none') => {
+    if (actionKey === 'new-followup') {
+      openCreateModal();
+      return;
+    }
+    if (actionKey === 'new-task') {
+      openCreateTaskModal();
+      return;
+    }
+    if (actionKey === 'new-work') {
+      openCreateWorkModal();
+    }
+  }, [openCreateModal, openCreateTaskModal, openCreateWorkModal]);
+  const orderedWorkspaces = getWorkspaceOrder();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
+    if (saved && orderedWorkspaces.includes(saved as WorkspaceKey)) {
+      setWorkspace(saved as WorkspaceKey);
+    }
+  }, [orderedWorkspaces]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspace);
+  }, [workspace]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -260,15 +290,23 @@ function MainApp({ session }: { session: Session }) {
         event.preventDefault();
         setShowCommand((value) => !value);
       }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        runPrimaryAction(modeConfig.workspaceMeta[workspace].primaryAction?.actionKey ?? 'new-followup');
+      }
       if (event.key === 'Escape' && showCommand) {
         event.preventDefault();
         setShowCommand(false);
+      }
+      if (event.key === 'Escape' && mobileNavOpen) {
+        event.preventDefault();
+        setMobileNavOpen(false);
       }
       if (inInputContext) return;
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showCommand]);
+  }, [mobileNavOpen, modeConfig.workspaceMeta, runPrimaryAction, showCommand, workspace]);
 
   useEffect(() => {
     if (!showCommand) {
@@ -301,7 +339,6 @@ function MainApp({ session }: { session: Session }) {
     openTrackerView(view, project);
   }, [openTrackerView, setSelectedId]);
 
-  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
   const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed').length;
   const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done').length;
   const combinedCleanup = cleanupFollowUps + cleanupTasks;
@@ -323,7 +360,6 @@ function MainApp({ session }: { session: Session }) {
     />
   ), [workspace, appMode, openTrackerItem, openTrackerView]);
 
-  const orderedWorkspaces = getWorkspaceOrder();
   const navSections = useMemo(() => {
     const workspaceEntries = orderedWorkspaces.map((key) => ({ key, meta: modeConfig.workspaceMeta[key] }));
     return [
@@ -331,20 +367,6 @@ function MainApp({ session }: { session: Session }) {
       { title: 'Support & reference', tone: 'support' as const, items: workspaceEntries.filter(({ meta }) => meta.category === 'support') },
     ];
   }, [modeConfig.workspaceMeta, orderedWorkspaces]);
-
-  const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'new-work' | 'none') => {
-    if (actionKey === 'new-followup') {
-      openCreateModal();
-      return;
-    }
-    if (actionKey === 'new-task') {
-      openCreateTaskModal();
-      return;
-    }
-    if (actionKey === 'new-work') {
-      openCreateWorkModal();
-    }
-  }, [openCreateModal, openCreateTaskModal, openCreateWorkModal]);
 
   const commands = useMemo(() => buildCommandPaletteConfig({
     orderedWorkspaces,
@@ -376,6 +398,19 @@ function MainApp({ session }: { session: Session }) {
       .map((group) => ({ group, commands: visibleCommands.filter((command) => command.group === group) }))
       .filter((entry) => entry.commands.length > 0);
   }, [visibleCommands]);
+  const flatVisibleCommands = useMemo(() => groupedVisibleCommands.flatMap((entry) => entry.commands), [groupedVisibleCommands]);
+  useEffect(() => {
+    setActiveCommandIndex(0);
+  }, [commandQuery, showCommand]);
+  useEffect(() => {
+    if (!flatVisibleCommands.length) {
+      setActiveCommandIndex(0);
+      return;
+    }
+    if (activeCommandIndex >= flatVisibleCommands.length) {
+      setActiveCommandIndex(flatVisibleCommands.length - 1);
+    }
+  }, [activeCommandIndex, flatVisibleCommands]);
 
   const currentMeta = modeConfig.workspaceMeta[workspace];
   const currentHealthLabel = currentMeta.healthLabel({ navCounts, totalItems: items.length, combinedCleanup });
@@ -385,7 +420,32 @@ function MainApp({ session }: { session: Session }) {
     || outboxRequiresAttention
     || unresolvedOutboxCount > 0
     || syncState === 'saving';
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasSignOutRisk) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasSignOutRisk]);
   const accountLabel = session.user.email ?? 'Account';
+  const dailyFocus = useMemo(() => {
+    const overdueFollowUps = items.filter((item) => isOverdue(item)).length;
+    const dueTodayFollowUps = items.filter((item) => item.status !== 'Closed' && isDueToday(item)).length;
+    const nudgeFollowUps = items.filter((item) => needsNudge(item)).length;
+    const overdueTasks = tasks.filter((task) => isTaskOverdue(task)).length;
+    const dueSoonTasks = tasks.filter((task) => isTaskDueWithin(task, 2)).length;
+    return {
+      overdueFollowUps,
+      dueTodayFollowUps,
+      nudgeFollowUps,
+      overdueTasks,
+      dueSoonTasks,
+      pressure: overdueFollowUps + overdueTasks,
+    };
+  }, [items, tasks]);
 
   const executeSignOut = useCallback(async (localPolicy: SignOutLocalPolicy) => {
     if (signOutInProgress) return;
@@ -518,6 +578,25 @@ function MainApp({ session }: { session: Session }) {
                       {currentMeta.primaryAction.label}
                     </button>
                   ) : null}
+                  <button type="button" className="action-btn" onClick={() => runPrimaryAction('new-followup')} title="Quick capture (Ctrl/Cmd+Shift+N)">
+                    <Sparkles className="h-4 w-4" />
+                    Quick capture
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white/70 p-2 text-xs text-slate-700">
+                  <span className="font-semibold text-slate-900">Daily focus</span>
+                  <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>
+                    Overdue: {dailyFocus.pressure}
+                  </button>
+                  <button type="button" className="action-chip" onClick={() => openTrackerView('Today')}>
+                    Due today: {dailyFocus.dueTodayFollowUps}
+                  </button>
+                  <button type="button" className="action-chip" onClick={() => openTrackerView('Needs nudge')}>
+                    Needs nudge: {dailyFocus.nudgeFollowUps}
+                  </button>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                    Tasks: {dailyFocus.overdueTasks} overdue • {dailyFocus.dueSoonTasks} due soon
+                  </span>
                 </div>
               </div>
             </header>
@@ -544,6 +623,20 @@ function MainApp({ session }: { session: Session }) {
                   placeholder="Type command, workspace, or record"
                   value={commandQuery}
                   onChange={(event) => setCommandQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (!flatVisibleCommands.length) return;
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      setActiveCommandIndex((value) => (value + 1) % flatVisibleCommands.length);
+                    } else if (event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setActiveCommandIndex((value) => (value - 1 + flatVisibleCommands.length) % flatVisibleCommands.length);
+                    } else if (event.key === 'Enter') {
+                      event.preventDefault();
+                      flatVisibleCommands[activeCommandIndex]?.run();
+                      setShowCommand(false);
+                    }
+                  }}
                 />
               </div>
             </label>
@@ -552,15 +645,19 @@ function MainApp({ session }: { session: Session }) {
                 <section key={grouped.group} className="space-y-2">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{grouped.group}</div>
                   <div className="space-y-2">
-                    {grouped.commands.map((command) => (
+                    {grouped.commands.map((command) => {
+                      const commandIndex = flatVisibleCommands.findIndex((entry) => entry.id === command.id);
+                      const isActiveCommand = commandIndex === activeCommandIndex;
+                      return (
                       <button
                         type="button"
                         key={command.id}
-                        className="saved-view-card w-full justify-between"
+                        className={`saved-view-card w-full justify-between ${isActiveCommand ? 'ring-2 ring-slate-300' : ''}`}
                         onClick={() => {
                           command.run();
                           setShowCommand(false);
                         }}
+                        onMouseEnter={() => setActiveCommandIndex(commandIndex)}
                       >
                         <span className="text-left">
                           <span>{command.label}</span>
@@ -568,10 +665,14 @@ function MainApp({ session }: { session: Session }) {
                         </span>
                         <Search className="h-4 w-4" />
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               )) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+              ↑/↓ move • Enter run • Esc close • Ctrl/Cmd+Shift+N quick capture
             </div>
               </AppModalBody>
             </div>

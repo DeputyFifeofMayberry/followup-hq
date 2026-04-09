@@ -212,6 +212,20 @@
   background: linear-gradient(180deg, #f6f8fc 0%, #f1f5fb 100%);
 }
 
+.action-chip {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  padding: 0.24rem 0.55rem;
+  background: rgba(241, 245, 249, 0.95);
+  color: #334155;
+  font-weight: 620;
+}
+
+.action-chip:hover {
+  border-color: rgba(100, 116, 139, 0.45);
+  background: rgba(226, 232, 240, 0.95);
+}
+
 @media (min-width: 1200px) {
   .app-shell-layout { grid-template-columns: 248px minmax(0, 1fr); align-items: start; }
   .app-nav-rail { position: sticky; top: clamp(0.85rem, 1.4vw, 1.4rem); }

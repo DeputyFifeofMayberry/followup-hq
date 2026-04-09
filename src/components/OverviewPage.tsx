@@ -8,7 +8,7 @@ import { OverviewTriageList } from './overview/OverviewTriageList';
 import { OverviewRouteInspector } from './overview/OverviewRouteInspector';
 import { useOverviewTriageViewModel } from '../domains/overview/hooks/useOverviewTriageViewModel';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'outlook' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'intake' | 'directory' | 'outlook' | 'projects' | 'relationships';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
@@ -58,7 +58,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
   return (
     <WorkspacePage>
-      <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('outlook')} onCreateWork={openCreateWorkModal} />
+      <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
 
       <AppShellCard className="overview-command-center" surface="data">
         <div className="overview-toolbar-row">
@@ -129,7 +129,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
               onOpenDetail={openSelectedDetail}
               onOpenIntake={() => {
                 setDetailOpen(false);
-                onOpenWorkspace('outlook');
+                onOpenWorkspace('intake');
               }}
             />
           </AppModalBody>

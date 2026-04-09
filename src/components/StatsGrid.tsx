@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { SavedViewKey } from '../types';
 
-type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'directory';
 
 export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTrackerView: (view: SavedViewKey, project?: string) => void; onOpenWorkspace: (workspace: WorkspaceKey) => void }) {
   const { items, tasks, contacts, companies, hydrated } = useAppStore(useShallow((s) => ({
@@ -28,7 +28,7 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTracke
       { label: 'Open follow-ups', value: open, helper: 'The live master list', icon: Clock3, action: () => onOpenTrackerView('All') },
       { label: 'Open tasks', value: openTasks, helper: 'Internal work list', icon: ListTodo, action: () => onOpenWorkspace('tasks') },
       { label: 'Needs nudge', value: nudge, helper: 'Due for a touchpoint now', icon: AlertTriangle, action: () => onOpenTrackerView('Needs nudge') },
-      { label: 'Contacts / companies', value: `${contacts.length}/${companies.length}`, helper: `${linkedRelationships} linked items`, icon: Users, action: () => onOpenWorkspace('relationships') },
+      { label: 'Contacts / companies', value: `${contacts.length}/${companies.length}`, helper: `${linkedRelationships} linked items`, icon: Users, action: () => onOpenWorkspace('directory') },
       { label: 'High-risk items', value: overdue, helper: 'Overdue, at risk, or critical', icon: Building2, action: () => onOpenTrackerView('At risk') },
     ];
   }, [items, tasks, contacts.length, companies.length, onOpenTrackerView, onOpenWorkspace]);

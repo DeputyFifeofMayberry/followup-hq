@@ -227,7 +227,7 @@ function MainApp({ session }: { session: Session }) {
   useReminderScheduler(hydrated);
   useConnectivitySync(Boolean(session));
 
-  const [workspace, setWorkspace] = useState<WorkspaceKey>('worklist');
+  const [workspace, setWorkspace] = useState<WorkspaceKey>('overview');
   const [appMode, setAppMode] = useState<AppMode>(() => {
     if (typeof window === 'undefined') return 'personal';
     const saved = window.localStorage.getItem('followup-hq:app-mode');
@@ -344,10 +344,10 @@ function MainApp({ session }: { session: Session }) {
   const combinedCleanup = cleanupFollowUps + cleanupTasks;
 
   const navCounts: Partial<Record<WorkspaceKey, number>> = {
-    worklist: workspaceAttentionCounts.worklist,
+    overview: workspaceAttentionCounts.worklist,
     followups: workspaceAttentionCounts.followups,
     tasks: workspaceAttentionCounts.tasks,
-    outlook: combinedCleanup,
+    intake: combinedCleanup,
   };
 
   const workspaceBody = useMemo(() => (
@@ -378,7 +378,7 @@ function MainApp({ session }: { session: Session }) {
     openProjectContext: (projectName: string) => {
       openExecutionLane('followups', { project: projectName, source: 'projects', intentLabel: `project context ${projectName}` });
       setProjectFilter(projectName);
-      setWorkspace('followups');
+      setWorkspace('directory');
     },
     openSelectedInDrawer: () => {
       if (selectedTaskId) {

@@ -722,6 +722,7 @@ export interface ProjectRecord {
   leadAssignee?: string;
   phase?: string;
   status: ProjectStatus;
+  archived?: boolean;
   targetCompletionDate?: string;
   nextMilestone?: string;
   nextMilestoneDate?: string;

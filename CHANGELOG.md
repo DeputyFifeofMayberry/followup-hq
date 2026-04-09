@@ -2,6 +2,18 @@
 
 ## 2026-04-09
 
+### Intake focused refinement pass (post-upgrade weak-spot closure)
+- Reworked retry parse to use persisted original upload bytes (`retrySource`) instead of synthetic extracted text. Retry actions now provide success/failure feedback, are disabled when no real retry source exists (including legacy assets), and preserve compatibility with prior persisted state (`src/lib/intakeRetryCache.ts`, `src/lib/universalIntake.ts`, `src/store/slices/intakeSlice.ts`, `src/components/UniversalIntakeWorkspace.tsx`, `src/types.ts`).
+- Tightened active workflow semantics so archived batches are excluded from active review queue derivation by default and shown as history-only context in the workspace (`src/lib/intakeReviewQueue.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Added centralized batch stat/status recomputation hooks after lifecycle operations (archive, clear-finalized, remove asset, retry, review decisions), including active/finalized candidate counts to keep cards trustworthy (`src/store/slices/intakeSlice.ts`, `src/types.ts`).
+- Upgraded link-existing behavior to enrich destination records with intake provenance/context and timeline trace rather than only finalizing the intake candidate (`src/lib/intakeLinking.ts`, `src/store/slices/intakeSlice.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Made `.pptx` handling explicit and honest by moving it to blocked until dedicated extraction quality is available; picker/drop guidance now aligns with this behavior (`src/lib/intakeFileCapabilities.ts`, `src/components/UniversalIntakeWorkspace.tsx`).
+- Improved Source Context to prioritize structured extraction chunks (including spreadsheet sheet/row/nearby row context and evidence-linked focus) over a single flattened text blob (`src/lib/universalIntake.ts`, `src/components/UniversalIntakeWorkspace.tsx`, `src/types.ts`).
+- Refined date normalization/parser order to deterministic explicit formats and softened noisy conflict semantics by separating distinct schedule dates from same-meaning conflicts (`src/lib/intakeDates.ts`).
+- Added lightweight within-batch duplicate group review in the reviewer workbench so grouped candidates are inspectable and comparable instead of only badged (`src/components/UniversalIntakeWorkspace.tsx`).
+- Hardened quick-paste UX with async awaiting, loading/disabled states, optional source/title hint, minimum-content validation, and failure-safe text preservation (`src/components/UniversalIntakeWorkspace.tsx`, `src/store/slices/intakeSlice.ts`).
+- Expanded intake regression coverage for retry source handling, archived queue exclusion, link enrichment behavior, date determinism, pptx policy, and duplicate-group usage (`src/lib/__tests__/intakeRetryCache.test.ts`, `src/lib/__tests__/intakeReviewQueueArchived.test.ts`, `src/lib/__tests__/intakeLinking.test.ts`, `src/lib/__tests__/intakeDates.test.ts`, `src/lib/__tests__/intakeFileCapabilities.test.ts`, `src/lib/__tests__/intakeBatchDedupe.test.ts`).
+
 
 ### Intake professionalization pass (trustworthy daily workflow)
 - Introduced a single intake file-capability matrix with explicit states (`parse_supported`, `manual_review_only`, `blocked`) and wired both picker accept list + drop validation to it; `.msg` and legacy `.doc` are now rejected with clear inline reasons, while degraded formats (e.g. `.pptx`) are accepted with manual-review caveats (`src/lib/intakeFileCapabilities.ts`, `src/components/UniversalIntakeWorkspace.tsx`, `src/lib/universalIntake.ts`).

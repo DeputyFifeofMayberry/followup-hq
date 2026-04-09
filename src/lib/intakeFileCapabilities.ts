@@ -20,7 +20,7 @@ export const INTAKE_FILE_CAPABILITIES: IntakeFileCapability[] = [
   { extension: '.xlsx', label: 'Excel workbook', state: 'parse_supported', acceptMime: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] },
   { extension: '.msg', label: 'Outlook .msg email', state: 'blocked', reason: 'Client-side .msg parsing is not reliable yet. Save/export as .eml first.' },
   { extension: '.doc', label: 'Legacy Word .doc', state: 'blocked', reason: 'Legacy .doc parsing is not reliable in the browser. Convert to .docx first.' },
-  { extension: '.pptx', label: 'PowerPoint', state: 'manual_review_only', reason: 'Text extraction is degraded. Review all fields manually before creating work.' },
+  { extension: '.pptx', label: 'PowerPoint', state: 'blocked', reason: 'PowerPoint (.pptx) intake is temporarily disabled until slide-level extraction is reliable.' },
 ];
 
 const byExt = new Map(INTAKE_FILE_CAPABILITIES.map((cap) => [cap.extension, cap]));

@@ -13,6 +13,7 @@ import { createId, todayIso } from './utils';
 import { resolveCandidateMatches } from './intake/reviewPipeline';
 import { getIntakeFileCapability } from './intakeFileCapabilities';
 import { buildDateSignalSet } from './intakeDates';
+import { buildIntakeRetrySource } from './intakeRetryCache';
 
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
@@ -25,6 +26,9 @@ interface ExtractionChunk {
   kind: 'email_header' | 'email_body' | 'pdf_page' | 'docx_paragraph' | 'sheet_row' | 'text';
   fields?: Partial<Record<'title' | 'project' | 'owner' | 'dueDate' | 'waitingOn' | 'priority' | 'statusHint' | 'summary' | 'nextStep', string>>;
   quality?: number;
+  sheetName?: string;
+  rowNumber?: number;
+  rowContext?: string[];
 }
 
 interface AttachmentPayload {
@@ -424,8 +428,13 @@ function extractSpreadsheet(buffer: ArrayBuffer): Stage2Extraction {
       });
       const text = values.map((entry) => `${entry.header}: ${entry.value}`).join(' | ');
       const quality = Math.min(1, values.length / 6 + (fields.title ? 0.2 : 0) + (fields.dueDate ? 0.1 : 0) + (fields.owner ? 0.08 : 0));
+      const rowContext = [rows[rowIdx - 1], rows[rowIdx + 1]]
+        .filter((neighbor): neighbor is string[] => Array.isArray(neighbor))
+        .map((neighbor) => neighbor.map((cell, index) => `${headers[index] || `col_${index + 1}`}: ${cell || ''}`).filter((cell) => !cell.endsWith(': ')).join(' | '))
+        .filter(Boolean)
+        .slice(0, 2);
       refs.push(sourceRef);
-      chunks.push({ text, sourceRef, kind: 'sheet_row', fields, quality });
+      chunks.push({ text, sourceRef, kind: 'sheet_row', fields, quality, sheetName, rowNumber: rowIdx + 1, rowContext });
     }
   }
 
@@ -765,6 +774,7 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
   const uploadedAt = todayIso();
   const capability = getIntakeFileCapability(file.name);
   const kind = detectAssetKind(file.name, file.type);
+  const retryInfo = await buildIntakeRetrySource(file);
   const buffer = await file.arrayBuffer();
   const seen = options.seen ?? new Set<string>();
   const contentHash = `${file.name}-${file.size}-${file.lastModified}`;
@@ -794,6 +804,8 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
     parentAssetId: options.parentAssetId,
     rootAssetId: options.rootAssetId,
     parserStages: ['stage1-route', 'stage2-extract'],
+    retrySource: retryInfo.retrySource,
+    retryUnavailableReason: retryInfo.reason,
   };
 
   if (capability.state === 'blocked') {
@@ -831,8 +843,9 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
         fieldHints: chunk.fields,
         quality: chunk.quality,
         confidence: chunk.quality,
-        sheetName: chunk.sourceRef.includes('#row') ? chunk.sourceRef.split('#row')[0] : undefined,
-        rowNumber: chunk.sourceRef.includes('#row') ? Number(chunk.sourceRef.split('#row')[1]) || undefined : undefined,
+        sheetName: chunk.sheetName ?? (chunk.sourceRef.includes('#row') ? chunk.sourceRef.split('#row')[0] : undefined),
+        rowNumber: chunk.rowNumber ?? (chunk.sourceRef.includes('#row') ? Number(chunk.sourceRef.split('#row')[1]) || undefined : undefined),
+        rowContext: chunk.rowContext,
       })),
       parserStages: [...(base.parserStages ?? []), 'stage3-semantic-ready', 'stage4-validated'],
     };

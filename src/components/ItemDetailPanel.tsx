@@ -83,10 +83,10 @@ function QuickTouchBar({ item, addTouchLog, onFeedback }: {
 
 export function ItemDetailPanel({ personalMode = false, inModal = false, onRequestClose }: { personalMode?: boolean; inModal?: boolean; onRequestClose?: () => void }) {
   const {
-    items, tasks, contacts, companies, updateItem, deleteItem, openRecordEditor, addTouchLog,
+    tasks, contacts, companies, updateItem, deleteItem, openRecordEditor, addTouchLog,
     openRecordDrawer, attemptFollowUpTransition, isRecordDirty, selectedId, setSelectedId, openDraftModal,
   } = useAppStore(useShallow((s) => ({
-    items: s.items, tasks: s.tasks, contacts: s.contacts, companies: s.companies, updateItem: s.updateItem, deleteItem: s.deleteItem,
+    tasks: s.tasks, contacts: s.contacts, companies: s.companies, updateItem: s.updateItem, deleteItem: s.deleteItem,
     openRecordEditor: s.openRecordEditor, addTouchLog: s.addTouchLog, openDraftModal: s.openDraftModal,
     openRecordDrawer: s.openRecordDrawer, attemptFollowUpTransition: s.attemptFollowUpTransition, isRecordDirty: s.isRecordDirty,
     selectedId: s.selectedId, setSelectedId: s.setSelectedId,

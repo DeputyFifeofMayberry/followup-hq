@@ -2,6 +2,9 @@
 
 ## 2026-04-10
 
+### Production build-blocker TypeScript cleanup
+- Removed unused imports/selector fields and tightened sync status typing (including explicit `pendingBatchCount` selection plus mutable-copy handoff for verification export touched tables) to clear Vercel production TypeScript build blockers (`src/components/SyncStatusControl.tsx`, `src/components/ItemDetailPanel.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/UniversalIntakeWorkspace.tsx`).
+
 ### Unified content-frame alignment for Overview, Follow Ups, and Tasks
 - Introduced a shared `WorkspaceContentFrame` wrapper so Overview, Follow Ups, and Tasks all use the same horizontal content rails, max-width behavior, and section spacing instead of page-specific container drift (`src/components/ui/AppPrimitives.tsx`, `src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
 - Standardized execution toolbar scaffolding (left/right zone behavior + wrap rules) and fixed mismatched follow-up responsive selectors so title/control/action rows align consistently across lanes (`src/components/ui/AppPrimitives.tsx`, `src/styles/workspaces.css`).

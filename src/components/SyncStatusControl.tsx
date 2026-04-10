@@ -49,6 +49,17 @@ export function SyncStatusControl() {
       ? 'Retry is paused because this issue requires repair before cloud sync can continue.'
       : 'Cloud sync retries automatically. Use Retry only if attention is required.'
     : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
+  const verificationReadFailureKind = syncMeta.verificationSummary?.verificationReadFailureKind;
+  const verificationResultLabel = syncMeta.verificationSummary?.verified
+    ? 'matched current cloud state'
+    : syncMeta.verificationSummary?.verificationReadFailed
+      ? verificationReadFailureKind === 'backend-contract'
+        ? `stopped by backend contract mismatch${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
+        : `could not complete cloud verification read${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
+      : `found ${syncMeta.verificationSummary?.mismatchCount ?? 0} mismatches`;
+  const verificationDiagnosticLabel = verificationReadFailureKind === 'backend-contract'
+    ? 'Verification contract diagnostics'
+    : 'Verification read diagnostics';
   const lastSavedLabel = syncMeta.lastCloudConfirmedAt
     ? `Last confirmed save: ${formatDateTime(syncMeta.lastCloudConfirmedAt)}`
     : syncMeta.lastLocalWriteAt
@@ -306,17 +317,13 @@ export function SyncStatusControl() {
             {syncMeta.verificationSummary ? (
               <>
                 <div className="sync-status-row-detail">
-                  Verification result: {syncMeta.verificationSummary.verified
-                    ? 'matched current cloud state'
-                    : syncMeta.verificationSummary.verificationReadFailed
-                      ? `could not complete cloud verification read${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
-                      : `found ${syncMeta.verificationSummary.mismatchCount} mismatches`}.
+                  Verification result: {verificationResultLabel}.
                 </div>
                 <div className="sync-status-row-detail">Mismatch counts by category: {Object.entries(syncMeta.verificationSummary.mismatchCountsByCategory).filter(([, count]) => count > 0).map(([category, count]) => `${category} (${count})`).join('; ') || 'none'}</div>
                 <div className="sync-status-row-detail">Mismatch counts by entity: {Object.entries(syncMeta.verificationSummary.mismatchCountsByEntity).map(([entity, count]) => `${entity} (${count})`).join('; ') || 'none'}</div>
                 {syncMeta.verificationSummary.verificationReadFailed ? (
                   <div className="sync-status-row-detail">
-                    Verification read diagnostics: kind {syncMeta.verificationSummary.verificationReadFailureKind ?? 'unknown'} • stage {syncMeta.verificationSummary.verificationReadFailureStage ?? 'unknown'} • attempts {syncMeta.verificationSummary.verificationReadAttempts}
+                    {verificationDiagnosticLabel}: kind {syncMeta.verificationSummary.verificationReadFailureKind ?? 'unknown'} • stage {syncMeta.verificationSummary.verificationReadFailureStage ?? 'unknown'} • attempts {syncMeta.verificationSummary.verificationReadAttempts}
                   </div>
                 ) : null}
                 <div className="sync-status-row-detail">Verification based on batch: {syncMeta.verificationSummary.basedOnBatchId ?? 'not tied to a committed batch'}</div>

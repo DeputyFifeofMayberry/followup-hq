@@ -11,10 +11,15 @@ const mock = {
   contractReport: null as unknown,
   rpcFailure: null as unknown,
   rpcResult: { status: 'committed' as string },
+  userPreferencesColumns: '' as string,
 };
 
 (supabase as any).from = (table: string) => ({
-  select: (_columns: string) => ({
+  select: (_columns: string) => {
+    if (table === 'user_preferences') {
+      mock.userPreferencesColumns = _columns;
+    }
+    return ({
     eq: () => ({
       limit: async () => {
         if (mock.failTable === table) {
@@ -23,7 +28,8 @@ const mock = {
         return { data: [], error: null };
       },
     }),
-  }),
+    });
+  },
 });
 
 (supabase as any).rpc = async (fn: string) => {
@@ -43,12 +49,14 @@ function reset() {
   mock.contractReport = null;
   mock.rpcFailure = null;
   mock.rpcResult = { status: 'committed' };
+  mock.userPreferencesColumns = '';
 }
 
 async function run() {
   reset();
   const healthy = await runPersistenceSchemaHealthCheck('user-1', { force: true });
   assert(healthy.status === 'healthy', 'healthy schema should report healthy');
+  assert(mock.userPreferencesColumns === 'user_id,migration_complete,auxiliary,updated_at', `schema health check should use current user_preferences contract columns, got ${mock.userPreferencesColumns}`);
 
   reset();
   mock.contractReport = {

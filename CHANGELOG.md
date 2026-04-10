@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Trust center manual verification backend-contract alignment fix
+- Fixed the remaining manual **Verify now** backend read break by removing the stale `user_preferences.schema_version` assumption from verification cloud reads; verification now reads only the live `user_preferences` contract columns used by save/load (`auxiliary`, `updated_at`) so cloud verification no longer fails on legacy/missing `schema_version` columns (`src/lib/persistenceVerification.ts`, `src/lib/persistenceSchemaHealth.ts`).
+- Hardened verification failure classification so backend schema/shape mismatches are explicitly marked as `backend-contract` (separate from network/session/table-read failures), improving technical diagnostics and support triage (`src/lib/persistenceVerification.ts`, `src/lib/__tests__/persistenceVerification.test.ts`).
+- Updated trust-center technical detail copy to clearly distinguish verification read failures caused by backend contract mismatch from generic transient read failures (`src/components/SyncStatusControl.tsx`).
+- Added regression coverage to ensure optional cloud schema metadata does not block verification success, backend-contract failures classify distinctly, and schema-health contract checks remain aligned with the live `user_preferences` column contract (`src/lib/__tests__/persistenceVerification.test.ts`, `src/lib/__tests__/persistenceSchemaHealth.test.ts`).
+
 ### Trust center verification read-failure reclassification + session-read hardening
 - Fixed a trust-classification bug in manual **Verify now** flows: cloud verification read failures now map to a distinct verification lifecycle state (`read-failed`) instead of being escalated as `mismatch-found`, and they no longer set `recoveryReviewNeeded` or trigger false mismatch-review attention paths (`src/store/state/types.ts`, `src/store/useAppStore.ts`).
 - Reworked verification modeling so `verification_read_failed` remains available as diagnostics/export detail while divergence mismatch totals now count only true cloud/local data mismatches; verification summaries now expose explicit read-failure diagnostics (kind/stage/message/attempt count) for technical debugging without implying data drift (`src/lib/persistenceVerification.ts`, `src/components/SyncStatusControl.tsx`, `src/components/RecoveryCenter.tsx`).

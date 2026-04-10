@@ -21,7 +21,7 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFol
   void openTrackerView;
   switch (workspace) {
     case 'followups':
-      return <TrackerWorkspace personalMode={appMode === 'personal'} appMode={appMode} />;
+      return <TrackerWorkspace personalMode={appMode === 'personal'} />;
     case 'tasks':
       return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
     case 'exports':

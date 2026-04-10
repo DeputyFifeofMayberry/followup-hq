@@ -2,10 +2,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
-import { daysUntil, formatDate, needsNudge, priorityTone, statusTone } from '../lib/utils';
-import type { AppMode, FollowUpColumnKey, FollowUpItem } from '../types';
-import { AppShellCard, AppBadge, EmptyState, ExecutionLaneFooterMeta } from './ui/AppPrimitives';
-import { getModeConfig } from '../lib/appModeConfig';
+import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
+import type { FollowUpColumnKey, FollowUpItem } from '../types';
+import { AppShellCard, AppBadge, EmptyState } from './ui/AppPrimitives';
 import { TrackerMobileList } from './TrackerMobileList';
 import { useViewportBand } from '../hooks/useViewport';
 import { useFollowUpsViewModel } from '../domains/followups';
@@ -19,10 +18,9 @@ function getWhatMattersNow(item: FollowUpItem): { label: string; tone: 'danger' 
   const dueDelta = daysUntil(item.dueDate);
   const touchDelta = daysUntil(item.nextTouchDate);
   if (item.status === 'Closed') return { label: 'Closed record', tone: 'success' };
-  if (dueDelta < 0) return { label: `Overdue by ${Math.abs(dueDelta)}d`, tone: 'danger' };
+  if (isOverdue(item)) return { label: `Overdue by ${Math.abs(dueDelta)}d`, tone: 'danger' };
   if ((item.blockedLinkedTaskCount ?? 0) > 0) return { label: 'Blocked by linked work', tone: 'danger' };
   if (needsNudge(item)) return { label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today', tone: 'warn' };
-  if (item.allLinkedTasksDone) return { label: 'Ready to close', tone: 'info' };
   if (item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn) return { label: 'Waiting on response', tone: 'info' };
   if (item.status === 'At risk' || item.escalationLevel === 'Critical') return { label: 'At risk', tone: 'warn' };
   if (item.nextAction) return { label: 'Next move set', tone: 'info' };
@@ -31,14 +29,12 @@ function getWhatMattersNow(item: FollowUpItem): { label: string; tone: 'danger' 
 
 export function TrackerTable({
   personalMode = false,
-  appMode = personalMode ? 'personal' : 'team',
   embedded = false,
   rows,
   onRowOpen,
   onRequestDelete,
 }: {
   personalMode?: boolean;
-  appMode?: AppMode;
   embedded?: boolean;
   rows: FollowUpItem[];
   onRowOpen?: (id: string) => void;
@@ -46,7 +42,6 @@ export function TrackerTable({
 }) {
   const vm = useFollowUpsViewModel();
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
-  const modeConfig = getModeConfig(appMode);
   const { isMobileLike } = useViewportBand();
 
   const baseColumns = useMemo<Record<FollowUpColumnKey, ColumnDef<FollowUpItem>>>(() => ({
@@ -60,12 +55,13 @@ export function TrackerTable({
           !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
           row.original.owner !== (row.original.assigneeDisplayName || row.original.owner) ? `Owner: ${row.original.owner}` : null,
         ].filter(Boolean);
-        const showUrgencyBadge = matterNow.tone !== 'info' || matterNow.label === 'Ready to close' || matterNow.label === 'Waiting on response';
+        const showInlineNextMove = !vm.followUpColumns.includes('nextAction');
+        const showUrgencyBadge = matterNow.tone !== 'info';
         return (
           <div className="tracker-title-cell">
             <div className="tracker-title-primary">{row.original.title}</div>
             <div className="tracker-title-secondary">{matterNow.label}</div>
-            <div className="tracker-title-next">Next move: {row.original.nextAction || 'No next move set'}</div>
+            {showInlineNextMove ? <div className="tracker-title-next">Next move: {row.original.nextAction || 'No next move set'}</div> : null}
             <div className="tracker-title-meta">{supportMeta.join(' • ')}</div>
             <div className="mt-1 flex flex-wrap gap-1">
               <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge>
@@ -96,8 +92,8 @@ export function TrackerTable({
         return <div className="text-xs text-slate-700">{open}/{total} open</div>;
       },
     },
-    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="max-w-[220px] truncate text-xs text-slate-600">{row.original.nextAction || '—'}</div> },
-  }), [personalMode]);
+    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="tracker-next-move-content text-xs text-slate-600">{row.original.nextAction || '—'}</div> },
+  }), [personalMode, vm.followUpColumns]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
     const effectiveColumnOrder = personalMode && vm.followUpColumns.includes('owner') && vm.followUpColumns.includes('assignee')
@@ -140,8 +136,6 @@ export function TrackerTable({
     <TrackerMobileList
       items={rows}
       selectedId={vm.selectedId}
-      selectedCount={vm.actionableSelectedFollowUpIds.length}
-      appMode={appMode}
       personalMode={personalMode}
       onOpenDetails={(id) => {
         vm.setSelectedId(id);
@@ -176,7 +170,9 @@ export function TrackerTable({
                     header.id === 'title' ? 'tracker-head-cell-identity' : '',
                     TIMING_COLUMNS.has(header.id) ? 'tracker-head-cell-timing' : '',
                     SUPPORT_COLUMNS.has(header.id) ? 'tracker-head-cell-support' : '',
+                    header.id === 'nextAction' ? 'tracker-head-cell-next-move' : '',
                     header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
+                    header.id === 'quickActions' ? 'tracker-head-cell-actions' : '',
                   ].filter(Boolean).join(' ')} aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
                     {header.isPlaceholder ? null : header.column.getCanSort() && SORTABLE_COLUMNS.has(header.id) ? (
                       <button
@@ -224,7 +220,9 @@ export function TrackerTable({
                       cell.column.id === 'title' ? 'tracker-cell-identity' : '',
                       TIMING_COLUMNS.has(cell.column.id) ? 'tracker-cell-timing' : '',
                       SUPPORT_COLUMNS.has(cell.column.id) ? 'tracker-cell-support' : '',
+                      cell.column.id === 'nextAction' ? 'tracker-cell-next-move' : '',
                       cell.column.id === 'quickActions' ? 'row-action-cell' : '',
+                      cell.column.id === 'quickActions' ? 'tracker-cell-actions' : '',
                     ].filter(Boolean).join(' ')}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                   ))}
                 </tr>
@@ -239,12 +237,6 @@ export function TrackerTable({
           </div>
         ) : null}
       </div>
-      <ExecutionLaneFooterMeta
-        shownCount={rows.length}
-        selectedCount={vm.actionableSelectedFollowUpIds.length}
-        scopeSummary={modeConfig.trackerOwnerContext === 'compact' ? 'Execution view' : 'Coordination view'}
-        hint={modeConfig.trackerOwnerContext === 'compact' ? 'Next move and timing stay primary.' : 'Owner and assignee remain visible for handoff decisions.'}
-      />
     </>
   );
 

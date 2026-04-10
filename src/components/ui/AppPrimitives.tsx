@@ -290,27 +290,6 @@ export function ExecutionLaneSelectionStrip({
 }
 
 
-export function ExecutionLaneFooterMeta({
-  shownCount,
-  selectedCount,
-  scopeSummary,
-  hint,
-}: {
-  shownCount: number;
-  selectedCount?: number;
-  scopeSummary?: string;
-  hint?: string;
-}) {
-  return (
-    <div className="execution-lane-footer-meta text-xs text-slate-500">
-      <span>{shownCount} shown</span>
-      {typeof selectedCount === 'number' ? <span> · {selectedCount} selected</span> : null}
-      {scopeSummary ? <span> · {scopeSummary}</span> : null}
-      {hint ? <span> · {hint}</span> : null}
-    </div>
-  );
-}
-
 export function WorkspaceInspectorSection({
   title,
   subtitle,

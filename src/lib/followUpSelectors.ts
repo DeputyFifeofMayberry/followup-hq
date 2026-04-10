@@ -1,5 +1,5 @@
 import type { CompanyRecord, ContactRecord, FollowUpAdvancedFilters, FollowUpItem, SavedViewKey } from '../types';
-import { daysUntil, isOverdue, needsNudge } from './utils';
+import { daysUntil, isOverdue, localDayDelta, needsNudge } from './utils';
 import { isExecutionReady } from '../domains/records/integrity';
 
 interface FollowUpSelectorInput {
@@ -22,7 +22,7 @@ export interface FollowUpViewCounts {
   closed: number;
 }
 
-export const primaryFollowUpViews: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
+export const primaryFollowUpViews: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Closed'];
 export const secondaryFollowUpViews: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 
 export type FollowUpRowAffectingOptionKey =
@@ -112,15 +112,11 @@ function isReadyToClose(item: FollowUpItem): boolean {
 function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['dueDateRange']): boolean {
   if (range === 'all') return true;
   if (!iso) return false;
-  const value = new Date(iso).getTime();
-  const now = Date.now();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const startMs = start.getTime();
-  if (range === 'overdue') return value < now;
-  if (range === 'today') return value >= startMs && value < startMs + 86400000;
-  if (range === 'this_week') return value <= now + 7 * 86400000;
-  if (range === 'next_7_days') return value >= startMs && value <= now + 7 * 86400000;
+  const dayDelta = localDayDelta(new Date(), iso);
+  if (range === 'overdue') return dayDelta < 0;
+  if (range === 'today') return dayDelta === 0;
+  if (range === 'this_week') return dayDelta <= 7;
+  if (range === 'next_7_days') return dayDelta >= 0 && dayDelta <= 7;
   return true;
 }
 

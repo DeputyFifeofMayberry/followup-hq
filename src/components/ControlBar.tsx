@@ -5,7 +5,7 @@ import { ExecutionLaneToolbarScaffold, SegmentedControl } from './ui/AppPrimitiv
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { useFollowUpsViewModel } from '../domains/followups';
 
-const PRIMARY_VIEWS: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
+const PRIMARY_VIEWS: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Closed'];
 const SECONDARY_VIEWS: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState', 'nextAction'];
 
@@ -99,7 +99,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             label: (
               <span className="followup-view-option">
                 <span>{view === 'All' ? 'All open' : view}</span>
-                <strong>{view === 'All items' ? vm.viewCounts.allItems : view === 'All' ? vm.viewCounts.allOpen : view === 'Needs nudge' ? vm.viewCounts.needsNudge : view === 'At risk' ? vm.viewCounts.atRisk : view === 'Ready to close' ? vm.viewCounts.readyToClose : vm.viewCounts.closed}</strong>
+                <strong>{view === 'All items' ? vm.viewCounts.allItems : view === 'All' ? vm.viewCounts.allOpen : view === 'Needs nudge' ? vm.viewCounts.needsNudge : view === 'At risk' ? vm.viewCounts.atRisk : vm.viewCounts.closed}</strong>
               </span>
             ),
           }))}

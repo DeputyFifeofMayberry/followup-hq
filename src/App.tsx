@@ -521,9 +521,6 @@ function MainApp({ session }: { session: Session }) {
                             <span className="nav-icon-shell"><Icon className="h-4 w-4 nav-label-icon" /></span>
                             <span className="nav-label-primary">{meta.userLabel}</span>
                           </span>
-                          <span className="nav-card-meta-row">
-                                                        {navCounts[key] && (active || section.tone === 'core') ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
-                          </span>
                         </div>
                       </button>
                     );

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { AppMode } from '../../types';
 import { useFollowUpsViewModel } from '../../domains/followups';
 import {
   AppModal,
@@ -18,7 +17,7 @@ import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
 import type { FollowUpItem } from '../../types';
 
-export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
+export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
@@ -76,7 +75,6 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
               ) : null}
               <TrackerTable
                 personalMode={personalMode}
-                appMode={appMode}
                 embedded
                 rows={vm.filteredRows}
                 onRowOpen={() => setDetailModalOpen(true)}

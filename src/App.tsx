@@ -11,7 +11,7 @@ import { MergeModal } from './components/MergeModal';
 import { TouchLogModal } from './components/TouchLogModal';
 import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
-import { SetPointMark, SetPointMonogram, SetPointWordmark } from './components/brand';
+import { SetPointMark, SetPointMonogram } from './components/brand';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { performSignOut, type SignOutLocalPolicy } from './lib/auth/signOut';
@@ -122,7 +122,7 @@ function LoginScreen() {
         <section className="login-card-wrap">
           <div className="login-card">
             <div className="login-card-topbar">
-              <SetPointWordmark variant="compact" className="login-chip login-chip-brand" decorative />
+              <div className="login-chip login-chip-brand">FollowUp HQ</div>
               <div className="login-chip login-chip-muted">Secure sign-in</div>
             </div>
 
@@ -482,8 +482,8 @@ function MainApp({ session }: { session: Session }) {
         <aside id="primary-workspace-nav" className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''} ${mobileNavOpen ? 'app-nav-rail-mobile-open' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
-            <SetPointWordmark variant="shell" className="app-brand-title" decorative />
-            <div className="app-brand-subline">Execution workspace</div>
+            <div className="app-brand-title app-brand-title-text">FollowUp HQ</div>
+            <div className="app-brand-subline">Daily operations</div>
           </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
@@ -542,7 +542,7 @@ function MainApp({ session }: { session: Session }) {
               </button>
               <div className="app-compact-shell-brand">
                 <SetPointMonogram decorative className="app-compact-shell-monogram" />
-                <SetPointWordmark variant="compact" decorative />
+                <strong className="app-compact-shell-wordmark">FollowUp HQ</strong>
               </div>
               <div className="app-compact-shell-current">
                 <span>{modeConfig.displayName}</span>
@@ -554,7 +554,7 @@ function MainApp({ session }: { session: Session }) {
                 <div className="workspace-header-main">
                   <div className="workspace-label">{modeConfig.displayName}</div>
                   <h1>{currentMeta.shellTitle}</h1>
-                  <p>{currentMeta.shellPurpose}</p>
+                  <p>{currentMeta.shellPurpose.split(".")[0]}.</p>
                 </div>
                 <div className="workspace-header-meta-top">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
@@ -615,7 +615,7 @@ function MainApp({ session }: { session: Session }) {
         <div>
           <AppModal size="standard" onBackdropClick={() => setShowCommand(false)}>
             <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
-              <AppModalHeader title="Command" onClose={() => setShowCommand(false)} />
+              <AppModalHeader title="Command palette" onClose={() => setShowCommand(false)} />
               <AppModalBody scrollable={false}>
             <label className="field-block">
               <span className="field-label">Quick find command</span>
@@ -625,7 +625,7 @@ function MainApp({ session }: { session: Session }) {
                   ref={commandSearchRef}
                   className="field-input search-field-input"
                   type="search"
-                  placeholder="Type command, workspace, or record"
+                  placeholder="Type command, tab, or record"
                   value={commandQuery}
                   onChange={(event) => setCommandQuery(event.target.value)}
                   onKeyDown={(event) => {

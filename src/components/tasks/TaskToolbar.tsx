@@ -8,8 +8,6 @@ type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_wit
 type LinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
 type PriorityFilter = 'All' | 'Low' | 'Medium' | 'High' | 'Critical';
 
-type FilterChip = { key: string; label: string; clear: () => void };
-
 type TaskToolbarProps = {
   isMobileLike: boolean;
   searchQuery: string;
@@ -45,8 +43,6 @@ type TaskToolbarProps = {
   sortBy: TaskSort;
   onSortByChange: (value: TaskSort) => void;
   onResetFilters: () => void;
-  activeFilterChips: FilterChip[];
-  sortSummary: string;
 };
 
 export const TaskToolbar = memo(function TaskToolbar({
@@ -83,9 +79,7 @@ export const TaskToolbar = memo(function TaskToolbar({
   onPriorityFilterChange,
   sortBy,
   onSortByChange,
-  onResetFilters,
-  activeFilterChips,
-  sortSummary,
+  onResetFilters
 }: TaskToolbarProps) {
   return (
     <div className="workspace-control-stack task-control-stack-calm">
@@ -99,7 +93,7 @@ export const TaskToolbar = memo(function TaskToolbar({
         </label>
 
         <label className="field-block task-view-picker">
-          <span className="field-label">Queue</span>
+          <span className="field-label">Focus</span>
           <select value={view} onChange={(event) => onViewChange(event.target.value as TaskView)} className="field-input">
             {taskViewOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
@@ -108,7 +102,7 @@ export const TaskToolbar = memo(function TaskToolbar({
         <div className="task-toolbar-actions">
           <button onClick={onToggleViewOptions} className="action-btn" aria-expanded={viewOptionsOpen}>
             <SlidersHorizontal className="h-4 w-4" />
-            Options{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
           </button>
           <button onClick={onOpenCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
@@ -117,7 +111,7 @@ export const TaskToolbar = memo(function TaskToolbar({
 
       {viewOptionsOpen ? (
         <details className="task-filters-panel-slim" open>
-          <summary className="task-view-options-title">Advanced filters and layout</summary>
+          <summary className="task-view-options-title">More filters</summary>
           <section className="task-view-options-section">
             <h4 className="task-view-options-title">Scope</h4>
             <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
@@ -161,13 +155,6 @@ export const TaskToolbar = memo(function TaskToolbar({
             <button onClick={onResetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
           </div>
         </details>
-      ) : null}
-
-      {activeFilterChips.length > 0 || sortSummary ? (
-        <div className="task-filter-chip-row task-filter-chip-row-muted">
-          {activeFilterChips.map((chip) => <button key={chip.key} onClick={chip.clear} className="task-filter-chip task-filter-chip-quiet">{chip.label} <span aria-hidden="true">×</span></button>)}
-          {sortSummary ? <span className="task-sort-summary">{sortSummary}</span> : null}
-        </div>
       ) : null}
     </div>
   );

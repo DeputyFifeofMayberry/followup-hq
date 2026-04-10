@@ -29,7 +29,7 @@ export function MergeModal() {
   return (
     <AppModal size="wide">
       <AppModalHeader
-        title="Merge duplicates"
+        title="Merge records"
         subtitle={`Keep ${baseItem.id} and absorb ${candidateItem.id}.`}
         onClose={closeMergeModal}
       />

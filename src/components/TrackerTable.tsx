@@ -8,7 +8,6 @@ import { AppShellCard, AppBadge, EmptyState, ExecutionLaneFooterMeta } from './u
 import { getModeConfig } from '../lib/appModeConfig';
 import { TrackerMobileList } from './TrackerMobileList';
 import { useViewportBand } from '../hooks/useViewport';
-import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 import { useFollowUpsViewModel } from '../domains/followups';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
@@ -68,7 +67,6 @@ export function TrackerTable({
             <div className="tracker-title-meta">{supportMeta.join(' • ')}</div>
             <div className="mt-1 flex flex-wrap gap-1">
               <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge>
-              {row.original.priority === 'High' || row.original.priority === 'Critical' ? <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> : null}
               {showUrgencyBadge && matterNow.tone !== 'info' ? <AppBadge tone={matterNow.tone}>{matterNow.label}</AppBadge> : null}
             </div>
           </div>
@@ -118,11 +116,11 @@ export function TrackerTable({
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1 row-quick-actions">
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Open</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
+            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Inspect</button>
             <details className="tracker-row-more-actions">
-              <summary>More</summary>
+              <summary>Act</summary>
               <div className="flex flex-wrap gap-1">
+                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); }}>Snooze</button>
               </div>

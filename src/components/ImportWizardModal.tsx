@@ -32,12 +32,12 @@ export function ImportWizardModal() {
     <AppModal size="wide">
       <AppModalHeader
         title="Import records"
-        subtitle="Upload or paste, review, then import."
+        subtitle="Upload or paste, review, import."
         onClose={closeImportModal}
       />
       <AppModalBody>
         <div className="form-section">
-          <div className="form-section-title">Step 1 · Add source data</div>
+          <div className="form-section-title">1) Add source</div>
           <div className="import-dropzone">
             <div className="text-sm font-medium text-slate-900">Upload a file</div>
             <div className="mt-1 text-sm text-slate-500">Supported: .csv, .tsv, .xlsx, .xls</div>
@@ -76,7 +76,7 @@ export function ImportWizardModal() {
         {error ? <div className="import-error">{error}</div> : null}
 
         <div className="form-section">
-          <div className="form-section-title">Step 2 · Review parse result</div>
+          <div className="form-section-title">2) Review rows</div>
           <div className="rounded-2xl border border-slate-200">
             <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">Preview ({preview.length} rows ready)</div>
             <div className="overflow-x-auto">

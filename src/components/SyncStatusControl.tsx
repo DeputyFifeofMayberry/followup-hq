@@ -18,10 +18,10 @@ function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' |
 
 export function SyncStatusControl() {
   const syncMeta = useAppStore(useShallow((s) => ({
-  ...selectSyncMetaSnapshot(s),
-  pendingBatchCount: s.pendingBatchCount,
-  dirtyRecordRefs: s.dirtyRecordRefs,
-  persistenceActivity: s.persistenceActivity,
+    ...selectSyncMetaSnapshot(s),
+    pendingBatchCount: s.pendingBatchCount,
+    dirtyRecordRefs: s.dirtyRecordRefs,
+    persistenceActivity: s.persistenceActivity,
     flushPersistenceNow: s.flushPersistenceNow,
     retryPersistenceNow: s.retryPersistenceNow,
     verifyNow: s.verifyNow,
@@ -42,7 +42,6 @@ export function SyncStatusControl() {
   const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch'
     || syncMeta.sessionDegradedReason === 'backend-rpc-missing'
     || syncMeta.sessionDegradedReason === 'backend-missing-hashing-support';
-  const isNeedsAttention = statusModel.primaryState === 'needs-attention';
   const retryBlocked = Boolean(syncMeta.lastFailureNonRetryable || syncMeta.sessionDegradedReason === 'payload-invalid' || isBackendSetupIssue);
   const showRetry = !retryBlocked && (syncMeta.pendingBatchCount > 0 || syncMeta.syncState === 'error' || syncMeta.cloudSyncState === 'failed' || syncMeta.cloudSyncState === 'conflict');
   const trustAction = syncMeta.persistenceMode === 'supabase'
@@ -324,7 +323,7 @@ export function SyncStatusControl() {
                     receiptMetadata: {
                       status: syncMeta.lastReceiptStatus,
                       hashMatch: syncMeta.lastReceiptHashMatch,
-                      touchedTables: syncMeta.lastReceiptTouchedTables,
+                      touchedTables: syncMeta.lastReceiptTouchedTables ? [...syncMeta.lastReceiptTouchedTables] : undefined,
                       operationCount: syncMeta.lastReceiptOperationCount,
                     },
                   });
@@ -364,7 +363,7 @@ export function SyncStatusControl() {
             mismatchCountsByEntity={syncMeta.verificationSummary?.mismatchCountsByEntity ?? {}}
             localSnapshotSummary={syncMeta.latestVerificationResult?.localSnapshotSummary}
             cloudSnapshotSummary={syncMeta.latestVerificationResult?.cloudSnapshotSummary}
-            reviewedMismatchIds={syncMeta.reviewedMismatchIds}
+            reviewedMismatchIds={[...syncMeta.reviewedMismatchIds]}
             onVerifyNow={() => { void syncMeta.verifyNow('manual'); }}
             onReRunCloudRead={() => { void syncMeta.verifyNow('manual'); }}
             onMarkReviewed={(mismatchId) => syncMeta.markVerificationMismatchReviewed(mismatchId)}

@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ClipboardCopy, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
+import { AlertTriangle, ClipboardCopy, FolderOpen, LayoutGrid, List, Plus, RefreshCcw, ShieldAlert, Timer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   applyProjectFilters,
@@ -18,7 +18,6 @@ import {
   AppShellCard,
   StatTile,
   SupportWorkspaceMaintenanceTray,
-  SupportWorkspacePortfolioCard,
   SupportWorkspaceRelatedList,
   SupportWorkspaceRouteActions,
   SupportWorkspaceSelectedContextCard,

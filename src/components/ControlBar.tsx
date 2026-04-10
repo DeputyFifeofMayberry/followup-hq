@@ -7,15 +7,18 @@ import { useFollowUpsViewModel } from '../domains/followups';
 import { primaryFollowUpViews, secondaryFollowUpViews } from '../lib/followUpSelectors';
 
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
+const FOLLOWUP_QUEUE_PRESSURE_STRIP: Array<{ key: 'allOpen' | 'needsNudge' | 'atRisk' | 'waiting' | 'overdue'; view: SavedViewKey; label: string }> = [
+  { key: 'allOpen', view: 'All', label: 'All open' },
+  { key: 'needsNudge', view: 'Needs nudge', label: 'Needs nudge' },
+  { key: 'atRisk', view: 'At risk', label: 'At risk' },
+  { key: 'waiting', view: 'Waiting', label: 'Waiting' },
+  { key: 'overdue', view: 'Overdue', label: 'Overdue' },
+];
 
 const QUEUE_OPTIONS: Array<{ value: SavedViewKey; label: string; kind: 'primary' | 'secondary' }> = [
   ...primaryFollowUpViews.map((view) => ({ value: view, label: view === 'All' ? 'All open' : view, kind: 'primary' as const })),
   ...secondaryFollowUpViews.map((view) => ({ value: view, label: view, kind: 'secondary' as const })),
 ];
-
-function matchesViewKind(view: SavedViewKey, kind: 'primary' | 'secondary') {
-  return kind === 'primary' ? primaryFollowUpViews.includes(view) : secondaryFollowUpViews.includes(view);
-}
 
 export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOpenDuplicateReview?: () => void; duplicateCount?: number }) {
   const vm = useFollowUpsViewModel();
@@ -137,6 +140,24 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           </>
         )}
       />
+      <div className="followup-queue-pressure-strip" role="tablist" aria-label="Follow-up queue pressure">
+        {FOLLOWUP_QUEUE_PRESSURE_STRIP.map((queue) => {
+          const active = vm.activeView === queue.view;
+          return (
+            <button
+              key={queue.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`followup-queue-pressure-chip ${active ? 'followup-queue-pressure-chip-active' : ''}`.trim()}
+              onClick={() => vm.setActiveView(queue.view)}
+            >
+              <span>{queue.label}</span>
+              <strong>{vm.queuePressureCounts[queue.key]}</strong>
+            </button>
+          );
+        })}
+      </div>
 
       <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
         {vm.activeRowAffectingOptions.length > 0 ? (
@@ -151,7 +172,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all row filters</button>
           </>
         ) : (
-          <span className="task-sort-summary">Showing full queue scope for {matchesViewKind(vm.activeView, 'secondary') ? vm.activeView : 'primary'} view.</span>
+          <span className="task-sort-summary">{vm.queueSummary}</span>
         )}
       </div>
 

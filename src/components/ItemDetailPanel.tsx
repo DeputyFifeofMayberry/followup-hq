@@ -120,7 +120,7 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
   }, [item?.id]);
 
   if (!item) {
-    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Select a follow-up</div><p className="mt-2 text-sm text-slate-500">Open any row to review what matters now and take the next action.</p></AppShellCard>;
+    return <AppShellCard className="tracker-detail-panel p-5 premium-inspector" surface="inspector"><div className="text-lg font-semibold text-slate-950">Inspector ready</div><p className="mt-2 text-sm text-slate-500">Select a follow-up to review context, log progress, and move the queue forward.</p></AppShellCard>;
   }
 
   const contact = contacts.find((entry) => entry.id === item.contactId);

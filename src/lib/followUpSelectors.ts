@@ -22,6 +22,10 @@ export interface FollowUpViewCounts {
   closed: number;
 }
 
+export type FollowUpQueuePressureKey = 'allOpen' | 'needsNudge' | 'atRisk' | 'waiting' | 'overdue';
+
+export type FollowUpQueuePressureCounts = Record<FollowUpQueuePressureKey, number>;
+
 export const primaryFollowUpViews: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Closed'];
 export const secondaryFollowUpViews: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
 
@@ -214,6 +218,17 @@ export function selectFollowUpViewCounts(input: FollowUpViewScopeInput): FollowU
     atRisk: applySavedView(baseRows, 'At risk').length,
     readyToClose: applySavedView(baseRows, 'Ready to close').length,
     closed: applySavedView(baseRows, 'Closed').length,
+  };
+}
+
+export function selectFollowUpQueuePressureCounts(input: FollowUpViewScopeInput): FollowUpQueuePressureCounts {
+  const baseRows = applyBaseFilters(input.items, input);
+  return {
+    allOpen: applySavedView(baseRows, 'All').length,
+    needsNudge: applySavedView(baseRows, 'Needs nudge').length,
+    atRisk: applySavedView(baseRows, 'At risk').length,
+    waiting: applySavedView(baseRows, 'Waiting').length,
+    overdue: applySavedView(baseRows, 'Overdue').length,
   };
 }
 

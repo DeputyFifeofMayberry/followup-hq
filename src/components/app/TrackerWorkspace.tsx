@@ -19,7 +19,6 @@ import type { FollowUpItem } from '../../types';
 
 export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [revealNotice, setRevealNotice] = useState<string | null>(null);
   const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
@@ -31,27 +30,19 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
       const visibleInCurrentLane = vm.filteredRows.some((row) => row.id === intent.recordId);
       vm.setSelectedId(intent.recordId);
       if (visibleInCurrentLane) {
-        setDetailModalOpen(true);
         setRevealNotice(null);
       } else {
         vm.revealFollowUpRecord(intent.recordId);
-        setDetailModalOpen(true);
         setRevealNotice('Queue filters were adjusted to show the requested follow-up.');
       }
     }
     vm.clearExecutionIntent();
   }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord]);
 
-  useEffect(() => {
-    if (!vm.selectedFollowUp) {
-      setDetailModalOpen(false);
-    }
-  }, [vm.selectedFollowUp?.id]);
-
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
-        <WorkspacePrimaryLayout inspectorWidth="340px" className={detailModalOpen && vm.selectedFollowUp ? '' : 'workspace-primary-layout-collapsed'}>
+        <WorkspacePrimaryLayout inspectorWidth="340px">
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main">
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
@@ -60,16 +51,14 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
                 personalMode={personalMode}
                 embedded
                 rows={vm.filteredRows}
-                onRowOpen={() => setDetailModalOpen(true)}
+                onRowOpen={() => undefined}
                 onRequestDelete={setPendingDeleteFollowUp}
               />
             </ExecutionLaneQueueCard>
           </div>
-          {detailModalOpen && vm.selectedFollowUp ? (
-            <ExecutionLaneInspectorCard>
-              <ItemDetailPanel personalMode={personalMode} onRequestClose={() => setDetailModalOpen(false)} />
-            </ExecutionLaneInspectorCard>
-          ) : null}
+          <ExecutionLaneInspectorCard>
+            <ItemDetailPanel personalMode={personalMode} onRequestClose={() => vm.setSelectedId('')} />
+          </ExecutionLaneInspectorCard>
         </WorkspacePrimaryLayout>
       </WorkspaceContentFrame>
 
@@ -109,7 +98,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
               onClick={() => {
                 vm.deleteItem(pendingDeleteFollowUp.id);
                 setPendingDeleteFollowUp(null);
-                if (vm.selectedId === pendingDeleteFollowUp.id) setDetailModalOpen(false);
+                if (vm.selectedId === pendingDeleteFollowUp.id) vm.setSelectedId('');
               }}
             >
               Delete follow-up

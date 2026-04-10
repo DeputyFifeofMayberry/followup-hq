@@ -57,16 +57,15 @@ assertIncludes('src/components/SyncStatusControl.tsx', [
 
 assertIncludes('src/components/CreateWorkModal.tsx', [
   'const showSectionNav = !quickMode && showAdvanced;',
-  "create-work-full-shell create-work-full-shell-with-nav",
-  "create-work-full-shell create-work-full-shell-no-nav",
+  "create-work-full-shell create-work-full-shell-nav-hidden",
   '{showSectionNav ? (',
 ]);
 
 assertIncludes('src/styles/primitives.css', [
-  '.create-work-full-shell-with-nav { grid-template-columns: minmax(104px, 136px) minmax(0, 1fr); }',
-  '.create-work-full-shell-no-nav { grid-template-columns: minmax(0, 1fr); }',
+  '.create-work-full-shell {',
+  'grid-template-columns: minmax(104px, 136px) minmax(0, 1fr);',
+  '.create-work-full-shell-nav-hidden { grid-template-columns: minmax(0, 1fr); }',
   'min-width: 0;',
-  'justify-self: stretch;',
 ]);
 
 console.log('UI contract checks passed.');

@@ -361,8 +361,8 @@ export function CreateWorkModal() {
   const quickMode = editorMode === 'quick' && creating;
   const showSectionNav = !quickMode && showAdvanced;
   const fullEditorShellClassName = showSectionNav
-    ? 'create-work-full-shell create-work-full-shell-with-nav'
-    : 'create-work-full-shell create-work-full-shell-no-nav';
+    ? 'create-work-full-shell'
+    : 'create-work-full-shell create-work-full-shell-nav-hidden';
   const summaryMessage = quickMode
     ? 'Quick create captures only the essentials.'
     : 'Full editor keeps all context and tracking fields.';

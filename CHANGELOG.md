@@ -2,6 +2,13 @@
 
 ## 2026-04-10
 
+### Intake reviewer workbench guidance redesign (required fixes → recommendation → decision)
+- Rebuilt the Universal Intake reviewer center panel from a form-first editor into a guided correction/decision workflow: candidate summary first, then explicit **Required to approve** blockers, then **Recommended improvements**, then a single **Suggested next action** decision card, followed by prioritized editable fields and final decision buttons (`src/components/UniversalIntakeWorkspace.tsx`).
+- Unified reviewer guidance logic with shared intake planning helpers by wiring Universal Intake to `buildCandidateFieldSuggestions` + `buildIntakeReviewPlan` (already used by review planning flows), so blockers/recommendations/suggested action come from the same safety + field-evidence model instead of component-only heuristics (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeReviewPlan.ts`).
+- Integrated duplicate/link pressure into the guided flow without letting it dominate by keeping link/duplicate modules contextual, while feeding that signal into the suggested action and de-emphasizing create actions whenever required corrections remain (`src/components/UniversalIntakeWorkspace.tsx`).
+- Reordered edit fields for faster correction pass-through (title, type, project, due date, next step, owner/assignee, summary, then secondary fields), and clarified final action hierarchy by pausing create actions until required blockers are addressed (`src/components/UniversalIntakeWorkspace.tsx`).
+- Added dedicated reviewer-guidance card styles for required blockers and suggested next action emphasis so blocker severity and decision guidance are visually distinct from lower-priority edits (`src/styles/workspaces.css`).
+
 ### Intake hierarchy rebuild: reviewer-first workbench flow
 - Rebuilt Intake page structure so a compact operational header is followed immediately by the main reviewer surface (`Review queue`, `Reviewer workbench`, `Source evidence`) instead of leading with import/admin stacks, making pending review decisions the first-screen center of gravity for daily use (`src/components/UniversalIntakeWorkspace.tsx`).
 - Consolidated upload, quick-paste ingest, batch/session lifecycle actions, retry/remove failed parse controls, and archived-batch history into quieter disclosure-based tool sections under a single **Add sources and intake tools** area, preserving existing workflows while demoting support/admin chrome (`src/components/UniversalIntakeWorkspace.tsx`).

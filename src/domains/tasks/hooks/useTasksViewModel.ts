@@ -54,6 +54,15 @@ function isDueToday(task: TaskItem, nowTs: number) {
   return dueTs >= todayStart.getTime() && dueTs < tomorrowStart;
 }
 
+export function resolveTaskOpenProjectFilter(taskProject: string | undefined, requestedProject?: string) {
+  if (!taskProject) return 'All';
+  const normalizedRequested = requestedProject?.trim();
+  if (normalizedRequested && normalizedRequested !== 'All' && normalizedRequested === taskProject) {
+    return taskProject;
+  }
+  return 'All';
+}
+
 export function useTasksViewModel({ personalMode = false }: { personalMode?: boolean } = {}) {
   const store = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
@@ -356,6 +365,28 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const hasLinkedFollowUp = (linkedFollowUpId?: string | null) => Boolean(linkedFollowUpId && followUpById.get(linkedFollowUpId));
 
+  const openTaskInWorkspace = (taskId: string, options?: { project?: string }) => {
+    const task = store.tasks.find((entry) => entry.id === taskId);
+    store.setSelectedTaskId(taskId);
+    setSearchQuery('');
+    setView('all');
+    store.setTaskOwnerFilter('All');
+    store.setTaskStatusFilter('All');
+    setAssigneeFilter('All');
+    setLinkedFilter('all');
+    setTimingFilter('all');
+    setStateFilter('all');
+    setPriorityFilter('All');
+    setSortBy(defaultFilterState.sortBy);
+
+    if (!task) {
+      setProjectFilter('All');
+      return;
+    }
+
+    setProjectFilter(resolveTaskOpenProjectFilter(task.project, options?.project));
+  };
+
   return {
     ...store,
     tasks: store.tasks,
@@ -401,6 +432,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     getTaskSignal,
     hasLinkedFollowUp,
     completedToday,
+    openTaskInWorkspace,
   };
 }
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
@@ -123,8 +123,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
                 {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
               </div>
             </label>
-            <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
-          </div>
+                      </div>
         )}
         right={(
           <>
@@ -133,7 +132,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               Options{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
               <ChevronDown className={`h-4 w-4 ${showOptions ? 'rotate-180' : ''}`} />
             </button>
-            {duplicateCount > 0 && showOptions ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
+            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
             <button onClick={vm.openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}
@@ -186,16 +185,6 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             </div>
           </section>
           <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetFollowUpFilters}>Reset options</button></div>
-        </div>
-      ) : null}
-
-      {vm.hiddenSelectionCount > 0 ? (
-        <div className="execution-batch-strip followup-selection-warning" role="status" aria-live="polite">
-          <div className="text-sm text-amber-800 inline-flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{vm.hiddenSelectionCount} selected outside this view and will be skipped.</div>
-          <div className="followup-action-row">
-            <button onClick={() => vm.selectAllVisibleFollowUps(selectedIdsInScope)} className="action-btn">Keep shown only</button>
-            <button onClick={vm.clearFollowUpSelection} className="action-btn">Clear all selection</button>
-          </div>
         </div>
       ) : null}
 

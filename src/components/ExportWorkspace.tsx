@@ -24,7 +24,7 @@ const savedViewOptions: SavedViewKey[] = ['All', 'Closed', 'Today', 'Waiting', '
 const defaultOptions: ExportOptions = {
   dataset: 'combined',
   detailLevel: 'standard',
-  fileBaseName: 'followup_hq_report',
+  fileBaseName: 'followup_hq_reporting',
   includeSummarySheet: true,
   includeNotes: true,
   includeTimeline: false,
@@ -183,7 +183,7 @@ export function ExportWorkspace() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionHeader
             title="Exports"
-            subtitle="Filter records, preview scope, and export reports."
+            subtitle="Build reporting exports with clear scope, preview, and one final action."
             compact
             actions={<div className="text-xs text-slate-500 inline-flex items-center gap-1"><FileSpreadsheet className="h-3.5 w-3.5" />Operational report export</div>}
           />
@@ -193,7 +193,7 @@ export function ExportWorkspace() {
             <button type="button" onClick={handleWorkbookExport} className="primary-btn"><FileSpreadsheet className="h-4 w-4" />Export workbook</button>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-sm text-slate-500">Follow-ups in report</div>
             <div className="mt-2 text-3xl font-semibold text-slate-950">{filteredFollowUps.length}</div>
@@ -214,7 +214,7 @@ export function ExportWorkspace() {
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-950"><Filter className="h-4 w-4" />Report options</div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-950"><Filter className="h-4 w-4" />Export scope</div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <label className="field-block">
                 <span className="field-label">Dataset</span>
@@ -232,7 +232,7 @@ export function ExportWorkspace() {
               </label>
               <label className="field-block">
                 <span className="field-label">File name</span>
-                <input value={options.fileBaseName} onChange={(event) => updateOptions({ fileBaseName: event.target.value })} className="field-input" placeholder="followup_hq_report" />
+                <input value={options.fileBaseName} onChange={(event) => updateOptions({ fileBaseName: event.target.value })} className="field-input" placeholder="followup_hq_reporting" />
               </label>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">

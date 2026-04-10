@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
-import { ExecutionLaneFooterMeta, ExecutionLaneInspectorCard, SectionHeader, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
-import { getModeConfig } from '../lib/appModeConfig';
+import { ExecutionLaneInspectorCard, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -23,11 +22,10 @@ const taskViewOptions = [
   { value: 'all' as const, label: 'All open' },
 ];
 
-export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
+export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const vm = useTasksViewModel({ personalMode });
   const { isMobileLike } = useViewportBand();
-  const modeConfig = getModeConfig(appMode);
-  const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
+    const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
   const addTask = useAppStore((s) => s.addTask);
 
@@ -128,8 +126,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
   }, [vm.setSelectedTaskId]);
 
   const handleDoneTask = useCallback((task: TaskItem) => openTaskFlow(task, 'done'), [openTaskFlow]);
-  const handleToggleBlockTask = useCallback((task: TaskItem) => openTaskFlow(task, task.status === 'Blocked' ? 'unblock' : 'block'), [openTaskFlow]);
-  const handleDeferTask = useCallback((task: TaskItem) => openTaskFlow(task, 'defer'), [openTaskFlow]);
 
   const handleQuickAdd = useCallback((payload: { title: string; project: string; owner: string; assignee?: string; nextStep: string }) => {
     if (!payload.title || !payload.project || !payload.owner || !payload.nextStep) {
@@ -176,14 +172,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
 
   return (
     <WorkspacePage>
-      <div className="task-workspace-header-slim">
-        <SectionHeader title="Tasks" subtitle={modeConfig.taskSubtitle} compact />
-        <div className="task-workspace-header-metrics">
-          <span>{vm.queueSummary}</span><span>Review: {vm.taskSummary.reviewRequired}</span><span>Unlinked: {vm.taskSummary.unlinked}</span>
-        </div>
-      </div>
-
-      <WorkspacePrimaryLayout inspectorWidth="420px" className="task-workspace-layout">
+      <WorkspacePrimaryLayout inspectorWidth="390px" className="task-workspace-layout">
         <section className="detail-card task-workspace-main-card">
           <TaskToolbar
           isMobileLike={isMobileLike}
@@ -220,23 +209,18 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           sortBy={vm.sortBy}
           onSortByChange={vm.setSortBy}
           onResetFilters={vm.resetPanelFilters}
-          activeFilterChips={vm.activeFilterChips}
-          sortSummary={vm.sortSummary}
         />
 
           <TaskList
           filteredTasks={vm.filteredTasks}
           selectedTaskId={vm.selectedTask?.id ?? null}
           laneFeedback={laneFeedback}
-          completedToday={vm.completedToday}
           projectOptions={vm.projectOptions}
           ownerOptions={vm.ownerOptions}
           assigneeOptions={vm.assigneeOptions}
           quickCaptureDefaults={vm.quickCaptureDefaults}
           onSelectTask={handleSelectTask}
           onDoneTask={handleDoneTask}
-          onToggleBlockTask={handleToggleBlockTask}
-          onDeferTask={handleDeferTask}
           onSetDueToday={setDueToday}
           onSetDueTomorrow={setDueTomorrow}
           onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
@@ -245,7 +229,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           renderNowSignal={vm.getTaskSignal}
         />
 
-          <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} />
         </section>
 
         {!isMobileLike && taskDetailOpen && vm.selectedTask ? (

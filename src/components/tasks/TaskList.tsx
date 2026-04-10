@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRightCircle, CalendarClock, CheckCircle2, Plus } from 'lucide-react';
+import { ArrowRightCircle, CalendarClock, Plus } from 'lucide-react';
 import { Badge } from '../Badge';
 import { EmptyState } from '../ui/AppPrimitives';
-import { formatDate, todayIso } from '../../lib/utils';
+import { formatDate } from '../../lib/utils';
 import type { TaskItem } from '../../types';
 
 type TaskSignal = {
@@ -25,15 +25,12 @@ type TaskListProps = {
   filteredTasks: TaskItem[];
   selectedTaskId: string | null;
   laneFeedback: { tone: 'success' | 'warn'; message: string } | null;
-  completedToday: TaskItem[];
   projectOptions: string[];
   ownerOptions: string[];
   assigneeOptions: string[];
   quickCaptureDefaults: { project: string; owner: string; assignee: string; nextStep: string };
   onSelectTask: (taskId: string) => void;
   onDoneTask: (task: TaskItem) => void;
-  onToggleBlockTask: (task: TaskItem) => void;
-  onDeferTask: (task: TaskItem) => void;
   onSetDueToday: (task: TaskItem) => void;
   onSetDueTomorrow: (task: TaskItem) => void;
   onOpenLinkedFollowUp: (task: TaskItem) => void;
@@ -53,15 +50,12 @@ export function TaskList({
   filteredTasks,
   selectedTaskId,
   laneFeedback,
-  completedToday,
   projectOptions,
   ownerOptions,
   assigneeOptions,
   quickCaptureDefaults,
   onSelectTask,
   onDoneTask,
-  onToggleBlockTask,
-  onDeferTask,
   onSetDueToday,
   onSetDueTomorrow,
   onOpenLinkedFollowUp,
@@ -181,14 +175,10 @@ export function TaskList({
               </div>
               <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                 <div className="scan-row-badge-cluster">
-                  {task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : null}
-                  {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : signal.dueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
-                  {signal.needsReview ? <Badge variant="warn">Review needed</Badge> : null}
+                  {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : signal.needsReview ? <Badge variant="warn">Review</Badge> : null}
                 </div>
                 <div className="scan-row-action-cluster">
                   {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
-                  <button onClick={() => onToggleBlockTask(task)} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                  <button onClick={() => onDeferTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Defer</button>
                 </div>
                 <details className="task-row-more-actions">
                   <summary>More</summary>
@@ -203,21 +193,6 @@ export function TaskList({
           </button>
         );
       })}
-
-      {completedToday.length > 0 ? (
-        <div className="task-completed-today-section">
-          <div className="task-completed-today-header">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Done today ({completedToday.length})</span>
-          </div>
-          {completedToday.map((task) => (
-            <div key={task.id} className="task-completed-today-row">
-              <span className="task-completed-today-title">{task.title}</span>
-              <span className="task-completed-today-meta">{task.project} • completed {task.completedAt ? formatDate(task.completedAt) : todayIso()}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

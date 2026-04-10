@@ -40,7 +40,7 @@ export function TouchLogModal() {
   return (
     <AppModal size="standard">
       <AppModalHeader
-        title="Log touchpoint"
+        title="Touch updatepoint"
         subtitle="Record outcome and update key dates."
         onClose={closeTouchModal}
       />

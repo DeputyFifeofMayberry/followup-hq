@@ -25,11 +25,11 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
       <AppShellCard className="workspace-summary-strip directory-summary-strip" surface="hero">
         <SectionHeader
           title="Directory"
-          subtitle="Projects, people, and companies used across daily execution."
+          subtitle="Master context for projects, people, and companies across daily execution."
           compact
           actions={<SegmentedControl value={vm.tab} onChange={(value) => vm.setTab(value as typeof vm.tab)} options={tabOptions.map((option) => ({ value: option.value, label: option.label }))} />}
         />
-        <div className="directory-summary-note">Keep core records clean so follow-ups, tasks, and routing stay reliable.</div>
+        <div className="directory-summary-note">Keep master records clean so commitments, execution, and reporting stay reliable.</div>
       </AppShellCard>
 
       {vm.tab === 'projects' ? <DirectoryProjectsPane vm={vm} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}

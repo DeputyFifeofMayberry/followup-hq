@@ -218,13 +218,13 @@ export function UniversalIntakeWorkspace() {
 
       <section className="grid gap-3 lg:grid-cols-12">
         <div className="lg:col-span-4 rounded-xl border border-slate-200 bg-white p-3">
-          <div className="mb-2 text-sm font-semibold text-slate-900">Review lanes</div>
-          <div className="mb-2 flex flex-wrap gap-1.5">{(['ready_to_create', 'needs_correction', 'link_duplicate_review', 'reference_only'] as QueueLane[]).map((lane) => <button key={lane} className={`action-btn !px-2 !py-1 text-xs ${activeLane === lane ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setActiveLane(lane)}>{laneLabel(lane)} ({byLane[lane].length})</button>)}</div>
+          <div className="mb-2 text-sm font-semibold text-slate-900">Review queue</div>
+          <div className="mb-2 flex flex-wrap gap-1.5">{(['ready_to_create', 'needs_correction', 'link_duplicate_review', 'reference_only'] as QueueLane[]).map((lane) => <button key={lane} className={`action-btn !px-2 !py-1 text-xs ${activeLane === lane ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setActiveLane(lane)}>{laneLabel(lane)} • {byLane[lane].length}</button>)}</div>
           <div className="space-y-2 max-h-[560px] overflow-auto">{visibleCandidates.map((candidate) => <button key={candidate.id} className={`w-full rounded-xl border p-3 text-left ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white'}`} onClick={() => { setSelectedCandidateId(candidate.id); setSelectedMatchId(null); }}>
             <div className="text-sm font-semibold text-slate-900 line-clamp-2">{candidate.title || 'Untitled candidate'}</div>
             <div className="mt-1 text-xs text-slate-600">{candidateTypeLabel(candidate.candidateType)} • {Math.round(candidate.confidence * 100)}%</div>
             {candidate.suspectedDuplicateGroupId ? <div className="mt-1 text-[11px] text-amber-700">Suspected within-batch duplicate group</div> : null}
-          </button>)}{!visibleCandidates.length ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No records in this lane.</div> : null}</div>
+          </button>)}{!visibleCandidates.length ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No records in this queue.</div> : null}</div>
         </div>
 
         <div className="lg:col-span-5 rounded-xl border border-slate-200 bg-white p-3">
@@ -267,7 +267,7 @@ export function UniversalIntakeWorkspace() {
         </div>
 
         <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-3">
-          <div className="mb-2 text-sm font-semibold text-slate-900">Source context</div>
+          <div className="mb-2 text-sm font-semibold text-slate-900">Source evidence</div>
           <div className="mb-2 flex gap-1.5">{(['overview', 'preview', 'evidence', 'metadata'] as SourceTab[]).map((tab) => <button key={tab} className={`action-btn !px-2 !py-1 text-xs ${selectedSourceTab === tab ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setSelectedSourceTab(tab)}>{tab}</button>)}</div>
           {selectedAsset ? <div className="space-y-2 text-xs">
             {selectedSourceTab === 'overview' ? <>

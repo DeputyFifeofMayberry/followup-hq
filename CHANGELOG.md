@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-04-10
+
+### UI refinement pass (workflow calm + consistency)
+- Unified high-frequency inspect behavior across Follow Ups and Tasks around persistent right-side inspectors on desktop/laptop, with modal fallback retained for mobile only; reduced duplicate detail-surface noise in Tasks by removing extra lane header/summary chrome (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`).
+- Reduced execution-toolbar density in Follow Ups and Tasks by removing repeated queue-summary/selection noise, simplifying visible defaults, and keeping advanced controls behind quieter disclosures (`src/components/ControlBar.tsx`, `src/components/tasks/TaskToolbar.tsx`, `src/components/TaskWorkspace.tsx`).
+- Simplified row scan hierarchy in Tasks and Follow Ups so title/why-now/next-move lead, badges are restrained, and low-frequency actions are moved into overflow patterns (`src/components/tasks/TaskList.tsx`, `src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+- Compressed shell/header chrome and daily-focus footprint for laptop heights, including lighter rail branding treatment and tighter workspace framing so primary work surfaces start higher (`src/App.tsx`, `src/styles/shell.css`, `src/styles/workspaces.css`).
+- Standardized visible product naming and wording in shell/login/command surfaces around FollowUp HQ terminology (`src/App.tsx`).
+- Tightened support workspace framing so Directory and Exports use calmer, consistent top-of-page grammar and more task-oriented reporting language (`src/components/directory/DirectoryWorkspace.tsx`, `src/components/ExportWorkspace.tsx`).
+- Calmed Intake visual language in queue/source sections with cleaner terminology and quieter lane count treatment (`src/components/UniversalIntakeWorkspace.tsx`).
+- Shortened and focused major modal copy (draft/touch/import/merge) to keep remaining modal flows purpose-built and less verbose (`src/components/FollowUpDraftModal.tsx`, `src/components/TouchLogModal.tsx`, `src/components/ImportWizardModal.tsx`, `src/components/MergeModal.tsx`).
+
 ## 2026-04-09
 
 ### Shell + workspace UI coherence refinement pass

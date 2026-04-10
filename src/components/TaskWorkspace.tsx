@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
-import { ExecutionLaneInspectorCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import { ExecutionLaneInspectorCard, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -174,7 +174,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     <WorkspacePage>
       <WorkspaceContentFrame>
         <WorkspacePrimaryLayout inspectorWidth="330px" className="task-workspace-layout">
-          <section className="detail-card task-workspace-main-card">
+          <ExecutionLaneQueueCard className="task-workspace-main-card">
             <TaskToolbar
             isMobileLike={isMobileLike}
             searchQuery={vm.searchQuery}
@@ -230,7 +230,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             renderNowSignal={vm.getTaskSignal}
           />
 
-          </section>
+          </ExecutionLaneQueueCard>
 
           {!isMobileLike && taskDetailOpen && vm.selectedTask ? (
             <ExecutionLaneInspectorCard>

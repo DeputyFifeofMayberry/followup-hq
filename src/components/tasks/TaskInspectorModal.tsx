@@ -1,6 +1,5 @@
 import { Link2, Pencil, RotateCcw, Save } from 'lucide-react';
 import { memo, useEffect, useMemo, useState } from 'react';
-import type { TaskRecommendedAction } from '../../domains/shared';
 import { editSurfaceCtas, editSurfacePolicy } from '../../lib/editSurfacePolicy';
 import { fromDateInputValue, priorityTone, toDateInputValue, todayIso, addDaysIso } from '../../lib/utils';
 import type { FollowUpItem, TaskItem } from '../../types';
@@ -10,12 +9,13 @@ import { AppBadge, AppModal, AppModalBody, AppModalFooter, AppModalHeader, Secti
 
 type TaskInspectorModalProps = {
   open: boolean;
+  presentation?: 'modal' | 'panel';
   selectedTask: TaskItem | null;
   linkedFollowUp: FollowUpItem | null;
   linkedTaskOpenCount: number;
   linkedParentRollup: { explanations?: string[] } | null;
   linkedParentCloseout: React.ComponentProps<typeof CloseoutReadinessCard>['evaluation'] | null;
-  recommendedAction: TaskRecommendedAction | null;
+  recommendedAction: { id: string; label: string; tone: 'default' | 'info' | 'warn' | 'success' | 'danger'; reason?: string } | null;
   ownerOptions: string[];
   assigneeOptions: string[];
   renderNowSignal: (task: TaskItem) => { whyNow: string; nextMove: string };
@@ -56,6 +56,7 @@ function buildDraft(task: TaskItem): EditDraft {
 
 export const TaskInspectorModal = memo(function TaskInspectorModal({
   open,
+  presentation = 'modal',
   selectedTask,
   linkedFollowUp,
   linkedTaskOpenCount,
@@ -114,16 +115,8 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
     ...(selectedTask.cleanupReasons ?? []),
   ];
 
-  return (
-    <AppModal size="inspector" onBackdropClick={onClose} onClose={onClose}>
-      <AppModalHeader
-        title={selectedTask.title}
-        subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}
-        onClose={onClose}
-        closeLabel="Close"
-      />
-      <AppModalBody>
-        <div className="space-y-3">
+  const inspectorContent = (
+    <div className="space-y-3">
           <section className="detail-card">
             <div className="task-inspector-status-strip">
               <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
@@ -211,8 +204,36 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
               </div>
             </div>
           </section>
+    </div>
+  );
+
+  if (presentation === 'panel') {
+    return (
+      <section className="task-inspector-panel">
+        <div className="task-inspector-panel-head">
+          <div>
+            <div className="workspace-inspector-section-title">Task detail</div>
+            <div className="task-inspector-panel-title">{selectedTask.title}</div>
+            <div className="workspace-inspector-section-subtitle">{selectedTask.project} • {selectedTask.assigneeDisplayName || selectedTask.owner}</div>
+          </div>
+          <button onClick={onClose} className="action-btn !px-2 !py-1 text-xs">Close</button>
         </div>
-      </AppModalBody>
+        <div className="task-inspector-panel-body">
+          {inspectorContent}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <AppModal size="inspector" onBackdropClick={onClose} onClose={onClose}>
+      <AppModalHeader
+        title={selectedTask.title}
+        subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}
+        onClose={onClose}
+        closeLabel="Close"
+      />
+      <AppModalBody>{inspectorContent}</AppModalBody>
       <AppModalFooter>
         <button onClick={onClose} className="action-btn">Close</button>
       </AppModalFooter>

@@ -17,6 +17,7 @@ import {
 } from '../lib/export';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
+import { AppShellCard, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
 
 const savedViewOptions: SavedViewKey[] = ['All', 'Closed', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Overdue', 'By project'];
 
@@ -177,17 +178,15 @@ export function ExportWorkspace() {
   const showTasks = options.dataset !== 'followUps';
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <WorkspacePage>
+      <AppShellCard className="workspace-summary-strip" surface="hero">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <FileSpreadsheet className="h-4 w-4" />
-              Export workspace
-            </div>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-950">Export follow-up and task reports</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-500">Choose a dataset, apply filters, then export a simple or detailed workbook. Combined exports include separate follow-up and task sheets plus an optional summary.</p>
-          </div>
+          <SectionHeader
+            title="Exports"
+            subtitle="Filter records, preview scope, and export reports."
+            compact
+            actions={<div className="text-xs text-slate-500 inline-flex items-center gap-1"><FileSpreadsheet className="h-3.5 w-3.5" />Operational report export</div>}
+          />
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={resetFilters} className="action-btn"><RefreshCcw className="h-4 w-4" />Reset</button>
             <button type="button" onClick={handleCsvExport} className="action-btn"><Download className="h-4 w-4" />Quick CSV</button>
@@ -210,9 +209,9 @@ export function ExportWorkspace() {
           </div>
         </div>
         {lastExportMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{lastExportMessage}</div> : null}
-      </section>
+      </AppShellCard>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-950"><Filter className="h-4 w-4" />Report options</div>
@@ -410,10 +409,9 @@ export function ExportWorkspace() {
           </section>
         </aside>
       </section>
-    </div>
+    </WorkspacePage>
   );
 }
-
 
 
 

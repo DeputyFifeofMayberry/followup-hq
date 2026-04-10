@@ -31,8 +31,8 @@ export function ImportWizardModal() {
   return (
     <AppModal size="wide">
       <AppModalHeader
-        title="CSV / Excel import wizard"
-        subtitle="Upload or paste data, review parsed rows, then commit with confidence."
+        title="Import records"
+        subtitle="Upload or paste, review, then import."
         onClose={closeImportModal}
       />
       <AppModalBody>

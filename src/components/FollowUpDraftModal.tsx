@@ -49,7 +49,7 @@ export function FollowUpDraftModal() {
 
   return (
     <AppModal size="wide">
-      <AppModalHeader title="Follow-up composer" subtitle="Draft first, send externally, then explicitly confirm send receipt." onClose={closeDraftModal} />
+      <AppModalHeader title="Draft follow-up" subtitle="Prepare and confirm external send." onClose={closeDraftModal} />
       <AppModalBody>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
           <div className="font-medium text-slate-900">{item.title}</div>

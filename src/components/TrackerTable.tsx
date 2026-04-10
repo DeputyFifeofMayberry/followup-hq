@@ -69,7 +69,7 @@ export function TrackerTable({
             <div className="mt-1 flex flex-wrap gap-1">
               <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge>
               {row.original.priority === 'High' || row.original.priority === 'Critical' ? <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> : null}
-              {showUrgencyBadge ? <AppBadge tone={matterNow.tone}>{matterNow.label}</AppBadge> : null}
+              {showUrgencyBadge && matterNow.tone !== 'info' ? <AppBadge tone={matterNow.tone}>{matterNow.label}</AppBadge> : null}
             </div>
           </div>
         );
@@ -120,8 +120,13 @@ export function TrackerTable({
           <div className="flex flex-wrap gap-1 row-quick-actions">
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Open</button>
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); }}>Snooze</button>
+            <details className="tracker-row-more-actions">
+              <summary>More</summary>
+              <div className="flex flex-wrap gap-1">
+                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
+                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); }}>Snooze</button>
+              </div>
+            </details>
           </div>
         ),
       },

@@ -183,19 +183,21 @@ export function TaskList({
                 <div className="scan-row-badge-cluster">
                   {task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : null}
                   {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : signal.dueSoon ? <Badge variant="neutral">Due soon</Badge> : null}
-                  {task.deferredUntil ? <Badge variant="neutral">Deferred</Badge> : null}
                   {signal.needsReview ? <Badge variant="warn">Review needed</Badge> : null}
                 </div>
                 <div className="scan-row-action-cluster">
                   {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
                   <button onClick={() => onToggleBlockTask(task)} className="action-btn !px-2.5 !py-1 text-xs">{task.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
-                  <button onClick={() => onSetDueToday(task)} className="action-btn !px-2.5 !py-1 text-xs" aria-label="Set due today">Today</button>
-                </div>
-                <div className="scan-row-action-cluster">
-                  <button onClick={() => onSetDueTomorrow(task)} className="action-btn !px-2.5 !py-1 text-xs"><CalendarClock className="h-3.5 w-3.5" />Tomorrow</button>
                   <button onClick={() => onDeferTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Defer</button>
-                  {task.linkedFollowUpId ? <button onClick={() => onOpenLinkedFollowUp(task)} className="action-btn !px-2.5 !py-1 text-xs"><ArrowRightCircle className="h-3.5 w-3.5" />Linked</button> : null}
                 </div>
+                <details className="task-row-more-actions">
+                  <summary>More</summary>
+                  <div className="scan-row-action-cluster">
+                    <button onClick={() => onSetDueToday(task)} className="action-btn !px-2.5 !py-1 text-xs" aria-label="Set due today">Today</button>
+                    <button onClick={() => onSetDueTomorrow(task)} className="action-btn !px-2.5 !py-1 text-xs"><CalendarClock className="h-3.5 w-3.5" />Tomorrow</button>
+                    {task.linkedFollowUpId ? <button onClick={() => onOpenLinkedFollowUp(task)} className="action-btn !px-2.5 !py-1 text-xs"><ArrowRightCircle className="h-3.5 w-3.5" />Linked</button> : null}
+                  </div>
+                </details>
               </div>
             </div>
           </button>

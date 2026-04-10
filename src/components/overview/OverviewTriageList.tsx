@@ -17,7 +17,7 @@ function urgencySignal(row: UnifiedQueueItem) {
   if (row.queueFlags.parentAtRisk) return { label: 'Parent at risk', variant: 'warn' as const };
   if (row.queueFlags.waitingTooLong) return { label: 'Waiting too long', variant: 'neutral' as const };
   if (row.queueFlags.waiting) return { label: 'Waiting on response', variant: 'neutral' as const };
-  if (row.queueFlags.readyToCloseParent) return { label: 'Ready to close', variant: 'info' as const };
+  if (row.queueFlags.readyToCloseParent) return { label: 'Ready to close', variant: 'blue' as const };
   if (row.queueFlags.cleanupRequired || row.queueFlags.orphanedTask) return { label: 'Needs review', variant: 'neutral' as const };
   return { label: 'Needs decision', variant: 'neutral' as const };
 }

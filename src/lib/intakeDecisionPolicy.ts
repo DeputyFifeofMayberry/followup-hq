@@ -33,7 +33,7 @@ export interface IntakeDecisionPolicyResult {
   auditExplanation: string[];
 }
 
-function sourceFromCandidate(candidate: IntakeWorkCandidate | ForwardedIntakeCandidate, kind: 'work' | 'forwarded'): 'quick_capture' | 'universal_intake' | 'forwarding' | 'forwarded_email' {
+function sourceFromCandidate(kind: 'work' | 'forwarded'): 'quick_capture' | 'universal_intake' | 'forwarding' | 'forwarded_email' {
   if (kind === 'forwarded') return 'forwarded_email';
   return 'universal_intake';
 }
@@ -82,7 +82,7 @@ export function evaluateIntakeDecisionPolicy(input: {
   feedback: IntakeReviewerFeedback[];
   ruleIds?: string[];
 }): IntakeDecisionPolicyResult {
-  const source = sourceFromCandidate(input.candidate, input.kind);
+  const source = sourceFromCandidate(input.kind);
   const readiness = input.tuningModel?.directImportReadiness.find((entry) => entry.source === source)?.readiness ?? 'watch';
   const sourceReviewFirst = readiness === 'review_first' || !!input.tuningModel?.thresholds.forceReviewBySource[source];
   const hasNoisyRule = Boolean(input.ruleIds?.some((ruleId) => input.tuningModel?.thresholds.noisyRuleIds.includes(ruleId)));

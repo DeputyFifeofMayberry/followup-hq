@@ -11,12 +11,12 @@ interface CompanyCreateModalProps {
   onCreate: () => void;
 }
 
-const companyTypes: CompanyType[] = ['Government', 'Subcontractor', 'Vendor', 'Client', 'Internal', 'Other'];
+const companyTypes: CompanyType[] = ['Government', 'Owner', 'Vendor', 'Subcontractor', 'Consultant', 'Internal', 'Other'];
 
 export function CompanyCreateModal({ open, name, type, onNameChange, onTypeChange, onClose, onCreate }: CompanyCreateModalProps) {
   if (!open) return null;
   return (
-    <AppModal size="md" onClose={onClose} onBackdropClick={onClose}>
+    <AppModal onClose={onClose} onBackdropClick={onClose}>
       <AppModalHeader title="New company" subtitle="Create a company directory record." onClose={onClose} />
       <AppModalBody>
         <div className="space-y-2">

@@ -19,7 +19,6 @@ import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } fro
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 import { verifyPersistedState } from '../lib/persistenceVerification';
-import { clearCommittedOutboxEntries, listUnresolvedOutboxEntries, loadOutboxState } from '../lib/persistenceOutbox';
 import {
   buildReminderCenterSummary,
   buildWorkspaceAttentionCounts,
@@ -357,13 +356,13 @@ export const useAppStore = create<AppStore>()((set, get) => {
       return entryId;
     },
     executeUndo: (entryId) => {
-      let result;
+      let result: import('../lib/undo').UndoExecutionResult | undefined;
       set((state) => {
         const execution = executeUndoFromStack(state, entryId);
         result = execution.result;
         return execution.nextState;
       });
-      const outcome = result as import('../lib/undo').UndoExecutionResult;
+      const outcome: import('../lib/undo').UndoExecutionResult = result ?? { ok: false, status: 'not_found', reason: 'not_found' };
       if (outcome.ok && outcome.dirtyRecordRefs) {
         queuePersist({ dirtyRecords: outcome.dirtyRecordRefs });
         get().pushToast({ tone: 'success', title: 'Action undone', source: 'undo.execute' });
@@ -577,7 +576,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
 
     verifyNow: async (mode = 'manual') => {
       const startedAt = new Date().toISOString();
-      set((state) => ({
+      set(() => ({
         verificationState: 'running',
         lastVerificationStartedAt: startedAt,
         lastVerificationFailureMessage: undefined,
@@ -650,7 +649,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
     })),
     dismissConflict: (conflictId) => set((state) => {
       const nextQueue = state.conflictQueue.map((conflict) => (
-        conflict.id === conflictId ? { ...conflict, status: 'dismissed', updatedAt: new Date().toISOString() } : conflict
+        conflict.id === conflictId ? { ...conflict, status: 'dismissed' as const, updatedAt: new Date().toISOString() } : conflict
       ));
       const openCount = nextQueue.filter((entry) => entry.status === 'open').length;
       return {

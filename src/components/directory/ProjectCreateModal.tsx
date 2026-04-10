@@ -15,7 +15,7 @@ interface ProjectCreateModalProps {
 export function ProjectCreateModal({ open, draft, errors, statusOptions, onDraftChange, onClose, onSave }: ProjectCreateModalProps) {
   if (!open) return null;
   return (
-    <AppModal size="xl" onClose={onClose} onBackdropClick={onClose}>
+    <AppModal size="wide" onClose={onClose} onBackdropClick={onClose}>
       <AppModalHeader title="New Project" subtitle="Capture clean project directory metadata before routing operational work." onClose={onClose} />
       <AppModalBody>
         <div className="grid gap-2 md:grid-cols-2">

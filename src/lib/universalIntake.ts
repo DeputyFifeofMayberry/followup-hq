@@ -743,6 +743,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     owner: ownerSignals.owner,
     assignee: undefined,
     dueDate: due.picked || dateRoles.dueDate,
+    dateSignals,
     nextStep: chunk.fields?.nextStep || cleanCandidateTitle(chunk.text, title).slice(0, 120),
     waitingOn,
     priority: /critical|urgent|asap/.test(chunk.text.toLowerCase()) ? 'High' : /low priority/.test(chunk.text.toLowerCase()) ? 'Low' : 'Medium',

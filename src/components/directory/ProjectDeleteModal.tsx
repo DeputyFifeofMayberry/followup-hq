@@ -20,7 +20,7 @@ export function ProjectDeleteModal({ open, project, projects, followUpCount, tas
   if (!open || !project) return null;
   const isSystemProject = project.systemProjectKind === 'unclassified';
   return (
-    <AppModal size="md" onClose={onClose} onBackdropClick={onClose}>
+    <AppModal onClose={onClose} onBackdropClick={onClose}>
       <AppModalHeader title="Delete project" subtitle="Archive is recommended unless this was created in error." onClose={onClose} />
       <AppModalBody>
         <div className="space-y-2 text-sm">

@@ -2,6 +2,10 @@
 
 ## 2026-04-10
 
+### Create Work date validation/message alignment cleanup
+- Removed format-specific date validation errors from Create Work editor adapters so calendar-backed date fields no longer report misleading “YYYY-MM-DD format” requirements and now rely on required/presence validation where applicable (`src/domains/editor/adapters.ts`).
+- Added simple helper guidance on the Create Work due date field to match the calendar-driven UX (“Select a date.”) instead of implying manual format entry (`src/components/CreateWorkModal.tsx`).
+
 ### Follow Ups sort-control visual integration
 - Replaced the sortable Follow Ups table header controls for **Due** and **Next touch** with compact chip-style header toggles that match the lane’s existing segmented/filter control language, including subtle active states instead of loud standalone-button styling (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
 - Preserved existing sorting behavior while clarifying direction with small inline icons (`up`, `down`, `up/down`) and active-state emphasis, so users can still toggle between ascending/descending order without introducing extra controls (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).

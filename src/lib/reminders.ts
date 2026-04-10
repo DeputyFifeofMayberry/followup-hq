@@ -11,6 +11,7 @@ import type {
   TaskItem,
   WorkspaceAttentionCounts,
 } from '../types';
+import { isExecutionReady } from '../domains/records/integrity';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -217,6 +218,7 @@ export function evaluateReminderCandidates(
   const candidates: ReminderCandidate[] = [];
 
   for (const item of items) {
+    if (!isExecutionReady(item)) continue;
     if (item.status === 'Closed' || isFollowUpSnoozed(item, nowMs)) continue;
 
     if (isOverdueAt(item.dueDate, nowMs) && isKindEnabled('followup_overdue', prefs)) {
@@ -240,6 +242,7 @@ export function evaluateReminderCandidates(
   }
 
   for (const task of tasks) {
+    if (!isExecutionReady(task)) continue;
     if (task.status === 'Done' || isTaskDeferred(task, nowMs)) continue;
 
     if (isOverdueAt(task.dueDate, nowMs) && isKindEnabled('task_overdue', prefs)) {
@@ -270,8 +273,8 @@ export function buildWorkspaceAttentionCounts(
   nowIso: string,
 ): WorkspaceAttentionCounts {
   const candidates = evaluateReminderCandidates(items, tasks, prefs, nowIso);
-  const followups = candidates.filter((candidate) => candidate.recordType === 'followup').length;
-  const tasksCount = candidates.filter((candidate) => candidate.recordType === 'task').length;
+  const followups = new Set(candidates.filter((candidate) => candidate.recordType === 'followup').map((candidate) => candidate.recordId)).size;
+  const tasksCount = new Set(candidates.filter((candidate) => candidate.recordType === 'task').map((candidate) => candidate.recordId)).size;
   return {
     worklist: followups + tasksCount,
     followups,

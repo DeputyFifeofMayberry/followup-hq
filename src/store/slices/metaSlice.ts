@@ -7,7 +7,14 @@ import { normalizeContact, normalizeCompany } from '../../domains/relationships/
 import { deriveProjects, projectCanonicalKey } from '../../domains/projects/helpers';
 import { normalizeItems, attachProjects } from '../../domains/followups/helpers';
 import { applyTaskRollupsToItems, normalizeTasks } from '../../domains/tasks/helpers';
-import { enforceFollowUpIntegrity, enforceTaskIntegrity, isReviewRecord, isTrustedLiveRecord } from '../../domains/records/integrity';
+import {
+  enforceFollowUpIntegrity,
+  enforceTaskIntegrity,
+  isReviewRecord,
+  isTrustedLiveRecord,
+  repairLegacyFollowUpForHydration,
+  repairLegacyTaskForHydration,
+} from '../../domains/records/integrity';
 import type { FollowUpColumnKey } from '../../types';
 import type { AppStoreActions } from '../types';
 import type { SliceSet } from './types';
@@ -108,12 +115,15 @@ export function createMetaSlice(
         const companies = (payload.companies ?? []).map(normalizeCompany);
         const preProjects = deriveProjects(baseItems, payload.projects ?? [], payload.tasks ?? []);
         const projects = preProjects;
-        const migratedBaseItems = baseItems.map((item) => enforceFollowUpIntegrity(item, projects));
+        const migratedBaseItems = baseItems.map((item) => enforceFollowUpIntegrity(repairLegacyFollowUpForHydration(item, projects), projects));
         const items = attachProjects(applyTaskRollupsToItems(migratedBaseItems, payload.tasks ?? []), projects);
         const tasks = normalizeTasks((payload.tasks ?? []).map((task) => {
           const projectName = resolveProjectName(task.projectId, task.project, projects);
           const linkedProject = projects.find((project) => projectCanonicalKey(project.name) === projectCanonicalKey(projectName));
-          return enforceTaskIntegrity({ ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId }, projects);
+          return enforceTaskIntegrity(
+            repairLegacyTaskForHydration({ ...task, project: linkedProject?.name ?? projectName, projectId: linkedProject?.id ?? task.projectId }, projects),
+            projects,
+          );
         }));
         const trustedLiveItemCount = items.filter((item) => isTrustedLiveRecord(item)).length;
         const trustedLiveTaskCount = tasks.filter((task) => isTrustedLiveRecord(task)).length;

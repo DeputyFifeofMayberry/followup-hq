@@ -2,6 +2,13 @@
 
 ## 2026-04-10
 
+### Trust center verification read-failure reclassification + session-read hardening
+- Fixed a trust-classification bug in manual **Verify now** flows: cloud verification read failures now map to a distinct verification lifecycle state (`read-failed`) instead of being escalated as `mismatch-found`, and they no longer set `recoveryReviewNeeded` or trigger false mismatch-review attention paths (`src/store/state/types.ts`, `src/store/useAppStore.ts`).
+- Reworked verification modeling so `verification_read_failed` remains available as diagnostics/export detail while divergence mismatch totals now count only true cloud/local data mismatches; verification summaries now expose explicit read-failure diagnostics (kind/stage/message/attempt count) for technical debugging without implying data drift (`src/lib/persistenceVerification.ts`, `src/components/SyncStatusControl.tsx`, `src/components/RecoveryCenter.tsx`).
+- Updated trust-center status derivation to distinguish “Could not verify” from true recovery/conflict attention states: verification read failures now surface as a non-degrading informational trust state with reassurance that saved state is unchanged (`src/lib/syncStatus.ts`).
+- Addressed the underlying transient verify-read auth/session path by hardening verification cloud-read session resolution (retrying session hydration with a bounded `getSession` + `getUser` fallback path) and adding bounded retry handling for transient network table reads during verification (`src/lib/persistenceVerification.ts`).
+- Added regression coverage for read-failure classification, verification-state projection, trust-status derivation, diagnostics semantics, and session-read retry behavior to prevent future false “Needs attention” regressions (`src/lib/__tests__/persistenceVerification.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+
 ### Daily focus ghost-count alignment fix
 - Fixed the shared app-header **Daily focus** strip to use a dedicated live-work summary builder that filters follow-ups/tasks through execution-readiness first, preventing hidden legacy review-required records from inflating overdue/due-today/due-soon/nudge counts (`src/lib/dailyFocus.ts`, `src/App.tsx`).
 - Replaced raw in-component Daily focus counting in `App` with the shared helper so all workspaces rendered through the shared shell (including Overview and Follow Ups) now show the same execution-lane-aligned focus metrics (`src/App.tsx`, `src/lib/dailyFocus.ts`).

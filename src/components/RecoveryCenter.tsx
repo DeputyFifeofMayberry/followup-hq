@@ -36,6 +36,7 @@ export function RecoveryCenter(props: RecoveryCenterProps) {
   }, [filterType, filterValue, props.mismatchList]);
 
   const selected = filtered.find((mismatch) => mismatch.id === selectedMismatchId) ?? filtered[0] ?? null;
+  const trueMismatchCount = props.mismatchList.filter((mismatch) => mismatch.category !== 'verification_read_failed').length;
 
   if (!props.open) return null;
 
@@ -47,11 +48,17 @@ export function RecoveryCenter(props: RecoveryCenterProps) {
         <span className="sync-status-row-label">Overall status</span>
         <div className="sync-status-row-value">
           {props.verificationState === 'verified-match' ? <ShieldCheck className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-          <span>{props.verificationState === 'verified-match' ? 'Verified match' : props.verificationState === 'failed' ? 'Could not verify cloud state' : 'Recovery review needed'}</span>
+          <span>
+            {props.verificationState === 'verified-match'
+              ? 'Verified match'
+              : props.verificationState === 'failed' || props.verificationState === 'read-failed'
+                ? 'Could not verify cloud state'
+                : 'Recovery review needed'}
+          </span>
         </div>
         <div className="sync-status-row-detail">Last verification: {props.lastVerificationCompletedAt ? formatDateTime(props.lastVerificationCompletedAt) : 'No verification run yet.'}</div>
         <div className="sync-status-row-detail">Last confirmed batch: {props.lastConfirmedBatchId ?? 'Not available'}</div>
-        <div className="sync-status-row-detail">Total mismatches: {props.mismatchList.length}</div>
+        <div className="sync-status-row-detail">Total mismatches: {trueMismatchCount}</div>
       </div>
 
       <div className="sync-status-row">

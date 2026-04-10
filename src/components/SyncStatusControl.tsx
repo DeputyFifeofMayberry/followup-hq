@@ -305,9 +305,20 @@ export function SyncStatusControl() {
 
             {syncMeta.verificationSummary ? (
               <>
-                <div className="sync-status-row-detail">Verification result: {syncMeta.verificationSummary.verified ? 'matched current cloud state' : `found ${syncMeta.verificationSummary.mismatchCount} mismatches`}.</div>
+                <div className="sync-status-row-detail">
+                  Verification result: {syncMeta.verificationSummary.verified
+                    ? 'matched current cloud state'
+                    : syncMeta.verificationSummary.verificationReadFailed
+                      ? `could not complete cloud verification read${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
+                      : `found ${syncMeta.verificationSummary.mismatchCount} mismatches`}.
+                </div>
                 <div className="sync-status-row-detail">Mismatch counts by category: {Object.entries(syncMeta.verificationSummary.mismatchCountsByCategory).filter(([, count]) => count > 0).map(([category, count]) => `${category} (${count})`).join('; ') || 'none'}</div>
                 <div className="sync-status-row-detail">Mismatch counts by entity: {Object.entries(syncMeta.verificationSummary.mismatchCountsByEntity).map(([entity, count]) => `${entity} (${count})`).join('; ') || 'none'}</div>
+                {syncMeta.verificationSummary.verificationReadFailed ? (
+                  <div className="sync-status-row-detail">
+                    Verification read diagnostics: kind {syncMeta.verificationSummary.verificationReadFailureKind ?? 'unknown'} • stage {syncMeta.verificationSummary.verificationReadFailureStage ?? 'unknown'} • attempts {syncMeta.verificationSummary.verificationReadAttempts}
+                  </div>
+                ) : null}
                 <div className="sync-status-row-detail">Verification based on batch: {syncMeta.verificationSummary.basedOnBatchId ?? 'not tied to a committed batch'}</div>
                 <button type="button" className="action-btn" onClick={() => {
                   if (!syncMeta.latestVerificationResult) return;

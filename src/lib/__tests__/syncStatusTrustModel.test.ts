@@ -358,6 +358,20 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   } as any);
   assert(recoveryModel.primaryState === 'needs-attention', `expected mismatch review to require attention, got ${recoveryModel.primaryState}`);
 
+  const verificationReadFailedModel = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'read-failed',
+    verificationSummary: {
+      verified: false,
+      mismatchCount: 0,
+      mismatchCountsByCategory: { verification_read_failed: 1 },
+      mismatchCountsByEntity: { verification: 1 },
+      verificationReadFailed: true,
+    },
+  } as any);
+  assert(verificationReadFailedModel.primaryState === 'saved', `verification read failure should not map to needs-attention, got ${verificationReadFailedModel.primaryState}`);
+  assert(verificationReadFailedModel.stateLabel === 'Could not verify', `verification read failure should surface could-not-verify label, got ${verificationReadFailedModel.stateLabel}`);
+
   const conflictModel = getSyncStatusModel({
     ...baseMeta(),
     outboxState: 'conflict',

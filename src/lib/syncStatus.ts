@@ -458,6 +458,19 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
+  if (meta.verificationState === 'read-failed' || meta.verificationSummary?.verificationReadFailed) {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Could not verify',
+      stateDescription: 'Cloud verification could not complete right now. Saved state is unchanged.',
+      reassurance: 'Your current saved state remains intact. Retry verification.',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
   if (isSaving) {
     return {
       primaryState: 'saving',

@@ -1,6 +1,8 @@
 import {
   compareEntityCollections,
   exportVerificationIncident,
+  resolveVerificationSessionUserIdWithRetry,
+  stableHashRecord,
   verifyPersistedState,
   type VerificationSourceSnapshot,
 } from '../persistenceVerification';
@@ -22,7 +24,7 @@ function payload(): PersistedPayload {
 }
 
 function cloudSnapshotFromPayload(local: PersistedPayload): VerificationSourceSnapshot {
-  const mapFrom = (records: any[]) => new Map(records.map((record) => [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: JSON.stringify(record), normalizedRecord: record }]));
+  const mapFrom = (records: any[]) => new Map(records.map((record) => [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: stableHashRecord(record), normalizedRecord: record }]));
   return {
     fetchedAt: '2026-04-06T10:00:00.000Z',
     schemaVersionCloud: 1,
@@ -92,6 +94,22 @@ async function testAuxAndSchemaMismatchAndReadFailure(): Promise<void> {
   });
   assert(readFailed.summary.verified === false, 'failed reads cannot verify');
   assert(readFailed.mismatches.some((m) => m.category === 'verification_read_failed'), 'failed reads should produce verification_read_failed mismatch');
+  assert(readFailed.summary.mismatchCount === 0, 'verification read failures should not count as divergence mismatches');
+  assert(readFailed.summary.verificationReadFailed === true, 'verification summary should explicitly flag read-failed runs');
+}
+
+async function testTransientSessionRecoveryReadPath(): Promise<void> {
+  let sessionReads = 0;
+  const resolved = await resolveVerificationSessionUserIdWithRetry({
+    getSession: async () => {
+      sessionReads += 1;
+      if (sessionReads === 1) return { data: { session: null }, error: null } as any;
+      return { data: { session: { user: { id: 'user-1' } } }, error: null } as any;
+    },
+    getUser: async () => ({ data: { user: null }, error: null } as any),
+  });
+  assert(resolved.userId === 'user-1', 'session retry should recover user id once auth session is hydrated');
+  assert(resolved.attempts === 2, 'session retry should record both attempts');
 }
 
 async function testExportReportHasSummaryAndNoSecrets(): Promise<void> {
@@ -116,6 +134,7 @@ function testCompareEntityCollectionsHelper(): void {
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();
   await testAuxAndSchemaMismatchAndReadFailure();
+  await testTransientSessionRecoveryReadPath();
   await testExportReportHasSummaryAndNoSecrets();
   testCompareEntityCollectionsHelper();
 })();

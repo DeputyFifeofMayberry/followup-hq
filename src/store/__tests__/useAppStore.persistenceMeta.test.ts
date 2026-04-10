@@ -1,4 +1,5 @@
 import { resolvePostSaveMetaState } from '../persistenceMeta';
+import { deriveVerificationMetaFromResult } from '../verificationState';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -65,7 +66,14 @@ function testPersistedSupabaseSavePromotesTrust(): void {
     lastReceiptOperationCount: undefined,
     lastReceiptOperationCountsByEntity: undefined,
     lastFailedBatchId: undefined,
-  }, 'supabase', '2026-04-05T11:00:00.000Z', true);
+  }, 'supabase', '2026-04-05T11:00:00.000Z', true, {
+    attemptedAt: '2026-04-05T11:00:00.000Z',
+    completedTables: [],
+    staleDeleteWarnings: [],
+    receiptStatus: 'committed',
+    batchId: 'batch-xyz',
+    committedAt: '2026-04-05T11:00:00.000Z',
+  });
 
   assert(state.cloudSyncStatus === 'cloud-confirmed', 'persisted save should promote to cloud confirmed');
   assert(state.lastCloudConfirmedAt === '2026-04-05T11:00:00.000Z', 'persisted save should update cloud confirmed timestamp');
@@ -112,8 +120,46 @@ function testSupabasePersistWithoutCommittedReceiptStaysPendingCloud(): void {
   assert(state.lastConfirmedBatchId === undefined, 'uncommitted receipt should not synthesize confirmed batch id');
 }
 
+function testVerifyNowProjectionStates(): void {
+  const readFailed = deriveVerificationMetaFromResult({
+    summary: {
+      verified: false,
+      cloudReadSucceeded: false,
+      verificationReadFailed: true,
+      verificationReadFailureMessage: 'Auth session lookup failed during verification read: network',
+      mismatchCount: 0,
+    },
+    mismatches: [],
+  } as any);
+  assert(readFailed.verificationState === 'read-failed', 'verification read failure should map to read-failed state');
+  assert(readFailed.recoveryReviewNeeded === false, 'verification read failure should not open recovery review queue');
+
+  const mismatch = deriveVerificationMetaFromResult({
+    summary: {
+      verified: false,
+      cloudReadSucceeded: true,
+      mismatchCount: 2,
+    },
+    mismatches: [],
+  } as any);
+  assert(mismatch.verificationState === 'mismatch-found', 'real divergence should map to mismatch-found');
+  assert(mismatch.recoveryReviewNeeded === true, 'real divergence should require recovery review');
+
+  const matched = deriveVerificationMetaFromResult({
+    summary: {
+      verified: true,
+      cloudReadSucceeded: true,
+      mismatchCount: 0,
+    },
+    mismatches: [],
+  } as any);
+  assert(matched.verificationState === 'verified-match', 'verified comparison should map to verified-match');
+  assert(matched.recoveryReviewNeeded === false, 'verified comparison should clear recovery review queue');
+}
+
 (function run() {
   testNoOpSavePreservesConservativeTrust();
   testPersistedSupabaseSavePromotesTrust();
   testSupabasePersistWithoutCommittedReceiptStaysPendingCloud();
+  testVerifyNowProjectionStates();
 })();

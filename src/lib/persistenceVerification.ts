@@ -17,6 +17,9 @@ export interface VerificationSourceSnapshot {
   auxiliary: AppAuxiliaryState | null;
   readSucceeded: boolean;
   readFailureMessage?: string;
+  readFailureKind?: 'no-session' | 'auth-session' | 'auth-refresh' | 'table-read' | 'preferences-read' | 'network';
+  readFailureStage?: 'auth' | SaveBatchEntity | 'user_preferences' | 'unknown';
+  attempts?: number;
 }
 
 export interface VerificationRunContext {
@@ -74,6 +77,11 @@ export interface VerificationSummary {
   mismatchCountsByEntity: Record<string, number>;
   comparedRecordCountsByEntity: Record<string, number>;
   cloudReadSucceeded: boolean;
+  verificationReadFailed: boolean;
+  verificationReadFailureMessage?: string;
+  verificationReadFailureKind?: VerificationSourceSnapshot['readFailureKind'];
+  verificationReadFailureStage?: VerificationSourceSnapshot['readFailureStage'];
+  verificationReadAttempts: number;
   auxiliaryCompared: boolean;
   verificationMode: VerificationMode;
   exportableReportId?: string;
@@ -131,6 +139,11 @@ export interface VerificationIncidentExport {
   };
   sanitizedTechnicalDetails: {
     cloudReadSucceeded: boolean;
+    verificationReadFailed?: boolean;
+    verificationReadFailureMessage?: string;
+    verificationReadFailureKind?: VerificationSourceSnapshot['readFailureKind'];
+    verificationReadFailureStage?: VerificationSourceSnapshot['readFailureStage'];
+    verificationReadAttempts?: number;
     basedOnBatchId?: string;
     basedOnCommittedAt?: string;
     verificationMode: VerificationMode;
@@ -146,6 +159,10 @@ interface VerificationComparableRecord {
 }
 
 type VerificationComparableEntityCollections = Record<SaveBatchEntity, Map<string, VerificationComparableRecord>>;
+interface VerificationAuthClient {
+  getSession: typeof supabase.auth.getSession;
+  getUser: typeof supabase.auth.getUser;
+}
 
 const ENTITY_TABLES: Record<SaveBatchEntity, string> = {
   items: 'follow_up_items',
@@ -208,29 +225,29 @@ export function buildVerificationComparableState(payload: PersistedPayload): Ver
 
 async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
   const fetchedAt = new Date().toISOString();
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.user?.id) {
+  const sessionResolution = await resolveVerificationSessionUserIdWithRetry();
+  if (!sessionResolution.userId) {
     return {
       fetchedAt,
       schemaVersionCloud: undefined,
       entities: createEmptyComparableCollections(),
       auxiliary: null,
       readSucceeded: false,
-      readFailureMessage: error?.message ?? 'No signed-in session found for cloud verification.',
+      readFailureMessage: sessionResolution.message,
+      readFailureKind: sessionResolution.kind,
+      readFailureStage: 'auth',
+      attempts: sessionResolution.attempts,
     };
   }
 
-  const userId = data.session.user.id;
+  const userId = sessionResolution.userId;
   try {
     const entities = createEmptyComparableCollections();
     for (const entity of Object.keys(ENTITY_TABLES) as SaveBatchEntity[]) {
       const table = ENTITY_TABLES[entity];
-      const { data: rows, error: tableError } = await supabase
-        .from(table)
-        .select('record_id, record, updated_at, deleted_at')
-        .eq('user_id', userId);
+      const { rows, error: tableError } = await readVerificationTableWithRetry(table, userId);
       if (tableError) throw new Error(`${table}: ${tableError.message}`);
-      (rows ?? []).forEach((row: any) => {
+      rows.forEach((row: any) => {
         const record = normalizeRecordForVerification(row.record);
         const recordId = String(row.record_id ?? row.record?.id ?? '');
         if (!recordId) return;
@@ -249,7 +266,19 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
       .select('auxiliary, schema_version, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
-    if (prefError) throw new Error(`user_preferences: ${prefError.message}`);
+    if (prefError) {
+      return {
+        fetchedAt,
+        schemaVersionCloud: undefined,
+        entities: createEmptyComparableCollections(),
+        auxiliary: null,
+        readSucceeded: false,
+        readFailureMessage: `user_preferences: ${prefError.message}`,
+        readFailureKind: classifyReadFailureKind(prefError),
+        readFailureStage: 'user_preferences',
+        attempts: sessionResolution.attempts,
+      };
+    }
 
     return {
       fetchedAt,
@@ -257,6 +286,7 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
       entities,
       auxiliary: (pref?.auxiliary as AppAuxiliaryState | null) ?? null,
       readSucceeded: true,
+      attempts: sessionResolution.attempts,
     };
   } catch (readError) {
     return {
@@ -266,8 +296,75 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
       auxiliary: null,
       readSucceeded: false,
       readFailureMessage: readError instanceof Error ? readError.message : 'Cloud read failed during verification.',
+      readFailureKind: classifyReadFailureKind(readError),
+      readFailureStage: 'unknown',
+      attempts: sessionResolution.attempts,
     };
   }
+}
+
+export async function resolveVerificationSessionUserIdWithRetry(authClient: VerificationAuthClient = supabase.auth): Promise<{ userId?: string; attempts: number; kind: VerificationSourceSnapshot['readFailureKind']; message: string }> {
+  let attempts = 0;
+  for (let index = 0; index < 2; index += 1) {
+    attempts += 1;
+    const { data, error } = await authClient.getSession();
+    if (data.session?.user?.id) {
+      return { userId: data.session.user.id, attempts, kind: 'auth-session', message: '' };
+    }
+
+    if (index === 0 && !error) {
+      const { data: userData, error: userError } = await authClient.getUser();
+      if (userData.user?.id) return { userId: userData.user.id, attempts, kind: 'auth-session', message: '' };
+      if (userError) {
+        return {
+          attempts,
+          kind: 'auth-refresh',
+          message: `Auth refresh failed while preparing verification read: ${userError.message}`,
+        };
+      }
+      continue;
+    }
+
+    if (error) {
+      return {
+        attempts,
+        kind: classifyReadFailureKind(error) ?? 'auth-session',
+        message: `Auth session lookup failed during verification read: ${error.message}`,
+      };
+    }
+  }
+
+  return {
+    attempts,
+    kind: 'no-session',
+    message: 'Verification cloud read could not start because no signed-in session was available.',
+  };
+}
+
+async function readVerificationTableWithRetry(table: string, userId: string): Promise<{ rows: any[]; error: any | null }> {
+  let lastError: any | null = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data: rows, error } = await supabase
+      .from(table)
+      .select('record_id, record, updated_at, deleted_at')
+      .eq('user_id', userId);
+    if (!error) return { rows: rows ?? [], error: null };
+    lastError = error;
+    const transient = classifyReadFailureKind(error) === 'network';
+    if (!transient) break;
+  }
+  return { rows: [], error: lastError };
+}
+
+function classifyReadFailureKind(error: unknown): VerificationSourceSnapshot['readFailureKind'] {
+  const message = error instanceof Error ? error.message : String(error ?? '').toLowerCase();
+  const lowered = message.toLowerCase();
+  if (lowered.includes('network') || lowered.includes('fetch') || lowered.includes('timeout')) return 'network';
+  if (lowered.includes('jwt') || lowered.includes('token') || lowered.includes('refresh')) return 'auth-refresh';
+  if (lowered.includes('auth') || lowered.includes('session')) return 'auth-session';
+  if (lowered.includes('user_preferences')) return 'preferences-read';
+  if (lowered.includes('follow_up_items') || lowered.includes('tasks') || lowered.includes('projects') || lowered.includes('contacts') || lowered.includes('companies')) return 'table-read';
+  return 'table-read';
 }
 
 function createEmptyComparableCollections(): VerificationComparableEntityCollections {
@@ -424,6 +521,10 @@ export function buildVerificationSummary(params: {
   mismatches: VerificationMismatch[];
   comparedRecordCountsByEntity: Record<string, number>;
   cloudReadSucceeded: boolean;
+  cloudReadFailureMessage?: string;
+  cloudReadFailureKind?: VerificationSourceSnapshot['readFailureKind'];
+  cloudReadFailureStage?: VerificationSourceSnapshot['readFailureStage'];
+  cloudReadAttempts?: number;
   schemaVersionClient?: number;
   schemaVersionCloud?: number;
 }): VerificationSummary {
@@ -446,6 +547,8 @@ export function buildVerificationSummary(params: {
     mismatchCountsByEntity[mismatch.entity] = (mismatchCountsByEntity[mismatch.entity] ?? 0) + 1;
   });
 
+  const trueMismatchCount = params.mismatches.filter((mismatch) => mismatch.category !== 'verification_read_failed').length;
+
   return {
     runId: params.runId,
     startedAt: params.startedAt,
@@ -454,12 +557,17 @@ export function buildVerificationSummary(params: {
     basedOnCommittedAt: params.context.basedOnCommittedAt,
     schemaVersionClient: params.schemaVersionClient,
     schemaVersionCloud: params.schemaVersionCloud,
-    verified: params.cloudReadSucceeded && params.mismatches.length === 0,
-    mismatchCount: params.mismatches.length,
+    verified: params.cloudReadSucceeded && trueMismatchCount === 0,
+    mismatchCount: trueMismatchCount,
     mismatchCountsByCategory,
     mismatchCountsByEntity,
     comparedRecordCountsByEntity: params.comparedRecordCountsByEntity,
     cloudReadSucceeded: params.cloudReadSucceeded,
+    verificationReadFailed: !params.cloudReadSucceeded,
+    verificationReadFailureMessage: params.cloudReadFailureMessage,
+    verificationReadFailureKind: params.cloudReadFailureKind,
+    verificationReadFailureStage: params.cloudReadFailureStage,
+    verificationReadAttempts: params.cloudReadAttempts ?? 1,
     auxiliaryCompared: true,
     verificationMode: params.context.mode,
     exportableReportId: `verification-${params.runId}`,
@@ -531,6 +639,10 @@ export async function verifyPersistedState(options: {
     mismatches,
     comparedRecordCountsByEntity,
     cloudReadSucceeded: cloudSnapshot.readSucceeded,
+    cloudReadFailureMessage: cloudSnapshot.readFailureMessage,
+    cloudReadFailureKind: cloudSnapshot.readFailureKind,
+    cloudReadFailureStage: cloudSnapshot.readFailureStage,
+    cloudReadAttempts: cloudSnapshot.attempts,
     schemaVersionClient: options.target.schemaVersionClient,
     schemaVersionCloud: cloudSnapshot.schemaVersionCloud,
   });
@@ -613,6 +725,11 @@ export function exportVerificationIncident(input: {
     receiptMetadata: input.receiptMetadata,
     sanitizedTechnicalDetails: {
       cloudReadSucceeded: input.verificationResult.summary.cloudReadSucceeded,
+      verificationReadFailed: input.verificationResult.summary.verificationReadFailed,
+      verificationReadFailureMessage: input.verificationResult.summary.verificationReadFailureMessage,
+      verificationReadFailureKind: input.verificationResult.summary.verificationReadFailureKind,
+      verificationReadFailureStage: input.verificationResult.summary.verificationReadFailureStage,
+      verificationReadAttempts: input.verificationResult.summary.verificationReadAttempts,
       basedOnBatchId: input.verificationResult.summary.basedOnBatchId,
       basedOnCommittedAt: input.verificationResult.summary.basedOnCommittedAt,
       verificationMode: input.verificationResult.summary.verificationMode,

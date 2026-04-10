@@ -19,6 +19,7 @@ import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } fro
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 import { verifyPersistedState } from '../lib/persistenceVerification';
+import { deriveVerificationMetaFromResult } from './verificationState';
 import {
   buildReminderCenterSummary,
   buildWorkspaceAttentionCounts,
@@ -599,25 +600,25 @@ export const useAppStore = create<AppStore>()((set, get) => {
           },
         });
 
+        const derived = deriveVerificationMetaFromResult(result);
+
         set((state) => ({
-          verificationState: result.summary.verified ? 'verified-match' : 'mismatch-found',
+          verificationState: derived.verificationState,
           lastVerificationRunId: result.summary.runId,
           lastVerificationStartedAt: result.summary.startedAt,
           lastVerificationCompletedAt: result.summary.completedAt,
           lastVerificationMatched: result.summary.verified,
           lastVerificationMismatchCount: result.summary.mismatchCount,
           lastVerificationBasedOnBatchId: result.summary.basedOnBatchId,
-          lastVerificationFailureMessage: result.summary.cloudReadSucceeded ? undefined : result.mismatches[0]?.technicalDetail,
+          lastVerificationFailureMessage: derived.failureMessage,
           verificationSummary: result.summary,
           latestVerificationResult: result,
-          recoveryReviewNeeded: !result.summary.verified,
-          reviewedMismatchIds: !result.summary.verified ? state.reviewedMismatchIds : [],
+          recoveryReviewNeeded: derived.recoveryReviewNeeded,
+          reviewedMismatchIds: derived.recoveryReviewNeeded ? state.reviewedMismatchIds : [],
           persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
             kind: 'saved',
-            summary: result.summary.verified ? 'Verified match with cloud state.' : 'Recovery review needed.',
-            detail: result.summary.verified
-              ? 'Last verification matched current cloud state.'
-              : `Last verification found ${result.summary.mismatchCount} mismatch${result.summary.mismatchCount === 1 ? '' : 'es'}.`,
+            summary: derived.activitySummary,
+            detail: derived.activityDetail,
           })),
         }));
       } catch (error) {

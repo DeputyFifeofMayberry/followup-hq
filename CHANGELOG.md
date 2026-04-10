@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Unified content-frame alignment for Overview, Follow Ups, and Tasks
+- Introduced a shared `WorkspaceContentFrame` wrapper so Overview, Follow Ups, and Tasks all use the same horizontal content rails, max-width behavior, and section spacing instead of page-specific container drift (`src/components/ui/AppPrimitives.tsx`, `src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Standardized execution toolbar scaffolding (left/right zone behavior + wrap rules) and fixed mismatched follow-up responsive selectors so title/control/action rows align consistently across lanes (`src/components/ui/AppPrimitives.tsx`, `src/styles/workspaces.css`).
+- Tuned search/control container sizing and queue surface framing to remove cramped/narrow offsets and keep filters, list/table wrappers, and empty/list states on one shared desktop grid (`src/styles/workspaces.css`).
+
 ### Build identity stamp + generated deployment metadata
 - Added an automated build metadata generator wired into `predev` and `prebuild` to emit typed build identity from package version, git SHA/branch, build timestamp, deploy environment, deployment URL, and best-effort PR metadata without browser API calls (`scripts/generate-build-meta.mjs`, `package.json`, `src/generated/buildMeta.ts`, `src/lib/buildInfo.ts`).
 - Added a compact build stamp in the left nav rail (including mobile nav drawer) with expandable details showing truthful build/deploy identifiers and explicit PR-unavailable fallback messaging (`src/components/app/BuildStamp.tsx`, `src/App.tsx`, `src/styles/shell.css`).

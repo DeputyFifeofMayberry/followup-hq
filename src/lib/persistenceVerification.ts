@@ -630,10 +630,11 @@ export function buildVerificationSummary(params: {
 
   params.mismatches.forEach((mismatch) => {
     mismatchCountsByCategory[mismatch.category] += 1;
-    mismatchCountsByEntity[mismatch.entity] = (mismatchCountsByEntity[mismatch.entity] ?? 0) + 1;
     if (mismatch.category === 'newer_locally' || mismatch.category === 'newer_in_cloud') {
       timestampDriftCountsByEntity[mismatch.entity] = (timestampDriftCountsByEntity[mismatch.entity] ?? 0) + 1;
+      return;
     }
+    mismatchCountsByEntity[mismatch.entity] = (mismatchCountsByEntity[mismatch.entity] ?? 0) + 1;
   });
 
   const trueMismatchCount = params.mismatches.filter((mismatch) =>

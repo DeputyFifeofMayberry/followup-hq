@@ -7,6 +7,7 @@ import {
   AppModalHeader,
   WorkspaceContentFrame,
   ExecutionLaneInspectorCard,
+  ExecutionLaneQueueCard,
   WorkspacePrimaryLayout,
   WorkspacePage,
 } from '../ui/AppPrimitives';
@@ -40,7 +41,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
       <WorkspaceContentFrame>
         <WorkspacePrimaryLayout inspectorWidth="340px">
           <div className="tracker-main-single">
-            <div className="tracker-workspace-main app-shell-card">
+            <ExecutionLaneQueueCard className="tracker-workspace-main">
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
               <TrackerTable
                 personalMode={personalMode}
@@ -49,7 +50,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
                 rows={vm.filteredRows}
                 onRowOpen={() => setDetailModalOpen(true)}
               />
-            </div>
+            </ExecutionLaneQueueCard>
           </div>
           {detailModalOpen && vm.selectedFollowUp ? (
             <ExecutionLaneInspectorCard>

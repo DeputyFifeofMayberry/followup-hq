@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { AppShellCard, ExecutionLaneInspectorCard, NoMatchesState, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import { ExecutionLaneInspectorCard, ExecutionLaneQueueCard, NoMatchesState, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import type { AppMode } from '../types';
 import { OverviewStartStrip } from './overview/OverviewStartStrip';
 import { OverviewSignalCards } from './overview/OverviewSignalCards';
@@ -62,7 +62,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
 
         <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-surface-layout">
-          <AppShellCard className="overview-command-center" surface="data">
+          <ExecutionLaneQueueCard className="overview-command-center">
             <div className="overview-toolbar-row">
               <div className="overview-toolbar-left">
                 <label className="field-block overview-search-block">
@@ -107,7 +107,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                 <button type="button" className="action-btn" onClick={() => onOpenWorkspace('queue')}>Open full queue</button>
               </div>
             </section>
-          </AppShellCard>
+          </ExecutionLaneQueueCard>
 
           {detailOpen ? (
             <ExecutionLaneInspectorCard className="overview-inspector-shell">

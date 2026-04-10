@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Workspace rail alignment architecture correction
+- Fixed the remaining horizontal misalignment at the layout-architecture level by removing the extra per-page content-frame inset/max-width behavior and letting workspace pages inherit the shell pane rails directly, so Overview, Follow Ups, and Tasks now share the same true left/right boundaries (`src/styles/workspaces.css`).
+- Standardized major execution surfaces onto the same queue-card primitive across all three core workspaces, replacing mixed wrappers that previously applied different horizontal padding and border shells (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
+- Unified internal horizontal rhythm for summary strips, control stacks, and queue/list surfaces via shared workspace surface padding tokens, eliminating staggered starts between top strips, control rows, queue cards, and empty/list states (`src/styles/workspaces.css`).
+
 ### Production build-blocker cleanup follow-up
 - Cleared remaining TypeScript production build blockers by tightening Universal Intake preview/date typing, aligning directory modal/enum usage with shared primitives, and fixing queue badge variant compatibility (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/universalIntake.ts`, `src/components/directory/CompanyCreateModal.tsx`, `src/components/directory/ContactCreateModal.tsx`, `src/components/directory/ProjectCreateModal.tsx`, `src/components/directory/ProjectDeleteModal.tsx`, `src/components/directory/DirectoryProjectsPane.tsx`, `src/components/overview/OverviewTriageList.tsx`).
 - Removed unused code/imports uncovered by strict checks and fixed undo/conflict typing paths in store/persistence logic to restore strict `tsc -b` compatibility (`src/lib/intakeDates.ts`, `src/lib/intakeDecisionPolicy.ts`, `src/lib/persistence.ts`, `src/store/persistenceActivity.ts`, `src/store/slices/followUpsSlice.ts`, `src/store/useAppStore.ts`).

@@ -2,6 +2,13 @@
 
 ## 2026-04-10
 
+### Save & sync manual verification canonical contract unification (items/projects/contacts)
+- Removed verification-only guessed canonical defaults and refactored canonicalization to reuse real domain normalization helpers (`normalizeItem`, `normalizeProjectRecord`, `normalizeContact`) so Save & sync verification compares one shared persisted entity contract instead of parallel rule sets (`src/lib/persistenceCanonicalization.ts`, `src/domains/projects/helpers.ts`, `src/domains/relationships/helpers.ts`, `src/lib/utils.ts`).
+- Fixed remaining false `content_mismatch` results for items/projects/contacts by stripping sync transport metadata (`recordVersion`, `updatedByDevice`, `lastBatchId`, `lastOperationAt`, `deletedAt`, `conflictMarker`) and hydration/runtime-only follow-up fields from verification payload hashing (`src/lib/persistenceCanonicalization.ts`).
+- Aligned project normalization across runtime persistence paths by introducing shared `normalizeProjectRecord` and using it in hydration and project mutations, reducing persisted-shape drift after load/edit cycles (`src/domains/projects/helpers.ts`, `src/store/slices/metaSlice.ts`, `src/store/slices/projectsSlice.ts`).
+- Improved mismatch diagnostics with explicit verification source (`cached-persisted-payload` vs `runtime-rebuild`) in entity mismatch technical details (`src/lib/persistenceVerification.ts`).
+- Added regression coverage for item/project/contact parity against hydrated/enriched shapes and an explicit clean-session verify-now flow asserting verified-match semantics with no mismatches (`src/lib/__tests__/persistenceVerification.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+
 ### Verification root-cause canonical contract fix (items/projects/contacts + tombstone parity)
 - Implemented a dedicated canonical verification payload path so local verification and cache writes normalize to the true persisted comparison contract (instead of trusting runtime-hydrated state shape), including explicit entity canonicalization for follow-up runtime/hydration-only fields and project/contact default-shape parity (`src/lib/persistenceCanonicalization.ts`, `src/lib/persistence.ts`, `src/store/verificationTarget.ts`).
 - Updated verification comparison to use entity-level canonical metadata and richer diagnostics (changed canonical paths plus stripped/defaulted field traces), and to report the local verification source (cached persisted payload vs runtime rebuild) in read-failure diagnostics (`src/lib/persistenceVerification.ts`, `src/store/useAppStore.ts`).

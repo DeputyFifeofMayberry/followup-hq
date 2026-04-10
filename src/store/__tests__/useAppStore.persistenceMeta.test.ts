@@ -3,6 +3,8 @@ import { deriveVerificationMetaFromResult } from '../verificationState';
 import { selectVerificationTargetPayload } from '../verificationTarget';
 import { initialBusinessState, initialMetaState, initialUiState } from '../state/initialState';
 import { buildPersistedPayload } from '../state/persistence';
+import { verifyPersistedState, stableHashRecord } from '../../lib/persistenceVerification';
+import { canonicalizeEntityRecordForVerification } from '../../lib/persistenceCanonicalization';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -199,11 +201,47 @@ function testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist(): void {
   assert(selected.source === 'runtime-rebuild', 'dirty verify runs should report runtime rebuild source');
 }
 
-(function run() {
+async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> {
+  const clean = buildStoreLikeForVerificationTarget({
+    hasLocalUnsavedChanges: false,
+    pendingBatchCount: 0,
+    unresolvedOutboxCount: 0,
+    localRevision: 6,
+    lastCloudConfirmedRevision: 6,
+    items: [{ id: 'item-1', title: 'Parity', status: 'Needs action', updatedAt: '2026-04-10T10:00:00.000Z', recordVersion: 2 }],
+    projects: [{ id: 'proj-1', name: 'Parity Project', owner: 'Owner', status: 'Active', notes: '', tags: [], createdAt: '2026-04-10T10:00:00.000Z', updatedAt: '2026-04-10T10:00:00.000Z', recordVersion: 2 }],
+    contacts: [{ id: 'contact-1', name: 'Parity Contact', role: '', notes: '', tags: [], updatedAt: '2026-04-10T10:00:00.000Z', recordVersion: 2 }],
+  });
+  const cached = buildPersistedPayload(clean);
+  const target = selectVerificationTargetPayload({ current: clean, cachedPersistedPayload: cached });
+  const cloudSnapshot = {
+    fetchedAt: '2026-04-10T10:00:00.000Z',
+    schemaVersionCloud: undefined,
+    readSucceeded: true,
+    entities: {
+      items: new Map([['item-1', { id: 'item-1', digest: stableHashRecord(canonicalizeEntityRecordForVerification('items', { id: 'item-1', title: 'Parity', status: 'Needs action', updatedAt: '2026-04-10T10:00:00.000Z' } as any)), normalizedRecord: canonicalizeEntityRecordForVerification('items', { id: 'item-1', title: 'Parity', status: 'Needs action', updatedAt: '2026-04-10T10:00:00.000Z' } as any), canonicalStrippedPaths: [], canonicalDefaultedPaths: [] }]]),
+      tasks: new Map(),
+      projects: new Map([['proj-1', { id: 'proj-1', digest: stableHashRecord(canonicalizeEntityRecordForVerification('projects', { id: 'proj-1', name: 'Parity Project', owner: 'Owner', status: 'Active', notes: '', tags: [], createdAt: '2026-04-10T10:00:00.000Z', updatedAt: '2026-04-10T10:00:00.000Z' } as any)), normalizedRecord: canonicalizeEntityRecordForVerification('projects', { id: 'proj-1', name: 'Parity Project', owner: 'Owner', status: 'Active', notes: '', tags: [], createdAt: '2026-04-10T10:00:00.000Z', updatedAt: '2026-04-10T10:00:00.000Z' } as any), canonicalStrippedPaths: [], canonicalDefaultedPaths: [] }]]),
+      contacts: new Map([['contact-1', { id: 'contact-1', digest: stableHashRecord(canonicalizeEntityRecordForVerification('contacts', { id: 'contact-1', name: 'Parity Contact', notes: '', tags: [], updatedAt: '2026-04-10T10:00:00.000Z' } as any)), normalizedRecord: canonicalizeEntityRecordForVerification('contacts', { id: 'contact-1', name: 'Parity Contact', notes: '', tags: [], updatedAt: '2026-04-10T10:00:00.000Z' } as any), canonicalStrippedPaths: [], canonicalDefaultedPaths: [] }]]),
+      companies: new Map(),
+    },
+    auxiliary: cached.auxiliary,
+  } as any;
+  const result = await verifyPersistedState({
+    target: { payload: target.payload, localPayloadSource: target.source, schemaVersionClient: 1 },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloudSnapshot,
+  });
+  assert(result.summary.verified === true, 'clean startup verify now should resolve to verified-match semantics');
+  assert(result.summary.mismatchCount === 0, 'clean startup verify now should not report content mismatches');
+}
+
+(async function run() {
   testNoOpSavePreservesConservativeTrust();
   testPersistedSupabaseSavePromotesTrust();
   testSupabasePersistWithoutCommittedReceiptStaysPendingCloud();
   testVerifyNowProjectionStates();
   testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean();
   testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist();
+  await testCleanStartupVerifyNowResultsInVerifiedMatch();
 })();

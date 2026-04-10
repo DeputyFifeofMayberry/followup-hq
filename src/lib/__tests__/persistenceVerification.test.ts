@@ -80,6 +80,43 @@ async function testRuntimeEnrichedFollowUpsDoNotCauseFalseMismatch(): Promise<vo
   assert(result.summary.verified === true, 'runtime-enriched follow-up rollup fields should be excluded from canonical verification');
 }
 
+async function testHydrationAndSyncMetadataDoNotCauseFalseMismatch(): Promise<void> {
+  const local = payload();
+  local.items = [{
+    ...local.items[0],
+    lifecycleState: 'active',
+    reviewReasons: ['legacy_record_requires_cleanup'],
+    dataQuality: 'valid_live',
+    recordVersion: 9,
+    updatedByDevice: 'device-1',
+    lastBatchId: 'batch-1',
+    lastOperationAt: '2026-04-06T10:00:00.000Z',
+    conflictMarker: false,
+  } as any];
+  local.projects = [{
+    ...local.projects[0],
+    tags: undefined,
+    recordVersion: 2,
+    updatedByDevice: 'device-1',
+  } as any];
+  local.contacts = [{
+    ...local.contacts[0],
+    role: '',
+    relationshipStatus: undefined,
+    riskTier: undefined,
+    active: undefined,
+    recordVersion: 3,
+    updatedByDevice: 'device-1',
+  } as any];
+  const cloud = cloudSnapshotFromPayload(payload());
+  const result = await verifyPersistedState({
+    target: { payload: local, localPayloadSource: 'cached-persisted-payload' },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'hydration and sync transport metadata should not produce false content mismatches');
+}
+
 async function testMissingCloudRecord(): Promise<void> {
   const local = payload();
   const cloud = cloudSnapshotFromPayload(local);
@@ -226,6 +263,7 @@ async function testMismatchDiagnosticsIncludeChangedPaths(): Promise<void> {
   const contentMismatch = result.mismatches.find((mismatch) => mismatch.category === 'content_mismatch');
   const auxiliaryMismatch = result.mismatches.find((mismatch) => mismatch.category === 'auxiliary_mismatch');
   assert(Boolean(contentMismatch?.technicalDetail.includes('Changed paths: title')), 'content mismatch should include changed paths diagnostics');
+  assert(Boolean(contentMismatch?.technicalDetail.includes('Verification source: runtime-rebuild')), 'content mismatch diagnostics should include verification source');
   assert(Boolean(auxiliaryMismatch?.technicalDetail.includes('Changed paths: followUpTableDensity')), 'auxiliary mismatch should include changed paths diagnostics');
 }
 
@@ -289,13 +327,14 @@ async function testVerificationReadFailureDetailsIncludeLocalPayloadSource(): Pr
 function testCompareEntityCollectionsHelper(): void {
   const local = new Map([['x', { id: 'x', digest: 'a', normalizedRecord: { id: 'x' } } as any]]);
   const cloud = new Map<string, any>();
-  const mismatches = compareEntityCollections({ entity: 'items', local: local as any, cloud: cloud as any, includePreviews: true, maxMismatchPreviewCount: 5 });
+  const mismatches = compareEntityCollections({ entity: 'items', local: local as any, cloud: cloud as any, includePreviews: true, maxMismatchPreviewCount: 5, verificationSource: 'cached-persisted-payload' });
   assert(mismatches[0]?.category === 'missing_in_cloud', 'helper should detect missing_in_cloud');
 }
 
 (async function run() {
   await testVerificationSuccess();
   await testRuntimeEnrichedFollowUpsDoNotCauseFalseMismatch();
+  await testHydrationAndSyncMetadataDoNotCauseFalseMismatch();
   await testMissingCloudRecord();
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();

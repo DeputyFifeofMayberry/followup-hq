@@ -466,6 +466,7 @@ export function compareEntityCollections(params: {
   cloud: Map<string, VerificationComparableRecord>;
   includePreviews: boolean;
   maxMismatchPreviewCount: number;
+  verificationSource: VerificationTargetState['localPayloadSource'];
 }): VerificationMismatch[] {
   const mismatches: VerificationMismatch[] = [];
   const ids = new Set([...params.local.keys(), ...params.cloud.keys()]);
@@ -483,7 +484,7 @@ export function compareEntityCollections(params: {
         localUpdatedAt: local.updatedAt,
         localDigest: local.digest,
         summary: `${params.entity} ${recordId} exists locally but was not found in cloud.`,
-        technicalDetail: `Record exists in local intended state, but no cloud row exists for this record id. Stripped fields(local): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(local): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
+        technicalDetail: `Record exists in local intended state, but no cloud row exists for this record id. Verification source: ${params.verificationSource ?? 'runtime-rebuild'}. Stripped fields(local): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(local): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
         localRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? local.normalizedRecord : undefined,
       });
       return;
@@ -500,7 +501,7 @@ export function compareEntityCollections(params: {
         cloudUpdatedAt: cloud.updatedAt,
         cloudDigest: cloud.digest,
         summary: `${params.entity} ${recordId} exists in cloud but not in local intended state.`,
-        technicalDetail: `Cloud contains an active row while local intended state does not. Stripped fields(cloud): ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(cloud): ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
+        technicalDetail: `Cloud contains an active row while local intended state does not. Verification source: ${params.verificationSource ?? 'runtime-rebuild'}. Stripped fields(cloud): ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(cloud): ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
         cloudRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? cloud.normalizedRecord : undefined,
       });
       return;
@@ -538,7 +539,7 @@ export function compareEntityCollections(params: {
         localDigest: local.digest,
         cloudDigest: cloud.digest,
         summary: `${params.entity} ${recordId} has different content locally vs cloud.`,
-        technicalDetail: `Canonical persisted fields differ after deterministic comparison.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}${local.canonicalStrippedPaths.length || cloud.canonicalStrippedPaths.length ? ` Stripped fields(local/cloud): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}.` : ''}${local.canonicalDefaultedPaths.length || cloud.canonicalDefaultedPaths.length ? ` Defaulted fields(local/cloud): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.` : ''}`,
+        technicalDetail: `Canonical persisted fields differ after deterministic comparison. Verification source: ${params.verificationSource ?? 'runtime-rebuild'}.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}${local.canonicalStrippedPaths.length || cloud.canonicalStrippedPaths.length ? ` Stripped fields(local/cloud): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}.` : ''}${local.canonicalDefaultedPaths.length || cloud.canonicalDefaultedPaths.length ? ` Defaulted fields(local/cloud): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.` : ''}`,
         localRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? local.normalizedRecord : undefined,
         cloudRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? cloud.normalizedRecord : undefined,
       });
@@ -686,6 +687,7 @@ export async function verifyPersistedState(options: {
         cloud: cloudSnapshot.entities[entity],
         includePreviews,
         maxMismatchPreviewCount,
+        verificationSource: options.target.localPayloadSource,
       }));
     });
 

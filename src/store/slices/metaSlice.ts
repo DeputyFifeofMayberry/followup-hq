@@ -4,7 +4,7 @@ import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { resolveProjectName, todayIso } from '../../lib/utils';
 import { normalizeContact, normalizeCompany } from '../../domains/relationships/helpers';
-import { deriveProjects, projectCanonicalKey } from '../../domains/projects/helpers';
+import { deriveProjects, normalizeProjectRecord, projectCanonicalKey } from '../../domains/projects/helpers';
 import { normalizeItems, attachProjects } from '../../domains/followups/helpers';
 import { applyTaskRollupsToItems, normalizeTasks } from '../../domains/tasks/helpers';
 import {
@@ -113,7 +113,8 @@ export function createMetaSlice(
         const baseItems = normalizeItems(payload.items ?? []);
         const contacts = (payload.contacts ?? []).map(normalizeContact);
         const companies = (payload.companies ?? []).map(normalizeCompany);
-        const preProjects = deriveProjects(baseItems, payload.projects ?? [], payload.tasks ?? []);
+        const persistedProjects = (payload.projects ?? []).map((project) => normalizeProjectRecord(project));
+        const preProjects = deriveProjects(baseItems, persistedProjects, payload.tasks ?? []);
         const projects = preProjects;
         const migratedBaseItems = baseItems.map((item) => enforceFollowUpIntegrity(repairLegacyFollowUpForHydration(item, projects), projects));
         const items = attachProjects(applyTaskRollupsToItems(migratedBaseItems, payload.tasks ?? []), projects);

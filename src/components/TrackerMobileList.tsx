@@ -15,6 +15,9 @@ type TrackerMobileListProps = {
   onLogTouch: (id: string) => void;
   onNudge: (id: string) => void;
   onSnooze: (id: string) => void;
+  emptyStateMessage?: string;
+  hasActiveRowNarrowing?: boolean;
+  onResetFilters?: () => void;
 };
 
 export function TrackerMobileList({
@@ -27,6 +30,9 @@ export function TrackerMobileList({
   onLogTouch,
   onNudge,
   onSnooze,
+  emptyStateMessage = 'Adjust filters or clear search to find matching follow-ups.',
+  hasActiveRowNarrowing = false,
+  onResetFilters,
 }: TrackerMobileListProps) {
   const modeConfig = getModeConfig(appMode);
 
@@ -34,7 +40,10 @@ export function TrackerMobileList({
     <div className="tracker-mobile-surface">
       <div className="tracker-mobile-list">
         {items.length === 0 ? (
-          <EmptyState title="No follow-ups found" message="Adjust filters or clear search to find matching follow-ups." />
+          <div className="tracker-empty-state-wrap">
+            <EmptyState title={hasActiveRowNarrowing ? 'No follow-ups match the current filters' : 'No follow-ups yet'} message={emptyStateMessage} />
+            {hasActiveRowNarrowing ? <button type="button" className="primary-btn" onClick={onResetFilters}>Reset filters</button> : null}
+          </div>
         ) : (
           items.map((item) => {
             const active = selectedId === item.id;

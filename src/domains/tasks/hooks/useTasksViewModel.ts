@@ -292,6 +292,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
 
   const activeFilterCount = useMemo(() => (
     [
+      debouncedSearchQuery.length > 0,
       projectFilter !== defaultFilterState.project,
       assigneeFilter !== defaultFilterState.assignee,
       !personalMode && store.taskOwnerFilter !== 'All',
@@ -300,12 +301,12 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
       timingFilter !== defaultFilterState.timingFilter,
       stateFilter !== defaultFilterState.stateFilter,
       priorityFilter !== defaultFilterState.priorityFilter,
-      sortBy !== defaultFilterState.sortBy,
     ].filter(Boolean).length
-  ), [projectFilter, assigneeFilter, personalMode, store.taskOwnerFilter, store.taskStatusFilter, linkedFilter, timingFilter, stateFilter, priorityFilter, sortBy]);
+  ), [debouncedSearchQuery.length, projectFilter, assigneeFilter, personalMode, store.taskOwnerFilter, store.taskStatusFilter, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
+    if (searchQuery.trim()) chips.push({ key: 'search', label: `Search: ${searchQuery.trim()}`, clear: () => setSearchQuery('') });
     if (projectFilter !== defaultFilterState.project) chips.push({ key: 'project', label: `Project: ${projectFilter}`, clear: () => setProjectFilter(defaultFilterState.project) });
     if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => setAssigneeFilter(defaultFilterState.assignee) });
     if (!personalMode && store.taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${store.taskOwnerFilter}`, clear: () => store.setTaskOwnerFilter('All') });
@@ -315,7 +316,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     if (stateFilter !== defaultFilterState.stateFilter) chips.push({ key: 'state', label: `State: ${stateFilter.replaceAll('_', ' ')}`, clear: () => setStateFilter(defaultFilterState.stateFilter) });
     if (priorityFilter !== defaultFilterState.priorityFilter) chips.push({ key: 'priority', label: `Priority: ${priorityFilter}`, clear: () => setPriorityFilter(defaultFilterState.priorityFilter) });
     return chips;
-  }, [projectFilter, assigneeFilter, personalMode, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
+  }, [searchQuery, projectFilter, assigneeFilter, personalMode, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const sortSummary = sortBy === 'due' ? '' : sortBy === 'priority' ? 'Sorted by priority' : 'Sorted by recently updated';
 

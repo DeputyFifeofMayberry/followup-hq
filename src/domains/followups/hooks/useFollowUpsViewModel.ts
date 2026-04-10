@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
-import { buildFollowUpCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { deriveFollowUpSelectionScope } from '../helpers/selectionScope';
 
 export function useFollowUpsViewModel() {
@@ -84,22 +84,89 @@ export function useFollowUpsViewModel() {
     actionableSelectedCount: selectionScope.actionableIds.length,
   }), [store.tasks, selectionScope.selectedIds.length, selectionScope.actionableIds.length]);
 
-  const activeOptionCount = useMemo(() => (
-    [
-      store.followUpFilters.status !== 'All',
-      store.followUpFilters.project !== 'All',
-      store.followUpFilters.owner !== 'All',
-      store.followUpFilters.assignee !== 'All',
-      store.followUpFilters.priority !== 'All',
-      store.followUpFilters.cleanupOnly,
-      store.followUpFilters.dueDateRange !== 'all',
-      store.followUpFilters.nextTouchDateRange !== 'all',
-      store.followUpTableDensity !== 'compact',
-      store.followUpColumns.length > 6,
-    ].filter(Boolean).length
-  ), [store.followUpFilters, store.followUpTableDensity, store.followUpColumns.length]);
+  const activeRowAffectingOptions = useMemo(() => getActiveFollowUpRowAffectingOptions({
+    search: store.search,
+    activeView: store.activeView,
+    filters: store.followUpFilters,
+  }), [store.search, store.activeView, store.followUpFilters]);
+
+  const clearFollowUpRowAffectingOption = (key: (typeof activeRowAffectingOptions)[number]['key']) => {
+    if (key === 'activeView') {
+      store.setActiveView('All');
+      return;
+    }
+    if (key === 'search') {
+      store.setSearch('');
+      return;
+    }
+    if (key === 'cleanupOnly') {
+      store.setFollowUpFilters({ cleanupOnly: false });
+      return;
+    }
+    if (key === 'status') {
+      store.setFollowUpFilters({ status: defaultFollowUpFilters.status });
+      return;
+    }
+    if (key === 'project') {
+      store.setFollowUpFilters({ project: defaultFollowUpFilters.project });
+      return;
+    }
+    if (key === 'owner') {
+      store.setFollowUpFilters({ owner: defaultFollowUpFilters.owner });
+      return;
+    }
+    if (key === 'assignee') {
+      store.setFollowUpFilters({ assignee: defaultFollowUpFilters.assignee });
+      return;
+    }
+    if (key === 'waitingOn') {
+      store.setFollowUpFilters({ waitingOn: defaultFollowUpFilters.waitingOn });
+      return;
+    }
+    if (key === 'escalation') {
+      store.setFollowUpFilters({ escalation: defaultFollowUpFilters.escalation });
+      return;
+    }
+    if (key === 'priority') {
+      store.setFollowUpFilters({ priority: defaultFollowUpFilters.priority });
+      return;
+    }
+    if (key === 'actionState') {
+      store.setFollowUpFilters({ actionState: defaultFollowUpFilters.actionState });
+      return;
+    }
+    if (key === 'category') {
+      store.setFollowUpFilters({ category: defaultFollowUpFilters.category });
+      return;
+    }
+    if (key === 'dueDateRange') {
+      store.setFollowUpFilters({ dueDateRange: defaultFollowUpFilters.dueDateRange });
+      return;
+    }
+    if (key === 'nextTouchDateRange') {
+      store.setFollowUpFilters({ nextTouchDateRange: defaultFollowUpFilters.nextTouchDateRange });
+      return;
+    }
+    if (key === 'promisedDateRange') {
+      store.setFollowUpFilters({ promisedDateRange: defaultFollowUpFilters.promisedDateRange });
+      return;
+    }
+    if (key === 'linkedTaskState') {
+      store.setFollowUpFilters({ linkedTaskState: defaultFollowUpFilters.linkedTaskState });
+    }
+  };
+
+  const resetAllRowAffectingOptions = () => {
+    store.setActiveView('All');
+    store.setSearch('');
+    store.resetFollowUpFilters();
+  };
 
   const duplicateCount = store.duplicateReviews.length;
+  const hasActiveRowNarrowing = activeRowAffectingOptions.length > 0;
+  const emptyStateMessage = hasActiveRowNarrowing
+    ? `No follow-ups match the current filters: ${activeRowAffectingOptions.map((entry) => entry.label).join(' • ')}.`
+    : 'No follow-ups yet. Add your first follow-up to start this lane.';
 
   const queueSummary = useMemo(() => {
     const scopeLabel = store.activeView === 'All' ? 'All open' : store.activeView;
@@ -119,7 +186,12 @@ export function useFollowUpsViewModel() {
     queueStats,
     viewCounts,
     duplicateCount,
-    activeOptionCount,
+    activeOptionCount: activeRowAffectingOptions.length,
+    activeRowAffectingOptions,
+    hasActiveRowNarrowing,
+    emptyStateMessage,
+    clearFollowUpRowAffectingOption,
+    resetAllRowAffectingOptions,
     queueSummary,
     selectionScope,
     actionableSelectedFollowUpIds: selectionScope.actionableIds,

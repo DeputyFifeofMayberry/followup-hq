@@ -132,6 +132,22 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         )}
       />
 
+      <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
+        {vm.activeRowAffectingOptions.length > 0 ? (
+          <>
+            {vm.activeRowAffectingOptions.map((entry) => (
+              <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
+                {entry.label}
+                <span aria-hidden>×</span>
+              </button>
+            ))}
+            <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all filters</button>
+          </>
+        ) : (
+          <span className="task-sort-summary">No active row filters.</span>
+        )}
+      </div>
+
       {showOptions ? (
         <div className="followup-options-panel advanced-filter-surface">
           <section className="followup-options-section">
@@ -148,8 +164,24 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               <select value={vm.followUpFilters.project} onChange={(event) => vm.setFollowUpFilters({ project: event.target.value })} className="field-input">{projects.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
               <select value={vm.followUpFilters.owner} onChange={(event) => vm.setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
               <select value={vm.followUpFilters.assignee} onChange={(event) => vm.setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
+              <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
+                <option value="All">All waiting-on</option>
+                {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <select value={vm.followUpFilters.escalation} onChange={(event) => vm.setFollowUpFilters({ escalation: event.target.value as typeof vm.followUpFilters.escalation })} className="field-input">
+                <option value="All">All escalations</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
+              </select>
               <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
                 <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+              </select>
+              <select value={vm.followUpFilters.actionState} onChange={(event) => vm.setFollowUpFilters({ actionState: event.target.value as typeof vm.followUpFilters.actionState })} className="field-input">
+                <option value="All">All action states</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option>
+              </select>
+              <select value={vm.followUpFilters.category} onChange={(event) => vm.setFollowUpFilters({ category: event.target.value as typeof vm.followUpFilters.category })} className="field-input">
+                <option value="All">All categories</option><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option>
+              </select>
+              <select value={vm.followUpFilters.linkedTaskState} onChange={(event) => vm.setFollowUpFilters({ linkedTaskState: event.target.value as typeof vm.followUpFilters.linkedTaskState })} className="field-input">
+                <option value="all">All linked task states</option><option value="blocked_child">Blocked child tasks</option><option value="overdue_child">Overdue child tasks</option><option value="all_children_done">All child tasks done</option><option value="has_open_children">Has open child tasks</option><option value="none">No child tasks</option>
               </select>
               <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup only</label>
             </div>
@@ -163,6 +195,9 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               </select>
               <select value={vm.followUpFilters.nextTouchDateRange} onChange={(event) => vm.setFollowUpFilters({ nextTouchDateRange: event.target.value as typeof vm.followUpFilters.nextTouchDateRange })} className="field-input">
                 <option value="all">All next touch dates</option><option value="overdue">Touch overdue</option><option value="today">Touch today</option><option value="this_week">Touch this week</option><option value="next_7_days">Touch in next 7 days</option>
+              </select>
+              <select value={vm.followUpFilters.promisedDateRange} onChange={(event) => vm.setFollowUpFilters({ promisedDateRange: event.target.value as typeof vm.followUpFilters.promisedDateRange })} className="field-input">
+                <option value="all">All promised dates</option><option value="overdue">Promised overdue</option><option value="today">Promised today</option><option value="this_week">Promised this week</option><option value="next_7_days">Promised next 7 days</option>
               </select>
             </div>
           </section>

@@ -1,4 +1,4 @@
-import { defaultFollowUpFilters, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { starterCompanies, starterContacts, starterItems } from '../../../lib/sample-data';
 
 function assert(condition: boolean, message: string) {
@@ -34,6 +34,37 @@ export function runFollowUpSelectorChecks() {
   assert(counts.needsNudge === needsNudgeRows.length, 'Needs nudge count should match filtered rows');
   assert(counts.atRisk === atRiskRows.length, 'At risk count should match filtered rows');
   assert(counts.readyToClose === readyToCloseRows.length, 'Ready to close count should match filtered rows');
+
+  const hiddenByPersistedFilters = selectFollowUpRows({
+    ...baseInput,
+    activeView: 'All',
+    search: 'this-term-does-not-match',
+    filters: { ...defaultFollowUpFilters, status: 'Closed' },
+  });
+  assert(hiddenByPersistedFilters.length === 0, 'Persisted search + status filters should be able to hide lane rows');
+
+  const activeOptions = getActiveFollowUpRowAffectingOptions({
+    search: 'permit',
+    activeView: 'Waiting',
+    filters: {
+      ...defaultFollowUpFilters,
+      status: 'At risk',
+      project: 'North Yard',
+      owner: 'Avery',
+      assignee: 'Jordan',
+      waitingOn: 'Vendor',
+      escalation: 'Escalate',
+      priority: 'Critical',
+      actionState: 'Ready to send',
+      category: 'Issue',
+      dueDateRange: 'overdue',
+      nextTouchDateRange: 'today',
+      promisedDateRange: 'this_week',
+      linkedTaskState: 'blocked_child',
+      cleanupOnly: true,
+    },
+  });
+  assert(activeOptions.length === 16, `Expected all row-affecting options to be tracked, got ${activeOptions.length}`);
 }
 
 runFollowUpSelectorChecks();

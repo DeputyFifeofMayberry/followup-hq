@@ -1,15 +1,12 @@
 import { Clock3, ExternalLink, Hand, TimerReset } from 'lucide-react';
 import { Badge } from './Badge';
-import { AppBadge, EmptyState, ExecutionLaneFooterMeta } from './ui/AppPrimitives';
-import { daysUntil, formatDate, needsNudge, priorityTone, statusTone } from '../lib/utils';
-import type { AppMode, FollowUpItem } from '../types';
-import { getModeConfig } from '../lib/appModeConfig';
+import { AppBadge, EmptyState } from './ui/AppPrimitives';
+import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
+import type { FollowUpItem } from '../types';
 
 type TrackerMobileListProps = {
   items: FollowUpItem[];
   selectedId: string | null;
-  selectedCount: number;
-  appMode: AppMode;
   personalMode?: boolean;
   onOpenDetails: (id: string) => void;
   onLogTouch: (id: string) => void;
@@ -24,8 +21,6 @@ type TrackerMobileListProps = {
 export function TrackerMobileList({
   items,
   selectedId,
-  selectedCount,
-  appMode,
   personalMode = false,
   onOpenDetails,
   onLogTouch,
@@ -36,8 +31,6 @@ export function TrackerMobileList({
   hasActiveRowNarrowing = false,
   onResetFilters,
 }: TrackerMobileListProps) {
-  const modeConfig = getModeConfig(appMode);
-
   return (
     <div className="tracker-mobile-surface">
       <div className="tracker-mobile-list">
@@ -66,7 +59,7 @@ export function TrackerMobileList({
                     </div>
                   </div>
                   <p className="tracker-mobile-project">{item.project} • {personalMode ? item.owner : (item.assigneeDisplayName || item.owner)}</p>
-                  <p className="tracker-mobile-next">What matters now: <strong>{dueDelta < 0 ? `Overdue ${Math.abs(dueDelta)}d` : needsNudge(item) ? (touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today') : item.allLinkedTasksDone ? 'Ready to close' : item.nextAction ? 'Next move set' : 'Needs direction'}</strong></p>
+                  <p className="tracker-mobile-next">What matters now: <strong>{isOverdue(item) ? `Overdue ${Math.abs(dueDelta)}d` : needsNudge(item) ? (touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today') : item.nextAction ? 'Next move set' : 'Needs direction'}</strong></p>
                   <p className="tracker-mobile-next">Next move: <strong>{item.nextAction || 'No next move set'}</strong></p>
                   <div className="tracker-mobile-timing">
                     <span><Clock3 className="h-3.5 w-3.5" />Due {formatDate(item.dueDate)}</span>
@@ -78,7 +71,7 @@ export function TrackerMobileList({
                     <span>Linked {linkedOpen}/{linkedTotal} open</span>
                   </div>
                   <div className="tracker-mobile-alerts">
-                    {dueDelta < 0 ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
+                    {isOverdue(item) ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
                     {needsNudge(item) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
                   </div>
                 </button>
@@ -97,12 +90,6 @@ export function TrackerMobileList({
           })
         )}
       </div>
-      <ExecutionLaneFooterMeta
-        shownCount={items.length}
-        selectedCount={selectedCount}
-        scopeSummary={modeConfig.trackerOwnerContext === 'compact' ? 'Execution view' : 'Coordination view'}
-        hint="Mobile lane: scan queue → act → continue"
-      />
     </div>
   );
 }

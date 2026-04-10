@@ -190,8 +190,8 @@ export function useFollowUpsViewModel() {
     if (store.activeView === 'Needs nudge') {
       return `Needs nudge · ${filteredRows.length} shown · ${queueStats.overdueTouches} overdue touches`;
     }
-    return `${scopeLabel} · ${filteredRows.length} shown · ${queueStats.needsNudge} need nudge · ${queueStats.readyToClose} ready to close`;
-  }, [store.activeView, filteredRows.length, queueStats.needsNudge, queueStats.readyToClose, queueStats.overdueTouches]);
+    return `${scopeLabel} · ${filteredRows.length} shown · ${queueStats.needsNudge} need nudge`;
+  }, [store.activeView, filteredRows.length, queueStats.needsNudge, queueStats.overdueTouches]);
 
   return {
     ...store,

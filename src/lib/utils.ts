@@ -51,27 +51,31 @@ export function daysSince(dateIso: string): number {
   return Math.max(0, Math.floor(diff / 86400000));
 }
 
+export function startOfLocalDay(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+export function localDayStamp(value: string | Date): number {
+  const parsed = value instanceof Date ? value : new Date(value);
+  return startOfLocalDay(parsed).getTime();
+}
+
+export function localDayDelta(from: string | Date, to: string | Date): number {
+  return Math.floor((localDayStamp(to) - localDayStamp(from)) / 86400000);
+}
+
 export function daysUntil(dateIso?: string): number {
   if (!dateIso) return 9999;
-  const then = new Date(dateIso);
-  const now = new Date();
-  const diff = then.getTime() - now.getTime();
-  return Math.floor(diff / 86400000);
+  return localDayDelta(new Date(), dateIso);
 }
 
 export function isOverdue(item: FollowUpItem): boolean {
   if (item.status === 'Closed') return false;
-  // Compare at day granularity so items due today are not overdue until tomorrow,
-  // regardless of the time-of-day stored in the ISO string.
-  const dueDay = item.dueDate.slice(0, 10);
-  const todayDay = new Date().toISOString().slice(0, 10);
-  return dueDay < todayDay;
+  return localDayDelta(new Date(), item.dueDate) < 0;
 }
 
 export function isDueToday(item: FollowUpItem): boolean {
-  const due = new Date(item.dueDate);
-  const now = new Date();
-  return due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth() && due.getDate() === now.getDate();
+  return localDayDelta(new Date(), item.dueDate) === 0;
 }
 
 export function isReviewedToday(item: FollowUpItem): boolean {

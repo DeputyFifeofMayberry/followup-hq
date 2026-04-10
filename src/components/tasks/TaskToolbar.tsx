@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
 
 type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
@@ -18,7 +18,6 @@ type TaskToolbarProps = {
   taskViewOptions: Array<{ value: TaskView; label: string }>;
   viewOptionsOpen: boolean;
   onToggleViewOptions: () => void;
-  onOpenCreateTaskModal: () => void;
   activeFilterCount: number;
   personalMode: boolean;
   projectFilter: string;
@@ -55,7 +54,6 @@ export const TaskToolbar = memo(function TaskToolbar({
   taskViewOptions,
   viewOptionsOpen,
   onToggleViewOptions,
-  onOpenCreateTaskModal,
   activeFilterCount,
   personalMode,
   projectFilter,
@@ -104,7 +102,6 @@ export const TaskToolbar = memo(function TaskToolbar({
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             <ChevronDown className={`h-4 w-4 ${viewOptionsOpen ? 'rotate-180' : ''}`} />
           </button>
-          <button onClick={onOpenCreateTaskModal} className="primary-btn"><Plus className="h-4 w-4" />Add task</button>
         </div>
       </div>
 

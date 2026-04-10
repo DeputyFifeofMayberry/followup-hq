@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
+import { addDaysIso, fromDateInputValue, todayIso } from '../lib/utils';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneInspectorCard, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
@@ -40,7 +40,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   const { isMobileLike } = useViewportBand();
     const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
-  const addTask = useAppStore((s) => s.addTask);
 
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -156,39 +155,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     setLaneFeedback({ tone: 'success', message: `Deleted "${pendingDeleteTask.title}".` });
   }, [pendingDeleteTask, vm]);
 
-  const handleQuickAdd = useCallback((payload: { title: string; project: string; owner: string; assignee?: string; nextStep: string }) => {
-    if (!payload.title || !payload.project || !payload.owner || !payload.nextStep) {
-      return { ok: false, message: 'Title, project, owner, and next step are required.' };
-    }
-    const now = todayIso();
-    const newTaskId = createId('TSK');
-    addTask({
-      id: newTaskId,
-      title: payload.title,
-      summary: payload.title,
-      project: payload.project,
-      owner: payload.owner,
-      assigneeDisplayName: payload.assignee,
-      status: 'To do',
-      priority: 'Medium',
-      nextStep: payload.nextStep,
-      notes: '',
-      tags: [],
-      createdAt: now,
-      updatedAt: now,
-      lifecycleState: 'ready',
-      dataQuality: 'valid_live',
-      reviewReasons: [],
-      cleanupReasons: [],
-      provenance: { sourceType: 'quick_capture', sourceRef: 'Tasks lane fast capture', capturedAt: now },
-      auditHistory: [],
-    });
-    vm.setSelectedTaskId(newTaskId);
-    setTaskDetailOpen(true);
-    setLaneFeedback({ tone: 'success', message: `Created "${payload.title}" and queued it for execution.` });
-    return { ok: true };
-  }, [addTask, vm]);
-
   const setDueToday = useCallback((task: TaskItem) => {
     vm.updateTask(task.id, { dueDate: fromDateInputValue(todayIso()) });
     setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due today.` });
@@ -246,7 +212,6 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             taskViewOptions={taskViewOptions}
             viewOptionsOpen={viewOptionsOpen}
             onToggleViewOptions={() => setViewOptionsOpen((prev) => !prev)}
-            onOpenCreateTaskModal={vm.openCreateTaskModal}
             activeFilterCount={vm.activeFilterCount}
             personalMode={personalMode}
             projectFilter={vm.projectFilter}
@@ -293,17 +258,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             filteredTasks={vm.filteredTasks}
             selectedTaskId={vm.selectedTask?.id ?? null}
             laneFeedback={laneFeedback}
-            projectOptions={vm.projectOptions}
-            ownerOptions={vm.ownerOptions}
-            assigneeOptions={vm.assigneeOptions}
-            quickCaptureDefaults={vm.quickCaptureDefaults}
             onSelectTask={handleSelectTask}
             onDoneTask={handleDoneTask}
             onSetDueToday={setDueToday}
             onSetDueTomorrow={setDueTomorrow}
             onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
             onRequestDeleteTask={requestDeleteTask}
-            onQuickAdd={handleQuickAdd}
             getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
             renderNowSignal={vm.getTaskSignal}
             completedToday={vm.completedToday}

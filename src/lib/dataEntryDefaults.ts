@@ -112,7 +112,7 @@ export function buildSmartTaskDefaults(context: { projectFilter?: string; projec
     owner: recents.taskOwner || '',
     status: recents.taskStatus || 'To do',
     priority: 'Medium',
-    dueDate: addDaysIso(now, 1),
+    dueDate: '',
     startDate: now,
     summary: '',
     nextStep: '',

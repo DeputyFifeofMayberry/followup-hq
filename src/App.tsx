@@ -31,6 +31,7 @@ import { AppToastHost } from './components/app/AppToastHost';
 import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
+import { selectOpenTaskCount } from './domains/tasks/selectors';
 
 type WorkspaceKey = ModeWorkspaceKey;
 const LAST_WORKSPACE_STORAGE_KEY = 'followup-hq:last-workspace';
@@ -367,7 +368,7 @@ function MainApp({ session }: { session: Session }) {
   const navCounts: Partial<Record<WorkspaceKey, number>> = {
     overview: workspaceAttentionCounts.worklist,
     followups: workspaceAttentionCounts.followups,
-    tasks: workspaceAttentionCounts.tasks,
+    tasks: selectOpenTaskCount(tasks),
     intake: combinedCleanup,
   };
 

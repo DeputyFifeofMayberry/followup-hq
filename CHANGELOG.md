@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Tasks reliability pass: single create path, immediate queue visibility, unified open counts
+- Removed redundant task-entry affordances inside the Tasks lane by deleting the secondary in-toolbar `Add task` button and removing the inline quick-add panel, leaving one intentional primary create path through the workspace header/modal flow (`src/components/tasks/TaskToolbar.tsx`, `src/components/tasks/TaskList.tsx`, `src/components/TaskWorkspace.tsx`).
+- Fixed the create → queue mismatch where freshly created tasks could increase open counts without appearing in the default `Now` queue by aligning task creation defaults to an unscheduled open state (no forced next-day due date), which matches `Now` queue eligibility and renders immediately after save (`src/lib/dataEntryDefaults.ts`).
+- Unified task open-count derivation by introducing shared task selectors and wiring both Tasks lane summary metrics and the app-level Tasks health pill to the same open-task source of truth (`src/domains/tasks/selectors.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/App.tsx`).
+
 ### Follow Ups action workflow + shared chip system reliability pass
 - Replaced fragmented bubble styling with a shared chip system (`app-chip`) that standardizes status, priority, and compact metadata chip spacing/weight/height/tone so Follow Ups, Tasks, and Overview now use one coherent visual language for scanable labels like status, priority, project, assignee, and related metadata (`src/components/Badge.tsx`, `src/styles/primitives.css`, `src/components/TrackerTable.tsx`, `src/components/tasks/TaskList.tsx`, `src/components/overview/OverviewTriageList.tsx`, `src/components/ItemDetailPanel.tsx`).
 - Fixed the dead Follow Ups `Inspect` row action wiring by connecting table row-open handlers to authoritative lane selection state, so `Inspect` now reliably focuses the selected follow-up in the right-side inspector panel and keeps selection synchronized (`src/components/app/TrackerWorkspace.tsx`, `src/components/TrackerTable.tsx`).

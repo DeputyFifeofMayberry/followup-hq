@@ -7,6 +7,7 @@ import { isExecutionReady } from '../../records/integrity';
 import { deriveTaskRecommendedAction } from '../../shared';
 import { useAppStore } from '../../../store/useAppStore';
 import type { TaskItem, TaskPriority } from '../../../types';
+import { isTaskOpen, selectTaskCounts } from '../selectors';
 
 export type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 export type TaskSort = 'due' | 'priority' | 'updated';
@@ -152,19 +153,10 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   }), [store.tasks, followUpById]);
 
   const taskSummary = useMemo(() => {
-    const nowTs = Date.now();
-    const dueSoonThresholdTs = nowTs + 2 * 86400000;
-    const open = derivedTasks.filter((task) => task.status !== 'Done');
-    const reviewRequired = open.filter((task) => task.needsReview);
+    const counts = selectTaskCounts(derivedTasks, { isReviewNeeded: (task) => task.needsReview });
     return {
-      open: open.length,
-      blocked: open.filter((task) => task.status === 'Blocked').length,
-      overdue: open.filter((task) => task.dueTs !== null && task.dueTs < nowTs).length,
-      dueSoon: open.filter((task) => task.dueTs !== null && task.dueTs <= dueSoonThresholdTs && task.dueTs >= nowTs).length,
-      deferred: open.filter((task) => Boolean(task.deferredUntil) && isTaskDeferred(task)).length,
-      reviewRequired: reviewRequired.length,
-      reviewNotReady: reviewRequired.filter((task) => !task.executionReady).length,
-      unlinked: open.filter((task) => !task.linkedFollowUpId).length,
+      ...counts,
+      reviewNotReady: derivedTasks.filter((task) => isTaskOpen(task) && task.needsReview && !task.executionReady).length,
     };
   }, [derivedTasks]);
 
@@ -265,22 +257,6 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const owners = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.owner).filter(Boolean))).sort()], [store.tasks]);
   const assignees = useMemo(() => ['All', ...Array.from(new Set(store.tasks.map((task) => task.assigneeDisplayName || task.owner).filter(Boolean))).sort()], [store.tasks]);
   const projectOptions = useMemo(() => ['All', ...store.projects.map((project) => project.name)], [store.projects]);
-
-  const quickCaptureDefaults = useMemo(() => {
-    const recentOpenTask = [...derivedTasks]
-      .filter((task) => task.status !== 'Done')
-      .sort((a, b) => b.updatedTs - a.updatedTs)[0];
-    const fallbackProject = projectFilter !== 'All' ? projectFilter : recentOpenTask?.project || (projectOptions[1] ?? '');
-    const fallbackOwner = !personalMode && store.taskOwnerFilter !== 'All' ? store.taskOwnerFilter : recentOpenTask?.owner || '';
-    const fallbackAssignee = assigneeFilter !== 'All' ? assigneeFilter : (recentOpenTask?.assigneeDisplayName || recentOpenTask?.owner || '');
-
-    return {
-      project: fallbackProject,
-      owner: fallbackOwner,
-      assignee: fallbackAssignee,
-      nextStep: recentOpenTask?.nextStep || 'Define the next executable move',
-    };
-  }, [assigneeFilter, derivedTasks, personalMode, projectFilter, projectOptions, store.taskOwnerFilter]);
 
   const queueSummary = useMemo(() => {
     if (view === 'review') return `Repair queue: ${taskSummary.reviewRequired} tasks need trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
@@ -427,7 +403,6 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     setStateFilter,
     priorityFilter,
     setPriorityFilter,
-    quickCaptureDefaults,
     resetPanelFilters,
     sortSummary,
     getTaskSignal,

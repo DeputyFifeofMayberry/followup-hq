@@ -2,6 +2,10 @@
 
 ## 2026-04-10
 
+### Build identity stamp + generated deployment metadata
+- Added an automated build metadata generator wired into `predev` and `prebuild` to emit typed build identity from package version, git SHA/branch, build timestamp, deploy environment, deployment URL, and best-effort PR metadata without browser API calls (`scripts/generate-build-meta.mjs`, `package.json`, `src/generated/buildMeta.ts`, `src/lib/buildInfo.ts`).
+- Added a compact build stamp in the left nav rail (including mobile nav drawer) with expandable details showing truthful build/deploy identifiers and explicit PR-unavailable fallback messaging (`src/components/app/BuildStamp.tsx`, `src/App.tsx`, `src/styles/shell.css`).
+
 ### Layout correction pass (balance + list-first workspace hierarchy)
 - Rebalanced shared shell/workspace spacing contracts to restore intentional hierarchy (shell, workspace, toolbar, rows, inspector), removing globally over-tight defaults and reducing conflicting compact rules (`src/styles/shell.css`, `src/styles/workspaces.css`, `src/styles/primitives.css`).
 - Reworked shared split behavior so primary work surfaces retain width priority while inspectors default narrower and stack earlier on medium viewports (`src/styles/workspaces.css`, `src/components/ui/AppPrimitives.tsx`, `src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).

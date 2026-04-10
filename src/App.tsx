@@ -28,6 +28,7 @@ import { isE2EMode } from './lib/e2eMode';
 import { isDueToday, isOverdue, isTaskDueWithin, isTaskOverdue, needsNudge } from './lib/utils';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
+import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 
@@ -531,6 +532,9 @@ function MainApp({ session }: { session: Session }) {
             ))}
           </div>
           <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command</button></div>
+          <div className="app-nav-build-slot">
+            <BuildStamp />
+          </div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 

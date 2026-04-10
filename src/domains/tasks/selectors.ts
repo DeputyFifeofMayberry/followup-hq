@@ -1,5 +1,6 @@
 import { isTaskDeferred } from '../../lib/utils';
 import type { TaskItem } from '../../types';
+import { getTaskDueBucket } from './timing';
 
 type TaskLike = Pick<TaskItem, 'status' | 'dueDate' | 'deferredUntil' | 'linkedFollowUpId'>;
 
@@ -18,12 +19,11 @@ export function selectOpenTaskCount(tasks: Array<Pick<TaskItem, 'status'>>): num
 export function selectTaskCounts<T extends TaskLike>(
   tasks: T[],
   options: {
-    nowTs?: number;
+    now?: Date;
     isReviewNeeded?: (task: T) => boolean;
   } = {},
 ) {
-  const nowTs = options.nowTs ?? Date.now();
-  const dueSoonThresholdTs = nowTs + 2 * 86400000;
+  const now = options.now ?? new Date();
   const open = tasks.filter(isTaskOpen);
   const reviewRequired = options.isReviewNeeded
     ? open.filter((task) => options.isReviewNeeded?.(task))
@@ -32,11 +32,10 @@ export function selectTaskCounts<T extends TaskLike>(
   return {
     open: open.length,
     blocked: open.filter((task) => task.status === 'Blocked').length,
-    overdue: open.filter((task) => task.dueDate && new Date(task.dueDate).getTime() < nowTs).length,
+    overdue: open.filter((task) => getTaskDueBucket(task, now) === 'overdue').length,
     dueSoon: open.filter((task) => {
-      if (!task.dueDate) return false;
-      const dueTs = new Date(task.dueDate).getTime();
-      return dueTs <= dueSoonThresholdTs && dueTs >= nowTs;
+      const bucket = getTaskDueBucket(task, now);
+      return bucket === 'today' || bucket === 'tomorrow';
     }).length,
     deferred: open.filter((task) => Boolean(task.deferredUntil) && isTaskDeferred(task)).length,
     reviewRequired: reviewRequired.length,

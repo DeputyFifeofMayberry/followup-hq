@@ -110,12 +110,13 @@ export function taskWorkflowState(task: { status: string; deferredUntil?: string
 }
 
 export function isTaskOverdue(task: { dueDate?: string; status: string }): boolean {
-  return !!task.dueDate && task.status !== 'Done' && new Date(task.dueDate).getTime() < Date.now();
+  return !!task.dueDate && task.status !== 'Done' && localDayDelta(new Date(), task.dueDate) < 0;
 }
 
 export function isTaskDueWithin(task: { dueDate?: string; status: string }, days: number): boolean {
   if (!task.dueDate || task.status === 'Done') return false;
-  return new Date(task.dueDate).getTime() <= Date.now() + days * 86400000;
+  const delta = localDayDelta(new Date(), task.dueDate);
+  return delta <= days;
 }
 
 export function escalationWeight(level: EscalationLevel): number {

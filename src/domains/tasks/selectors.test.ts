@@ -31,7 +31,7 @@ describe('task selectors', () => {
   });
 
   it('derives open-task summary buckets from one source list', () => {
-    const nowTs = new Date('2026-04-10T12:00:00.000Z').getTime();
+    const now = new Date('2026-04-10T12:00:00.000Z');
     const tasks = [
       task({ id: 'open-overdue', dueDate: '2026-04-09T12:00:00.000Z' }),
       task({ id: 'blocked', status: 'Blocked' }),
@@ -39,7 +39,7 @@ describe('task selectors', () => {
       task({ id: 'done', status: 'Done' }),
     ];
 
-    const counts = selectTaskCounts(tasks, { nowTs });
+    const counts = selectTaskCounts(tasks, { now });
     expect(counts.open).toBe(3);
     expect(counts.overdue).toBe(1);
     expect(counts.blocked).toBe(1);

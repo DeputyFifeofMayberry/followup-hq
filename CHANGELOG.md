@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Overview → Follow Ups record-open handoff visibility fix
+- Fixed the remaining cross-workspace Follow Ups visibility bug where opening a specific follow-up from Overview could immediately hide the selected record by applying queue-style narrowing (`Needs nudge` + project scope); record-open handoffs now force a neutral follow-up lane scope (`All` view + `All` project) so the routed follow-up stays visible and selectable (`src/store/slices/executionViewSlice.ts`, `src/components/OverviewPage.tsx`).
+- Preserved intentional queue-context behavior for true section opens (for example triage queue routes still narrow the lane and can apply project scope when requested), while adding the same record-open vs section-open guard for Tasks so direct task opens are not accidentally constrained by section filters (`src/store/slices/executionViewSlice.ts`).
+- Improved Overview triage row clarity by adding a prominent record-type badge in each row so Task vs Follow-up entries are visually distinct at scan speed instead of relying on small metadata text alone (`src/components/overview/OverviewTriageList.tsx`, `src/styles/workspaces.css`).
+- Added regression coverage for execution handoff semantics (record-open visibility, section-open narrowing, project-scoped section intent, and task parity behavior) plus explicit row-type visual-model expectations (`src/store/slices/__tests__/executionViewSlice.openExecutionLane.test.ts`, `src/components/overview/__tests__/OverviewTriageList.model.test.ts`).
+
 ### Follow Ups reset-options root-cause consistency cleanup
 - Fixed the remaining Follow Ups trust gap where the Options panel footer **Reset options** action only reset persisted advanced filters while leaving search text and secondary queue view narrowing active; the footer now uses the same full row-affecting reset path as the chip row and empty-state reset actions (`search` cleared, `activeView` reset to `All`, and advanced follow-up filters reset to defaults) without touching presentation-only layout controls (`src/components/ControlBar.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`).
 - Added regression checks for the shared row-affecting reset helper to verify it clears search/view/filter narrowing and that rows hidden by combined narrowing become visible again after reset defaults are applied (`src/domains/followups/__tests__/useFollowUpsViewModel.resetAllRowAffectingOptions.test.ts`).

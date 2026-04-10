@@ -143,6 +143,47 @@ async function testContentMismatchAndTombstoneMismatch(): Promise<void> {
   assert(result.mismatches.some((m) => m.category === 'tombstoned_in_cloud_but_active_locally' && m.entity === 'contacts'), 'tombstone mismatch should be detected');
 }
 
+async function testTimestampOnlyDriftIsInformational(): Promise<void> {
+  const local = payload();
+  local.projects = [
+    { ...local.projects[0], id: 'p1', updatedAt: '2026-04-06T10:00:00.000Z' } as any,
+    { ...local.projects[0], id: 'p2', name: 'Proj 2', updatedAt: '2026-04-06T10:15:00.000Z' } as any,
+  ];
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, updatedAt: '2026-04-06T09:59:00.000Z' });
+  cloud.entities.projects.set('p2', { ...cloud.entities.projects.get('p2')!, updatedAt: '2026-04-06T10:20:00.000Z' });
+
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'identical canonical content with timestamp-only drift should still verify');
+  assert(result.summary.mismatchCount === 0, 'timestamp-only drift should not count as mismatches');
+  assert(result.summary.timestampDriftCount === 2, `expected two timestamp drifts, got ${result.summary.timestampDriftCount}`);
+  assert(result.summary.mismatchCountsByCategory.newer_locally === 1, 'local-newer timestamp drift should remain in diagnostics');
+  assert(result.summary.mismatchCountsByCategory.newer_in_cloud === 1, 'cloud-newer timestamp drift should remain in diagnostics');
+}
+
+async function testTimestampDriftDoesNotHideTrueContentMismatch(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('p1', {
+    ...cloud.entities.projects.get('p1')!,
+    digest: 'changed-content',
+    normalizedRecord: { id: 'p1', name: 'Changed name' },
+    updatedAt: '2026-04-06T11:00:00.000Z',
+  });
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === false, 'content mismatch must still fail verification even when timestamps differ');
+  assert(result.summary.mismatchCount === 1, `expected one real mismatch, got ${result.summary.mismatchCount}`);
+  assert(result.mismatches.some((mismatch) => mismatch.category === 'content_mismatch'), 'content mismatch should still be emitted');
+}
+
 async function testAuxAndSchemaMismatchAndReadFailure(): Promise<void> {
   const local = payload();
   const cloud = cloudSnapshotFromPayload(local);
@@ -338,6 +379,8 @@ function testCompareEntityCollectionsHelper(): void {
   await testMissingCloudRecord();
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();
+  await testTimestampOnlyDriftIsInformational();
+  await testTimestampDriftDoesNotHideTrueContentMismatch();
   await testAuxAndSchemaMismatchAndReadFailure();
   await testAuxiliaryCanonicalDefaultsDoNotMismatch();
   await testOptionalCloudSchemaMetadataDoesNotBlockVerification();

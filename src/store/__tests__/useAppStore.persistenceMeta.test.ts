@@ -160,6 +160,21 @@ function testVerifyNowProjectionStates(): void {
   } as any);
   assert(matched.verificationState === 'verified-match', 'verified comparison should map to verified-match');
   assert(matched.recoveryReviewNeeded === false, 'verified comparison should clear recovery review queue');
+
+  const timestampOnlyDrift = deriveVerificationMetaFromResult({
+    summary: {
+      verified: true,
+      cloudReadSucceeded: true,
+      mismatchCount: 0,
+      timestampDriftCount: 2,
+    },
+    mismatches: [
+      { category: 'newer_locally' },
+      { category: 'newer_in_cloud' },
+    ],
+  } as any);
+  assert(timestampOnlyDrift.verificationState === 'verified-match', 'timestamp-only drift should still map to verified-match');
+  assert(timestampOnlyDrift.recoveryReviewNeeded === false, 'timestamp-only drift should not require recovery review');
 }
 
 function buildStoreLikeForVerificationTarget(overrides: Record<string, unknown> = {}): any {

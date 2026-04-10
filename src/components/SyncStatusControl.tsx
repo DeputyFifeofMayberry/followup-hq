@@ -50,8 +50,11 @@ export function SyncStatusControl() {
       : 'Cloud sync retries automatically. Use Retry only if attention is required.'
     : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
   const verificationReadFailureKind = syncMeta.verificationSummary?.verificationReadFailureKind;
+  const timestampDriftCount = syncMeta.verificationSummary?.timestampDriftCount ?? 0;
   const verificationResultLabel = syncMeta.verificationSummary?.verified
-    ? 'matched current cloud state'
+    ? timestampDriftCount > 0
+      ? `matched current cloud state (${timestampDriftCount} timestamp drift record${timestampDriftCount === 1 ? '' : 's'}, content matched)`
+      : 'matched current cloud state'
     : syncMeta.verificationSummary?.verificationReadFailed
       ? verificationReadFailureKind === 'backend-contract'
         ? `stopped by backend contract mismatch${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
@@ -249,7 +252,10 @@ export function SyncStatusControl() {
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Last verification</div>
-                <div className="sync-status-row-detail">{syncMeta.lastVerificationCompletedAt ? formatDateTime(syncMeta.lastVerificationCompletedAt) : 'No verification run yet.'}</div>
+            <div className="sync-status-row-detail">{syncMeta.lastVerificationCompletedAt ? formatDateTime(syncMeta.lastVerificationCompletedAt) : 'No verification run yet.'}</div>
+                {syncMeta.verificationSummary?.verified && timestampDriftCount > 0 ? (
+                  <div className="sync-status-row-detail">Content matched current cloud state. Some updated timestamps differed.</div>
+                ) : null}
               </div>
               <div>
                 <div className="sync-status-row-detail sync-status-row-detail-strong">Connected Supabase host</div>

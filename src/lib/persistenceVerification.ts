@@ -88,6 +88,8 @@ export interface VerificationSummary {
   auxiliaryCompared: boolean;
   verificationMode: VerificationMode;
   exportableReportId?: string;
+  timestampDriftCount?: number;
+  timestampDriftCountsByEntity?: Record<string, number>;
 }
 
 export interface VerificationResult {
@@ -550,6 +552,8 @@ export function compareEntityCollections(params: {
       const localTime = new Date(local.updatedAt).getTime();
       const cloudTime = new Date(cloud.updatedAt).getTime();
       if (Number.isFinite(localTime) && Number.isFinite(cloudTime) && localTime !== cloudTime) {
+        // `local.updatedAt` is record payload metadata while `cloud.updatedAt` is row-level `updated_at`.
+        // Their drift is useful for timeline diagnostics, but digest parity proves persisted content parity.
         const category: VerificationMismatchCategory = localTime > cloudTime ? 'newer_locally' : 'newer_in_cloud';
         mismatches.push({
           id: buildMismatchId(params.entity, category, recordId),
@@ -560,8 +564,8 @@ export function compareEntityCollections(params: {
           cloudUpdatedAt: cloud.updatedAt,
           localDigest: local.digest,
           cloudDigest: cloud.digest,
-          summary: `${params.entity} ${recordId} timestamps differ between local and cloud.`,
-          technicalDetail: 'Record content matches but updated timestamp drift indicates timeline mismatch.',
+          summary: `${params.entity} ${recordId} has timestamp drift (content digest matches).`,
+          technicalDetail: 'Record content matches; updated timestamp drift is informational timeline metadata and not treated as persisted-content divergence.',
         });
       }
     }
@@ -622,13 +626,21 @@ export function buildVerificationSummary(params: {
     verification_read_failed: 0,
   } satisfies Record<VerificationMismatchCategory, number>;
   const mismatchCountsByEntity: Record<string, number> = {};
+  const timestampDriftCountsByEntity: Record<string, number> = {};
 
   params.mismatches.forEach((mismatch) => {
     mismatchCountsByCategory[mismatch.category] += 1;
     mismatchCountsByEntity[mismatch.entity] = (mismatchCountsByEntity[mismatch.entity] ?? 0) + 1;
+    if (mismatch.category === 'newer_locally' || mismatch.category === 'newer_in_cloud') {
+      timestampDriftCountsByEntity[mismatch.entity] = (timestampDriftCountsByEntity[mismatch.entity] ?? 0) + 1;
+    }
   });
 
-  const trueMismatchCount = params.mismatches.filter((mismatch) => mismatch.category !== 'verification_read_failed').length;
+  const trueMismatchCount = params.mismatches.filter((mismatch) =>
+    mismatch.category !== 'verification_read_failed'
+    && mismatch.category !== 'newer_locally'
+    && mismatch.category !== 'newer_in_cloud').length;
+  const timestampDriftCount = (mismatchCountsByCategory.newer_locally ?? 0) + (mismatchCountsByCategory.newer_in_cloud ?? 0);
 
   return {
     runId: params.runId,
@@ -652,6 +664,8 @@ export function buildVerificationSummary(params: {
     auxiliaryCompared: true,
     verificationMode: params.context.mode,
     exportableReportId: `verification-${params.runId}`,
+    timestampDriftCount,
+    timestampDriftCountsByEntity,
   };
 }
 
@@ -731,7 +745,11 @@ export async function verifyPersistedState(options: {
 
   const entitySummaries: VerificationEntitySummary[] = ([...Object.keys(ENTITY_TABLES), 'auxiliary'] as Array<SaveBatchEntity | 'auxiliary'>).map((entity) => ({
     entity,
-    mismatchCount: mismatches.filter((mismatch) => mismatch.entity === entity).length,
+    mismatchCount: mismatches.filter((mismatch) =>
+      mismatch.entity === entity
+      && mismatch.category !== 'newer_locally'
+      && mismatch.category !== 'newer_in_cloud'
+      && mismatch.category !== 'verification_read_failed').length,
     comparedRecords: comparedRecordCountsByEntity[entity] ?? (entity === 'auxiliary' ? 1 : 0),
   }));
 

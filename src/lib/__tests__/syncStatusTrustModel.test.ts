@@ -379,6 +379,20 @@ function testVerifiedMatchAndRecoveryProjection(): void {
     openConflictCount: 2,
   } as any);
   assert(conflictModel.stateLabel === 'Needs attention', `expected conflict-specific attention label, got ${conflictModel.stateLabel}`);
+
+  const timestampDriftOnlyModel = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'verified-match',
+    recoveryReviewNeeded: false,
+    verificationSummary: {
+      verified: true,
+      mismatchCount: 0,
+      timestampDriftCount: 2,
+      mismatchCountsByCategory: { newer_locally: 1, newer_in_cloud: 1 },
+      mismatchCountsByEntity: { projects: 2 },
+    },
+  } as any);
+  assert(timestampDriftOnlyModel.stateLabel !== 'Needs attention', `timestamp-only drift should not show needs-attention state, got ${timestampDriftOnlyModel.stateLabel}`);
 }
 
 (function run() {

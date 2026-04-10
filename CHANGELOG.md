@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Save & sync trust-center timestamp drift reclassification fix
+- Fixed the remaining manual verification trust bug where `newer_locally` / `newer_in_cloud` timestamp-only drift (identical canonical digests, differing `updatedAt` metadata) was incorrectly escalated as real mismatch divergence and surfaced as recovery-needed/Needs attention. Verification now treats these as non-blocking informational diagnostics while preserving true mismatch behavior for real persisted content divergence (`src/lib/persistenceVerification.ts`, `src/store/verificationState.ts`, `src/lib/syncStatus.ts`).
+- Updated trust-center wording to keep timestamp drift visible without implying failure: verified runs now remain “matched current cloud state” and include a neutral informational note when timestamp drift is present (`src/components/SyncStatusControl.tsx`).
+- Added regression coverage for the exact incident pattern (two `projects` rows with equal digests and differing timestamps), local/cloud newer timestamp-only drift parity, preserved true content mismatch detection, and prevention of false Needs attention state derivation (`src/lib/__tests__/persistenceVerification.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`).
+
 ### Save & sync manual verification canonical contract unification (items/projects/contacts)
 - Removed verification-only guessed canonical defaults and refactored canonicalization to reuse real domain normalization helpers (`normalizeItem`, `normalizeProjectRecord`, `normalizeContact`) so Save & sync verification compares one shared persisted entity contract instead of parallel rule sets (`src/lib/persistenceCanonicalization.ts`, `src/domains/projects/helpers.ts`, `src/domains/relationships/helpers.ts`, `src/lib/utils.ts`).
 - Fixed remaining false `content_mismatch` results for items/projects/contacts by stripping sync transport metadata (`recordVersion`, `updatedByDevice`, `lastBatchId`, `lastOperationAt`, `deletedAt`, `conflictMarker`) and hydration/runtime-only follow-up fields from verification payload hashing (`src/lib/persistenceCanonicalization.ts`).

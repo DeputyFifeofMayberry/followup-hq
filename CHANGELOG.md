@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Tasks cross-workspace open reliability fix
+- Fixed cross-workspace task navigation so opening a task now launches a proper tasks-lane execution intent (record id + type + project context) before switching to the Tasks workspace, ensuring the selected task id is carried into the lane instead of only changing workspace/filter state (`src/App.tsx`).
+- Added a reusable Tasks view-model helper that opens a task in-workspace by stabilizing selection and resetting visibility-constraining filters/search/view state so the target task remains reachable after navigation and repeated opens (`src/domains/tasks/hooks/useTasksViewModel.ts`).
+- Updated Tasks workspace intent handling to use the new helper and reliably open the task detail surface on handoff, aligning desktop inspector and mobile modal behavior for cross-workspace opens (`src/components/TaskWorkspace.tsx`).
+
 ### Workspace primary-column collapse alignment fix (rendered rail root cause)
 - Fixed the true drift source in Overview, Follow Ups, and Tasks by collapsing `WorkspacePrimaryLayout` to a single full-width column whenever the inspector panel is not rendered; previously the grid reserved an invisible inspector track, which made queue/controls render narrower than the workspace header rails and produced the visible staggered alignment. (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
 - Kept inspector-enabled behavior unchanged by retaining the split layout only when the inspector is actually open, so lane detail still appears in a dedicated right panel without regressing the no-selection default layout. (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).

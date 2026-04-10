@@ -187,11 +187,12 @@ function LoginScreen() {
 
 function MainApp({ session }: { session: Session }) {
   const initializeApp = useAppStore((s) => s.initializeApp);
-  const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
+  const { setActiveView, setProjectFilter, setSelectedId, openExecutionLane } = useAppStore(
     useShallow((s) => ({
       setActiveView: s.setActiveView,
       setProjectFilter: s.setProjectFilter,
       setSelectedId: s.setSelectedId,
+      openExecutionLane: s.openExecutionLane,
     })),
   );
   const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated, reminderPreferences, reminderCenterSummary, pendingReminders, updateReminderPreferences, requestReminderPermission, runReminderEvaluation, testReminderNotification } = useAppStore(
@@ -340,10 +341,18 @@ function MainApp({ session }: { session: Session }) {
     openTrackerView(view, project);
   }, [openTrackerView, setSelectedId]);
 
-  const openTaskItem = useCallback((_taskId: string, project = 'All') => {
-    setProjectFilter(project);
+  const openTaskItem = useCallback((taskId: string, project = 'All') => {
+    openExecutionLane('tasks', {
+      source: workspace,
+      recordId: taskId,
+      recordType: 'task',
+      project,
+      section: 'now',
+      intentLabel: 'open task in Tasks',
+      routeKind: 'review',
+    });
     setWorkspace('tasks');
-  }, [setProjectFilter]);
+  }, [openExecutionLane, workspace]);
 
   const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed').length;
   const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done').length;

@@ -44,11 +44,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   useEffect(() => {
     if (vm.executionIntent?.target !== 'tasks') return;
     if (vm.executionIntent.recordType === 'task' && vm.executionIntent.recordId) {
-      vm.setSelectedTaskId(vm.executionIntent.recordId);
+      vm.openTaskInWorkspace(vm.executionIntent.recordId, { project: vm.executionIntent.project });
       setTaskDetailOpen(true);
     }
     vm.clearExecutionIntent();
-  }, [vm.executionIntent, vm.clearExecutionIntent, vm.setSelectedTaskId]);
+  }, [vm.executionIntent, vm.clearExecutionIntent, vm.openTaskInWorkspace]);
 
   useEffect(() => {
     if (!taskDetailOpen) return;

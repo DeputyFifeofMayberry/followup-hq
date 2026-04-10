@@ -1009,6 +1009,20 @@
 }
 .intake-lane-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.34rem; }
 .intake-lane-tab { justify-content: flex-start; }
+.intake-guidance-card {
+  border: 1px solid var(--border-default);
+  border-radius: 0.78rem;
+  background: #f8fbff;
+  padding: 0.52rem 0.6rem;
+}
+.intake-guidance-required {
+  border-color: #fecdd3;
+  background: #fff7f8;
+}
+.intake-guidance-next-action {
+  border-color: #bfdbfe;
+  background: #f0f7ff;
+}
 .support-workspace-shell { grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr); }
 .support-layout-card-quiet { background: #f8fbff; }
 @media (max-width: 1360px) {

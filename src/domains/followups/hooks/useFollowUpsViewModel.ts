@@ -4,6 +4,18 @@ import { useAppStore } from '../../../store/useAppStore';
 import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { deriveFollowUpSelectionScope } from '../helpers/selectionScope';
 
+type FollowUpRowResetActions = {
+  setActiveView: (view: 'All') => void;
+  setSearch: (value: string) => void;
+  resetFollowUpFilters: () => void;
+};
+
+export function resetAllFollowUpRowAffectingOptions(actions: FollowUpRowResetActions) {
+  actions.setActiveView('All');
+  actions.setSearch('');
+  actions.resetFollowUpFilters();
+}
+
 export function useFollowUpsViewModel() {
   const store = useAppStore(
     useShallow((s) => ({
@@ -157,9 +169,11 @@ export function useFollowUpsViewModel() {
   };
 
   const resetAllRowAffectingOptions = () => {
-    store.setActiveView('All');
-    store.setSearch('');
-    store.resetFollowUpFilters();
+    resetAllFollowUpRowAffectingOptions({
+      setActiveView: store.setActiveView,
+      setSearch: store.setSearch,
+      resetFollowUpFilters: store.resetFollowUpFilters,
+    });
   };
 
   const duplicateCount = store.duplicateReviews.length;

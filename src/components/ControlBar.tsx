@@ -217,7 +217,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               </div>
             </div>
           </section>
-          <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetFollowUpFilters}>Reset options</button></div>
+          <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetAllRowAffectingOptions}>Reset options</button></div>
         </div>
       ) : null}
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
-import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpQueuePressureCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { deriveFollowUpSelectionScope } from '../helpers/selectionScope';
 
 type FollowUpRowResetActions = {
@@ -74,6 +74,16 @@ export function useFollowUpsViewModel() {
 
   const viewCounts = useMemo(
     () => selectFollowUpViewCounts({
+      items: store.items,
+      contacts: store.contacts,
+      companies: store.companies,
+      search: store.search,
+      filters: store.followUpFilters,
+    }),
+    [store.items, store.contacts, store.companies, store.search, store.followUpFilters],
+  );
+  const queuePressureCounts = useMemo(
+    () => selectFollowUpQueuePressureCounts({
       items: store.items,
       contacts: store.contacts,
       companies: store.companies,
@@ -231,21 +241,24 @@ export function useFollowUpsViewModel() {
     : 'No follow-ups yet. Add your first follow-up to start this lane.';
 
   const queueSummary = useMemo(() => {
-    const scopeLabel = store.activeView === 'All' ? 'All open' : store.activeView;
-    if (store.activeView === 'Closed') {
-      return `Closed · ${filteredRows.length} shown`;
-    }
-    if (store.activeView === 'Needs nudge') {
-      return `Needs nudge · ${filteredRows.length} shown · ${queueStats.overdueTouches} overdue touches`;
-    }
-    return `${scopeLabel} · ${filteredRows.length} shown · ${queueStats.needsNudge} need nudge`;
-  }, [store.activeView, filteredRows.length, queueStats.needsNudge, queueStats.overdueTouches]);
+    const shown = filteredRows.length;
+    const itemLabel = shown === 1 ? 'follow-up' : 'follow-ups';
+    if (store.activeView === 'All') return `Showing ${shown} open ${itemLabel}.`;
+    if (store.activeView === 'Needs nudge') return `Showing ${shown} ${store.activeView.toLowerCase()} ${itemLabel}; ${queueStats.overdueTouches} touch${queueStats.overdueTouches === 1 ? '' : 'es'} are overdue.`;
+    if (store.activeView === 'At risk') return `Showing ${shown} at-risk ${itemLabel}.`;
+    if (store.activeView === 'Waiting') return `Showing ${shown} waiting ${itemLabel}.`;
+    if (store.activeView === 'Overdue') return `Showing ${shown} overdue ${itemLabel}.`;
+    if (store.activeView === 'Closed') return `Showing ${shown} closed ${itemLabel}.`;
+    if (store.activeView === 'All items') return `Showing ${shown} total ${itemLabel} across open and closed.`;
+    return `Showing ${shown} ${store.activeView.toLowerCase()} ${itemLabel}.`;
+  }, [store.activeView, filteredRows.length, queueStats.overdueTouches]);
 
   return {
     ...store,
     filteredRows,
     followUpStats,
     queueStats,
+    queuePressureCounts,
     viewCounts,
     duplicateCount,
     activeOptionCount: activeRowAffectingOptions.length,

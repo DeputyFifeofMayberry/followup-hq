@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
@@ -42,7 +42,18 @@ export function TrackerTable({
 }) {
   const vm = useFollowUpsViewModel();
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const { isMobileLike } = useViewportBand();
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!actionMenuRef.current) return;
+      if (!actionMenuRef.current.contains(event.target as Node)) setOpenActionMenuId(null);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
 
   const visibleColumns = useMemo(
     () => vm.followUpColumns.includes('nextAction') ? vm.followUpColumns : [...vm.followUpColumns, 'nextAction'],
@@ -116,20 +127,38 @@ export function TrackerTable({
         cell: ({ row }) => (
           <div className="row-quick-actions">
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Inspect</button>
-            <details className="tracker-row-more-actions">
-              <summary><MoreHorizontal className="h-3.5 w-3.5" /> More</summary>
-              <div className="flex flex-wrap gap-1">
-                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
-                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
-                <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); }}>Snooze</button>
-                <button type="button" className="action-btn action-btn-danger !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); }}>Delete</button>
-              </div>
-            </details>
+            <div className="tracker-row-action-menu" ref={openActionMenuId === row.original.id ? actionMenuRef : null}>
+              <button
+                type="button"
+                className="action-btn tracker-row-action-trigger !px-2 !py-1 text-xs !font-medium"
+                aria-label={`More actions for ${row.original.title}`}
+                aria-haspopup="menu"
+                aria-expanded={openActionMenuId === row.original.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenActionMenuId((current) => current === row.original.id ? null : row.original.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setOpenActionMenuId(null);
+                }}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                Actions
+              </button>
+              {openActionMenuId === row.original.id ? (
+                <div className="tracker-row-action-menu-popover" role="menu">
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); setOpenActionMenuId(null); }}>Log touch</button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); setOpenActionMenuId(null); }}>Nudge</button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); setOpenActionMenuId(null); }}>Snooze</button>
+                  <button type="button" className="tracker-row-action-menu-item tracker-row-action-menu-item-danger" role="menuitem" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); setOpenActionMenuId(null); }}>Delete</button>
+                </div>
+              ) : null}
+            </div>
           </div>
         ),
       },
     ];
-  }, [visibleColumns, rows, vm.selectedFollowUpIds, vm.selectAllVisibleFollowUps, vm.toggleFollowUpSelection, personalMode, baseColumns, onRowOpen, vm, onRequestDelete]);
+  }, [visibleColumns, rows, vm.selectedFollowUpIds, vm.selectAllVisibleFollowUps, vm.toggleFollowUpSelection, personalMode, baseColumns, onRowOpen, vm, onRequestDelete, openActionMenuId]);
 
   const table = useReactTable({ data: rows, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 

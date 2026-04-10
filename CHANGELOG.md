@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Intake hierarchy rebuild: reviewer-first workbench flow
+- Rebuilt Intake page structure so a compact operational header is followed immediately by the main reviewer surface (`Review queue`, `Reviewer workbench`, `Source evidence`) instead of leading with import/admin stacks, making pending review decisions the first-screen center of gravity for daily use (`src/components/UniversalIntakeWorkspace.tsx`).
+- Consolidated upload, quick-paste ingest, batch/session lifecycle actions, retry/remove failed parse controls, and archived-batch history into quieter disclosure-based tool sections under a single **Add sources and intake tools** area, preserving existing workflows while demoting support/admin chrome (`src/components/UniversalIntakeWorkspace.tsx`).
+- Corrected Intake layout contracts so the core grid is a true three-column desktop workbench (queue/workbench/evidence), with responsive step-down behavior at medium/smaller widths and calmer support-surface styling to keep primary review surfaces visually dominant (`src/styles/workspaces.css`).
+
 ### Follow Ups day-based urgency unification + lane layout clarity fix
 - Fixed the overdue root cause by replacing timestamp-delta and UTC-string comparisons with local calendar-day helpers (`localDayStamp` / `localDayDelta`) and routing `daysUntil` + `isOverdue` through the same deterministic day-granularity semantics, so due-today follow-ups stay “today” for the full local day and only become overdue on the next local calendar day (`src/lib/utils.ts`).
 - Aligned follow-up urgency and filtering behavior to the same day-based source of truth: Follow Ups table “what matters now” overdue labeling now uses shared `isOverdue`, and selector date-range filters (`overdue` / `today` / `this_week` / `next_7_days`) now compare local day deltas instead of raw milliseconds (`src/components/TrackerTable.tsx`, `src/lib/followUpSelectors.ts`).

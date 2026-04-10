@@ -142,77 +142,22 @@ export function UniversalIntakeWorkspace() {
 
   return (
     <div className="intake-workspace-shell">
-      <section className="intake-support-panel">
+      <section className="intake-workspace-intro intake-support-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">Universal Intake Workspace</div>
-            <h2 className="text-xl font-semibold text-slate-900">Import or paste source → review evidence → create trusted work</h2>
-            <p className="mt-1 text-sm text-slate-600">{describeIntakeFileSupport()}</p>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Intake review workbench</div>
+            <h2 className="text-lg font-semibold text-slate-900">Review pending intake candidates and decide what to create next.</h2>
+            <p className="mt-1 text-xs text-slate-600">Start in the queue, resolve evidence and duplicate risk in the workbench, then create follow-ups/tasks with confidence.</p>
+          </div>
+          <div className="intake-intro-metrics">
+            <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {pendingCandidates.length}</span>
+            <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Needs correction {byLane.needs_correction.length}</span>
+            <span className="intake-intro-chip"><XCircle className="h-3.5 w-3.5" />Link review {byLane.link_duplicate_review.length}</span>
           </div>
         </div>
-      </section>
-
-      <section className={`intake-support-panel border-2 border-dashed transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white'}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-base font-semibold text-slate-900"><Upload className="h-4 w-4" />Drop intake sources</div>
-            <div className="text-sm text-slate-600">Unsupported formats (.msg/.doc) are rejected with guidance.</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="primary-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Select files</button>
-            {loading ? <div className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-700"><Loader2 className="h-4 w-4 animate-spin" />Extracting...</div> : null}
-          </div>
-        </div>
-        <input ref={fileInputRef} type="file" multiple accept={getIntakeFileInputAccept()} className="hidden" onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
-      </section>
-
-      <section className="intake-support-panel">
-        <div className="mb-1 text-sm font-semibold text-slate-900">Quick paste intake</div>
-        <p className="mb-2 text-xs text-slate-600">Paste meeting notes, copied email, or issue snippets. This runs through the same review pipeline.</p>
-        <div className="mb-2"><input className="field-input" value={manualTitleHint} onChange={(event) => setManualTitleHint(event.target.value)} placeholder="Optional source/title hint (e.g., OAC meeting notes)" /></div>
-        <textarea className="field-textarea min-h-[88px]" value={manualText} onChange={(event) => setManualText(event.target.value)} placeholder="Paste notes/email text here..." />
-        <div className="mt-2"><button className="action-btn" disabled={pasteLoading} onClick={async () => {
-          const trimmed = manualText.trim();
-          if (trimmed.length < 12) return setFeedback({ tone: 'error', message: 'Paste at least a short meaningful snippet before ingesting.' });
-          setPasteLoading(true);
-          try {
-            await ingestIntakeText(manualText, manualTitleHint.trim() || `Pasted intake ${new Date().toISOString().slice(0, 10)}`);
-            setManualText('');
-            setFeedback({ tone: 'success', message: 'Pasted intake queued for review.' });
-          } catch (error) {
-            setFeedback({ tone: 'error', message: `Paste intake failed: ${error instanceof Error ? error.message : 'unknown error'}` });
-          } finally {
-            setPasteLoading(false);
-          }
-        }}>{pasteLoading ? 'Ingesting...' : 'Create intake candidate from pasted text'}</button></div>
       </section>
 
       {feedback ? <div className={`rounded-xl border px-3 py-2 text-sm ${feedback.tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : feedback.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>{feedback.message}</div> : null}
-
-      <section className="intake-support-panel">
-        <div className="mb-2 text-sm font-semibold text-slate-900">Batch/session lifecycle</div>
-        <div className="space-y-2">
-          {activeBatches.slice(0, 8).map((batch) => {
-            const batchAssets = intakeAssets.filter((asset) => asset.batchId === batch.id && !asset.parentAssetId);
-            const batchCandidates = intakeWorkCandidates.filter((candidate) => candidate.batchId === batch.id);
-            const failures = batchAssets.filter((asset) => asset.parseStatus === 'failed');
-            return <div key={batch.id} className="rounded-lg border border-slate-200 p-2 text-xs">
-              <div className="font-semibold text-slate-900">{batch.id} • {batch.createdAt}</div>
-              <div className="text-slate-600">Files {batch.stats.filesProcessed} • Candidates {batch.stats.candidatesCreated} • Pending {batch.stats.activeCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus === 'pending').length} • Finalized {batch.stats.finalizedCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus !== 'pending').length} • Failures {batch.stats.failedParses} • Status {batch.status}</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                <button className="action-btn !px-2 !py-1 text-xs" onClick={() => clearFinalizedIntakeCandidates(batch.id)}>Clear finalized candidates</button>
-                <button className="action-btn !px-2 !py-1 text-xs" onClick={() => archiveIntakeBatch(batch.id)}>Archive batch</button>
-                <button className="action-btn !px-2 !py-1 text-xs" onClick={() => deleteIntakeBatchIfEmpty(batch.id)}>Delete if empty</button>
-              </div>
-              {failures.map((asset) => <div key={asset.id} className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">{asset.fileName}: {asset.errors[0] || asset.warnings[0]}
-                <div className="mt-1 flex gap-1">{asset.retrySource ? <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={async () => { await retryIntakeAssetParse(asset.id); const next = useAppStore.getState().intakeAssets.find((entry) => entry.id === asset.id); setFeedback({ tone: next?.lastRetryStatus === 'success' ? 'success' : 'error', message: next?.lastRetryMessage || 'Retry completed.' }); }}>Retry parse</button> : <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">Retry unavailable: {asset.retryUnavailableReason || 'Legacy asset without cached upload bytes.'}</span>}<button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={() => removeIntakeAsset(asset.id)}>Remove failed asset</button></div>
-              </div>)}
-            </div>;
-          })}
-          {!activeBatches.length ? <div className="text-xs text-slate-500">No active batches.</div> : null}
-          {archivedBatches.length ? <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">Archived history: {archivedBatches.map((batch) => `${batch.id} (${batch.stats.candidatesCreated} candidates)`).slice(0, 4).join(' · ')}</div> : null}
-        </div>
-      </section>
 
       <section className="intake-core-grid">
         <div className="intake-lane-panel">
@@ -279,12 +224,81 @@ export function UniversalIntakeWorkspace() {
         </div>
       </section>
 
-      <section className="intake-support-panel text-xs text-slate-600">
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><CheckCircle2 className="h-3.5 w-3.5" />Batches: {intakeBatches.length}</span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><Info className="h-3.5 w-3.5" />Pending records: {pendingCandidates.length}</span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><TriangleAlert className="h-3.5 w-3.5" />Needs correction: {byLane.needs_correction.length}</span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><XCircle className="h-3.5 w-3.5" />Link review: {byLane.link_duplicate_review.length}</span>
+      <section className="intake-support-panel intake-tools-panel">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Add sources and intake tools</div>
+            <p className="mt-0.5 text-xs text-slate-600">{describeIntakeFileSupport()}</p>
+          </div>
+          <span className="intake-intro-chip"><CheckCircle2 className="h-3.5 w-3.5" />Batches {intakeBatches.length}</span>
+        </div>
+        <div className="intake-tools-disclosure-list">
+          <details className="intake-tools-disclosure" open>
+            <summary>Add sources (upload or paste)</summary>
+            <div className="intake-tools-disclosure-body space-y-3">
+              <section className={`intake-support-panel border-2 border-dashed transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white'}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Upload className="h-4 w-4" />Drop intake sources</div>
+                    <div className="text-xs text-slate-600">Unsupported formats (.msg/.doc) are rejected with guidance.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="primary-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" /> Select files</button>
+                    {loading ? <div className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-700"><Loader2 className="h-4 w-4 animate-spin" />Extracting...</div> : null}
+                  </div>
+                </div>
+                <input ref={fileInputRef} type="file" multiple accept={getIntakeFileInputAccept()} className="hidden" onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
+              </section>
+
+              <section className="intake-support-panel">
+                <div className="mb-1 text-sm font-semibold text-slate-900">Quick paste intake</div>
+                <p className="mb-2 text-xs text-slate-600">Paste meeting notes, copied email, or issue snippets. This runs through the same review pipeline.</p>
+                <div className="mb-2"><input className="field-input" value={manualTitleHint} onChange={(event) => setManualTitleHint(event.target.value)} placeholder="Optional source/title hint (e.g., OAC meeting notes)" /></div>
+                <textarea className="field-textarea min-h-[88px]" value={manualText} onChange={(event) => setManualText(event.target.value)} placeholder="Paste notes/email text here..." />
+                <div className="mt-2"><button className="action-btn" disabled={pasteLoading} onClick={async () => {
+                  const trimmed = manualText.trim();
+                  if (trimmed.length < 12) return setFeedback({ tone: 'error', message: 'Paste at least a short meaningful snippet before ingesting.' });
+                  setPasteLoading(true);
+                  try {
+                    await ingestIntakeText(manualText, manualTitleHint.trim() || `Pasted intake ${new Date().toISOString().slice(0, 10)}`);
+                    setManualText('');
+                    setFeedback({ tone: 'success', message: 'Pasted intake queued for review.' });
+                  } catch (error) {
+                    setFeedback({ tone: 'error', message: `Paste intake failed: ${error instanceof Error ? error.message : 'unknown error'}` });
+                  } finally {
+                    setPasteLoading(false);
+                  }
+                }}>{pasteLoading ? 'Ingesting...' : 'Create intake candidate from pasted text'}</button></div>
+              </section>
+            </div>
+          </details>
+
+          <details className="intake-tools-disclosure">
+            <summary>Batch/session lifecycle and recovery tools</summary>
+            <div className="intake-tools-disclosure-body">
+              <div className="space-y-2">
+                {activeBatches.slice(0, 8).map((batch) => {
+                  const batchAssets = intakeAssets.filter((asset) => asset.batchId === batch.id && !asset.parentAssetId);
+                  const batchCandidates = intakeWorkCandidates.filter((candidate) => candidate.batchId === batch.id);
+                  const failures = batchAssets.filter((asset) => asset.parseStatus === 'failed');
+                  return <div key={batch.id} className="rounded-lg border border-slate-200 p-2 text-xs">
+                    <div className="font-semibold text-slate-900">{batch.id} • {batch.createdAt}</div>
+                    <div className="text-slate-600">Files {batch.stats.filesProcessed} • Candidates {batch.stats.candidatesCreated} • Pending {batch.stats.activeCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus === 'pending').length} • Finalized {batch.stats.finalizedCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus !== 'pending').length} • Failures {batch.stats.failedParses} • Status {batch.status}</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      <button className="action-btn !px-2 !py-1 text-xs" onClick={() => clearFinalizedIntakeCandidates(batch.id)}>Clear finalized candidates</button>
+                      <button className="action-btn !px-2 !py-1 text-xs" onClick={() => archiveIntakeBatch(batch.id)}>Archive batch</button>
+                      <button className="action-btn !px-2 !py-1 text-xs" onClick={() => deleteIntakeBatchIfEmpty(batch.id)}>Delete if empty</button>
+                    </div>
+                    {failures.map((asset) => <div key={asset.id} className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">{asset.fileName}: {asset.errors[0] || asset.warnings[0]}
+                      <div className="mt-1 flex gap-1">{asset.retrySource ? <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={async () => { await retryIntakeAssetParse(asset.id); const next = useAppStore.getState().intakeAssets.find((entry) => entry.id === asset.id); setFeedback({ tone: next?.lastRetryStatus === 'success' ? 'success' : 'error', message: next?.lastRetryMessage || 'Retry completed.' }); }}>Retry parse</button> : <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">Retry unavailable: {asset.retryUnavailableReason || 'Legacy asset without cached upload bytes.'}</span>}<button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={() => removeIntakeAsset(asset.id)}>Remove failed asset</button></div>
+                    </div>)}
+                  </div>;
+                })}
+                {!activeBatches.length ? <div className="text-xs text-slate-500">No active batches.</div> : null}
+                {archivedBatches.length ? <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">Archived history: {archivedBatches.map((batch) => `${batch.id} (${batch.stats.candidatesCreated} candidates)`).slice(0, 4).join(' · ')}</div> : null}
+              </div>
+            </div>
+          </details>
         </div>
       </section>
     </div>

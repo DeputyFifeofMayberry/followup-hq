@@ -2,6 +2,13 @@
 
 ## 2026-04-10
 
+### Tasks queue trust fix: remove Tasks quick add, restore existing-task visibility, unify due-day behavior, wire inspector due shortcuts
+- Removed the Tasks-lane quick-add affordance from the shared workspace header so Tasks now has one intentional creation path (workspace primary create action/modal) without parallel quick-capture entry points on that page (`src/App.tsx`).
+- Fixed task queue eligibility for daily use by widening `Now` queue inclusion to keep unscheduled open work visible even when metadata flags a review state, which prevents valid legacy/open tasks from disappearing from the queue while counts still report open work (`src/domains/tasks/hooks/useTasksViewModel.ts`).
+- Replaced timestamp-based task due classification with shared day-bucket logic (`overdue` / `today` / `tomorrow` / `upcoming`) and wired it through task selectors, queue filtering, sort urgency, and inspector status badges so same-day tasks are consistently shown as **Due today** rather than overdue (`src/domains/tasks/timing.ts`, `src/domains/tasks/selectors.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/tasks/TaskInspectorModal.tsx`, `src/lib/utils.ts`).
+- Fixed task-detail due shortcut behavior consistency by routing the inspector and queue timing surfaces through the same day-based classification model, so **Due today** / **Due tomorrow** updates immediately reflect in lane signal/badges/filter behavior after update (`src/components/tasks/TaskInspectorModal.tsx`, `src/domains/tasks/hooks/useTasksViewModel.ts`).
+- Removed the Task trust section from task detail so the inspector focuses on execution actions and linked context without redundant trust metadata in this panel (`src/components/tasks/TaskInspectorModal.tsx`).
+
 ### Tasks reliability pass: single create path, immediate queue visibility, unified open counts
 - Removed redundant task-entry affordances inside the Tasks lane by deleting the secondary in-toolbar `Add task` button and removing the inline quick-add panel, leaving one intentional primary create path through the workspace header/modal flow (`src/components/tasks/TaskToolbar.tsx`, `src/components/tasks/TaskList.tsx`, `src/components/TaskWorkspace.tsx`).
 - Fixed the create → queue mismatch where freshly created tasks could increase open counts without appearing in the default `Now` queue by aligning task creation defaults to an unscheduled open state (no forced next-day due date), which matches `Now` queue eligibility and renders immediately after save (`src/lib/dataEntryDefaults.ts`).

@@ -2,6 +2,7 @@ import { Link2, Pencil, RotateCcw, Save } from 'lucide-react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { editSurfaceCtas, editSurfacePolicy } from '../../lib/editSurfacePolicy';
 import { fromDateInputValue, priorityTone, toDateInputValue, todayIso, addDaysIso } from '../../lib/utils';
+import { getTaskDueBucket } from '../../domains/tasks/timing';
 import type { FollowUpItem, TaskItem } from '../../types';
 import { Badge } from '../Badge';
 import { CloseoutReadinessCard } from '../CloseoutReadinessCard';
@@ -112,10 +113,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   if (!open || !selectedTask || !draft) return null;
 
   const nowSignal = renderNowSignal(selectedTask);
-  const reviewReasons = [
-    ...(selectedTask.reviewReasons ?? []),
-    ...(selectedTask.cleanupReasons ?? []),
-  ];
+  const dueBucket = getTaskDueBucket(selectedTask, new Date());
 
   const inspectorContent = (
     <div className="space-y-3">
@@ -123,7 +121,9 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             <div className="task-inspector-status-strip">
               <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
               <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
-              {selectedTask.dueDate && new Date(selectedTask.dueDate).getTime() < Date.now() && selectedTask.status !== 'Done' ? <Badge variant="danger">Overdue</Badge> : null}
+              {dueBucket === 'overdue' ? <Badge variant="danger">Overdue</Badge> : null}
+              {dueBucket === 'today' ? <Badge variant="warn">Due today</Badge> : null}
+              {dueBucket === 'tomorrow' ? <Badge variant="neutral">Due tomorrow</Badge> : null}
               {selectedTask.lifecycleState === 'review_required' || selectedTask.dataQuality === 'review_required' ? <Badge variant="warn">Review needed</Badge> : null}
             </div>
           </section>
@@ -166,15 +166,6 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             <div className="task-quick-edit-actions mt-2">
               <button onClick={resetDraft} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><RotateCcw className="h-3.5 w-3.5" />Reset</button>
               <button onClick={saveQuickEdit} className="primary-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><Save className="h-3.5 w-3.5" />Save updates</button>
-            </div>
-          </section>
-
-          <section className="detail-card">
-            <SectionHeader title="Task trust" subtitle="Integrity and provenance signals for reliable execution." compact />
-            <div className="mt-2 rounded-2xl tonal-panel task-link-context-panel">
-              <div className="tonal-micro">Lifecycle: <strong>{selectedTask.lifecycleState || 'ready'}</strong> • Data quality: <strong>{selectedTask.dataQuality || 'valid_live'}</strong></div>
-              {reviewReasons.length > 0 ? <div className="mt-2 space-y-1 text-xs text-slate-600">{reviewReasons.map((reason) => <div key={reason}>• {reason.replaceAll('_', ' ')}</div>)}</div> : <div className="mt-2 text-xs text-slate-600">No active review reasons.</div>}
-              {selectedTask.provenance ? <div className="mt-2 text-xs text-slate-600">Provenance: {selectedTask.provenance.sourceType} · {selectedTask.provenance.sourceRef || 'no source reference'}.</div> : null}
             </div>
           </section>
 

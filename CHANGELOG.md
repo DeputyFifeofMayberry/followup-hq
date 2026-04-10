@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Tasks lane queue-intelligence visibility upgrade
+- Surfaced lane-level task intelligence directly in the Tasks workspace with a compact queue summary strip that now states the active queue intent, includes the derived queue summary text, and highlights high-signal pressure counts (`Open`, `Overdue`, `Blocked`, `Review needed`, `Done today`) so users can immediately understand queue purpose and pressure before scanning rows (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Added always-visible active filter chips under the toolbar with one-click removal per chip plus a clear-all action, making narrowing conditions explicit instead of hidden in the options panel and keeping toolbar/list state tightly connected (`src/components/TaskWorkspace.tsx`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/styles/workspaces.css`).
+- Added a compact completed-today momentum footer to the task list (outside the dedicated `Done today` queue) so daily progress is visible without turning the lane into a reporting dashboard (`src/components/tasks/TaskList.tsx`, `src/components/TaskWorkspace.tsx`).
+
 ### Tasks cross-workspace open reliability fix
 - Fixed cross-workspace task navigation so opening a task now launches a proper tasks-lane execution intent (record id + type + project context) before switching to the Tasks workspace, ensuring the selected task id is carried into the lane instead of only changing workspace/filter state (`src/App.tsx`).
 - Added a reusable Tasks view-model helper that opens a task in-workspace by stabilizing selection and resetting visibility-constraining filters/search/view state so the target task remains reachable after navigation and repeated opens (`src/domains/tasks/hooks/useTasksViewModel.ts`).

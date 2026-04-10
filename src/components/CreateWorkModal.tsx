@@ -587,7 +587,7 @@ export function CreateWorkModal() {
                     <div className="field-block">
                       <label className="field-label">Due date {mode === 'followup' ? '*' : ''}</label>
                       <input type="date" value={toDateInputValue(mode === 'followup' ? followUpForm.dueDate : taskForm.dueDate)} onChange={(e) => mode === 'followup' ? setFollowUpForm({ ...followUpForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : '' }) : setTaskForm({ ...taskForm, dueDate: e.target.value ? fromDateInputValue(e.target.value) : undefined })} className="field-input" />
-                      <FieldHint error={issuesByField.dueDate} />
+                      <FieldHint text="Select a date." error={issuesByField.dueDate} />
                     </div>
                     <div className="field-block field-block-span-2">
                       <label className="field-label">{mode === 'followup' ? 'Next move *' : 'Next step *'}</label>

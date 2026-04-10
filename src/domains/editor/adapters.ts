@@ -7,11 +7,6 @@ import { normalizeIdentity } from '../../lib/entities';
 export type FollowUpSavePayload = { action: 'create' | 'update'; record: FollowUpItem; recordId?: string };
 export type TaskSavePayload = { action: 'create' | 'update'; record: TaskItem; recordId?: string };
 
-function isIsoDate(value: string | undefined) {
-  if (!value) return true;
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
 export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, FollowUpFormInput, FollowUpSavePayload> = {
   key: 'followup-editor',
   recordType: 'followup',
@@ -74,9 +69,6 @@ export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, Follow
     if (!draft.owner.trim()) issues.push({ field: 'owner', message: 'Owner is required.' });
     if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });
     if (!draft.dueDate?.trim()) issues.push({ field: 'dueDate', message: 'Due date is required.' });
-    if (!isIsoDate(draft.dueDate)) issues.push({ field: 'dueDate', message: 'Due date must be in YYYY-MM-DD format.' });
-    if (draft.nextTouchDate && !isIsoDate(draft.nextTouchDate)) issues.push({ field: 'nextTouchDate', message: 'Next touch date must be in YYYY-MM-DD format.' });
-    if (draft.promisedDate && !isIsoDate(draft.promisedDate)) issues.push({ field: 'promisedDate', message: 'Promised date must be in YYYY-MM-DD format.' });
     if (!draft.nextAction.trim()) issues.push({ field: 'nextAction', message: 'Next action is required.' });
     if ((draft.status === 'Waiting on external' || draft.status === 'Waiting internal') && !draft.waitingOn?.trim()) {
       issues.push({ field: 'waitingOn', message: 'Waiting statuses require a waiting-on value.' });
@@ -146,9 +138,6 @@ export const taskEditorAdapter: RecordTypeEditorAdapter<TaskItem, TaskFormInput,
     if (normalizeIdentity(draft.owner) === 'unassigned') issues.push({ field: 'owner', message: 'Unassigned cannot be used for live execution records.' });
     if (!draft.nextStep.trim()) issues.push({ field: 'nextStep', message: 'Next step is required.' });
     if (draft.status === 'Blocked' && !draft.blockReason?.trim()) issues.push({ field: 'blockReason', message: 'Blocked tasks need a block reason.' });
-    if (draft.dueDate && !isIsoDate(draft.dueDate)) issues.push({ field: 'dueDate', message: 'Due date must be in YYYY-MM-DD format.' });
-    if (draft.startDate && !isIsoDate(draft.startDate)) issues.push({ field: 'startDate', message: 'Start date must be in YYYY-MM-DD format.' });
-    if (draft.deferredUntil && !isIsoDate(draft.deferredUntil)) issues.push({ field: 'deferredUntil', message: 'Deferred until must be in YYYY-MM-DD format.' });
     if (draft.dueDate && draft.deferredUntil && draft.deferredUntil > draft.dueDate) {
       issues.push({ field: 'deferredUntil', message: 'Deferred until cannot be later than due date.' });
     }

@@ -32,9 +32,17 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
         <div className="directory-summary-note">Keep master records clean so commitments, execution, and reporting stay reliable.</div>
       </AppShellCard>
 
-      {vm.tab === 'projects' ? <DirectoryProjectsPane vm={vm} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
-      {vm.tab === 'people' ? <PeopleDirectoryPane onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
-      {vm.tab === 'companies' ? <CompaniesDirectoryPane onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
+      <div className="support-workspace-shell">
+        <div>
+          {vm.tab === 'projects' ? <DirectoryProjectsPane vm={vm} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
+          {vm.tab === 'people' ? <PeopleDirectoryPane onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
+          {vm.tab === 'companies' ? <CompaniesDirectoryPane onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
+        </div>
+        <aside className="support-layout-card support-layout-card-quiet">
+          <h3 className="text-sm font-semibold text-slate-900">Directory operating guidance</h3>
+          <p className="mt-1 text-xs text-slate-600">Keep master records clean and linked so execution queues stay trustworthy. Project health, contact ownership, and company context should support follow-up and task flow—not compete with it.</p>
+        </aside>
+      </div>
 
       <ProjectCreateModal
         open={vm.showCreateModal}

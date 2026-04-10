@@ -93,7 +93,6 @@ export const TaskToolbar = memo(function TaskToolbar({
         </label>
 
         <label className="field-block task-view-picker">
-          <span className="field-label">Focus</span>
           <select value={view} onChange={(event) => onViewChange(event.target.value as TaskView)} className="field-input">
             {taskViewOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
@@ -110,8 +109,8 @@ export const TaskToolbar = memo(function TaskToolbar({
       </div>
 
       {viewOptionsOpen ? (
-        <details className="task-filters-panel-slim" open>
-          <summary className="task-view-options-title">More filters</summary>
+        <div className="task-filters-panel-slim">
+          <div className="task-view-options-title">More filters</div>
           <section className="task-view-options-section">
             <h4 className="task-view-options-title">Scope</h4>
             <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
@@ -154,7 +153,7 @@ export const TaskToolbar = memo(function TaskToolbar({
           <div className="task-view-options-reset-row">
             <button onClick={onResetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
           </div>
-        </details>
+        </div>
       ) : null}
     </div>
   );

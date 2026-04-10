@@ -211,9 +211,9 @@ export function ExportWorkspace() {
         {lastExportMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{lastExportMessage}</div> : null}
       </AppShellCard>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="support-workspace-shell">
+        <div className="space-y-4">
+          <section className="support-layout-card">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-950"><Filter className="h-4 w-4" />Export scope</div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <label className="field-block">
@@ -248,7 +248,7 @@ export function ExportWorkspace() {
           </section>
 
           {showFollowUps ? (
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="support-layout-card">
               <h3 className="text-lg font-semibold text-slate-950">Follow-up filters</h3>
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <label className="field-block">
@@ -315,7 +315,7 @@ export function ExportWorkspace() {
           ) : null}
 
           {showTasks ? (
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="support-layout-card">
               <h3 className="text-lg font-semibold text-slate-950">Task filters</h3>
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <label className="field-block">
@@ -367,8 +367,8 @@ export function ExportWorkspace() {
           ) : null}
         </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="space-y-4">
+          <section className="support-layout-card support-layout-card-quiet">
             <h3 className="text-lg font-semibold text-slate-950">Export preview</h3>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <div className="rounded-2xl bg-slate-50 p-4">
@@ -412,6 +412,5 @@ export function ExportWorkspace() {
     </WorkspacePage>
   );
 }
-
 
 

@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Shell-to-workspace rail alignment fix + screenshot verification harness
+- Fixed the remaining alignment root cause by introducing a shared shell rail contract (`--workspace-shell-rail` + `--workspace-shell-surface-padding`) in `app-main-pane` and applying it to both `workspace-header` and `workspace-body-slot`, so header chrome and page content now inherit the same horizontal rails instead of drifting by independent inset rules (`src/styles/shell.css`, `src/styles/workspaces.css`).
+- Standardized workspace header interior spacing to the same panel padding token used by queue/control surfaces, which removes the visible stagger where header text and the main operational surfaces appeared to start at different x-positions (`src/styles/workspaces.css`).
+- Added a dedicated Playwright alignment screenshot spec for Overview, Follow Ups, and Tasks that captures stable desktop artifacts from the rendered UI (`e2e/alignment-screenshots.spec.ts`).
+- Added `npm run e2e:alignment` for quick human-run screenshot capture using the existing Playwright webServer/baseURL setup (`package.json`).
+
 ### Workspace rail alignment architecture correction
 - Fixed the remaining horizontal misalignment at the layout-architecture level by removing the extra per-page content-frame inset/max-width behavior and letting workspace pages inherit the shell pane rails directly, so Overview, Follow Ups, and Tasks now share the same true left/right boundaries (`src/styles/workspaces.css`).
 - Standardized major execution surfaces onto the same queue-card primitive across all three core workspaces, replacing mixed wrappers that previously applied different horizontal padding and border shells (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).

@@ -1,7 +1,7 @@
 /* Workspace grammar: reuse semantic surfaces/row states for list-heavy pages. */
 .workspace-page-contract {
   --workspace-region-gap: 1rem;
-  --workspace-panel-padding: 0.78rem;
+  --workspace-panel-padding: var(--workspace-shell-surface-padding, 0.78rem);
   --workspace-surface-padding: var(--workspace-panel-padding);
   --workspace-toolbar-gap: 0.6rem;
   --workspace-row-gap: 0.45rem;
@@ -52,7 +52,7 @@
   border: 1px solid var(--border-strong);
   background: var(--surface-shell-hero);
   border-radius: 0.9rem;
-  padding: 0.48rem 0.64rem;
+  padding: var(--workspace-panel-padding, 0.78rem);
   display: grid;
   gap: 0.45rem;
 }

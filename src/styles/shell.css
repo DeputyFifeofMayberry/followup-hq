@@ -16,6 +16,8 @@
 }
 
 .app-main-pane {
+  --workspace-shell-rail: clamp(0.34rem, 0.55vw, 0.58rem);
+  --workspace-shell-surface-padding: clamp(0.72rem, 0.95vw, 0.92rem);
   min-width: 0;
   display: grid;
   gap: clamp(0.48rem, 0.75vw, 0.72rem);
@@ -143,6 +145,11 @@
 .workspace-body-slot {
   display: grid;
   gap: 0.95rem;
+}
+
+.workspace-header,
+.workspace-body-slot {
+  margin-inline: var(--workspace-shell-rail);
 }
 
 .app-compact-shell-bar {
@@ -318,6 +325,8 @@
 
 @media (max-width: 780px) {
   .app-main-pane {
+    --workspace-shell-rail: 0;
+    --workspace-shell-surface-padding: 0.72rem;
     padding: 0.55rem;
   }
 

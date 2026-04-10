@@ -15,6 +15,7 @@ type TrackerMobileListProps = {
   onLogTouch: (id: string) => void;
   onNudge: (id: string) => void;
   onSnooze: (id: string) => void;
+  onDelete: (id: string) => void;
   emptyStateMessage?: string;
   hasActiveRowNarrowing?: boolean;
   onResetFilters?: () => void;
@@ -30,6 +31,7 @@ export function TrackerMobileList({
   onLogTouch,
   onNudge,
   onSnooze,
+  onDelete,
   emptyStateMessage = 'Adjust filters or clear search to find matching follow-ups.',
   hasActiveRowNarrowing = false,
   onResetFilters,
@@ -85,6 +87,7 @@ export function TrackerMobileList({
                   <button type="button" className="action-btn" onClick={() => onLogTouch(item.id)}>Log touch</button>
                   <button type="button" className="action-btn" onClick={() => onNudge(item.id)}>Nudge</button>
                   <button type="button" className="action-btn" onClick={() => onSnooze(item.id)}>Snooze</button>
+                  <button type="button" className="action-btn action-btn-danger" onClick={() => onDelete(item.id)}>Delete</button>
                   <button type="button" className="action-btn" onClick={() => onOpenDetails(item.id)}>
                     <ExternalLink className="h-4 w-4" />Details
                   </button>

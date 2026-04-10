@@ -209,7 +209,11 @@ export function FollowUpActionModal({ item, action, onClose, followUpActions, on
               />
             ) : null}
             {action === 'delete' ? (
-              <DestructiveConfirmation expected="DELETE" value={drafts.delete.confirmationText} onChange={(value) => setDrafts((current) => ({ ...current, delete: { confirmationText: value } }))} />
+              <DestructiveConfirmation expected="DELETE" value={drafts.delete.confirmationText} onChange={(value) => setDrafts((current) => ({ ...current, delete: { confirmationText: value } }))}>
+                <div className="mt-2 text-xs">
+                  You are deleting <span className="font-semibold">{item.title}</span>.
+                </div>
+              </DestructiveConfirmation>
             ) : null}
 
             <BlockerPanel blockers={blockers} />

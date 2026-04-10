@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Follow-up/task delete workflow with state-safe confirmation
+- Added real delete actions directly in the primary management surfaces for both lanes: Follow Ups row actions (desktop + mobile) and Tasks row/inspector actions, so users can remove records where they already triage and execute work instead of detouring into unrelated edit flows (`src/components/TrackerTable.tsx`, `src/components/TrackerMobileList.tsx`, `src/components/tasks/TaskList.tsx`, `src/components/tasks/TaskInspectorModal.tsx`).
+- Added explicit destructive confirmation modals for lane-level deletes (cancel-safe by default, destructive button styling, and item title in prompt copy) to prevent one-click accidental deletion while keeping deletion fast for intentional cleanup (`src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/actions/FollowUpActionModal.tsx`).
+- Wired task deletion progression through execution-lane selection handling so deleting the currently selected task while filters/search/view scopes are active advances/clears selection coherently and avoids stale inspector state or ghost-selected records (`src/components/TaskWorkspace.tsx`).
+- Kept delete operations on the authoritative Zustand slice mutations (`deleteItem` / `deleteTask`) so list rows, linked rollups, overview/daily-focus counters, badges, and persisted reload state stay consistent with no ghost counts after hydration (`src/store/slices/followUpsSlice.ts`, `src/store/slices/tasksSlice.ts`, `src/store/useCases/mutationEffects.ts`).
+
 ### Save & sync trust-center timestamp drift reclassification fix
 - Fixed the remaining manual verification trust bug where `newer_locally` / `newer_in_cloud` timestamp-only drift (identical canonical digests, differing `updatedAt` metadata) was incorrectly escalated as real mismatch divergence and surfaced as recovery-needed/Needs attention. Verification now treats these as non-blocking informational diagnostics while preserving true mismatch behavior for real persisted content divergence (`src/lib/persistenceVerification.ts`, `src/store/verificationState.ts`, `src/lib/syncStatus.ts`).
 - Updated trust-center wording to keep timestamp drift visible without implying failure: verified runs now remain “matched current cloud state” and include a neutral informational note when timestamp drift is present (`src/components/SyncStatusControl.tsx`).

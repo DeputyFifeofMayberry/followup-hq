@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Daily focus ghost-count alignment fix
+- Fixed the shared app-header **Daily focus** strip to use a dedicated live-work summary builder that filters follow-ups/tasks through execution-readiness first, preventing hidden legacy review-required records from inflating overdue/due-today/due-soon/nudge counts (`src/lib/dailyFocus.ts`, `src/App.tsx`).
+- Replaced raw in-component Daily focus counting in `App` with the shared helper so all workspaces rendered through the shared shell (including Overview and Follow Ups) now show the same execution-lane-aligned focus metrics (`src/App.tsx`, `src/lib/dailyFocus.ts`).
+- Added regression coverage to lock the behavior: execution-ready due-today/overdue work is counted, legacy review-required follow-ups/tasks are excluded, and Daily focus pressure reflects only overdue live work (`src/lib/__tests__/reminders.test.ts`).
+
 ### Ghost attention-count fix + safe legacy hydration repair
 - Fixed the remaining ghost-count trust gap where legacy review-required follow-ups/tasks could inflate workspace attention counts even when those records were excluded from live Follow Ups/Tasks/Overview lanes: reminder candidate evaluation now gates records through execution-readiness before they can contribute to live attention counts (`src/lib/reminders.ts`).
 - Aligned nav attention math to live-lane semantics by counting unique actionable records (per follow-up/task id) instead of raw reminder-candidate rows, preventing multi-signal duplication and ensuring sidebar counts map to visible live entries (`src/lib/reminders.ts`).

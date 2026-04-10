@@ -6,6 +6,7 @@ import {
   isWithinQuietHours,
   shouldDeliverReminder,
 } from '../reminders';
+import { buildDailyFocusSummary } from '../dailyFocus';
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -105,6 +106,16 @@ assert(candidates.some((c) => c.recordId === 'f-promise' && c.kind === 'followup
 assert(candidates.some((c) => c.recordId === 't-overdue' && c.kind === 'task_overdue'), 'should detect overdue task');
 assert(!candidates.some((c) => c.recordId === 't-deferred'), 'should skip deferred task while deferred');
 assert(!evaluateReminderCandidates([legacyReviewFollowUp], [legacyReviewTask], enabledPrefs, now).length, 'review-only legacy records should not produce live reminder candidates');
+
+const dailyFocus = buildDailyFocusSummary(
+  [dueTodayFollowUp, legacyReviewFollowUp],
+  [overdueTask, legacyReviewTask],
+);
+assert(dailyFocus.dueTodayFollowUps === 1, 'daily focus should count execution-ready due-today follow-ups');
+assert(dailyFocus.overdueTasks === 1, 'daily focus should count execution-ready overdue tasks');
+assert(dailyFocus.pressure === 1, 'daily focus pressure should count only overdue live work');
+assert(dailyFocus.overdueFollowUps === 0, 'daily focus should exclude review-required follow-ups from overdue counts');
+assert(dailyFocus.dueSoonTasks === 1, 'daily focus due-soon should exclude non-ready hidden tasks and include live due work');
 
 assert(isWithinQuietHours('2026-04-10T22:00:00.000Z', '21:00', '06:30'), 'quiet hours should include late night');
 assert(isWithinQuietHours('2026-04-11T05:30:00.000Z', '21:00', '06:30'), 'quiet hours should include early morning across midnight');

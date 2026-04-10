@@ -25,7 +25,7 @@ import { workspaceIcons } from './lib/workspaceRegistry';
 import { AppModal, AppModalBody, AppModalHeader, NoMatchesState, SegmentedControl, StatePanel, WorkspaceHeaderMetaPill } from './components/ui/AppPrimitives';
 import { SyncStatusControl } from './components/SyncStatusControl';
 import { isE2EMode } from './lib/e2eMode';
-import { isDueToday, isOverdue, isTaskDueWithin, isTaskOverdue, needsNudge } from './lib/utils';
+import { buildDailyFocusSummary } from './lib/dailyFocus';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
 import { BuildStamp } from './components/app/BuildStamp';
@@ -453,21 +453,7 @@ function MainApp({ session }: { session: Session }) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [hasSignOutRisk]);
   const accountLabel = session.user.email ?? 'Account';
-  const dailyFocus = useMemo(() => {
-    const overdueFollowUps = items.filter((item) => isOverdue(item)).length;
-    const dueTodayFollowUps = items.filter((item) => item.status !== 'Closed' && isDueToday(item)).length;
-    const nudgeFollowUps = items.filter((item) => needsNudge(item)).length;
-    const overdueTasks = tasks.filter((task) => isTaskOverdue(task)).length;
-    const dueSoonTasks = tasks.filter((task) => isTaskDueWithin(task, 2)).length;
-    return {
-      overdueFollowUps,
-      dueTodayFollowUps,
-      nudgeFollowUps,
-      overdueTasks,
-      dueSoonTasks,
-      pressure: overdueFollowUps + overdueTasks,
-    };
-  }, [items, tasks]);
+  const dailyFocus = useMemo(() => buildDailyFocusSummary(items, tasks), [items, tasks]);
 
   const executeSignOut = useCallback(async (localPolicy: SignOutLocalPolicy) => {
     if (signOutInProgress) return;

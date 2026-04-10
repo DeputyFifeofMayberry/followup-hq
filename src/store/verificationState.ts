@@ -18,12 +18,15 @@ export function deriveVerificationMetaFromResult(result: VerificationResult): {
   }
 
   if (result.summary.verified) {
+    const driftCount = result.summary.timestampDriftCount ?? 0;
     return {
       verificationState: 'verified-match',
       recoveryReviewNeeded: false,
       failureMessage: undefined,
       activitySummary: 'Verified match with cloud state.',
-      activityDetail: 'Last verification matched current cloud state.',
+      activityDetail: driftCount > 0
+        ? `Last verification matched current cloud state. ${driftCount} record${driftCount === 1 ? '' : 's'} had timestamp drift only.`
+        : 'Last verification matched current cloud state.',
     };
   }
 

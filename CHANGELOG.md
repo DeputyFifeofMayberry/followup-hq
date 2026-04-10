@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Verification root-cause canonical contract fix (items/projects/contacts + tombstone parity)
+- Implemented a dedicated canonical verification payload path so local verification and cache writes normalize to the true persisted comparison contract (instead of trusting runtime-hydrated state shape), including explicit entity canonicalization for follow-up runtime/hydration-only fields and project/contact default-shape parity (`src/lib/persistenceCanonicalization.ts`, `src/lib/persistence.ts`, `src/store/verificationTarget.ts`).
+- Updated verification comparison to use entity-level canonical metadata and richer diagnostics (changed canonical paths plus stripped/defaulted field traces), and to report the local verification source (cached persisted payload vs runtime rebuild) in read-failure diagnostics (`src/lib/persistenceVerification.ts`, `src/store/useAppStore.ts`).
+- Fixed false `missing_locally` divergence caused by cloud tombstone-only rows with no local active record by aligning inclusion rules during entity-set comparison, preventing tombstone-only parity from being misclassified as divergence (`src/lib/persistenceVerification.ts`).
+- Added regression coverage for project/contact canonical parity, hydration-only item field parity, tombstone/local parity, verification-source diagnostics, and verification-target source selection semantics (`src/lib/__tests__/persistenceVerification.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+
 ### Manual verification canonical persisted-shape comparison fix
 - Fixed the root verification trust gap that produced false real mismatches (`missing_locally`, `content_mismatch`, `auxiliary_mismatch`) after startup hydration: manual verification now prefers the canonical local persisted payload snapshot from the local persistence cache instead of always rebuilding from runtime-enriched in-memory state, so clean startup states compare persisted-vs-persisted (`src/store/useAppStore.ts`, `src/lib/persistence.ts`).
 - Added canonical verification normalization for runtime-only follow-up task-rollup fields and auxiliary default drift so deterministic verification hashing ignores hydration/UI-enriched fields that are not part of the true persisted contract (`src/lib/persistenceVerification.ts`).

@@ -588,15 +588,16 @@ export const useAppStore = create<AppStore>()((set, get) => {
       try {
         const current = get();
         const cachedPersistedPayload = await readLocalPersistedPayloadSnapshot();
-        const verificationTargetPayload = selectVerificationTargetPayload({
+        const verificationTarget = selectVerificationTargetPayload({
           current,
           cachedPersistedPayload,
         });
         const result = await verifyPersistedState({
           target: {
-            payload: verificationTargetPayload,
+            payload: verificationTarget.payload,
             schemaVersionClient: current.lastReceiptSchemaVersion,
             lastLocalWriteAt: current.lastLocalWriteAt,
+            localPayloadSource: verificationTarget.source,
           },
           context: {
             mode,

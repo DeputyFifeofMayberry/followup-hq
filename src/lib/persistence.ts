@@ -44,6 +44,7 @@ import type {
 import type { DirtyRecordRef } from '../store/persistenceQueue';
 import { getDefaultForwardedRules } from './intakeRules';
 import { sanitizePersistedPayload } from './persistenceSanitization';
+import { buildCanonicalVerificationPayload } from './persistenceCanonicalization';
 
 const LEGACY_BROWSER_SNAPSHOT_KEY = 'followup_hq_snapshot_v1';
 const LOCAL_CACHE_KEY_PREFIX = 'followup_hq_entities_cache_v2';
@@ -411,7 +412,7 @@ async function readLocalCache(userId?: string | null): Promise<LocalCachePayload
 export async function readLocalPersistedPayloadSnapshot(userId?: string | null): Promise<PersistedPayload | null> {
   const cache = await readLocalCache(userId);
   if (!cache?.entities) return null;
-  return cache.entities;
+  return buildCanonicalVerificationPayload(cache.entities);
 }
 
 async function writeLocalCache(cache: LocalCachePayload, userId?: string | null): Promise<void> {
@@ -1219,11 +1220,12 @@ export async function savePersistedPayload(
   const saveAttemptAt = new Date().toISOString();
   incrementMetric('saveBatchAttempts');
   const existingCache = await readLocalCache(currentUserId);
-  const previousPayload = existingCache?.entities ?? buildEmptyPayload();
+  const previousPayload = buildCanonicalVerificationPayload(existingCache?.entities ?? buildEmptyPayload());
   const sanitization = sanitizePersistedPayload(payload);
   const sanitizedPayload = sanitization.payload;
-  const auxiliaryChanged = JSON.stringify(sanitizedPayload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
-  const scopedOps = buildScopedEntityOps(sanitizedPayload, previousPayload, options?.dirtyRecords);
+  const canonicalPayload = buildCanonicalVerificationPayload(sanitizedPayload);
+  const auxiliaryChanged = JSON.stringify(canonicalPayload.auxiliary) !== JSON.stringify(previousPayload.auxiliary);
+  const scopedOps = buildScopedEntityOps(canonicalPayload, previousPayload, options?.dirtyRecords);
   const unresolvedOutbox = await listUnresolvedOutboxEntries(await loadOutboxState(currentUserId));
   const unresolvedOps = unresolvedOutbox.flatMap((entry) => entry.operations as PendingEntityOperation[]);
   const pendingOperations = mergePendingOperations([...((existingCache?.pendingOperations ?? []) as PendingEntityOperation[]), ...unresolvedOps], scopedOps);
@@ -1247,7 +1249,7 @@ export async function savePersistedPayload(
   const nextLocalRevision = hasLocalChanges ? (existingCache?.localRevision ?? 0) + 1 : (existingCache?.localRevision ?? 0);
 
   await writeLocalCache({
-    entities: sanitizedPayload,
+    entities: canonicalPayload,
     updatedAt: saveAttemptAt,
     cloudStatus: 'pending',
     localRevision: nextLocalRevision,
@@ -1265,7 +1267,7 @@ export async function savePersistedPayload(
 
   if (!currentUserId) {
     await writeLocalCache({
-      entities: sanitizedPayload,
+      entities: canonicalPayload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
       lastCloudConfirmedAt: undefined,
@@ -1306,7 +1308,7 @@ export async function savePersistedPayload(
     diagnostics.failureClass = diagnostics.nonRetryable ? 'backend-setup' : 'unknown';
     const errorMessage = formatSchemaHealthMessage(schemaHealth);
     await writeLocalCache({
-      entities: sanitizedPayload,
+      entities: canonicalPayload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'pending',
       localRevision: nextLocalRevision,
@@ -1358,7 +1360,7 @@ export async function savePersistedPayload(
   );
 
   const envelope = await buildSaveBatchEnvelope({
-    payload: sanitizedPayload,
+    payload: canonicalPayload,
     operations: normalizedOperations,
     clientGeneratedAt: saveAttemptAt,
   });
@@ -1401,7 +1403,7 @@ export async function savePersistedPayload(
     await compactSupersededBatches(batchEntry.localRevision, currentUserId);
 
     await writeLocalCache({
-      entities: sanitizedPayload,
+      entities: canonicalPayload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'confirmed',
       localRevision: nextLocalRevision,
@@ -1486,7 +1488,7 @@ export async function savePersistedPayload(
     incrementMetric('outboxRetries');
 
     await writeLocalCache({
-      entities: sanitizedPayload,
+      entities: canonicalPayload,
       updatedAt: saveAttemptAt,
       cloudStatus: 'pending',
       localRevision: nextLocalRevision,

@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { AppAuxiliaryState, PersistedPayload } from './persistence';
 import { normalizePersistenceError } from './persistenceError';
+import { canonicalizeEntityRecordForVerification, normalizeRecordForVerification, stableHashRecord, type CanonicalizationMetadata } from './persistenceCanonicalization';
 import type { SaveBatchEntity } from './persistenceTypes';
 
 export type VerificationMode = 'manual' | 'post-save' | 'startup-review';
@@ -9,6 +10,7 @@ export interface VerificationTargetState {
   payload: PersistedPayload;
   schemaVersionClient?: number;
   lastLocalWriteAt?: string;
+  localPayloadSource?: 'cached-persisted-payload' | 'runtime-rebuild';
 }
 
 export interface VerificationSourceSnapshot {
@@ -157,6 +159,8 @@ interface VerificationComparableRecord {
   deletedAt?: string | null;
   digest: string;
   normalizedRecord: Record<string, unknown>;
+  canonicalStrippedPaths: string[];
+  canonicalDefaultedPaths: string[];
 }
 
 type VerificationComparableEntityCollections = Record<SaveBatchEntity, Map<string, VerificationComparableRecord>>;
@@ -173,20 +177,13 @@ const ENTITY_TABLES: Record<SaveBatchEntity, string> = {
   companies: 'companies',
 };
 
-const FOLLOW_UP_RUNTIME_ONLY_FIELDS = [
-  'linkedTaskCount',
-  'openLinkedTaskCount',
-  'blockedLinkedTaskCount',
-  'overdueLinkedTaskCount',
-  'doneLinkedTaskCount',
-  'allLinkedTasksDone',
-  'childWorkflowSignal',
-];
 
 const AUXILIARY_DEFAULTS: Partial<AppAuxiliaryState> = {
   followUpTableDensity: 'compact',
   followUpDuplicateModule: 'auto',
 };
+
+export { stableHashRecord };
 
 const AUXILIARY_ARRAY_DEFAULT_KEYS: Array<keyof AppAuxiliaryState> = [
   'savedFollowUpViews',
@@ -227,25 +224,7 @@ function stableSerialize(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function normalizeRecordForVerification(record: unknown): Record<string, unknown> {
-  if (!record || typeof record !== 'object') return {};
-  const clone = structuredClone(record as Record<string, unknown>);
-  const transientKeys = ['_runtime', '_ui', 'isSelected', 'isExpanded', '__optimistic'];
-  transientKeys.forEach((key) => {
-    delete (clone as Record<string, unknown>)[key];
-  });
-  return clone;
-}
 
-function canonicalizeEntityRecord(entity: SaveBatchEntity, record: Record<string, unknown>): Record<string, unknown> {
-  const canonical = normalizeRecordForVerification(record);
-  if (entity === 'items') {
-    FOLLOW_UP_RUNTIME_ONLY_FIELDS.forEach((key) => {
-      delete canonical[key];
-    });
-  }
-  return canonical;
-}
 
 function canonicalizeAuxiliaryForVerification(auxiliary: AppAuxiliaryState | null | undefined): AppAuxiliaryState {
   const normalizedRaw = normalizeRecordForVerification(auxiliary ?? {}) as unknown as AppAuxiliaryState;
@@ -289,10 +268,6 @@ function diffObjectPaths(local: unknown, cloud: unknown, basePath = ''): string[
   return diffs;
 }
 
-export function stableHashRecord(record: unknown): string {
-  return stableSerialize(normalizeRecordForVerification(record));
-}
-
 export function buildVerificationComparableState(payload: PersistedPayload): VerificationComparableEntityCollections {
   const collections = {} as VerificationComparableEntityCollections;
   (Object.keys(ENTITY_TABLES) as SaveBatchEntity[]).forEach((entity) => {
@@ -300,12 +275,15 @@ export function buildVerificationComparableState(payload: PersistedPayload): Ver
     (payload[entity] ?? []).forEach((record: any) => {
       const id = String(record.id ?? '');
       if (!id) return;
-      const normalizedRecord = canonicalizeEntityRecord(entity, record as Record<string, unknown>);
+      const metadata: CanonicalizationMetadata = { strippedPaths: [], defaultedPaths: [] };
+      const normalizedRecord = canonicalizeEntityRecordForVerification(entity, record as Record<string, unknown>, metadata);
       map.set(id, {
         id,
         updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : undefined,
         digest: stableHashRecord(normalizedRecord),
         normalizedRecord,
+        canonicalStrippedPaths: metadata.strippedPaths,
+        canonicalDefaultedPaths: metadata.defaultedPaths,
       });
     });
     collections[entity] = map;
@@ -339,7 +317,8 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
       if (tableError) throw new Error(`${table}: ${tableError.message}`);
       rows.forEach((row: any) => {
         const record = normalizeRecordForVerification(row.record);
-        const canonicalRecord = canonicalizeEntityRecord(entity, record);
+        const metadata: CanonicalizationMetadata = { strippedPaths: [], defaultedPaths: [] };
+        const canonicalRecord = canonicalizeEntityRecordForVerification(entity, record, metadata);
         const recordId = String(row.record_id ?? row.record?.id ?? '');
         if (!recordId) return;
         entities[entity].set(recordId, {
@@ -348,6 +327,8 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
           deletedAt: typeof row.deleted_at === 'string' ? row.deleted_at : null,
           digest: stableHashRecord(canonicalRecord),
           normalizedRecord: canonicalRecord,
+          canonicalStrippedPaths: metadata.strippedPaths,
+          canonicalDefaultedPaths: metadata.defaultedPaths,
         });
       });
     }
@@ -502,7 +483,7 @@ export function compareEntityCollections(params: {
         localUpdatedAt: local.updatedAt,
         localDigest: local.digest,
         summary: `${params.entity} ${recordId} exists locally but was not found in cloud.`,
-        technicalDetail: 'Record exists in local intended state, but no cloud row exists for this record id.',
+        technicalDetail: `Record exists in local intended state, but no cloud row exists for this record id. Stripped fields(local): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(local): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
         localRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? local.normalizedRecord : undefined,
       });
       return;
@@ -510,17 +491,16 @@ export function compareEntityCollections(params: {
 
     if (!local && cloud) {
       const isCloudTombstone = Boolean(cloud.deletedAt);
+      if (isCloudTombstone) return;
       mismatches.push({
-        id: buildMismatchId(params.entity, isCloudTombstone ? 'missing_locally' : 'deleted_locally_but_active_in_cloud', recordId),
+        id: buildMismatchId(params.entity, 'deleted_locally_but_active_in_cloud', recordId),
         entity: params.entity,
         recordId,
-        category: isCloudTombstone ? 'missing_locally' : 'deleted_locally_but_active_in_cloud',
+        category: 'deleted_locally_but_active_in_cloud',
         cloudUpdatedAt: cloud.updatedAt,
         cloudDigest: cloud.digest,
         summary: `${params.entity} ${recordId} exists in cloud but not in local intended state.`,
-        technicalDetail: isCloudTombstone
-          ? 'Cloud contains a tombstoned record while local intended state has no active row.'
-          : 'Cloud contains an active row while local intended state does not.',
+        technicalDetail: `Cloud contains an active row while local intended state does not. Stripped fields(cloud): ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}. Defaulted fields(cloud): ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.`,
         cloudRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? cloud.normalizedRecord : undefined,
       });
       return;
@@ -558,7 +538,7 @@ export function compareEntityCollections(params: {
         localDigest: local.digest,
         cloudDigest: cloud.digest,
         summary: `${params.entity} ${recordId} has different content locally vs cloud.`,
-        technicalDetail: `Canonical persisted fields differ after deterministic comparison.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}`,
+        technicalDetail: `Canonical persisted fields differ after deterministic comparison.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}${local.canonicalStrippedPaths.length || cloud.canonicalStrippedPaths.length ? ` Stripped fields(local/cloud): ${(local.canonicalStrippedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalStrippedPaths ?? []).join('|') || 'none'}.` : ''}${local.canonicalDefaultedPaths.length || cloud.canonicalDefaultedPaths.length ? ` Defaulted fields(local/cloud): ${(local.canonicalDefaultedPaths ?? []).join('|') || 'none'} / ${(cloud.canonicalDefaultedPaths ?? []).join('|') || 'none'}.` : ''}`,
         localRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? local.normalizedRecord : undefined,
         cloudRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? cloud.normalizedRecord : undefined,
       });
@@ -695,7 +675,7 @@ export async function verifyPersistedState(options: {
       entity: 'verification',
       category: 'verification_read_failed',
       summary: 'Could not verify current cloud match.',
-      technicalDetail: cloudSnapshot.readFailureMessage ?? 'Cloud read failed for verification run.',
+      technicalDetail: `${cloudSnapshot.readFailureMessage ?? 'Cloud read failed for verification run.'} Local source: ${options.target.localPayloadSource ?? 'runtime-rebuild'}.`,
     });
   } else {
     (Object.keys(ENTITY_TABLES) as SaveBatchEntity[]).forEach((entity) => {

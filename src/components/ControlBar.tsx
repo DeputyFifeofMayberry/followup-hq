@@ -9,9 +9,9 @@ import { primaryFollowUpViews, secondaryFollowUpViews } from '../lib/followUpSel
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
 const FOLLOWUP_QUEUE_PRESSURE_STRIP: Array<{ key: 'allOpen' | 'needsNudge' | 'atRisk' | 'waiting' | 'overdue'; view: SavedViewKey; label: string }> = [
   { key: 'allOpen', view: 'All', label: 'All open' },
+  { key: 'waiting', view: 'Waiting', label: 'Waiting' },
   { key: 'needsNudge', view: 'Needs nudge', label: 'Needs nudge' },
   { key: 'atRisk', view: 'At risk', label: 'At risk' },
-  { key: 'waiting', view: 'Waiting', label: 'Waiting' },
   { key: 'overdue', view: 'Overdue', label: 'Overdue' },
 ];
 
@@ -136,7 +136,6 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               <ChevronDown className={`h-4 w-4 ${showFilters ? 'rotate-180' : ''}`} />
             </button>
             {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
-            <button onClick={vm.openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}
       />

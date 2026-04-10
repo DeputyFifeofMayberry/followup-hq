@@ -2,6 +2,13 @@
 
 ## 2026-04-10
 
+### Follow Ups action workflow + shared chip system reliability pass
+- Replaced fragmented bubble styling with a shared chip system (`app-chip`) that standardizes status, priority, and compact metadata chip spacing/weight/height/tone so Follow Ups, Tasks, and Overview now use one coherent visual language for scanable labels like status, priority, project, assignee, and related metadata (`src/components/Badge.tsx`, `src/styles/primitives.css`, `src/components/TrackerTable.tsx`, `src/components/tasks/TaskList.tsx`, `src/components/overview/OverviewTriageList.tsx`, `src/components/ItemDetailPanel.tsx`).
+- Fixed the dead Follow Ups `Inspect` row action wiring by connecting table row-open handlers to authoritative lane selection state, so `Inspect` now reliably focuses the selected follow-up in the right-side inspector panel and keeps selection synchronized (`src/components/app/TrackerWorkspace.tsx`, `src/components/TrackerTable.tsx`).
+- Fixed Follow Ups row overflow action menu layering/clipping by moving menu rendering to a body-level portal with fixed-position anchoring to the trigger, plus viewport repositioning on scroll/resize, so menu content layers above sticky table surfaces instead of being shoved/clipped inside row/table overflow contexts (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+- Fixed Waiting/Snooze/Escalate dialog layering conflicts by moving shared `AppModal` rendering to a body portal with elevated backdrop stacking, ensuring follow-up action dialogs render topmost with reliable dimmed background and interaction focus above list/inspector content (`src/components/ui/AppPrimitives.tsx`, `src/styles/primitives.css`).
+- Corrected Follow Ups table column structure/alignment for `PRIORITY`, `PROJECT`, and `ASSIGNEE` by introducing explicit centered column treatment shared by matching header/body cells and rendering project/assignee with consistent metadata chips, improving visual alignment and header-to-cell cohesion (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+
 ### Follow Ups deployment build fix: remove invalid `createdAt` access in progress milestones
 - Fixed the production TypeScript build failure introduced in the Follow Ups inspector progress-history milestone logic by replacing an invalid `FollowUpItem.createdAt` access with a type-safe opened-at derivation (`provenance.capturedAt` first, then created/oldest timeline event fallback), preserving milestone behavior while restoring strict `tsc -b` compatibility in Vercel builds (`src/components/ItemDetailPanel.tsx`).
 

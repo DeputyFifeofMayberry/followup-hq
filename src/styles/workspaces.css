@@ -567,10 +567,8 @@
 .tracker-row-action-menu { position: relative; }
 .tracker-row-action-trigger { min-width: 4.9rem; justify-content: center; }
 .tracker-row-action-menu-popover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.2rem);
-  z-index: 10;
+  position: fixed;
+  z-index: 1300;
   min-width: 10.5rem;
   border: 1px solid var(--border-default);
   border-radius: 0.64rem;
@@ -616,6 +614,16 @@
   white-space: nowrap;
 }
 .tracker-cell-timing { min-width: 116px; white-space: nowrap; }
+.tracker-head-cell-center,
+.tracker-cell-center { text-align: center; }
+.tracker-cell-center .app-chip { margin-inline: auto; }
+.tracker-head-cell-center .text-xs,
+.tracker-head-cell-center .tracker-head-btn { justify-content: center; width: 100%; }
+.tracker-head-cell-center,
+.tracker-cell-center {
+  min-width: 132px;
+  width: 132px;
+}
 .tracker-head-cell-actions,
 .tracker-cell-actions {
   position: sticky;
@@ -627,34 +635,6 @@
 }
 .tracker-head-cell-actions { z-index: 4; }
 .tracker-cell-actions .row-quick-actions { justify-content: flex-start; }
-.tracker-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  padding: 0.2rem 0.56rem;
-  font-size: 0.69rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: #334155;
-}
-.tracker-status-pill-dot {
-  width: 0.44rem;
-  height: 0.44rem;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.92;
-}
-.tracker-status-pill-danger { border-color: #fecdd3; color: #be123c; background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%); }
-.tracker-status-pill-warn { border-color: #fde68a; color: #92400e; background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%); }
-.tracker-status-pill-success { border-color: #a7f3d0; color: #166534; background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
-.tracker-status-pill-blue { border-color: #bae6fd; color: #075985; background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%); }
-.tracker-status-pill-purple { border-color: #ddd6fe; color: #5b21b6; background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); }
-.tracker-status-pill-neutral,
-.tracker-status-pill-green,
-.tracker-status-pill-gold { border-color: #cbd5e1; color: #334155; background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); }
 .tracker-head-btn {
   display: inline-flex;
   align-items: center;
@@ -758,6 +738,8 @@
 .tracker-mobile-next { margin: 0; font-size: 0.75rem; color: #334155; }
 .tracker-mobile-timing { display: flex; flex-wrap: wrap; gap: 0.35rem 0.55rem; font-size: 0.69rem; color: #465a71; }
 .tracker-mobile-timing span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.task-row-meta-chips,
+.overview-row-meta-chips { gap: 0.3rem; justify-content: flex-start; }
 .tracker-mobile-meta-row { display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; font-size: 0.68rem; color: #5e7288; }
 .tracker-mobile-alerts { display: flex; flex-wrap: wrap; gap: 0.24rem; }
 .tracker-mobile-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }

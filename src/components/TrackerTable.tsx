@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, PencilLine, Send, Clock3, Trash2, SearchCheck } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Badge } from './Badge';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
@@ -13,6 +14,7 @@ const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTou
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate']);
+const COLUMN_CENTERED_COLUMNS = new Set(['priority', 'project', 'assigneeDisplayName']);
 
 function getWhatMattersNow(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success' } {
   const dueDelta = daysUntil(item.dueDate);
@@ -43,8 +45,20 @@ export function TrackerTable({
   const vm = useFollowUpsViewModel();
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const { isMobileLike } = useViewportBand();
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const actionTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const positionActionMenu = (rowId: string) => {
+    const trigger = actionTriggerRefs.current[rowId];
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setActionMenuPosition({
+      top: rect.bottom + 6,
+      right: Math.max(window.innerWidth - rect.right, 8),
+    });
+  };
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -54,6 +68,18 @@ export function TrackerTable({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
+
+  useEffect(() => {
+    if (!openActionMenuId) return;
+    positionActionMenu(openActionMenuId);
+    const reposition = () => positionActionMenu(openActionMenuId);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [openActionMenuId]);
 
   const visibleColumns = useMemo(
     () => vm.followUpColumns.includes('nextAction') ? vm.followUpColumns : [...vm.followUpColumns, 'nextAction'],
@@ -80,20 +106,26 @@ export function TrackerTable({
         );
       },
     },
-    project: { accessorKey: 'project', header: 'Project' },
+    project: {
+      accessorKey: 'project',
+      header: 'Project',
+      cell: ({ row }) => <Badge kind="meta" variant="neutral">{row.original.project}</Badge>,
+    },
     owner: { accessorKey: 'owner', header: 'Owner' },
-    assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
+    assignee: {
+      id: 'assigneeDisplayName',
+      accessorFn: (row) => row.assigneeDisplayName || row.owner,
+      header: 'Assignee',
+      cell: ({ row }) => <Badge kind="meta" variant="neutral">{row.original.assigneeDisplayName || row.original.owner}</Badge>,
+    },
     status: {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <span className={`tracker-status-pill tracker-status-pill-${statusTone(row.original.status)}`}>
-          <span className="tracker-status-pill-dot" />
-          {row.original.status}
-        </span>
+        <Badge kind="status" variant={statusTone(row.original.status)} withDot>{row.original.status}</Badge>
       ),
     },
-    priority: { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
+    priority: { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge kind="priority" variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
     dueDate: { accessorKey: 'dueDate', header: 'Due', enableSorting: true, cell: ({ row }) => formatDate(row.original.dueDate) },
     nextTouchDate: { accessorKey: 'nextTouchDate', header: 'Next touch', enableSorting: true, cell: ({ row }) => formatDate(row.original.nextTouchDate) },
     promisedDate: { accessorKey: 'promisedDate', header: 'Promised', cell: ({ row }) => formatDate(row.original.promisedDate) },
@@ -137,42 +169,30 @@ export function TrackerTable({
           <div className="row-quick-actions">
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Inspect</button>
             <div className="tracker-row-action-menu" ref={openActionMenuId === row.original.id ? actionMenuRef : null}>
-              <button
-                type="button"
-                className="action-btn tracker-row-action-trigger !px-2 !py-1 text-xs !font-medium"
+                <button
+                  type="button"
+                  className="action-btn tracker-row-action-trigger !px-2 !py-1 text-xs !font-medium"
                 aria-label={`More actions for ${row.original.title}`}
                 aria-haspopup="menu"
                 aria-expanded={openActionMenuId === row.original.id}
                 onClick={(event) => {
                   event.stopPropagation();
-                  setOpenActionMenuId((current) => current === row.original.id ? null : row.original.id);
+                  setOpenActionMenuId((current) => {
+                    const next = current === row.original.id ? null : row.original.id;
+                    if (next) positionActionMenu(next);
+                    return next;
+                  });
                 }}
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') setOpenActionMenuId(null);
+                }}
+                ref={(node) => {
+                  actionTriggerRefs.current[row.original.id] = node;
                 }}
               >
                 <MoreHorizontal className="h-3.5 w-3.5" />
                 Actions
               </button>
-              {openActionMenuId === row.original.id ? (
-                <div className="tracker-row-action-menu-popover" role="menu">
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); setOpenActionMenuId(null); }}>
-                    <SearchCheck className="h-3.5 w-3.5" />Open timeline
-                  </button>
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); setOpenActionMenuId(null); }}>
-                    <PencilLine className="h-3.5 w-3.5" />Log update
-                  </button>
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); setOpenActionMenuId(null); }}>
-                    <Send className="h-3.5 w-3.5" />Mark nudged
-                  </button>
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); setOpenActionMenuId(null); }}>
-                    <Clock3 className="h-3.5 w-3.5" />Snooze 2d
-                  </button>
-                  <button type="button" className="tracker-row-action-menu-item tracker-row-action-menu-item-danger" role="menuitem" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); setOpenActionMenuId(null); }}>
-                    <Trash2 className="h-3.5 w-3.5" />Delete
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
         ),
@@ -220,6 +240,7 @@ export function TrackerTable({
                     header.id === 'title' ? 'tracker-head-cell-identity' : '',
                     TIMING_COLUMNS.has(header.id) ? 'tracker-head-cell-timing' : '',
                     SUPPORT_COLUMNS.has(header.id) ? 'tracker-head-cell-support' : '',
+                    COLUMN_CENTERED_COLUMNS.has(header.id) ? 'tracker-head-cell-center' : '',
                     header.id === 'nextAction' ? 'tracker-head-cell-next-move' : '',
                     header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
                     header.id === 'quickActions' ? 'tracker-head-cell-actions' : '',
@@ -270,6 +291,7 @@ export function TrackerTable({
                       cell.column.id === 'title' ? 'tracker-cell-identity' : '',
                       TIMING_COLUMNS.has(cell.column.id) ? 'tracker-cell-timing' : '',
                       SUPPORT_COLUMNS.has(cell.column.id) ? 'tracker-cell-support' : '',
+                      COLUMN_CENTERED_COLUMNS.has(cell.column.id) ? 'tracker-cell-center' : '',
                       cell.column.id === 'nextAction' ? 'tracker-cell-next-move' : '',
                       cell.column.id === 'quickActions' ? 'row-action-cell' : '',
                       cell.column.id === 'quickActions' ? 'tracker-cell-actions' : '',
@@ -291,14 +313,47 @@ export function TrackerTable({
   );
 
   const tableBody = isMobileLike ? mobileBody : desktopBody;
+  const actionMenuPortal = openActionMenuId && actionMenuPosition
+    ? createPortal(
+      <div className="tracker-row-action-menu-popover" role="menu" ref={actionMenuRef} style={{ top: `${actionMenuPosition.top}px`, right: `${actionMenuPosition.right}px` }}>
+        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(openActionMenuId); setOpenActionMenuId(null); }}>
+          <SearchCheck className="h-3.5 w-3.5" />Open timeline
+        </button>
+        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(openActionMenuId); vm.openTouchModal(); setOpenActionMenuId(null); }}>
+          <PencilLine className="h-3.5 w-3.5" />Log update
+        </button>
+        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(openActionMenuId); setOpenActionMenuId(null); }}>
+          <Send className="h-3.5 w-3.5" />Mark nudged
+        </button>
+        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(openActionMenuId, 2); setOpenActionMenuId(null); }}>
+          <Clock3 className="h-3.5 w-3.5" />Snooze 2d
+        </button>
+        <button
+          type="button"
+          className="tracker-row-action-menu-item tracker-row-action-menu-item-danger"
+          role="menuitem"
+          onClick={(event) => {
+            event.stopPropagation();
+            const item = rows.find((entry) => entry.id === openActionMenuId);
+            if (item) onRequestDelete?.(item);
+            setOpenActionMenuId(null);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />Delete
+        </button>
+      </div>,
+      document.body,
+    )
+    : null;
 
   if (embedded) {
-    return <div className="tracker-table-surface tracker-table-embedded">{tableBody}</div>;
+    return <><div className="tracker-table-surface tracker-table-embedded">{tableBody}</div>{actionMenuPortal}</>;
   }
 
   return (
     <AppShellCard className="p-0 tracker-table-surface" surface="data">
       {tableBody}
+      {actionMenuPortal}
     </AppShellCard>
   );
 }

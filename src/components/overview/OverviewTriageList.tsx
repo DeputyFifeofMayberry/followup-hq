@@ -83,8 +83,11 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
                 </div>
                 <div className="overview-row-why-now">{reason}</div>
                 <div className="overview-row-next-move">Best next move: {nextMoveLabel(row)}</div>
-                <div className="scan-row-meta">
-                  {projectLabel} · {recordTypeLabel(row.recordType)} · {accountableLabel} · {timingLabel(row)}
+                <div className="scan-row-badge-cluster overview-row-meta-chips">
+                  <Badge kind="meta" variant="neutral">{projectLabel}</Badge>
+                  <Badge kind="meta" variant="neutral">{accountableLabel}</Badge>
+                  <Badge kind="meta" variant="neutral">{recordTypeLabel(row.recordType)}</Badge>
+                  <Badge kind="meta" variant="neutral">{timingLabel(row)}</Badge>
                 </div>
               </div>
               <div className="overview-triage-row-sidecar">

@@ -151,8 +151,10 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
           <div className="inspector-title">{item.title}</div>
           <div className="mt-2 text-sm text-slate-600">{recommendedAction?.reason ?? laneContext.nextMove?.reason ?? 'Take the clearest next step and keep momentum.'}</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant={statusTone(item.status)}>{item.status}</Badge>
-            <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge>
+            <Badge kind="status" variant={statusTone(item.status)} withDot>{item.status}</Badge>
+            <Badge kind="priority" variant={priorityTone(item.priority)}>{item.priority}</Badge>
+            <Badge kind="meta" variant="neutral">{item.project}</Badge>
+            <Badge kind="meta" variant="neutral">{personalMode ? item.owner : (item.assigneeDisplayName || item.owner)}</Badge>
             {followUpDirty ? <Badge variant="warn">Unsaved local edits</Badge> : null}
             {laneContext.attentionSignal ? <AppBadge tone={laneContext.attentionSignal.tone === 'default' ? 'info' : laneContext.attentionSignal.tone}>{laneContext.attentionSignal.label}</AppBadge> : null}
           </div>

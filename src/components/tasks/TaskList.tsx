@@ -192,7 +192,13 @@ export function TaskList({
                 <div className="scan-row-primary">{task.title}</div>
                 <div className="task-row-why-now">{signal.whyNow}</div>
                 <div className="task-row-next-move">Next move: {signal.nextMove}</div>
-                <div className="scan-row-meta">{dueLabel} • {task.project} • {linkedLabel}{task.assigneeDisplayName ? ` • ${task.assigneeDisplayName}` : ''}{metaSummary ? ` • ${metaSummary}` : ''}</div>
+                <div className="scan-row-badge-cluster task-row-meta-chips">
+                  <Badge kind="meta" variant="neutral">{task.project}</Badge>
+                  <Badge kind="meta" variant="neutral">{linkedLabel}</Badge>
+                  {task.assigneeDisplayName ? <Badge kind="meta" variant="neutral">{task.assigneeDisplayName}</Badge> : null}
+                  <Badge kind="meta" variant="neutral">{dueLabel}</Badge>
+                </div>
+                {metaSummary ? <div className="scan-row-meta">{metaSummary}</div> : null}
               </div>
               <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                 <div className="scan-row-badge-cluster">

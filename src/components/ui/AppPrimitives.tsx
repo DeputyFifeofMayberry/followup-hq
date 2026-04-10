@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, CircleAlert, CircleOff, Info, LoaderCircle, SearchX, Sparkles, X } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PropsWithChildren, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { AppToast } from '../../store/state/types';
 
 type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
@@ -470,7 +471,7 @@ export function AppModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeOnEscape, onClose]);
 
-  return (
+  const modalBody = (
     <div className="modal-backdrop" onClick={onBackdropClick} role="presentation">
       <div
         className={`modal-panel app-shell-card app-shell-card-modal modal-panel-${size}`}
@@ -485,6 +486,8 @@ export function AppModal({
       </div>
     </div>
   );
+
+  return createPortal(modalBody, document.body);
 }
 
 export function AppModalContentShell({ children }: PropsWithChildren) {

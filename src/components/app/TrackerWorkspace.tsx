@@ -51,7 +51,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
                 personalMode={personalMode}
                 embedded
                 rows={vm.filteredRows}
-                onRowOpen={() => undefined}
+                onRowOpen={(id) => vm.setSelectedId(id)}
                 onRequestDelete={setPendingDeleteFollowUp}
               />
             </ExecutionLaneQueueCard>

@@ -21,6 +21,46 @@
 .app-badge-success { color: #065f46; background: #d1fae5; border-color: #6ee7b7; }
 .app-badge-danger { color: #9f1239; background: #ffe4e6; border-color: #fda4af; }
 
+.app-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.34rem;
+  min-height: 1.45rem;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  padding: 0.14rem 0.54rem;
+  font-size: 0.69rem;
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.app-chip-status { font-weight: 670; }
+.app-chip-priority { font-weight: 660; }
+.app-chip-meta {
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  border-color: #d5dde8;
+}
+.app-chip-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.9;
+}
+.chip-tone-neutral { border-color: #d5dde8; color: #334155; background: #f8fafc; }
+.chip-tone-warn { border-color: #fde68a; color: #92400e; background: #fffbeb; }
+.chip-tone-danger { border-color: #fecdd3; color: #be123c; background: #fff1f2; }
+.chip-tone-success { border-color: #a7f3d0; color: #166534; background: #ecfdf5; }
+.chip-tone-blue { border-color: #bae6fd; color: #075985; background: #f0f9ff; }
+.chip-tone-purple { border-color: #ddd6fe; color: #5b21b6; background: #f5f3ff; }
+.chip-tone-green { border-color: #a7f3d0; color: #166534; background: #ecfdf5; }
+.chip-tone-gold { border-color: #fde68a; color: #92400e; background: #fffbeb; }
+
 .page-toolbar,
 .toolbar-row,
 .filter-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
@@ -254,7 +294,7 @@
   justify-content: center;
   padding: clamp(0.6rem, 2vw, 1rem);
   padding-bottom: max(clamp(0.6rem, 2vw, 1rem), env(safe-area-inset-bottom));
-  z-index: 1000;
+  z-index: 2000;
 }
 .modal-panel {
   width: min(840px, 100%);

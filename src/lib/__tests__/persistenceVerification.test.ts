@@ -55,6 +55,27 @@ async function testVerificationSuccess(): Promise<void> {
   assert(result.summary.schemaVersionCloud === undefined, 'cloud schema version should be optional');
 }
 
+async function testRuntimeEnrichedFollowUpsDoNotCauseFalseMismatch(): Promise<void> {
+  const local = payload();
+  local.items = [{
+    ...local.items[0],
+    linkedTaskCount: 3,
+    openLinkedTaskCount: 2,
+    blockedLinkedTaskCount: 1,
+    overdueLinkedTaskCount: 1,
+    doneLinkedTaskCount: 1,
+    allLinkedTasksDone: false,
+    childWorkflowSignal: 'at_risk',
+  } as any];
+  const cloud = cloudSnapshotFromPayload(payload());
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'runtime-enriched follow-up rollup fields should be excluded from canonical verification');
+}
+
 async function testMissingCloudRecord(): Promise<void> {
   const local = payload();
   const cloud = cloudSnapshotFromPayload(local);
@@ -99,6 +120,32 @@ async function testAuxAndSchemaMismatchAndReadFailure(): Promise<void> {
   assert(readFailed.mismatches.some((m) => m.category === 'verification_read_failed'), 'failed reads should produce verification_read_failed mismatch');
   assert(readFailed.summary.mismatchCount === 0, 'verification read failures should not count as divergence mismatches');
   assert(readFailed.summary.verificationReadFailed === true, 'verification summary should explicitly flag read-failed runs');
+}
+
+async function testAuxiliaryCanonicalDefaultsDoNotMismatch(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  local.auxiliary = {
+    ...local.auxiliary,
+    followUpTableDensity: undefined,
+    followUpDuplicateModule: undefined,
+    savedFollowUpViews: undefined,
+    reminderLedger: undefined,
+  } as any;
+  cloud.auxiliary = {
+    ...cloud.auxiliary,
+    followUpTableDensity: 'compact',
+    followUpDuplicateModule: 'auto',
+    savedFollowUpViews: [],
+    reminderLedger: [],
+  } as any;
+
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'canonical auxiliary defaults should not produce false auxiliary_mismatch');
 }
 
 async function testOptionalCloudSchemaMetadataDoesNotBlockVerification(): Promise<void> {
@@ -158,6 +205,26 @@ async function testExportReportHasSummaryAndNoSecrets(): Promise<void> {
   assert(!JSON.stringify(report).toLowerCase().includes('token'), 'report should not include token-like fields');
 }
 
+async function testMismatchDiagnosticsIncludeChangedPaths(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.items.set('i1', {
+    ...cloud.entities.items.get('i1')!,
+    normalizedRecord: { ...cloud.entities.items.get('i1')!.normalizedRecord, title: 'Changed title' },
+    digest: 'changed',
+  });
+  cloud.auxiliary = { ...cloud.auxiliary, followUpTableDensity: 'comfortable' } as any;
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  const contentMismatch = result.mismatches.find((mismatch) => mismatch.category === 'content_mismatch');
+  const auxiliaryMismatch = result.mismatches.find((mismatch) => mismatch.category === 'auxiliary_mismatch');
+  assert(Boolean(contentMismatch?.technicalDetail.includes('Changed paths: title')), 'content mismatch should include changed paths diagnostics');
+  assert(Boolean(auxiliaryMismatch?.technicalDetail.includes('Changed paths: followUpTableDensity')), 'auxiliary mismatch should include changed paths diagnostics');
+}
+
 function testCompareEntityCollectionsHelper(): void {
   const local = new Map([['x', { id: 'x', digest: 'a', normalizedRecord: { id: 'x' } } as any]]);
   const cloud = new Map<string, any>();
@@ -167,13 +234,16 @@ function testCompareEntityCollectionsHelper(): void {
 
 (async function run() {
   await testVerificationSuccess();
+  await testRuntimeEnrichedFollowUpsDoNotCauseFalseMismatch();
   await testMissingCloudRecord();
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();
   await testAuxAndSchemaMismatchAndReadFailure();
+  await testAuxiliaryCanonicalDefaultsDoNotMismatch();
   await testOptionalCloudSchemaMetadataDoesNotBlockVerification();
   await testTransientSessionRecoveryReadPath();
   testBackendContractFailureClassification();
   await testExportReportHasSummaryAndNoSecrets();
+  await testMismatchDiagnosticsIncludeChangedPaths();
   testCompareEntityCollectionsHelper();
 })();

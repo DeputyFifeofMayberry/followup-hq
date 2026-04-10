@@ -173,6 +173,43 @@ const ENTITY_TABLES: Record<SaveBatchEntity, string> = {
   companies: 'companies',
 };
 
+const FOLLOW_UP_RUNTIME_ONLY_FIELDS = [
+  'linkedTaskCount',
+  'openLinkedTaskCount',
+  'blockedLinkedTaskCount',
+  'overdueLinkedTaskCount',
+  'doneLinkedTaskCount',
+  'allLinkedTasksDone',
+  'childWorkflowSignal',
+];
+
+const AUXILIARY_DEFAULTS: Partial<AppAuxiliaryState> = {
+  followUpTableDensity: 'compact',
+  followUpDuplicateModule: 'auto',
+};
+
+const AUXILIARY_ARRAY_DEFAULT_KEYS: Array<keyof AppAuxiliaryState> = [
+  'savedFollowUpViews',
+  'reminderLedger',
+  'intakeSignals',
+  'intakeDocuments',
+  'dismissedDuplicatePairs',
+  'droppedEmailImports',
+  'outlookMessages',
+  'forwardedEmails',
+  'forwardedRules',
+  'forwardedCandidates',
+  'forwardedLedger',
+  'forwardedRoutingAudit',
+  'intakeCandidates',
+  'intakeAssets',
+  'intakeBatches',
+  'intakeWorkCandidates',
+  'intakeReviewerFeedback',
+  'savedExecutionViews',
+  'followUpColumns',
+];
+
 function createRunId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -200,6 +237,58 @@ export function normalizeRecordForVerification(record: unknown): Record<string, 
   return clone;
 }
 
+function canonicalizeEntityRecord(entity: SaveBatchEntity, record: Record<string, unknown>): Record<string, unknown> {
+  const canonical = normalizeRecordForVerification(record);
+  if (entity === 'items') {
+    FOLLOW_UP_RUNTIME_ONLY_FIELDS.forEach((key) => {
+      delete canonical[key];
+    });
+  }
+  return canonical;
+}
+
+function canonicalizeAuxiliaryForVerification(auxiliary: AppAuxiliaryState | null | undefined): AppAuxiliaryState {
+  const normalizedRaw = normalizeRecordForVerification(auxiliary ?? {}) as unknown as AppAuxiliaryState;
+  const normalized = Object.fromEntries(
+    Object.entries(normalizedRaw as unknown as Record<string, unknown>).filter(([, value]) => value !== undefined),
+  ) as unknown as AppAuxiliaryState;
+  const merged = {
+    ...AUXILIARY_DEFAULTS,
+    ...normalized,
+  } as AppAuxiliaryState;
+  AUXILIARY_ARRAY_DEFAULT_KEYS.forEach((key) => {
+    if (!Array.isArray(merged[key])) {
+      (merged as unknown as Record<string, unknown>)[key] = [];
+    }
+  });
+  return merged;
+}
+
+function diffObjectPaths(local: unknown, cloud: unknown, basePath = ''): string[] {
+  const localObj = local && typeof local === 'object' ? local as Record<string, unknown> : {};
+  const cloudObj = cloud && typeof cloud === 'object' ? cloud as Record<string, unknown> : {};
+  const keys = Array.from(new Set([...Object.keys(localObj), ...Object.keys(cloudObj)])).sort();
+  const diffs: string[] = [];
+
+  keys.forEach((key) => {
+    const path = basePath ? `${basePath}.${key}` : key;
+    const left = localObj[key];
+    const right = cloudObj[key];
+    if (Array.isArray(left) || Array.isArray(right)) {
+      if (stableSerialize(left ?? []) !== stableSerialize(right ?? [])) diffs.push(path);
+      return;
+    }
+    const bothObjects = left && right && typeof left === 'object' && typeof right === 'object';
+    if (bothObjects) {
+      diffs.push(...diffObjectPaths(left, right, path));
+      return;
+    }
+    if (stableSerialize(left) !== stableSerialize(right)) diffs.push(path);
+  });
+
+  return diffs;
+}
+
 export function stableHashRecord(record: unknown): string {
   return stableSerialize(normalizeRecordForVerification(record));
 }
@@ -211,7 +300,7 @@ export function buildVerificationComparableState(payload: PersistedPayload): Ver
     (payload[entity] ?? []).forEach((record: any) => {
       const id = String(record.id ?? '');
       if (!id) return;
-      const normalizedRecord = normalizeRecordForVerification(record);
+      const normalizedRecord = canonicalizeEntityRecord(entity, record as Record<string, unknown>);
       map.set(id, {
         id,
         updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : undefined,
@@ -250,14 +339,15 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
       if (tableError) throw new Error(`${table}: ${tableError.message}`);
       rows.forEach((row: any) => {
         const record = normalizeRecordForVerification(row.record);
+        const canonicalRecord = canonicalizeEntityRecord(entity, record);
         const recordId = String(row.record_id ?? row.record?.id ?? '');
         if (!recordId) return;
         entities[entity].set(recordId, {
           id: recordId,
           updatedAt: typeof row.updated_at === 'string' ? row.updated_at : undefined,
           deletedAt: typeof row.deleted_at === 'string' ? row.deleted_at : null,
-          digest: stableHashRecord(record),
-          normalizedRecord: record,
+          digest: stableHashRecord(canonicalRecord),
+          normalizedRecord: canonicalRecord,
         });
       });
     }
@@ -457,6 +547,7 @@ export function compareEntityCollections(params: {
     }
 
     if (local.digest !== cloud.digest) {
+      const diffPaths = diffObjectPaths(local.normalizedRecord, cloud.normalizedRecord).slice(0, 8);
       mismatches.push({
         id: buildMismatchId(params.entity, 'content_mismatch', recordId),
         entity: params.entity,
@@ -467,7 +558,7 @@ export function compareEntityCollections(params: {
         localDigest: local.digest,
         cloudDigest: cloud.digest,
         summary: `${params.entity} ${recordId} has different content locally vs cloud.`,
-        technicalDetail: 'Normalized stable digests differ after deterministic comparison.',
+        technicalDetail: `Canonical persisted fields differ after deterministic comparison.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}`,
         localRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? local.normalizedRecord : undefined,
         cloudRecordPreview: params.includePreviews && mismatches.length < params.maxMismatchPreviewCount ? cloud.normalizedRecord : undefined,
       });
@@ -503,11 +594,12 @@ export function compareAuxiliaryState(params: {
   cloudAuxiliary: AppAuxiliaryState | null;
   includePreviews: boolean;
 }): VerificationMismatch[] {
-  const localNormalized = normalizeRecordForVerification(params.localAuxiliary);
-  const cloudNormalized = normalizeRecordForVerification(params.cloudAuxiliary ?? {});
+  const localNormalized = canonicalizeAuxiliaryForVerification(params.localAuxiliary);
+  const cloudNormalized = canonicalizeAuxiliaryForVerification(params.cloudAuxiliary);
   const localDigest = stableHashRecord(localNormalized);
   const cloudDigest = stableHashRecord(cloudNormalized);
   if (localDigest === cloudDigest) return [];
+  const diffPaths = diffObjectPaths(localNormalized, cloudNormalized).slice(0, 12);
   return [{
     id: buildMismatchId('auxiliary', 'auxiliary_mismatch'),
     entity: 'auxiliary',
@@ -515,7 +607,7 @@ export function compareAuxiliaryState(params: {
     localDigest,
     cloudDigest,
     summary: 'Auxiliary preferences/state differ between local intended state and cloud.',
-    technicalDetail: 'Deterministic auxiliary blob hash mismatch after removing transient fields.',
+    technicalDetail: `Canonical auxiliary persisted state differs.${diffPaths.length ? ` Changed paths: ${diffPaths.join(', ')}` : ''}`,
     localRecordPreview: params.includePreviews ? localNormalized : undefined,
     cloudRecordPreview: params.includePreviews ? cloudNormalized : undefined,
   }];

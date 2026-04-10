@@ -408,6 +408,12 @@ async function readLocalCache(userId?: string | null): Promise<LocalCachePayload
   }
 }
 
+export async function readLocalPersistedPayloadSnapshot(userId?: string | null): Promise<PersistedPayload | null> {
+  const cache = await readLocalCache(userId);
+  if (!cache?.entities) return null;
+  return cache.entities;
+}
+
 async function writeLocalCache(cache: LocalCachePayload, userId?: string | null): Promise<void> {
   await savePersistenceBlob(resolveLocalCacheKey(userId), JSON.stringify(cache), buildLegacyLocalCacheKey());
   await clearPersistenceBlob(LEGACY_BROWSER_SNAPSHOT_KEY);

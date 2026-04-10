@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Manual verification canonical persisted-shape comparison fix
+- Fixed the root verification trust gap that produced false real mismatches (`missing_locally`, `content_mismatch`, `auxiliary_mismatch`) after startup hydration: manual verification now prefers the canonical local persisted payload snapshot from the local persistence cache instead of always rebuilding from runtime-enriched in-memory state, so clean startup states compare persisted-vs-persisted (`src/store/useAppStore.ts`, `src/lib/persistence.ts`).
+- Added canonical verification normalization for runtime-only follow-up task-rollup fields and auxiliary default drift so deterministic verification hashing ignores hydration/UI-enriched fields that are not part of the true persisted contract (`src/lib/persistenceVerification.ts`).
+- Improved mismatch diagnostics by including changed canonical field paths in content/auxiliary mismatch technical details, making it immediately visible whether a mismatch is true persisted divergence vs shape/canonicalization drift (`src/lib/persistenceVerification.ts`).
+- Added targeted regression coverage for runtime-enriched local vs raw cloud comparisons, auxiliary default/missing normalization parity, changed-path diagnostics, and clean-vs-dirty verification target selection behavior (`src/lib/__tests__/persistenceVerification.test.ts`, `src/store/__tests__/useAppStore.persistenceMeta.test.ts`).
+
 ### Trust center manual verification backend-contract alignment fix
 - Fixed the remaining manual **Verify now** backend read break by removing the stale `user_preferences.schema_version` assumption from verification cloud reads; verification now reads only the live `user_preferences` contract columns used by save/load (`auxiliary`, `updated_at`) so cloud verification no longer fails on legacy/missing `schema_version` columns (`src/lib/persistenceVerification.ts`, `src/lib/persistenceSchemaHealth.ts`).
 - Hardened verification failure classification so backend schema/shape mismatches are explicitly marked as `backend-contract` (separate from network/session/table-read failures), improving technical diagnostics and support triage (`src/lib/persistenceVerification.ts`, `src/lib/__tests__/persistenceVerification.test.ts`).

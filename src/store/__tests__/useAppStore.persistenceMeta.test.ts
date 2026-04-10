@@ -1,5 +1,8 @@
 import { resolvePostSaveMetaState } from '../persistenceMeta';
 import { deriveVerificationMetaFromResult } from '../verificationState';
+import { selectVerificationTargetPayload } from '../verificationTarget';
+import { initialBusinessState, initialMetaState, initialUiState } from '../state/initialState';
+import { buildPersistedPayload } from '../state/persistence';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -157,9 +160,48 @@ function testVerifyNowProjectionStates(): void {
   assert(matched.recoveryReviewNeeded === false, 'verified comparison should clear recovery review queue');
 }
 
+function buildStoreLikeForVerificationTarget(overrides: Record<string, unknown> = {}): any {
+  return {
+    ...initialBusinessState,
+    ...initialUiState,
+    ...initialMetaState,
+    ...overrides,
+  };
+}
+
+function testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean(): void {
+  const current = buildStoreLikeForVerificationTarget({
+    hasLocalUnsavedChanges: false,
+    pendingBatchCount: 0,
+    unresolvedOutboxCount: 0,
+    tasks: [{ id: 'task-1', title: 'Runtime normalized', updatedAt: '2026-04-10T10:00:00.000Z' }],
+  });
+  const cached = buildPersistedPayload(buildStoreLikeForVerificationTarget({
+    tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
+  }));
+  const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
+  assert(selected.tasks[0]?.title === 'Persisted raw', 'clean verify runs should compare against canonical cached persisted payload');
+}
+
+function testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist(): void {
+  const current = buildStoreLikeForVerificationTarget({
+    hasLocalUnsavedChanges: true,
+    pendingBatchCount: 0,
+    unresolvedOutboxCount: 0,
+    tasks: [{ id: 'task-1', title: 'Unsaved edit', updatedAt: '2026-04-10T10:00:00.000Z' }],
+  });
+  const cached = buildPersistedPayload(buildStoreLikeForVerificationTarget({
+    tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
+  }));
+  const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
+  assert(selected.tasks[0]?.title === 'Unsaved edit', 'verify should include live state only when unsaved/local outbox drift exists');
+}
+
 (function run() {
   testNoOpSavePreservesConservativeTrust();
   testPersistedSupabaseSavePromotesTrust();
   testSupabasePersistWithoutCommittedReceiptStaysPendingCloud();
   testVerifyNowProjectionStates();
+  testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean();
+  testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist();
 })();

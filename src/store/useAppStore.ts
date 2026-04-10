@@ -19,6 +19,8 @@ import type { DirtyRecordRef, PersistenceQueueController, QueueRequestMeta } fro
 import { appendPersistenceActivity, createPersistenceActivityEvent } from './persistenceActivity';
 import { getSaveResultKind, resolvePostSaveMetaState } from './persistenceMeta';
 import { verifyPersistedState } from '../lib/persistenceVerification';
+import { readLocalPersistedPayloadSnapshot } from '../lib/persistence';
+import { selectVerificationTargetPayload } from './verificationTarget';
 import { deriveVerificationMetaFromResult } from './verificationState';
 import {
   buildReminderCenterSummary,
@@ -585,9 +587,14 @@ export const useAppStore = create<AppStore>()((set, get) => {
 
       try {
         const current = get();
+        const cachedPersistedPayload = await readLocalPersistedPayloadSnapshot();
+        const verificationTargetPayload = selectVerificationTargetPayload({
+          current,
+          cachedPersistedPayload,
+        });
         const result = await verifyPersistedState({
           target: {
-            payload: buildPersistedPayload(current),
+            payload: verificationTargetPayload,
             schemaVersionClient: current.lastReceiptSchemaVersion,
             lastLocalWriteAt: current.lastLocalWriteAt,
           },

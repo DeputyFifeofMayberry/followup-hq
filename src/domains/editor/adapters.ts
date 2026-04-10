@@ -7,6 +7,13 @@ import { normalizeIdentity } from '../../lib/entities';
 export type FollowUpSavePayload = { action: 'create' | 'update'; record: FollowUpItem; recordId?: string };
 export type TaskSavePayload = { action: 'create' | 'update'; record: TaskItem; recordId?: string };
 
+function joinReadableParts(parts: Array<string | undefined>): string {
+  return parts
+    .map((part) => part?.trim() ?? '')
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, FollowUpFormInput, FollowUpSavePayload> = {
   key: 'followup-editor',
   recordType: 'followup',
@@ -79,8 +86,37 @@ export const followUpEditorAdapter: RecordTypeEditorAdapter<FollowUpItem, Follow
     return { valid: issues.length === 0, issues };
   },
   toSavePayload: (draft, context) => {
-    const record = buildItemFromForm({ ...draft, nextAction: draft.nextAction.trim() || draft.title.trim() }, context.record ?? undefined);
-    return { action: context.mode === 'create' ? 'create' : 'update', record, recordId: context.record?.id };
+    const now = todayIso();
+    const fallbackSourceRef = joinReadableParts(['Manual create', draft.project, draft.title]) || 'Manual create';
+    const sourceRef = context.mode === 'create'
+      ? (draft.sourceRef.trim() || fallbackSourceRef)
+      : (draft.sourceRef.trim() || context.record?.sourceRef || fallbackSourceRef);
+    const record = buildItemFromForm(
+      { ...draft, sourceRef, nextAction: draft.nextAction.trim() || draft.title.trim() },
+      context.record ?? undefined,
+    );
+    const provenance = {
+      sourceType: 'quick_capture' as const,
+      sourceRef,
+      capturedAt: now,
+    };
+    const patchedRecord: FollowUpItem = context.mode === 'create'
+      ? {
+          ...record,
+          sourceRef,
+          provenance,
+          lifecycleState: 'ready',
+          dataQuality: 'valid_live',
+          needsCleanup: false,
+          reviewReasons: [],
+          invalidReason: undefined,
+        }
+      : {
+          ...record,
+          sourceRef,
+          provenance: context.record?.provenance ?? provenance,
+        };
+    return { action: context.mode === 'create' ? 'create' : 'update', record: patchedRecord, recordId: context.record?.id };
   },
 };
 
@@ -146,6 +182,19 @@ export const taskEditorAdapter: RecordTypeEditorAdapter<TaskItem, TaskFormInput,
   toSavePayload: (draft, context) => {
     const now = todayIso();
     const base = context.record;
+    const fallbackSourceRef = joinReadableParts(['Manual create', draft.contextNote, draft.summary, draft.title]) || 'Manual create';
+    const sourceRef = base?.provenance?.sourceRef?.trim() || fallbackSourceRef;
+    const provenance = context.mode === 'create'
+      ? {
+          sourceType: 'quick_capture' as const,
+          sourceRef,
+          capturedAt: now,
+        }
+      : (base?.provenance ?? {
+      sourceType: 'quick_capture' as const,
+      sourceRef,
+      capturedAt: now,
+    });
     const record: TaskItem = {
       id: base?.id ?? '',
       createdAt: base?.createdAt ?? now,
@@ -154,6 +203,12 @@ export const taskEditorAdapter: RecordTypeEditorAdapter<TaskItem, TaskFormInput,
       ...base,
       ...draft,
       nextStep: draft.nextStep.trim() || draft.title.trim(),
+      provenance,
+      lifecycleState: context.mode === 'create' ? 'ready' : base?.lifecycleState,
+      dataQuality: context.mode === 'create' ? 'valid_live' : base?.dataQuality,
+      needsCleanup: context.mode === 'create' ? false : base?.needsCleanup,
+      reviewReasons: context.mode === 'create' ? [] : base?.reviewReasons,
+      invalidReason: context.mode === 'create' ? undefined : base?.invalidReason,
     };
     return { action: context.mode === 'create' ? 'create' : 'update', record, recordId: base?.id };
   },

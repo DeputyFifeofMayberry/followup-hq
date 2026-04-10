@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Manual create execution-lane integrity fix (follow-ups + tasks)
+- Fixed the Create Work editor save pipeline so newly created **manual follow-ups** are born execution-ready instead of legacy/review-required: create payloads now always stamp a readable non-empty `sourceRef`, set `provenance` to `quick_capture`, and set integrity lifecycle fields (`lifecycleState: ready`, `dataQuality: valid_live`, `needsCleanup: false`, clear review/invalid markers) at creation time (`src/domains/editor/adapters.ts`).
+- Applied the same root-cause fix for **manual tasks** created from the modal so they also enter normal task execution lanes immediately with explicit quick-capture provenance and valid-live lifecycle defaults rather than being classified into review-needed behavior (`src/domains/editor/adapters.ts`).
+- Added regression coverage around editor create payloads + integrity enforcement + follow-up selector visibility to ensure manual creates remain execution-ready, auto-fill blank source refs, and appear in normal follow-up/task workflows (`src/domains/editor/__tests__/recordEditorEngine.test.ts`).
+
 ### Create Work date validation/message alignment cleanup
 - Removed format-specific date validation errors from Create Work editor adapters so calendar-backed date fields no longer report misleading “YYYY-MM-DD format” requirements and now rely on required/presence validation where applicable (`src/domains/editor/adapters.ts`).
 - Added simple helper guidance on the Create Work due date field to match the calendar-driven UX (“Select a date.”) instead of implying manual format entry (`src/components/CreateWorkModal.tsx`).

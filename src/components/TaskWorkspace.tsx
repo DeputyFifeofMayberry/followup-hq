@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
-import { ExecutionLaneInspectorCard, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneInspectorCard, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -9,6 +9,7 @@ import { TaskToolbar } from './tasks/TaskToolbar';
 import { TaskList } from './tasks/TaskList';
 import { TaskInspectorModal } from './tasks/TaskInspectorModal';
 import { TaskActionFlow } from './tasks/TaskActionFlow';
+import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 
 const taskViewOptions = [
   { value: 'today' as const, label: 'Now' },
@@ -52,6 +53,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
   const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
   const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskItem | null>(null);
 
   useEffect(() => {
     if (vm.executionIntent?.target !== 'tasks') return;
@@ -138,6 +140,21 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   }, [vm.setSelectedTaskId]);
 
   const handleDoneTask = useCallback((task: TaskItem) => openTaskFlow(task, 'done'), [openTaskFlow]);
+
+  const requestDeleteTask = useCallback((task: TaskItem) => {
+    setPendingDeleteTask(task);
+  }, []);
+
+  const confirmDeleteTask = useCallback(() => {
+    if (!pendingDeleteTask) return;
+    const queueTaskIds = vm.filteredTasks.map((task) => task.id).filter((id) => id !== pendingDeleteTask.id);
+    const progression = getExecutionLaneNextSelection(queueTaskIds, vm.selectedTaskId, [pendingDeleteTask.id]);
+    vm.deleteTask(pendingDeleteTask.id);
+    vm.setSelectedTaskId(progression.nextSelectedId);
+    setPendingDeleteTask(null);
+    setTaskDetailOpen(Boolean(progression.nextSelectedId));
+    setLaneFeedback({ tone: 'success', message: `Deleted "${pendingDeleteTask.title}".` });
+  }, [pendingDeleteTask, vm]);
 
   const handleQuickAdd = useCallback((payload: { title: string; project: string; owner: string; assignee?: string; nextStep: string }) => {
     if (!payload.title || !payload.project || !payload.owner || !payload.nextStep) {
@@ -285,6 +302,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onSetDueToday={setDueToday}
             onSetDueTomorrow={setDueTomorrow}
             onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
+            onRequestDeleteTask={requestDeleteTask}
             onQuickAdd={handleQuickAdd}
             getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
             renderNowSignal={vm.getTaskSignal}
@@ -322,6 +340,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
                 onRunRecommendedTaskAction={runRecommendedTaskAction}
                 onOpenTaskFlow={openTaskFlow}
                 onUpdateTask={vm.updateTask}
+                onRequestDeleteTask={requestDeleteTask}
                 onOpenLinkedFollowUp={onOpenLinkedFollowUp}
                 onOpenRecordDrawer={openRecordDrawer}
                 onOpenRecordEditor={openRecordEditor}
@@ -347,6 +366,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           onRunRecommendedTaskAction={runRecommendedTaskAction}
           onOpenTaskFlow={openTaskFlow}
           onUpdateTask={vm.updateTask}
+          onRequestDeleteTask={requestDeleteTask}
           onOpenLinkedFollowUp={onOpenLinkedFollowUp}
           onOpenRecordDrawer={openRecordDrawer}
           onOpenRecordEditor={openRecordEditor}
@@ -369,6 +389,27 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         onDeferDateChange={setDeferDateDraft}
         onNextReviewChange={setNextReviewDraft}
       />
+      {pendingDeleteTask ? (
+        <AppModal onClose={() => setPendingDeleteTask(null)} onBackdropClick={() => setPendingDeleteTask(null)}>
+          <AppModalHeader
+            title="Delete task"
+            subtitle={`Permanently remove “${pendingDeleteTask.title}”.`}
+            onClose={() => setPendingDeleteTask(null)}
+          />
+          <AppModalBody>
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+              <div className="font-semibold">Delete this task?</div>
+              <p className="mt-1 text-xs">
+                This removes <strong>{pendingDeleteTask.title}</strong> from all task queues and dashboard counts.
+              </p>
+            </div>
+          </AppModalBody>
+          <AppModalFooter>
+            <button type="button" className="action-btn" onClick={() => setPendingDeleteTask(null)}>Cancel</button>
+            <button type="button" className="action-btn action-btn-danger" onClick={confirmDeleteTask}>Delete task</button>
+          </AppModalFooter>
+        </AppModal>
+      ) : null}
     </WorkspacePage>
   );
 }

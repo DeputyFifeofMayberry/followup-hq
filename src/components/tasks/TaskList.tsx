@@ -36,6 +36,7 @@ type TaskListProps = {
   onSetDueToday: (task: TaskItem) => void;
   onSetDueTomorrow: (task: TaskItem) => void;
   onOpenLinkedFollowUp: (task: TaskItem) => void;
+  onRequestDeleteTask: (task: TaskItem) => void;
   onQuickAdd: (payload: QuickCapturePayload) => { ok: boolean; message?: string };
   getParentLinkedFollowUpId: (linkedFollowUpId?: string | null) => boolean;
   renderNowSignal: (task: TaskItem) => TaskSignal;
@@ -66,6 +67,7 @@ export function TaskList({
   onSetDueToday,
   onSetDueTomorrow,
   onOpenLinkedFollowUp,
+  onRequestDeleteTask,
   onQuickAdd,
   getParentLinkedFollowUpId,
   renderNowSignal,
@@ -205,6 +207,7 @@ export function TaskList({
                     <button onClick={() => onSetDueToday(task)} className="action-btn !px-2.5 !py-1 text-xs" aria-label="Set due today">Today</button>
                     <button onClick={() => onSetDueTomorrow(task)} className="action-btn !px-2.5 !py-1 text-xs"><CalendarClock className="h-3.5 w-3.5" />Tomorrow</button>
                     {task.linkedFollowUpId ? <button onClick={() => onOpenLinkedFollowUp(task)} className="action-btn !px-2.5 !py-1 text-xs"><ArrowRightCircle className="h-3.5 w-3.5" />Linked</button> : null}
+                    <button onClick={() => onRequestDeleteTask(task)} className="action-btn action-btn-danger !px-2.5 !py-1 text-xs">Delete</button>
                   </div>
                 </details>
               </div>

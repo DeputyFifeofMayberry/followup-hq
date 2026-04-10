@@ -35,12 +35,14 @@ export function TrackerTable({
   embedded = false,
   rows,
   onRowOpen,
+  onRequestDelete,
 }: {
   personalMode?: boolean;
   appMode?: AppMode;
   embedded?: boolean;
   rows: FollowUpItem[];
   onRowOpen?: (id: string) => void;
+  onRequestDelete?: (item: FollowUpItem) => void;
 }) {
   const vm = useFollowUpsViewModel();
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
@@ -123,6 +125,7 @@ export function TrackerTable({
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); }}>Snooze</button>
+                <button type="button" className="action-btn action-btn-danger !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); }}>Delete</button>
               </div>
             </details>
           </div>
@@ -150,6 +153,10 @@ export function TrackerTable({
       }}
       onNudge={vm.markNudged}
       onSnooze={(id) => vm.snoozeItem(id, 2)}
+      onDelete={(id) => {
+        const item = rows.find((entry) => entry.id === id);
+        if (item) onRequestDelete?.(item);
+      }}
       emptyStateMessage={vm.emptyStateMessage}
       hasActiveRowNarrowing={vm.hasActiveRowNarrowing}
       onResetFilters={vm.resetAllRowAffectingOptions}

@@ -4,6 +4,7 @@ import { useFollowUpsViewModel } from '../../domains/followups';
 import {
   AppModal,
   AppModalBody,
+  AppModalFooter,
   AppModalHeader,
   WorkspaceContentFrame,
   ExecutionLaneInspectorCard,
@@ -15,12 +16,14 @@ import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import { ItemDetailPanel } from '../ItemDetailPanel';
+import type { FollowUpItem } from '../../types';
 
 export function TrackerWorkspace({ personalMode, appMode }: { personalMode: boolean; appMode: AppMode }) {
   const vm = useFollowUpsViewModel();
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [hiddenIntentNotice, setHiddenIntentNotice] = useState<{ recordId: string } | null>(null);
+  const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
 
   useEffect(() => {
     const intent = vm.executionIntent;
@@ -77,6 +80,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
                 embedded
                 rows={vm.filteredRows}
                 onRowOpen={() => setDetailModalOpen(true)}
+                onRequestDelete={setPendingDeleteFollowUp}
               />
             </ExecutionLaneQueueCard>
           </div>
@@ -99,6 +103,37 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
           <AppModalBody>
             <DuplicateReviewPanel presentation="modal" />
           </AppModalBody>
+        </AppModal>
+      ) : null}
+      {pendingDeleteFollowUp ? (
+        <AppModal onClose={() => setPendingDeleteFollowUp(null)} onBackdropClick={() => setPendingDeleteFollowUp(null)}>
+          <AppModalHeader
+            title="Delete follow-up"
+            subtitle={`Permanently remove “${pendingDeleteFollowUp.title}”.`}
+            onClose={() => setPendingDeleteFollowUp(null)}
+          />
+          <AppModalBody>
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+              <div className="font-semibold">Delete this follow-up?</div>
+              <p className="mt-1 text-xs">
+                This removes <strong>{pendingDeleteFollowUp.title}</strong> from follow-up queues, linked summaries, and overview counts.
+              </p>
+            </div>
+          </AppModalBody>
+          <AppModalFooter>
+            <button type="button" className="action-btn" onClick={() => setPendingDeleteFollowUp(null)}>Cancel</button>
+            <button
+              type="button"
+              className="action-btn action-btn-danger"
+              onClick={() => {
+                vm.deleteItem(pendingDeleteFollowUp.id);
+                setPendingDeleteFollowUp(null);
+                if (vm.selectedId === pendingDeleteFollowUp.id) setDetailModalOpen(false);
+              }}
+            >
+              Delete follow-up
+            </button>
+          </AppModalFooter>
         </AppModal>
       ) : null}
     </WorkspacePage>

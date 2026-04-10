@@ -23,6 +23,7 @@ type TaskInspectorModalProps = {
   onRunRecommendedTaskAction: () => void;
   onOpenTaskFlow: (task: TaskItem, kind: 'done' | 'block' | 'unblock' | 'defer') => void;
   onUpdateTask: (taskId: string, updates: Partial<TaskItem>) => void;
+  onRequestDeleteTask: (task: TaskItem) => void;
   onOpenLinkedFollowUp: (followUpId: string) => void;
   onOpenRecordDrawer: (payload: { type: 'task' | 'followup'; id: string }) => void;
   onOpenRecordEditor: (payload: { type: 'task'; id: string }, mode: 'edit', source: 'workspace') => void;
@@ -70,6 +71,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   onRunRecommendedTaskAction,
   onOpenTaskFlow,
   onUpdateTask,
+  onRequestDeleteTask,
   onOpenLinkedFollowUp,
   onOpenRecordDrawer,
   onOpenRecordEditor,
@@ -201,6 +203,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button onClick={() => onOpenRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'workspace')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>
+                <button onClick={() => onRequestDeleteTask(selectedTask)} className="action-btn action-btn-danger !px-2.5 !py-1.5 text-xs">Delete task</button>
               </div>
             </div>
           </section>

@@ -2,6 +2,9 @@
 
 ## 2026-04-10
 
+### Follow Ups deployment build fix: remove invalid `createdAt` access in progress milestones
+- Fixed the production TypeScript build failure introduced in the Follow Ups inspector progress-history milestone logic by replacing an invalid `FollowUpItem.createdAt` access with a type-safe opened-at derivation (`provenance.capturedAt` first, then created/oldest timeline event fallback), preserving milestone behavior while restoring strict `tsc -b` compatibility in Vercel builds (`src/components/ItemDetailPanel.tsx`).
+
 ### Follow Ups execution-surface cleanup: single add path, sequential queue chips, professional status scanability, stronger actions, and persistent progress history
 - Removed duplicate follow-up creation controls inside the Follow Ups lane by keeping creation in the workspace header and removing the extra in-lane Add button; also removed the adjacent header quick-add button specifically while in Follow Ups so users get one unambiguous primary create path (`src/components/ControlBar.tsx`, `src/App.tsx`).
 - Reordered the Follow Ups queue pressure chips into a clearer sequential run (`All open` → `Waiting` → `Needs nudge` → `At risk` → `Overdue`) so queue scanning follows operational flow instead of mixed urgency/context ordering (`src/components/ControlBar.tsx`).

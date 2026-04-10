@@ -103,12 +103,14 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
   const activityEntries = useMemo(() => (item ? item.timeline : []), [item]);
   const progressMilestones = useMemo(() => {
     if (!item) return [];
-    const createdAt = item.createdAt || item.timeline[item.timeline.length - 1]?.at;
+    const createdEvent = item.timeline.find((entry) => entry.type === 'created')
+      ?? item.timeline[item.timeline.length - 1];
+    const openedAt = item.provenance?.capturedAt || createdEvent?.at;
     const closedEvent = item.status === 'Closed'
       ? item.timeline.find((entry) => entry.type === 'status_changed' && /closed/i.test(entry.summary))
       : null;
     return [
-      createdAt ? `Opened ${formatDateTime(createdAt)}` : null,
+      openedAt ? `Opened ${formatDateTime(openedAt)}` : null,
       item.lastTouchDate ? `Last touch ${formatDate(item.lastTouchDate)}` : null,
       item.lastActionAt ? `Last action ${formatDateTime(item.lastActionAt)}` : null,
       closedEvent ? `Closed ${formatDateTime(closedEvent.at)}` : null,

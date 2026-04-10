@@ -1,4 +1,4 @@
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
@@ -169,9 +169,18 @@ export function TrackerTable({
                     header.id === 'quickActions' ? 'tracker-head-cell-action row-action-cell' : '',
                   ].filter(Boolean).join(' ')} aria-sort={header.column.getCanSort() ? (header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}>
                     {header.isPlaceholder ? null : header.column.getCanSort() && SORTABLE_COLUMNS.has(header.id) ? (
-                      <button type="button" className="tracker-head-btn" onClick={header.column.getToggleSortingHandler()}>
+                      <button
+                        type="button"
+                        className={`tracker-head-btn ${header.column.getIsSorted() ? 'tracker-head-btn-active' : ''}`}
+                        data-sort={header.column.getIsSorted() || 'none'}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        <ArrowUpDown className="h-3.5 w-3.5" />
+                        {header.column.getIsSorted() === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 tracker-head-btn-icon" aria-hidden="true" />
+                          : header.column.getIsSorted() === 'desc'
+                            ? <ArrowDown className="h-3.5 w-3.5 tracker-head-btn-icon" aria-hidden="true" />
+                            : <ArrowUpDown className="h-3.5 w-3.5 tracker-head-btn-icon" aria-hidden="true" />}
                       </button>
                     ) : (
                       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{flexRender(header.column.columnDef.header, header.getContext())}</span>

@@ -2,6 +2,10 @@
 
 ## 2026-04-10
 
+### Follow Ups sort-control visual integration
+- Replaced the sortable Follow Ups table header controls for **Due** and **Next touch** with compact chip-style header toggles that match the lane’s existing segmented/filter control language, including subtle active states instead of loud standalone-button styling (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+- Preserved existing sorting behavior while clarifying direction with small inline icons (`up`, `down`, `up/down`) and active-state emphasis, so users can still toggle between ascending/descending order without introducing extra controls (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`).
+
 ### Create Work modal hidden-nav shell regression follow-up
 - Reverted the broad shell split introduced in PR #210 by restoring `create-work-full-shell` as the default two-column grid contract and adding only a narrow `create-work-full-shell-nav-hidden` modifier for the hidden-nav state in `CreateWorkModal`, preventing phantom left-rail placement without changing shared editor sizing behavior (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
 - Removed the temporary shell variant classes (`create-work-full-shell-with-nav` / `create-work-full-shell-no-nav`) and backed out added full-width/self-stretch rules from `.create-work-full-editor`, keeping the fix local to nav-hidden layout intent while preserving existing responsive modal primitives (`src/styles/primitives.css`).

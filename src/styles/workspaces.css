@@ -512,6 +512,31 @@
 .tracker-cell-identity .tracker-title-secondary { margin-top: 0.15rem; font-size: 0.75rem; color: #1f3752; }
 .tracker-cell-identity .tracker-title-next { margin-top: 0.25rem; font-size: 0.74rem; color: #334155; }
 .tracker-cell-identity .tracker-title-meta { margin-top: 0.34rem; font-size: 0.69rem; color: #64748b; }
+.tracker-head-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 1.8rem;
+  padding: 0.18rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.7rem;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.tracker-head-btn:hover { background: #eef2f7; border-color: #d7e0eb; }
+.tracker-head-btn-active {
+  background: #e8eef8;
+  border-color: #c9d6ea;
+  color: #1e3a5f;
+}
+.tracker-head-btn-icon { opacity: 0.78; }
+.tracker-head-btn[data-sort='asc'] .tracker-head-btn-icon,
+.tracker-head-btn[data-sort='desc'] .tracker-head-btn-icon { opacity: 1; }
 .tracker-head-cell-timing .tracker-head-btn { color: #334155; font-weight: 700; letter-spacing: 0.02em; }
 .tracker-head-cell-support .tracker-head-btn { color: #475569; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .tracker-head-cell-action .tracker-head-btn { justify-content: flex-end; color: var(--text-secondary); }

@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Tasks queue trust fix: existing tasks no longer disappear from queue visibility
+- Fixed the root queue mismatch where open tasks could exist in store/counts but fail to render in the Tasks lane because queue inclusion rules were split across view-model branches and a narrow `Now` default could silently hide valid existing work; queue visibility now routes through centralized selectors (`isTaskOpen`, `isTaskEligibleForQueue`, `selectVisibleTasksForQueue`) so open-count and queue eligibility use the same status-aware logic (`src/domains/tasks/selectors.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`).
+- Added legacy task-status compatibility normalization (`completed`/`closed`/`in progress`/`on_hold` variants) so older task records hydrate into canonical task states instead of being inconsistently filtered by queue/status logic (`src/domains/tasks/selectors.ts`, `src/domains/tasks/helpers.ts`).
+- Updated Tasks lane behavior to default to a trustworthy open-work queue (`All open`) and auto-broaden from `Now` to `All open` when `Now` is empty despite open tasks, preventing blank-queue trust failures on existing datasets while keeping explicit queue filters available (`src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/TaskWorkspace.tsx`).
+- Added selector regression coverage for legacy status normalization and all-open queue visibility so existing-task compatibility remains locked in tests (`src/domains/tasks/selectors.test.ts`).
+
 ### Tasks queue trust fix: remove Tasks quick add, restore existing-task visibility, unify due-day behavior, wire inspector due shortcuts
 - Removed the Tasks-lane quick-add affordance from the shared workspace header so Tasks now has one intentional creation path (workspace primary create action/modal) without parallel quick-capture entry points on that page (`src/App.tsx`).
 - Fixed task queue eligibility for daily use by widening `Now` queue inclusion to keep unscheduled open work visible even when metadata flags a review state, which prevents valid legacy/open tasks from disappearing from the queue while counts still report open work (`src/domains/tasks/hooks/useTasksViewModel.ts`).

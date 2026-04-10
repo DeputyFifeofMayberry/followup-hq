@@ -2,9 +2,10 @@ import { todayIso } from '../../lib/utils';
 import type { FollowUpItem, TaskItem } from '../../types';
 import { normalizeItem } from '../../lib/utils';
 import { buildFollowUpChildRollup } from '../../lib/childWorkRollups';
+import { normalizeTaskStatus } from './selectors';
 
 export function normalizeTask(task: TaskItem): TaskItem {
-  const status = task.status || 'To do';
+  const status = normalizeTaskStatus(task.status);
   const updatedAt = todayIso();
   return {
     ...task,

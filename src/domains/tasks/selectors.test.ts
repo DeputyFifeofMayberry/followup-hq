@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectOpenTaskCount, selectTaskCounts } from './selectors';
+import { normalizeTaskStatus, selectOpenTaskCount, selectTaskCounts, selectVisibleTasksForQueue } from './selectors';
 import type { TaskItem } from '../../types';
 
 function task(overrides: Partial<TaskItem>): TaskItem {
@@ -21,6 +21,13 @@ function task(overrides: Partial<TaskItem>): TaskItem {
 }
 
 describe('task selectors', () => {
+  it('normalizes legacy task statuses into canonical queue statuses', () => {
+    expect(normalizeTaskStatus('completed')).toBe('Done');
+    expect(normalizeTaskStatus('In Progress')).toBe('In progress');
+    expect(normalizeTaskStatus('on_hold')).toBe('Blocked');
+    expect(normalizeTaskStatus('open')).toBe('To do');
+  });
+
   it('counts open tasks consistently', () => {
     const tasks = [
       task({ id: 'a', status: 'To do' }),
@@ -44,5 +51,15 @@ describe('task selectors', () => {
     expect(counts.overdue).toBe(1);
     expect(counts.blocked).toBe(1);
     expect(counts.deferred).toBe(1);
+  });
+
+  it('keeps all open tasks visible in the all queue even with legacy status values', () => {
+    const tasks = [
+      task({ id: 'open-legacy', status: 'Open' as TaskItem['status'] }),
+      task({ id: 'future', dueDate: '2026-04-12T12:00:00.000Z' }),
+      task({ id: 'done-legacy', status: 'Completed' as TaskItem['status'] }),
+    ];
+    const visible = selectVisibleTasksForQueue(tasks, 'all');
+    expect(visible.map((entry) => entry.id)).toEqual(['open-legacy', 'future']);
   });
 });

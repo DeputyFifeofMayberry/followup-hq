@@ -268,13 +268,13 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             renderNowSignal={vm.getTaskSignal}
             completedToday={vm.completedToday}
             view={vm.view}
-            hasActiveNarrowing={vm.activeFilterCount > 0 || vm.view !== 'today'}
+            hasActiveNarrowing={vm.activeFilterCount > 0 || vm.view !== 'all'}
             activeFilterLabels={[
-              ...(vm.view !== 'today' ? [`Queue: ${taskViewOptions.find((option) => option.value === vm.view)?.label ?? vm.view}`] : []),
+              ...(vm.view !== 'all' ? [`Queue: ${taskViewOptions.find((option) => option.value === vm.view)?.label ?? vm.view}`] : []),
               ...vm.activeFilterChips.map((chip) => chip.label),
             ]}
             onResetFilters={() => {
-              vm.setView('today');
+              vm.setView('all');
               vm.clearSearchQuery();
               vm.resetPanelFilters();
             }}

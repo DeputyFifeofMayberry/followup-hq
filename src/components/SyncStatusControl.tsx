@@ -18,9 +18,10 @@ function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' |
 
 export function SyncStatusControl() {
   const syncMeta = useAppStore(useShallow((s) => ({
-    ...selectSyncMetaSnapshot(s),
-    dirtyRecordRefs: s.dirtyRecordRefs,
-    persistenceActivity: s.persistenceActivity,
+  ...selectSyncMetaSnapshot(s),
+  pendingBatchCount: s.pendingBatchCount,
+  dirtyRecordRefs: s.dirtyRecordRefs,
+  persistenceActivity: s.persistenceActivity,
     flushPersistenceNow: s.flushPersistenceNow,
     retryPersistenceNow: s.retryPersistenceNow,
     verifyNow: s.verifyNow,

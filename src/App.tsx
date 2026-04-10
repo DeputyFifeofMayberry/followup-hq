@@ -553,12 +553,14 @@ function MainApp({ session }: { session: Session }) {
               <div className="workspace-header-row workspace-header-row-top">
                 <div className="workspace-header-main">
                   <div className="workspace-label">{modeConfig.displayName}</div>
-                  <h1>{currentMeta.shellTitle}</h1>
+                  <div className="workspace-header-title-row">
+                    <h1>{currentMeta.shellTitle}</h1>
+                    <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                  </div>
                   <p>{currentMeta.shellPurpose.split(".")[0]}.</p>
                 </div>
-                <div className="workspace-header-meta-top">
+                <div className="workspace-header-meta-top workspace-header-ops">
                   <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-                  <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
                   <SyncStatusControl />
                   <SettingsDrawer
                     accountLabel={accountLabel}
@@ -594,7 +596,7 @@ function MainApp({ session }: { session: Session }) {
                 <details className="daily-focus-strip">
                   <summary>
                     <span className="daily-focus-label">Daily focus</span>
-                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today • {dailyFocus.nudgeFollowUps} nudge</span>
+                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today</span>
                   </summary>
                   <div className="daily-focus-actions">
                     <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>Overdue</button>

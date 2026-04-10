@@ -2,6 +2,18 @@
 
 ## 2026-04-10
 
+### Layout correction pass (balance + list-first workspace hierarchy)
+- Rebalanced shared shell/workspace spacing contracts to restore intentional hierarchy (shell, workspace, toolbar, rows, inspector), removing globally over-tight defaults and reducing conflicting compact rules (`src/styles/shell.css`, `src/styles/workspaces.css`, `src/styles/primitives.css`).
+- Reworked shared split behavior so primary work surfaces retain width priority while inspectors default narrower and stack earlier on medium viewports (`src/styles/workspaces.css`, `src/components/ui/AppPrimitives.tsx`, `src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
+- Simplified shell header focus so workspace title dominates, support controls are quieter, and daily-focus treatment no longer competes with the main title row (`src/App.tsx`, `src/styles/shell.css`, `src/styles/workspaces.css`).
+- Reduced row-sidecar pressure and inline action congestion in Tasks/Follow Ups by shrinking sidecar baselines, emphasizing title → why now → next move → one metadata line, and demoting lower-frequency actions (`src/components/tasks/TaskList.tsx`, `src/components/ControlBar.tsx`, `src/styles/workspaces.css`).
+- Rebuilt Follow Ups and Tasks top controls around a single primary toolbar row plus optional secondary options area to reduce stacked control bands and get to work rows faster (`src/components/ControlBar.tsx`, `src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`).
+- Strengthened list-first execution grammar across Follow Ups/Tasks by emphasizing queue surfaces and reducing secondary chrome competition (`src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
+- Tuned Create Work spatial behavior by reducing section-nav noise, improving full-editor grouping, and loosening medium-width readability in shared modal primitives (`src/styles/primitives.css`).
+- Reframed Intake around a clearer center workbench hierarchy with quieter support surfaces and better medium-width collapse behavior (`src/components/UniversalIntakeWorkspace.tsx`, `src/styles/workspaces.css`).
+- Reworked support tabs (Directory/Exports) to use the same balanced width strategy as execution tabs, with stronger primary content framing and quieter secondary context (`src/components/directory/DirectoryWorkspace.tsx`, `src/components/ExportWorkspace.tsx`, `src/styles/workspaces.css`).
+- Consolidated overlapping layout rules (split widths, inspector sizing, row sidecars, toolbar spacing, medium breakpoints) into stronger shared CSS contracts to reduce future “crunched + wasted” regressions (`src/styles/workspaces.css`, `src/styles/shell.css`).
+
 ### UI refinement pass (workflow calm + consistency)
 - Unified high-frequency inspect behavior across Follow Ups and Tasks around persistent right-side inspectors on desktop/laptop, with modal fallback retained for mobile only; reduced duplicate detail-surface noise in Tasks by removing extra lane header/summary chrome (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`).
 - Reduced execution-toolbar density in Follow Ups and Tasks by removing repeated queue-summary/selection noise, simplifying visible defaults, and keeping advanced controls behind quieter disclosures (`src/components/ControlBar.tsx`, `src/components/tasks/TaskToolbar.tsx`, `src/components/TaskWorkspace.tsx`).

@@ -157,7 +157,8 @@ export function TaskList({
         const isSelected = selectedTaskId === task.id;
         const metaSummary = summarizeMeta(task);
         const dueLabel = task.deferredUntil ? `Deferred until ${formatDate(task.deferredUntil)}` : task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No due date';
-        const linkedLabel = hasParent ? 'Linked to follow-up' : 'Unlinked task';
+        const linkedLabel = hasParent ? 'Linked follow-up' : 'Unlinked';
+        const urgentLabel = signal.isOverdue ? 'Overdue' : task.status === 'Blocked' ? 'Blocked' : signal.needsReview ? 'Review' : null;
 
         return (
           <button
@@ -171,11 +172,11 @@ export function TaskList({
                 <div className="scan-row-primary">{task.title}</div>
                 <div className="task-row-why-now">{signal.whyNow}</div>
                 <div className="task-row-next-move">Next move: {signal.nextMove}</div>
-                <div className="scan-row-meta">{dueLabel} • {task.project} • Owner {task.owner}{task.assigneeDisplayName ? ` • Assignee ${task.assigneeDisplayName}` : ''} • {linkedLabel}{metaSummary ? ` • ${metaSummary}` : ''}</div>
+                <div className="scan-row-meta">{dueLabel} • {task.project} • {linkedLabel}{task.assigneeDisplayName ? ` • ${task.assigneeDisplayName}` : ''}{metaSummary ? ` • ${metaSummary}` : ''}</div>
               </div>
               <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
                 <div className="scan-row-badge-cluster">
-                  {signal.isOverdue ? <Badge variant="danger">Overdue</Badge> : task.status === 'Blocked' ? <Badge variant="warn">Blocked</Badge> : signal.needsReview ? <Badge variant="warn">Review</Badge> : null}
+                  {urgentLabel ? <Badge variant={signal.isOverdue ? 'danger' : 'warn'}>{urgentLabel}</Badge> : null}
                 </div>
                 <div className="scan-row-action-cluster">
                   {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}

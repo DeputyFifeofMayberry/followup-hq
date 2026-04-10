@@ -172,7 +172,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <WorkspacePage>
-      <WorkspacePrimaryLayout inspectorWidth="390px" className="task-workspace-layout">
+      <WorkspacePrimaryLayout inspectorWidth="330px" className="task-workspace-layout">
         <section className="detail-card task-workspace-main-card">
           <TaskToolbar
           isMobileLike={isMobileLike}

@@ -143,8 +143,8 @@ export function UniversalIntakeWorkspace() {
     : [];
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="intake-workspace-shell">
+      <section className="intake-support-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">Universal Intake Workspace</div>
@@ -154,7 +154,7 @@ export function UniversalIntakeWorkspace() {
         </div>
       </section>
 
-      <section className={`rounded-2xl border-2 border-dashed p-4 transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white'}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}>
+      <section className={`intake-support-panel border-2 border-dashed transition ${dragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white'}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void onFiles(event.dataTransfer.files, 'drop'); }}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-900"><Upload className="h-4 w-4" />Drop intake sources</div>
@@ -168,7 +168,7 @@ export function UniversalIntakeWorkspace() {
         <input ref={fileInputRef} type="file" multiple accept={getIntakeFileInputAccept()} className="hidden" onChange={(event) => void onFiles(event.target.files, 'file_picker')} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-3">
+      <section className="intake-support-panel">
         <div className="mb-1 text-sm font-semibold text-slate-900">Quick paste intake</div>
         <p className="mb-2 text-xs text-slate-600">Paste meeting notes, copied email, or issue snippets. This runs through the same review pipeline.</p>
         <div className="mb-2"><input className="field-input" value={manualTitleHint} onChange={(event) => setManualTitleHint(event.target.value)} placeholder="Optional source/title hint (e.g., OAC meeting notes)" /></div>
@@ -191,7 +191,7 @@ export function UniversalIntakeWorkspace() {
 
       {feedback ? <div className={`rounded-xl border px-3 py-2 text-sm ${feedback.tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : feedback.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>{feedback.message}</div> : null}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-3">
+      <section className="intake-support-panel">
         <div className="mb-2 text-sm font-semibold text-slate-900">Batch/session lifecycle</div>
         <div className="space-y-2">
           {activeBatches.slice(0, 8).map((batch) => {
@@ -216,10 +216,10 @@ export function UniversalIntakeWorkspace() {
         </div>
       </section>
 
-      <section className="grid gap-3 lg:grid-cols-12">
-        <div className="lg:col-span-4 rounded-xl border border-slate-200 bg-white p-3">
+      <section className="intake-core-grid">
+        <div className="intake-lane-panel">
           <div className="mb-2 text-sm font-semibold text-slate-900">Review queue</div>
-          <div className="mb-2 flex flex-wrap gap-1.5">{(['ready_to_create', 'needs_correction', 'link_duplicate_review', 'reference_only'] as QueueLane[]).map((lane) => <button key={lane} className={`action-btn !px-2 !py-1 text-xs ${activeLane === lane ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setActiveLane(lane)}>{laneLabel(lane)} • {byLane[lane].length}</button>)}</div>
+          <div className="mb-2 intake-lane-tabs">{(['ready_to_create', 'needs_correction', 'link_duplicate_review', 'reference_only'] as QueueLane[]).map((lane) => <button key={lane} className={`action-btn intake-lane-tab !px-2 !py-1 text-xs ${activeLane === lane ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setActiveLane(lane)}>{laneLabel(lane)} • {byLane[lane].length}</button>)}</div>
           <div className="space-y-2 max-h-[560px] overflow-auto">{visibleCandidates.map((candidate) => <button key={candidate.id} className={`w-full rounded-xl border p-3 text-left ${selectedCandidate?.id === candidate.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white'}`} onClick={() => { setSelectedCandidateId(candidate.id); setSelectedMatchId(null); }}>
             <div className="text-sm font-semibold text-slate-900 line-clamp-2">{candidate.title || 'Untitled candidate'}</div>
             <div className="mt-1 text-xs text-slate-600">{candidateTypeLabel(candidate.candidateType)} • {Math.round(candidate.confidence * 100)}%</div>
@@ -227,7 +227,7 @@ export function UniversalIntakeWorkspace() {
           </button>)}{!visibleCandidates.length ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No records in this queue.</div> : null}</div>
         </div>
 
-        <div className="lg:col-span-5 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="intake-workbench-panel">
           <div className="mb-2 text-sm font-semibold text-slate-900">Reviewer workbench</div>
           {selectedCandidate ? <div className="space-y-3">
             <div className="grid gap-2 md:grid-cols-2">
@@ -266,7 +266,7 @@ export function UniversalIntakeWorkspace() {
           </div> : <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No record selected.</div>}
         </div>
 
-        <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="intake-source-panel">
           <div className="mb-2 text-sm font-semibold text-slate-900">Source evidence</div>
           <div className="mb-2 flex gap-1.5">{(['overview', 'preview', 'evidence', 'metadata'] as SourceTab[]).map((tab) => <button key={tab} className={`action-btn !px-2 !py-1 text-xs ${selectedSourceTab === tab ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => setSelectedSourceTab(tab)}>{tab}</button>)}</div>
           {selectedAsset ? <div className="space-y-2 text-xs">
@@ -281,7 +281,7 @@ export function UniversalIntakeWorkspace() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+      <section className="intake-support-panel text-xs text-slate-600">
         <div className="flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><CheckCircle2 className="h-3.5 w-3.5" />Batches: {intakeBatches.length}</span>
           <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1"><Info className="h-3.5 w-3.5" />Pending records: {pendingCandidates.length}</span>

@@ -36,7 +36,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
 
   return (
     <WorkspacePage>
-      <WorkspacePrimaryLayout inspectorWidth="430px">
+      <WorkspacePrimaryLayout inspectorWidth="340px">
         <div className="tracker-main-single">
           <div className="tracker-workspace-main app-shell-card">
             <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />

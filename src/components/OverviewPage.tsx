@@ -60,7 +60,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     <WorkspacePage>
       <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
 
-      <WorkspacePrimaryLayout inspectorWidth="390px" className="overview-surface-layout">
+      <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-surface-layout">
         <AppShellCard className="overview-command-center" surface="data">
           <div className="overview-toolbar-row">
             <div className="overview-toolbar-left">

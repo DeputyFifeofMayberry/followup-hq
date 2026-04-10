@@ -1,7 +1,7 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { ExecutionLaneToolbarScaffold, FilterBar, SegmentedControl } from './ui/AppPrimitives';
+import { ExecutionLaneToolbarScaffold, SegmentedControl } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { useFollowUpsViewModel } from '../domains/followups';
 
@@ -88,29 +88,23 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
 
   return (
     <div className="workspace-control-stack followup-control-stack">
-      <FilterBar>
-        <div className="followup-view-strip">
-          <SegmentedControl
-            value={PRIMARY_VIEWS.includes(vm.activeView) ? vm.activeView : 'All'}
-            onChange={vm.setActiveView}
-            ariaLabel="Follow-up views"
-            className="followup-view-segmented"
-            options={PRIMARY_VIEWS.map((view) => ({
-              value: view,
-              label: (
-                <span className="followup-view-option">
-                  <span>{view === 'All' ? 'All open' : view}</span>
-                  <strong>{view === 'All items' ? vm.viewCounts.allItems : view === 'All' ? vm.viewCounts.allOpen : view === 'Needs nudge' ? vm.viewCounts.needsNudge : view === 'At risk' ? vm.viewCounts.atRisk : view === 'Ready to close' ? vm.viewCounts.readyToClose : vm.viewCounts.closed}</strong>
-                </span>
-              ),
-            }))}
-          />
-          <select value={SECONDARY_VIEWS.includes(vm.activeView) ? vm.activeView : ''} onChange={(event) => vm.setActiveView((event.target.value || 'All') as SavedViewKey)} className="field-input !w-auto">
-            <option value="">More views</option>
-            {SECONDARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
-          </select>
-        </div>
-      </FilterBar>
+      <div className="followup-view-strip">
+        <SegmentedControl
+          value={PRIMARY_VIEWS.includes(vm.activeView) ? vm.activeView : 'All'}
+          onChange={vm.setActiveView}
+          ariaLabel="Follow-up views"
+          className="followup-view-segmented"
+          options={PRIMARY_VIEWS.map((view) => ({
+            value: view,
+            label: (
+              <span className="followup-view-option">
+                <span>{view === 'All' ? 'All open' : view}</span>
+                <strong>{view === 'All items' ? vm.viewCounts.allItems : view === 'All' ? vm.viewCounts.allOpen : view === 'Needs nudge' ? vm.viewCounts.needsNudge : view === 'At risk' ? vm.viewCounts.atRisk : view === 'Ready to close' ? vm.viewCounts.readyToClose : vm.viewCounts.closed}</strong>
+              </span>
+            ),
+          }))}
+        />
+      </div>
 
       <ExecutionLaneToolbarScaffold
         className="followup-primary-toolbar"
@@ -143,6 +137,10 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           <section className="followup-options-section">
             <h4>Filters</h4>
             <div className="followup-options-grid">
+              <select value={SECONDARY_VIEWS.includes(vm.activeView) ? vm.activeView : ''} onChange={(event) => vm.setActiveView((event.target.value || 'All') as SavedViewKey)} className="field-input">
+                <option value="">Additional queue view</option>
+                {SECONDARY_VIEWS.map((view) => <option key={view} value={view}>{view}</option>)}
+              </select>
               <select value={vm.followUpFilters.status} onChange={(event) => vm.setFollowUpFilters({ status: event.target.value as typeof vm.followUpFilters.status })} className="field-input">
                 <option value="All">All statuses</option>
                 <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>

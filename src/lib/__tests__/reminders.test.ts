@@ -36,6 +36,9 @@ function buildFollowUp(overrides: Partial<FollowUpItem>): FollowUpItem {
     owesNextAction: 'Internal',
     escalationLevel: 'None',
     cadenceDays: 3,
+    lifecycleState: 'ready',
+    dataQuality: 'valid_live',
+    provenance: { sourceType: 'quick_capture', sourceRef: 'ref', capturedAt: '2026-04-01T00:00:00.000Z' },
     ...overrides,
   };
 }
@@ -55,6 +58,9 @@ function buildTask(overrides: Partial<TaskItem>): TaskItem {
     tags: [],
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
+    lifecycleState: 'ready',
+    dataQuality: 'valid_live',
+    provenance: { sourceType: 'quick_capture', sourceRef: 'task', capturedAt: '2026-04-01T00:00:00.000Z' },
     ...overrides,
   };
 }
@@ -68,6 +74,22 @@ const nudgeFollowUp = buildFollowUp({ id: 'f-nudge', status: 'Waiting on externa
 const promisedSoonFollowUp = buildFollowUp({ id: 'f-promise', dueDate: '2026-04-15T12:00:00.000Z', promisedDate: '2026-04-10T12:00:00.000Z' });
 const deferredTask = buildTask({ id: 't-deferred', dueDate: '2026-04-10T12:00:00.000Z', deferredUntil: '2026-04-11T12:00:00.000Z' });
 const overdueTask = buildTask({ id: 't-overdue', dueDate: '2026-04-09T08:00:00.000Z' });
+const legacyReviewFollowUp = buildFollowUp({
+  id: 'f-legacy-review',
+  dueDate: '2026-04-09T04:00:00.000Z',
+  lifecycleState: 'review_required',
+  dataQuality: 'review_required',
+  reviewReasons: ['legacy_record_requires_cleanup'],
+  needsCleanup: true,
+});
+const legacyReviewTask = buildTask({
+  id: 't-legacy-review',
+  dueDate: '2026-04-09T04:00:00.000Z',
+  lifecycleState: 'review_required',
+  dataQuality: 'review_required',
+  reviewReasons: ['legacy_record_requires_cleanup'],
+  needsCleanup: true,
+});
 
 const candidates = evaluateReminderCandidates(
   [overdueFollowUp, dueTodayFollowUp, nudgeFollowUp, promisedSoonFollowUp],
@@ -82,6 +104,7 @@ assert(candidates.some((c) => c.recordId === 'f-nudge' && c.kind === 'followup_n
 assert(candidates.some((c) => c.recordId === 'f-promise' && c.kind === 'followup_promised_due_soon'), 'should detect promised soon follow-up');
 assert(candidates.some((c) => c.recordId === 't-overdue' && c.kind === 'task_overdue'), 'should detect overdue task');
 assert(!candidates.some((c) => c.recordId === 't-deferred'), 'should skip deferred task while deferred');
+assert(!evaluateReminderCandidates([legacyReviewFollowUp], [legacyReviewTask], enabledPrefs, now).length, 'review-only legacy records should not produce live reminder candidates');
 
 assert(isWithinQuietHours('2026-04-10T22:00:00.000Z', '21:00', '06:30'), 'quiet hours should include late night');
 assert(isWithinQuietHours('2026-04-11T05:30:00.000Z', '21:00', '06:30'), 'quiet hours should include early morning across midnight');
@@ -97,9 +120,14 @@ const ledger: ReminderLedgerEntry = {
 assert(!shouldDeliverReminder(dueSoon!, ledger, enabledPrefs, now), 'should cooldown duplicate due soon reminder');
 assert(shouldDeliverReminder(dueSoon!, ledger, enabledPrefs, '2026-04-10T12:30:00.000Z'), 'should allow due soon reminder after cooldown window');
 
-const attention = buildWorkspaceAttentionCounts([overdueFollowUp, dueTodayFollowUp], [overdueTask], enabledPrefs, now);
-assert(attention.followups >= 2, 'workspace followups attention should include actionable follow-up candidates');
-assert(attention.tasks >= 1, 'workspace tasks attention should include actionable task candidates');
+const attention = buildWorkspaceAttentionCounts(
+  [overdueFollowUp, dueTodayFollowUp, nudgeFollowUp, legacyReviewFollowUp],
+  [overdueTask, legacyReviewTask],
+  enabledPrefs,
+  now,
+);
+assert(attention.followups === 3, 'workspace followups attention should count unique live follow-ups only');
+assert(attention.tasks === 1, 'workspace tasks attention should count unique live tasks only');
 assert(attention.worklist === attention.followups + attention.tasks, 'worklist attention should be sum of followups and tasks');
 
 const legacyPrefsPayload: Record<string, never> | undefined = undefined;

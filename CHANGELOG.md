@@ -2,6 +2,12 @@
 
 ## 2026-04-10
 
+### Ghost attention-count fix + safe legacy hydration repair
+- Fixed the remaining ghost-count trust gap where legacy review-required follow-ups/tasks could inflate workspace attention counts even when those records were excluded from live Follow Ups/Tasks/Overview lanes: reminder candidate evaluation now gates records through execution-readiness before they can contribute to live attention counts (`src/lib/reminders.ts`).
+- Aligned nav attention math to live-lane semantics by counting unique actionable records (per follow-up/task id) instead of raw reminder-candidate rows, preventing multi-signal duplication and ensuring sidebar counts map to visible live entries (`src/lib/reminders.ts`).
+- Added a safe hydration-time legacy repair path for pre-fix manual records that are business-valid but metadata-legacy-shaped (missing lifecycle/data-quality/provenance or legacy manual provenance marker): these now get repaired to valid live metadata (`lifecycleState: ready`, `dataQuality: valid_live`, cleanup/review cleared, migration provenance stamped) while records with real business integrity gaps still remain review-required (`src/domains/records/integrity.ts`, `src/store/slices/metaSlice.ts`).
+- Added regression coverage for both domains (follow-ups + tasks): review-only legacy records no longer affect live reminder/attention counts, execution-ready records still count, and repairable legacy records are safely promoted while genuinely invalid legacy records remain in cleanup/review (`src/lib/__tests__/reminders.test.ts`, `src/lib/__tests__/recordIntegrity.test.ts`).
+
 ### Overview → Follow Ups record-open handoff visibility fix
 - Fixed the remaining cross-workspace Follow Ups visibility bug where opening a specific follow-up from Overview could immediately hide the selected record by applying queue-style narrowing (`Needs nudge` + project scope); record-open handoffs now force a neutral follow-up lane scope (`All` view + `All` project) so the routed follow-up stays visible and selectable (`src/store/slices/executionViewSlice.ts`, `src/components/OverviewPage.tsx`).
 - Preserved intentional queue-context behavior for true section opens (for example triage queue routes still narrow the lane and can apply project scope when requested), while adding the same record-open vs section-open guard for Tasks so direct task opens are not accidentally constrained by section filters (`src/store/slices/executionViewSlice.ts`).

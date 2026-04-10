@@ -18,6 +18,10 @@ export interface IntegrityResult {
   dataQuality: 'valid_live' | 'review_required' | 'draft';
 }
 
+function hasLegacyExecutionShape(record: Pick<FollowUpItem | TaskItem, 'lifecycleState' | 'dataQuality' | 'provenance'>): boolean {
+  return !record.lifecycleState || !record.dataQuality || !record.provenance || record.provenance.sourceType === 'manual';
+}
+
 function resolveProject(projectId: string | undefined, projectName: string | undefined, projects: ProjectRecord[]): ProjectRecord | undefined {
   if (projectId) {
     const direct = projects.find((project) => project.id === projectId);
@@ -69,9 +73,71 @@ function withLegacyReasonIfNeeded(
   reasons: RecordIntegrityReason[],
   record: Pick<FollowUpItem | TaskItem, 'lifecycleState' | 'dataQuality' | 'provenance'>,
 ): RecordIntegrityReason[] {
-  const hasLegacyShape = !record.lifecycleState || !record.dataQuality || !record.provenance || record.provenance.sourceType === 'manual';
+  const hasLegacyShape = hasLegacyExecutionShape(record);
   if (!hasLegacyShape) return reasons;
   return reasons.includes('legacy_record_requires_cleanup') ? reasons : [...reasons, 'legacy_record_requires_cleanup'];
+}
+
+function normalizeLegacyProvenance(
+  provenance: FollowUpItem['provenance'] | TaskItem['provenance'] | undefined,
+  sourceRef: string | undefined,
+  fallbackRef: string,
+): NonNullable<FollowUpItem['provenance']> {
+  if (provenance && provenance.sourceType !== 'manual') {
+    return {
+      ...provenance,
+      sourceRef: provenance.sourceRef || sourceRef || fallbackRef,
+      capturedAt: provenance.capturedAt || todayIso(),
+    };
+  }
+  return {
+    sourceType: 'migration',
+    sourceRef: provenance?.sourceRef || sourceRef || fallbackRef,
+    capturedAt: provenance?.capturedAt || todayIso(),
+    sourceBatchId: provenance?.sourceBatchId,
+  };
+}
+
+export function repairLegacyFollowUpForHydration(item: FollowUpItem, projects: ProjectRecord[]): FollowUpItem {
+  const linkedProject = resolveProject(item.projectId, item.project, projects);
+  const hasBusinessIntegrityIssue = [
+    ...projectReasons(linkedProject, item.project),
+    ...ownerReasons(item.owner),
+    ...provenanceReasons(item.sourceRef),
+  ].length > 0;
+  if (hasBusinessIntegrityIssue || !hasLegacyExecutionShape(item)) return item;
+  return {
+    ...item,
+    projectId: linkedProject?.id ?? item.projectId,
+    project: linkedProject?.name ?? item.project,
+    lifecycleState: 'ready',
+    dataQuality: 'valid_live',
+    reviewReasons: [],
+    invalidReason: undefined,
+    needsCleanup: false,
+    provenance: normalizeLegacyProvenance(item.provenance, item.sourceRef, item.id),
+  };
+}
+
+export function repairLegacyTaskForHydration(task: TaskItem, projects: ProjectRecord[]): TaskItem {
+  const linkedProject = resolveProject(task.projectId, task.project, projects);
+  const hasBusinessIntegrityIssue = [
+    ...projectReasons(linkedProject, task.project),
+    ...ownerReasons(task.owner),
+    ...provenanceReasons(task.provenance?.sourceRef || task.summary),
+  ].length > 0;
+  if (hasBusinessIntegrityIssue || !hasLegacyExecutionShape(task)) return task;
+  return {
+    ...task,
+    projectId: linkedProject?.id ?? task.projectId,
+    project: linkedProject?.name ?? task.project,
+    lifecycleState: 'ready',
+    dataQuality: 'valid_live',
+    reviewReasons: [],
+    invalidReason: undefined,
+    needsCleanup: false,
+    provenance: normalizeLegacyProvenance(task.provenance, task.provenance?.sourceRef || task.summary, task.id),
+  };
 }
 
 export function enforceFollowUpIntegrity(item: FollowUpItem, projects: ProjectRecord[]): FollowUpItem {

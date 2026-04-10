@@ -22,6 +22,18 @@ const taskViewOptions = [
   { value: 'all' as const, label: 'All open' },
 ];
 
+const queueIntentByView: Record<(typeof taskViewOptions)[number]['value'], string> = {
+  today: 'Immediate execution queue: due work plus ready unscheduled tasks that can move now.',
+  overdue: 'Pressure-removal queue: late commitments that need a recovery move and clear owner.',
+  upcoming: 'Look-ahead queue: near-term tasks due this week to keep delivery smooth.',
+  blocked: 'Unblock queue: work that cannot progress until constraints are removed.',
+  review: 'Trust cleanup queue: task integrity needs repair before confident execution.',
+  deferred: 'Re-entry queue: snoozed work that should be intentionally reactivated.',
+  unlinked: 'Coverage queue: tasks missing a parent follow-up linkage and context.',
+  recent: 'Momentum queue: tasks completed today to confirm execution progress.',
+  all: 'Full open workload queue across all active execution states.',
+};
+
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const vm = useTasksViewModel({ personalMode });
   const { isMobileLike } = useViewportBand();
@@ -170,6 +182,15 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due tomorrow.` });
   }, [vm]);
 
+  const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
+  const queueIntent = queueIntentByView[vm.view];
+  const queueStats = [
+    { label: 'Open', value: vm.taskSummary.open, tone: 'default' },
+    { label: 'Overdue', value: vm.taskSummary.overdue, tone: vm.taskSummary.overdue > 0 ? 'danger' : 'default' },
+    { label: 'Blocked', value: vm.taskSummary.blocked, tone: vm.taskSummary.blocked > 0 ? 'warn' : 'default' },
+    { label: 'Review needed', value: vm.taskSummary.reviewRequired, tone: vm.taskSummary.reviewRequired > 0 ? 'warn' : 'default' },
+  ];
+
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
@@ -178,6 +199,26 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           className={`task-workspace-layout ${!isMobileLike && taskDetailOpen && vm.selectedTask ? '' : 'workspace-primary-layout-collapsed'}`.trim()}
         >
           <ExecutionLaneQueueCard className="task-workspace-main-card">
+            <section className="task-queue-summary-strip" aria-label="Task queue summary">
+              <div className="task-queue-summary-head">
+                <div className="task-queue-summary-kicker">{activeQueueLabel}</div>
+                <p className="task-queue-summary-text">{queueIntent}</p>
+                <p className="task-queue-summary-subtext">{vm.queueSummary}</p>
+              </div>
+              <div className="task-queue-summary-stats">
+                {queueStats.map((stat) => (
+                  <div key={stat.label} className={`task-queue-summary-chip ${stat.tone !== 'default' ? `task-queue-summary-chip-${stat.tone}` : ''}`.trim()}>
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                  </div>
+                ))}
+                <div className="task-queue-summary-chip task-queue-summary-chip-muted">
+                  <span>Done today</span>
+                  <strong>{vm.completedToday.length}</strong>
+                </div>
+              </div>
+            </section>
+
             <TaskToolbar
             isMobileLike={isMobileLike}
             searchQuery={vm.searchQuery}
@@ -215,6 +256,22 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onResetFilters={vm.resetPanelFilters}
           />
 
+            <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'}`.trim()}>
+              {vm.activeFilterChips.length > 0 ? (
+                <>
+                  {vm.activeFilterChips.map((chip) => (
+                    <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
+                      {chip.label}
+                      <span aria-hidden>×</span>
+                    </button>
+                  ))}
+                  <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={vm.resetPanelFilters}>Clear all filters</button>
+                </>
+              ) : (
+                <span className="task-sort-summary">No active filters. {vm.sortSummary || 'Sorted by due date.'}</span>
+              )}
+            </div>
+
             <TaskList
             filteredTasks={vm.filteredTasks}
             selectedTaskId={vm.selectedTask?.id ?? null}
@@ -231,6 +288,8 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onQuickAdd={handleQuickAdd}
             getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
             renderNowSignal={vm.getTaskSignal}
+            completedToday={vm.completedToday}
+            view={vm.view}
           />
 
           </ExecutionLaneQueueCard>

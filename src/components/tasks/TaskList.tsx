@@ -23,6 +23,8 @@ type QuickCapturePayload = {
 
 type TaskListProps = {
   filteredTasks: TaskItem[];
+  completedToday: TaskItem[];
+  view: 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
   selectedTaskId: string | null;
   laneFeedback: { tone: 'success' | 'warn'; message: string } | null;
   projectOptions: string[];
@@ -48,6 +50,8 @@ function summarizeMeta(task: TaskItem) {
 
 export function TaskList({
   filteredTasks,
+  completedToday,
+  view,
   selectedTaskId,
   laneFeedback,
   projectOptions,
@@ -194,6 +198,18 @@ export function TaskList({
           </button>
         );
       })}
+
+      {view !== 'recent' && completedToday.length > 0 ? (
+        <section className="task-completed-today-section" aria-label="Completed today">
+          <div className="task-completed-today-header">Momentum today · {completedToday.length} done</div>
+          {completedToday.slice(0, 3).map((task) => (
+            <div key={task.id} className="task-completed-today-row">
+              <span className="task-completed-today-title">{task.title}</span>
+              <span className="task-completed-today-meta">{task.project}</span>
+            </div>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

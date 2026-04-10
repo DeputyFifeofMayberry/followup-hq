@@ -23,16 +23,17 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
   const [hiddenIntentNotice, setHiddenIntentNotice] = useState<{ recordId: string } | null>(null);
 
   useEffect(() => {
-    if (vm.executionIntent?.target !== 'followups') return;
-    if (vm.executionIntent.recordType === 'followup' && vm.executionIntent.recordId) {
-      const visibleInCurrentLane = vm.filteredRows.some((row) => row.id === vm.executionIntent.recordId);
-      vm.setSelectedId(vm.executionIntent.recordId);
+    const intent = vm.executionIntent;
+    if (!intent || intent.target !== 'followups') return;
+    if (intent.recordType === 'followup' && intent.recordId) {
+      const visibleInCurrentLane = vm.filteredRows.some((row) => row.id === intent.recordId);
+      vm.setSelectedId(intent.recordId);
       if (visibleInCurrentLane) {
         setDetailModalOpen(true);
         setHiddenIntentNotice(null);
       } else {
         setDetailModalOpen(false);
-        setHiddenIntentNotice({ recordId: vm.executionIntent.recordId });
+        setHiddenIntentNotice({ recordId: intent.recordId });
       }
     }
     vm.clearExecutionIntent();

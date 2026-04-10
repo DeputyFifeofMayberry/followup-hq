@@ -2,6 +2,10 @@
 
 ## 2026-04-10
 
+### Follow Ups reset-options root-cause consistency cleanup
+- Fixed the remaining Follow Ups trust gap where the Options panel footer **Reset options** action only reset persisted advanced filters while leaving search text and secondary queue view narrowing active; the footer now uses the same full row-affecting reset path as the chip row and empty-state reset actions (`search` cleared, `activeView` reset to `All`, and advanced follow-up filters reset to defaults) without touching presentation-only layout controls (`src/components/ControlBar.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`).
+- Added regression checks for the shared row-affecting reset helper to verify it clears search/view/filter narrowing and that rows hidden by combined narrowing become visible again after reset defaults are applied (`src/domains/followups/__tests__/useFollowUpsViewModel.resetAllRowAffectingOptions.test.ts`).
+
 ### Follow Ups filter-trust visibility + empty-state reliability fix
 - Fixed the Follow Ups lane trust gap where persisted row filters/search/view narrowing could hide records with no clear explanation by introducing explicit active filter chips (including secondary queue view + search + all row-affecting advanced filters), one-click per-chip removal, and a top-level **Reset all filters** action directly above the queue table (`src/components/ControlBar.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`, `src/styles/workspaces.css`).
 - Corrected `Options (n)` semantics so it now reflects only true row-affecting narrowing (including search and secondary queue view) and no longer counts presentation-only controls like table density/column visibility (`src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`).

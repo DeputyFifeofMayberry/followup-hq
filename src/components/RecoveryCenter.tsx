@@ -4,6 +4,7 @@ import { formatDateTime } from '../lib/utils';
 import type { VerificationMismatch } from '../lib/persistenceVerification';
 
 export type RecoveryFilter = 'all' | 'entity' | 'category';
+const TIMESTAMP_DRIFT_CATEGORIES = new Set(['newer_locally', 'newer_in_cloud']);
 
 interface RecoveryCenterProps {
   open: boolean;
@@ -29,14 +30,35 @@ export function RecoveryCenter(props: RecoveryCenterProps) {
   const [filterValue, setFilterValue] = useState<string>('all');
   const [selectedMismatchId, setSelectedMismatchId] = useState<string | null>(null);
 
+  const trueMismatches = useMemo(
+    () => props.mismatchList.filter((mismatch) => mismatch.category !== 'verification_read_failed' && !TIMESTAMP_DRIFT_CATEGORIES.has(mismatch.category)),
+    [props.mismatchList],
+  );
+  const timestampDriftDiagnostics = useMemo(
+    () => props.mismatchList.filter((mismatch) => TIMESTAMP_DRIFT_CATEGORIES.has(mismatch.category)),
+    [props.mismatchList],
+  );
+  const trueMismatchCountsByCategory = useMemo(
+    () => Object.fromEntries(
+      Object.entries(props.mismatchCountsByCategory).filter(([category, count]) => count > 0 && !TIMESTAMP_DRIFT_CATEGORIES.has(category)),
+    ),
+    [props.mismatchCountsByCategory],
+  );
+  const trueMismatchCountsByEntity = useMemo(() => {
+    const counts: Record<string, number> = {};
+    trueMismatches.forEach((mismatch) => {
+      counts[mismatch.entity] = (counts[mismatch.entity] ?? 0) + 1;
+    });
+    return counts;
+  }, [trueMismatches]);
   const filtered = useMemo(() => {
-    if (filterType === 'entity' && filterValue !== 'all') return props.mismatchList.filter((mismatch) => mismatch.entity === filterValue);
-    if (filterType === 'category' && filterValue !== 'all') return props.mismatchList.filter((mismatch) => mismatch.category === filterValue);
-    return props.mismatchList;
-  }, [filterType, filterValue, props.mismatchList]);
+    if (filterType === 'entity' && filterValue !== 'all') return trueMismatches.filter((mismatch) => mismatch.entity === filterValue);
+    if (filterType === 'category' && filterValue !== 'all') return trueMismatches.filter((mismatch) => mismatch.category === filterValue);
+    return trueMismatches;
+  }, [filterType, filterValue, trueMismatches]);
 
   const selected = filtered.find((mismatch) => mismatch.id === selectedMismatchId) ?? filtered[0] ?? null;
-  const trueMismatchCount = props.mismatchList.filter((mismatch) => mismatch.category !== 'verification_read_failed').length;
+  const trueMismatchCount = trueMismatches.length;
 
   if (!props.open) return null;
 
@@ -79,14 +101,17 @@ export function RecoveryCenter(props: RecoveryCenterProps) {
           {filterType !== 'all' ? (
             <select className="field-input" value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
               <option value="all">All</option>
-              {Object.keys(filterType === 'entity' ? props.mismatchCountsByEntity : props.mismatchCountsByCategory).map((key) => (
+              {Object.keys(filterType === 'entity' ? trueMismatchCountsByEntity : trueMismatchCountsByCategory).map((key) => (
                 <option key={key} value={key}>{key}</option>
               ))}
             </select>
           ) : null}
         </div>
-        <div className="sync-status-row-detail">By category: {Object.entries(props.mismatchCountsByCategory).filter(([, count]) => count > 0).map(([key, count]) => `${key} (${count})`).join('; ') || 'none'}</div>
-        <div className="sync-status-row-detail">By entity: {Object.entries(props.mismatchCountsByEntity).filter(([, count]) => count > 0).map(([key, count]) => `${key} (${count})`).join('; ') || 'none'}</div>
+        <div className="sync-status-row-detail">By category: {Object.entries(trueMismatchCountsByCategory).map(([key, count]) => `${key} (${count})`).join('; ') || 'none'}</div>
+        <div className="sync-status-row-detail">By entity: {Object.entries(trueMismatchCountsByEntity).map(([key, count]) => `${key} (${count})`).join('; ') || 'none'}</div>
+        {timestampDriftDiagnostics.length > 0 ? (
+          <div className="sync-status-row-detail">Informational: {timestampDriftDiagnostics.length} record{timestampDriftDiagnostics.length === 1 ? '' : 's'} had timestamp drift while canonical content matched.</div>
+        ) : null}
       </div>
 
       <div className="sync-status-row">

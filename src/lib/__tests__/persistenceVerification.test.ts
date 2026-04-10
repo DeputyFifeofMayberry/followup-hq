@@ -165,6 +165,53 @@ async function testTimestampOnlyDriftIsInformational(): Promise<void> {
   assert(result.summary.mismatchCountsByCategory.newer_in_cloud === 1, 'cloud-newer timestamp drift should remain in diagnostics');
 }
 
+async function testTimestampDriftLocalNewerOnlyStillVerifies(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, updatedAt: '2026-04-06T09:55:00.000Z' });
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'local-newer timestamp drift with digest parity should verify');
+  assert(result.summary.mismatchCount === 0, 'local-newer timestamp drift with digest parity should not count as mismatch');
+}
+
+async function testTimestampDriftCloudNewerOnlyStillVerifies(): Promise<void> {
+  const local = payload();
+  local.projects = [{ ...local.projects[0], updatedAt: '2026-04-06T09:55:00.000Z' } as any];
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, updatedAt: '2026-04-06T10:20:00.000Z' });
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'cloud-newer timestamp drift with digest parity should verify');
+  assert(result.summary.mismatchCount === 0, 'cloud-newer timestamp drift with digest parity should not count as mismatch');
+}
+
+async function testIncidentPatternTwoProjectTimestampDriftsVerifies(): Promise<void> {
+  const local = payload();
+  local.projects = [
+    { ...local.projects[0], id: 'project-1', name: 'Project One', updatedAt: '2026-04-06T12:00:00.000Z' } as any,
+    { ...local.projects[0], id: 'project-2', name: 'Project Two', updatedAt: '2026-04-06T12:05:00.000Z' } as any,
+  ];
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.entities.projects.set('project-1', { ...cloud.entities.projects.get('project-1')!, updatedAt: '2026-04-06T11:59:00.000Z' });
+  cloud.entities.projects.set('project-2', { ...cloud.entities.projects.get('project-2')!, updatedAt: '2026-04-06T12:07:00.000Z' });
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'incident regression: two project records with timestamp-only drift must verify');
+  assert(result.summary.mismatchCount === 0, 'incident regression: timestamp-only drift must not count as mismatch');
+  assert(result.summary.timestampDriftCount === 2, `incident regression: expected two timestamp-drift diagnostics, got ${result.summary.timestampDriftCount}`);
+  assert(Object.keys(result.summary.mismatchCountsByEntity).length === 0, 'incident regression: drift-only runs should not inflate mismatch-by-entity diagnostics');
+}
+
 async function testTimestampDriftDoesNotHideTrueContentMismatch(): Promise<void> {
   const local = payload();
   const cloud = cloudSnapshotFromPayload(local);
@@ -380,6 +427,9 @@ function testCompareEntityCollectionsHelper(): void {
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();
   await testTimestampOnlyDriftIsInformational();
+  await testTimestampDriftLocalNewerOnlyStillVerifies();
+  await testTimestampDriftCloudNewerOnlyStillVerifies();
+  await testIncidentPatternTwoProjectTimestampDriftsVerifies();
   await testTimestampDriftDoesNotHideTrueContentMismatch();
   await testAuxAndSchemaMismatchAndReadFailure();
   await testAuxiliaryCanonicalDefaultsDoNotMismatch();

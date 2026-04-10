@@ -51,6 +51,19 @@ export function SyncStatusControl() {
     : 'Continue saving locally. Cloud trust recovery requires cloud-backed mode.';
   const verificationReadFailureKind = syncMeta.verificationSummary?.verificationReadFailureKind;
   const timestampDriftCount = syncMeta.verificationSummary?.timestampDriftCount ?? 0;
+  const trueMismatchCategorySummary = useMemo(
+    () => Object.entries(syncMeta.verificationSummary?.mismatchCountsByCategory ?? {})
+      .filter(([category, count]) => count > 0 && category !== 'newer_locally' && category !== 'newer_in_cloud'),
+    [syncMeta.verificationSummary?.mismatchCountsByCategory],
+  );
+  const trueMismatchEntitySummary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (syncMeta.latestVerificationResult?.mismatches ?? []).forEach((mismatch) => {
+      if (mismatch.category === 'verification_read_failed' || mismatch.category === 'newer_locally' || mismatch.category === 'newer_in_cloud') return;
+      counts[mismatch.entity] = (counts[mismatch.entity] ?? 0) + 1;
+    });
+    return Object.entries(counts);
+  }, [syncMeta.latestVerificationResult?.mismatches]);
   const verificationResultLabel = syncMeta.verificationSummary?.verified
     ? timestampDriftCount > 0
       ? `matched current cloud state (${timestampDriftCount} timestamp drift record${timestampDriftCount === 1 ? '' : 's'}, content matched)`
@@ -325,8 +338,11 @@ export function SyncStatusControl() {
                 <div className="sync-status-row-detail">
                   Verification result: {verificationResultLabel}.
                 </div>
-                <div className="sync-status-row-detail">Mismatch counts by category: {Object.entries(syncMeta.verificationSummary.mismatchCountsByCategory).filter(([, count]) => count > 0).map(([category, count]) => `${category} (${count})`).join('; ') || 'none'}</div>
-                <div className="sync-status-row-detail">Mismatch counts by entity: {Object.entries(syncMeta.verificationSummary.mismatchCountsByEntity).map(([entity, count]) => `${entity} (${count})`).join('; ') || 'none'}</div>
+                <div className="sync-status-row-detail">Mismatch counts by category: {trueMismatchCategorySummary.map(([category, count]) => `${category} (${count})`).join('; ') || 'none'}</div>
+                <div className="sync-status-row-detail">Mismatch counts by entity: {trueMismatchEntitySummary.map(([entity, count]) => `${entity} (${count})`).join('; ') || 'none'}</div>
+                {timestampDriftCount > 0 ? (
+                  <div className="sync-status-row-detail">Informational timestamp drift only: {timestampDriftCount} record{timestampDriftCount === 1 ? '' : 's'} had differing updated timestamps while canonical content matched.</div>
+                ) : null}
                 {syncMeta.verificationSummary.verificationReadFailed ? (
                   <div className="sync-status-row-detail">
                     {verificationDiagnosticLabel}: kind {syncMeta.verificationSummary.verificationReadFailureKind ?? 'unknown'} • stage {syncMeta.verificationSummary.verificationReadFailureStage ?? 'unknown'} • attempts {syncMeta.verificationSummary.verificationReadAttempts}

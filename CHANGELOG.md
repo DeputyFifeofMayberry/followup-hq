@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Create Work modal hidden-nav shell regression follow-up
+- Reverted the broad shell split introduced in PR #210 by restoring `create-work-full-shell` as the default two-column grid contract and adding only a narrow `create-work-full-shell-nav-hidden` modifier for the hidden-nav state in `CreateWorkModal`, preventing phantom left-rail placement without changing shared editor sizing behavior (`src/components/CreateWorkModal.tsx`, `src/styles/primitives.css`).
+- Removed the temporary shell variant classes (`create-work-full-shell-with-nav` / `create-work-full-shell-no-nav`) and backed out added full-width/self-stretch rules from `.create-work-full-editor`, keeping the fix local to nav-hidden layout intent while preserving existing responsive modal primitives (`src/styles/primitives.css`).
+- Updated UI contract coverage to assert the new default-plus-modifier class contract and CSS override so hidden-nav behavior stays protected with a narrower regression guard (`scripts/ui-contract-check.mjs`).
+
 ### Create Work modal full-editor no-nav layout contract fix
 - Fixed the root layout contract in `CreateWorkModal` so full-editor rendering now explicitly chooses between a two-column shell (`create-work-full-shell-with-nav`) when the section nav is shown and a single-column shell (`create-work-full-shell-no-nav`) when advanced/nav is hidden, preventing the editor from being auto-placed into a phantom narrow left rail (`src/components/CreateWorkModal.tsx`).
 - Updated modal primitive CSS to move grid-column behavior into explicit shell variants and strengthened `.create-work-full-editor` stretch behavior (`min-width: 0`, full-width/self-stretch) so the editor reliably uses modal width without intrinsic-column collapse when nav is absent (`src/styles/primitives.css`).

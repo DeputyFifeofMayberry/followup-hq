@@ -359,6 +359,10 @@ export function CreateWorkModal() {
   const deferredTask = mode === 'task' && Boolean(taskForm.deferredUntil);
 
   const quickMode = editorMode === 'quick' && creating;
+  const showSectionNav = !quickMode && showAdvanced;
+  const fullEditorShellClassName = showSectionNav
+    ? 'create-work-full-shell create-work-full-shell-with-nav'
+    : 'create-work-full-shell create-work-full-shell-no-nav';
   const summaryMessage = quickMode
     ? 'Quick create captures only the essentials.'
     : 'Full editor keeps all context and tracking fields.';
@@ -515,10 +519,10 @@ export function CreateWorkModal() {
               </section>
             </div>
           ) : (
-            <div className="create-work-full-shell">
-              {showAdvanced ? (
+            <div className={fullEditorShellClassName}>
+              {showSectionNav ? (
                 <nav className="create-work-section-nav" aria-label="Form sections">
-                  {SECTION_LABELS.filter((section) => showAdvanced || (section.key !== 'relationships' && section.key !== 'notes' && section.key !== 'advanced')).map((section) => (
+                  {SECTION_LABELS.map((section) => (
                     <button
                       key={section.key}
                       type="button"

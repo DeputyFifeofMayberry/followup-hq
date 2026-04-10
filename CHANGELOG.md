@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Create Work modal full-editor no-nav layout contract fix
+- Fixed the root layout contract in `CreateWorkModal` so full-editor rendering now explicitly chooses between a two-column shell (`create-work-full-shell-with-nav`) when the section nav is shown and a single-column shell (`create-work-full-shell-no-nav`) when advanced/nav is hidden, preventing the editor from being auto-placed into a phantom narrow left rail (`src/components/CreateWorkModal.tsx`).
+- Updated modal primitive CSS to move grid-column behavior into explicit shell variants and strengthened `.create-work-full-editor` stretch behavior (`min-width: 0`, full-width/self-stretch) so the editor reliably uses modal width without intrinsic-column collapse when nav is absent (`src/styles/primitives.css`).
+- Added UI contract regression checks that assert the full-editor nav/no-nav class-state contract and the corresponding CSS shell variants so this specific crammed-left-column bug is guarded against future regressions (`scripts/ui-contract-check.mjs`).
+
 ### Tasks lane queue-intelligence visibility upgrade
 - Surfaced lane-level task intelligence directly in the Tasks workspace with a compact queue summary strip that now states the active queue intent, includes the derived queue summary text, and highlights high-signal pressure counts (`Open`, `Overdue`, `Blocked`, `Review needed`, `Done today`) so users can immediately understand queue purpose and pressure before scanning rows (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`).
 - Added always-visible active filter chips under the toolbar with one-click removal per chip plus a clear-all action, making narrowing conditions explicit instead of hidden in the options panel and keeping toolbar/list state tightly connected (`src/components/TaskWorkspace.tsx`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/styles/workspaces.css`).

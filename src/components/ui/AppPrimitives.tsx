@@ -75,6 +75,10 @@ export function WorkspacePage({ children, className = '' }: PropsWithChildren<{ 
   return <div className={`workspace-page workspace-page-contract ${className}`.trim()}>{children}</div>;
 }
 
+export function WorkspaceContentFrame({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`workspace-content-frame ${className}`.trim()}>{children}</div>;
+}
+
 export function WorkspaceSummaryStrip({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <AppShellCard className={`workspace-summary-strip ${className}`.trim()} surface="hero">{children}</AppShellCard>;
 }

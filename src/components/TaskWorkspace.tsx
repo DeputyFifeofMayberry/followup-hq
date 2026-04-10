@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
-import { ExecutionLaneInspectorCard, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import { ExecutionLaneInspectorCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -172,90 +172,92 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <WorkspacePage>
-      <WorkspacePrimaryLayout inspectorWidth="330px" className="task-workspace-layout">
-        <section className="detail-card task-workspace-main-card">
-          <TaskToolbar
-          isMobileLike={isMobileLike}
-          searchQuery={vm.searchQuery}
-          onSearchQueryChange={vm.setSearchQuery}
-          onClearSearch={vm.clearSearchQuery}
-          view={vm.view}
-          onViewChange={vm.setView}
-          taskViewOptions={taskViewOptions}
-          viewOptionsOpen={viewOptionsOpen}
-          onToggleViewOptions={() => setViewOptionsOpen((prev) => !prev)}
-          onOpenCreateTaskModal={vm.openCreateTaskModal}
-          activeFilterCount={vm.activeFilterCount}
-          personalMode={personalMode}
-          projectFilter={vm.projectFilter}
-          projectOptions={vm.projectOptions}
-          onProjectFilterChange={vm.setProjectFilter}
-          assigneeFilter={vm.assigneeFilter}
-          assignees={vm.assigneeOptions}
-          onAssigneeFilterChange={vm.setAssigneeFilter}
-          taskOwnerFilter={vm.taskOwnerFilter}
-          owners={vm.ownerOptions}
-          onTaskOwnerFilterChange={vm.setTaskOwnerFilter}
-          taskStatusFilter={vm.taskStatusFilter}
-          onTaskStatusFilterChange={vm.setTaskStatusFilter}
-          linkedFilter={vm.linkedFilter}
-          onLinkedFilterChange={vm.setLinkedFilter}
-          timingFilter={vm.timingFilter}
-          onTimingFilterChange={vm.setTimingFilter}
-          stateFilter={vm.stateFilter}
-          onStateFilterChange={vm.setStateFilter}
-          priorityFilter={vm.priorityFilter}
-          onPriorityFilterChange={vm.setPriorityFilter}
-          sortBy={vm.sortBy}
-          onSortByChange={vm.setSortBy}
-          onResetFilters={vm.resetPanelFilters}
-        />
+      <WorkspaceContentFrame>
+        <WorkspacePrimaryLayout inspectorWidth="330px" className="task-workspace-layout">
+          <section className="detail-card task-workspace-main-card">
+            <TaskToolbar
+            isMobileLike={isMobileLike}
+            searchQuery={vm.searchQuery}
+            onSearchQueryChange={vm.setSearchQuery}
+            onClearSearch={vm.clearSearchQuery}
+            view={vm.view}
+            onViewChange={vm.setView}
+            taskViewOptions={taskViewOptions}
+            viewOptionsOpen={viewOptionsOpen}
+            onToggleViewOptions={() => setViewOptionsOpen((prev) => !prev)}
+            onOpenCreateTaskModal={vm.openCreateTaskModal}
+            activeFilterCount={vm.activeFilterCount}
+            personalMode={personalMode}
+            projectFilter={vm.projectFilter}
+            projectOptions={vm.projectOptions}
+            onProjectFilterChange={vm.setProjectFilter}
+            assigneeFilter={vm.assigneeFilter}
+            assignees={vm.assigneeOptions}
+            onAssigneeFilterChange={vm.setAssigneeFilter}
+            taskOwnerFilter={vm.taskOwnerFilter}
+            owners={vm.ownerOptions}
+            onTaskOwnerFilterChange={vm.setTaskOwnerFilter}
+            taskStatusFilter={vm.taskStatusFilter}
+            onTaskStatusFilterChange={vm.setTaskStatusFilter}
+            linkedFilter={vm.linkedFilter}
+            onLinkedFilterChange={vm.setLinkedFilter}
+            timingFilter={vm.timingFilter}
+            onTimingFilterChange={vm.setTimingFilter}
+            stateFilter={vm.stateFilter}
+            onStateFilterChange={vm.setStateFilter}
+            priorityFilter={vm.priorityFilter}
+            onPriorityFilterChange={vm.setPriorityFilter}
+            sortBy={vm.sortBy}
+            onSortByChange={vm.setSortBy}
+            onResetFilters={vm.resetPanelFilters}
+          />
 
-          <TaskList
-          filteredTasks={vm.filteredTasks}
-          selectedTaskId={vm.selectedTask?.id ?? null}
-          laneFeedback={laneFeedback}
-          projectOptions={vm.projectOptions}
-          ownerOptions={vm.ownerOptions}
-          assigneeOptions={vm.assigneeOptions}
-          quickCaptureDefaults={vm.quickCaptureDefaults}
-          onSelectTask={handleSelectTask}
-          onDoneTask={handleDoneTask}
-          onSetDueToday={setDueToday}
-          onSetDueTomorrow={setDueTomorrow}
-          onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
-          onQuickAdd={handleQuickAdd}
-          getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
-          renderNowSignal={vm.getTaskSignal}
-        />
+            <TaskList
+            filteredTasks={vm.filteredTasks}
+            selectedTaskId={vm.selectedTask?.id ?? null}
+            laneFeedback={laneFeedback}
+            projectOptions={vm.projectOptions}
+            ownerOptions={vm.ownerOptions}
+            assigneeOptions={vm.assigneeOptions}
+            quickCaptureDefaults={vm.quickCaptureDefaults}
+            onSelectTask={handleSelectTask}
+            onDoneTask={handleDoneTask}
+            onSetDueToday={setDueToday}
+            onSetDueTomorrow={setDueTomorrow}
+            onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
+            onQuickAdd={handleQuickAdd}
+            getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
+            renderNowSignal={vm.getTaskSignal}
+          />
 
-        </section>
+          </section>
 
-        {!isMobileLike && taskDetailOpen && vm.selectedTask ? (
-          <ExecutionLaneInspectorCard>
-            <TaskInspectorModal
-              open={taskDetailOpen}
-              presentation="panel"
-              selectedTask={vm.selectedTask}
-              linkedFollowUp={vm.linkedFollowUpForSelected}
-              linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
-              linkedParentRollup={vm.linkedParentRollup}
-              linkedParentCloseout={vm.linkedParentCloseout}
-              recommendedAction={vm.recommendedAction}
-              ownerOptions={vm.ownerOptions}
-              assigneeOptions={vm.assigneeOptions}
-              renderNowSignal={vm.getTaskSignal}
-              onClose={() => setTaskDetailOpen(false)}
-              onRunRecommendedTaskAction={runRecommendedTaskAction}
-              onOpenTaskFlow={openTaskFlow}
-              onUpdateTask={vm.updateTask}
-              onOpenLinkedFollowUp={onOpenLinkedFollowUp}
-              onOpenRecordDrawer={openRecordDrawer}
-              onOpenRecordEditor={openRecordEditor}
-            />
-          </ExecutionLaneInspectorCard>
-        ) : null}
-      </WorkspacePrimaryLayout>
+          {!isMobileLike && taskDetailOpen && vm.selectedTask ? (
+            <ExecutionLaneInspectorCard>
+              <TaskInspectorModal
+                open={taskDetailOpen}
+                presentation="panel"
+                selectedTask={vm.selectedTask}
+                linkedFollowUp={vm.linkedFollowUpForSelected}
+                linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
+                linkedParentRollup={vm.linkedParentRollup}
+                linkedParentCloseout={vm.linkedParentCloseout}
+                recommendedAction={vm.recommendedAction}
+                ownerOptions={vm.ownerOptions}
+                assigneeOptions={vm.assigneeOptions}
+                renderNowSignal={vm.getTaskSignal}
+                onClose={() => setTaskDetailOpen(false)}
+                onRunRecommendedTaskAction={runRecommendedTaskAction}
+                onOpenTaskFlow={openTaskFlow}
+                onUpdateTask={vm.updateTask}
+                onOpenLinkedFollowUp={onOpenLinkedFollowUp}
+                onOpenRecordDrawer={openRecordDrawer}
+                onOpenRecordEditor={openRecordEditor}
+              />
+            </ExecutionLaneInspectorCard>
+          ) : null}
+        </WorkspacePrimaryLayout>
+      </WorkspaceContentFrame>
 
       {isMobileLike ? (
         <TaskInspectorModal

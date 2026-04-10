@@ -5,6 +5,7 @@ import {
   AppModal,
   AppModalBody,
   AppModalHeader,
+  WorkspaceContentFrame,
   ExecutionLaneInspectorCard,
   WorkspacePrimaryLayout,
   WorkspacePage,
@@ -36,25 +37,27 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
 
   return (
     <WorkspacePage>
-      <WorkspacePrimaryLayout inspectorWidth="340px">
-        <div className="tracker-main-single">
-          <div className="tracker-workspace-main app-shell-card">
-            <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
-            <TrackerTable
-              personalMode={personalMode}
-              appMode={appMode}
-              embedded
-              rows={vm.filteredRows}
-              onRowOpen={() => setDetailModalOpen(true)}
-            />
+      <WorkspaceContentFrame>
+        <WorkspacePrimaryLayout inspectorWidth="340px">
+          <div className="tracker-main-single">
+            <div className="tracker-workspace-main app-shell-card">
+              <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
+              <TrackerTable
+                personalMode={personalMode}
+                appMode={appMode}
+                embedded
+                rows={vm.filteredRows}
+                onRowOpen={() => setDetailModalOpen(true)}
+              />
+            </div>
           </div>
-        </div>
-        {detailModalOpen && vm.selectedFollowUp ? (
-          <ExecutionLaneInspectorCard>
-            <ItemDetailPanel personalMode={personalMode} onRequestClose={() => setDetailModalOpen(false)} />
-          </ExecutionLaneInspectorCard>
-        ) : null}
-      </WorkspacePrimaryLayout>
+          {detailModalOpen && vm.selectedFollowUp ? (
+            <ExecutionLaneInspectorCard>
+              <ItemDetailPanel personalMode={personalMode} onRequestClose={() => setDetailModalOpen(false)} />
+            </ExecutionLaneInspectorCard>
+          ) : null}
+        </WorkspacePrimaryLayout>
+      </WorkspaceContentFrame>
 
 
       {duplicateModalOpen ? (

@@ -21,7 +21,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [hiddenIntentNotice, setHiddenIntentNotice] = useState<{ recordId: string } | null>(null);
+  const [revealNotice, setRevealNotice] = useState<string | null>(null);
   const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
 
   useEffect(() => {
@@ -32,14 +32,15 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
       vm.setSelectedId(intent.recordId);
       if (visibleInCurrentLane) {
         setDetailModalOpen(true);
-        setHiddenIntentNotice(null);
+        setRevealNotice(null);
       } else {
-        setDetailModalOpen(false);
-        setHiddenIntentNotice({ recordId: intent.recordId });
+        vm.revealFollowUpRecord(intent.recordId);
+        setDetailModalOpen(true);
+        setRevealNotice('Queue filters were adjusted to show the requested follow-up.');
       }
     }
     vm.clearExecutionIntent();
-  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId]);
+  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord]);
 
   useEffect(() => {
     if (!vm.selectedFollowUp) {
@@ -54,25 +55,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main">
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
-              {hiddenIntentNotice ? (
-                <div className="followup-hidden-intent-notice" role="status">
-                  <div>
-                    New follow-up was created, but current filters are hiding it.
-                  </div>
-                  <button
-                    type="button"
-                    className="action-btn"
-                    onClick={() => {
-                      vm.resetAllRowAffectingOptions();
-                      vm.setSelectedId(hiddenIntentNotice.recordId);
-                      setDetailModalOpen(true);
-                      setHiddenIntentNotice(null);
-                    }}
-                  >
-                    Reveal follow-up
-                  </button>
-                </div>
-              ) : null}
+              {revealNotice ? <div className="followup-hidden-intent-notice" role="status">{revealNotice}</div> : null}
               <TrackerTable
                 personalMode={personalMode}
                 embedded

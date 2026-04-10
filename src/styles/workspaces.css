@@ -339,16 +339,12 @@
 .followup-filter-chip-quiet { background: #f8fbff; border-color: #dce7f4; }
 .tracker-empty-state-wrap { display: grid; gap: 0.6rem; justify-items: center; }
 .followup-hidden-intent-notice {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1e3a8a;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
   border-radius: 0.75rem;
-  font-size: 0.76rem;
-  padding: 0.5rem 0.65rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
+  font-size: 0.74rem;
+  padding: 0.45rem 0.62rem;
 }
 .task-sort-summary { font-size: 0.68rem; color: #6b7f95; }
 .task-control-stack-calm {
@@ -539,18 +535,20 @@
 
 .row-action-cell { border-left: 1px solid var(--border-default); background: #f8fafc; }
 .row-action-cell .action-btn { border-color: var(--border-subtle); background: #ffffff; }
-.row-quick-actions { justify-content: flex-end; }
+.row-quick-actions { justify-content: flex-end; display: inline-flex; align-items: center; gap: 0.3rem; }
 .tracker-cell-support { color: var(--text-muted); font-size: 0.78rem; }
 .tracker-cell-timing { color: #1f3146; font-weight: 620; }
-.tracker-cell-identity { min-width: 280px; width: 30%; vertical-align: top; }
+.tracker-cell-identity { min-width: 340px; width: 34%; vertical-align: top; }
 .tracker-cell-identity .tracker-title-primary { font-weight: 670; color: var(--text-primary); }
-.tracker-cell-identity .tracker-title-secondary { margin-top: 0.15rem; font-size: 0.75rem; color: #1f3752; }
-.tracker-cell-identity .tracker-title-next { margin-top: 0.25rem; font-size: 0.74rem; color: #334155; }
-.tracker-cell-identity .tracker-title-meta { margin-top: 0.34rem; font-size: 0.69rem; color: #64748b; }
-.tracker-cell-next-move { min-width: 220px; width: 25%; white-space: normal; vertical-align: top; }
+.tracker-cell-identity .tracker-title-secondary { margin-top: 0.2rem; font-size: 0.74rem; color: #1f3752; }
+.tracker-cell-identity .tracker-title-secondary-danger { color: #b91c1c; }
+.tracker-cell-identity .tracker-title-secondary-warn { color: #9a3412; }
+.tracker-cell-identity .tracker-title-secondary-success { color: #166534; }
+.tracker-cell-identity .tracker-title-meta { margin-top: 0.3rem; font-size: 0.69rem; color: #64748b; }
+.tracker-cell-next-move { min-width: 260px; width: 27%; white-space: normal; vertical-align: top; }
 .tracker-next-move-content { white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
-.tracker-head-cell-identity { min-width: 280px; }
-.tracker-head-cell-next-move { min-width: 220px; }
+.tracker-head-cell-identity { min-width: 340px; }
+.tracker-head-cell-next-move { min-width: 260px; }
 .tracker-head-cell-actions,
 .tracker-cell-actions {
   position: sticky;
@@ -595,15 +593,9 @@
 .tracker-main-grid { display: grid; gap: max(var(--workspace-region-gap, 0.95rem), 0.95rem); grid-template-columns: minmax(0, 1fr); align-items: start; }
 .tracker-workspace-main { display: grid; gap: 0.6rem; border-color: var(--border-strong); }
 .followup-control-stack { margin-bottom: 0.1rem; }
-.followup-view-strip { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.followup-view-segmented { background: #edf3f9; border-color: #cfdae8; }
-.followup-view-segmented .segmented-control-btn { min-height: 2rem; color: #334155; }
-.followup-view-segmented .segmented-control-btn-active { background: #0f172a; color: #f8fafc; }
-.followup-view-option { display: inline-flex; align-items: center; gap: 0.4rem; }
-.followup-view-option strong { font-size: 0.7rem; background: rgba(15, 23, 42, 0.08); border-radius: 999px; padding: 0.01rem 0.32rem; }
-.followup-view-segmented .segmented-control-btn-active .followup-view-option strong { background: rgba(248, 250, 252, 0.22); }
 .followup-primary-toolbar { align-items: flex-end; gap: 0.45rem; }
-.followup-search-block { width: 100%; min-width: 0; flex: 1 1 420px; }
+.followup-queue-field { width: min(100%, 220px); }
+.followup-search-block { width: min(100%, 460px); min-width: 0; flex: 1 1 420px; }
 .followup-duplicate-entry { opacity: 0.88; }
 .followup-options-panel {
   border: 1px solid var(--border-subtle);

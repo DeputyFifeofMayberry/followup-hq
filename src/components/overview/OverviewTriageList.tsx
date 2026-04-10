@@ -26,6 +26,11 @@ function recordTypeLabel(recordType: UnifiedQueueItem['recordType']) {
   return recordType === 'task' ? 'Task' : 'Follow-up';
 }
 
+export function overviewRowTypeBadge(recordType: UnifiedQueueItem['recordType']) {
+  if (recordType === 'task') return { label: 'Task', variant: 'purple' as const };
+  return { label: 'Follow-up', variant: 'blue' as const };
+}
+
 function nextMoveLabel(row: UnifiedQueueItem) {
   if (row.primaryNextAction?.trim()) return row.primaryNextAction.trim();
   return row.recordType === 'task' ? 'Continue in Tasks' : 'Continue in Follow Ups';
@@ -51,6 +56,7 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
         const projectLabel = row.project?.trim() || 'No project';
         const accountableLabel = row.assignee?.trim() || row.owner?.trim() || 'Unassigned';
         const reason = row.queueReasons[0] || row.whyInQueue;
+        const typeBadge = overviewRowTypeBadge(row.recordType);
 
         return (
           <button
@@ -71,7 +77,10 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
           >
             <div className="overview-triage-row-layout">
               <div className="overview-triage-row-content">
-                <div className="scan-row-primary">{row.title}</div>
+                <div className="overview-triage-row-titleline">
+                  <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
+                  <div className="scan-row-primary">{row.title}</div>
+                </div>
                 <div className="overview-row-why-now">{reason}</div>
                 <div className="overview-row-next-move">Best next move: {nextMoveLabel(row)}</div>
                 <div className="scan-row-meta">

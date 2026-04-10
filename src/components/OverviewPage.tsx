@@ -119,9 +119,11 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
               <OverviewRouteInspector
                 selected={selected}
                 onRouteDestination={(destination) => {
+                  if (!selected) return;
+                  const isRecordOpenRoute = (destination === 'followups' && selected.recordType === 'followup') || (destination === 'tasks' && selected.recordType === 'task');
                   routeToLane(destination, {
                     record: selected,
-                    section: destination === 'tasks' ? 'now' : 'triage',
+                    section: isRecordOpenRoute ? undefined : destination === 'tasks' ? 'now' : 'triage',
                     intentLabel: `continue in ${destination === 'tasks' ? 'Tasks' : 'Follow Ups'}`,
                   });
                   setDetailOpen(false);

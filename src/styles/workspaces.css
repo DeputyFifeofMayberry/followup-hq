@@ -221,6 +221,8 @@
 .overview-priority-row-active.overview-triage-row::before { background: #1d4ed8; }
 .overview-triage-row-layout { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.65rem; width: 100%; }
 .overview-triage-row-content { min-width: 0; display: grid; gap: 0.24rem; }
+.overview-triage-row-titleline { display: flex; align-items: center; gap: 0.42rem; min-width: 0; }
+.overview-triage-row-titleline .scan-row-primary { min-width: 0; }
 .overview-row-why-now { font-size: 0.76rem; color: #223b58; line-height: 1.35; }
 .overview-triage-row-sidecar { display: grid; gap: 0.28rem; justify-items: end; min-width: 170px; }
 .overview-triage-row .scan-row-primary { font-size: 0.9rem; line-height: 1.3; padding-right: 0.2rem; }

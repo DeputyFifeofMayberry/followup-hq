@@ -51,6 +51,8 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
     },
     clearExecutionIntent: () => set({ executionIntent: null }),
     openExecutionLane: (target, options) => {
+      const isFollowUpRecordOpen = target === 'followups' && options?.recordType === 'followup' && Boolean(options.recordId);
+      const isTaskRecordOpen = target === 'tasks' && options?.recordType === 'task' && Boolean(options.recordId);
       const intent: ExecutionIntent = {
         kind: options?.recordId ? 'open_record' : options?.section ? 'open_section' : 'open_lane',
         target,
@@ -86,18 +88,18 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
       if (target === 'followups') {
         if (options?.recordType === 'followup' && options.recordId) set({ selectedId: options.recordId });
         set({
-          activeView: sectionToFollowUpIntentView(options?.section),
+          activeView: isFollowUpRecordOpen ? 'All' : sectionToFollowUpIntentView(options?.section),
           followUpFilters: {
             ...get().followUpFilters,
-            project: options?.project || 'All',
+            project: isFollowUpRecordOpen ? 'All' : options?.project || 'All',
           },
         });
         return;
       }
       if (options?.recordType === 'task' && options.recordId) set({ selectedTaskId: options.recordId });
       set({
-        executionFilter: { ...get().executionFilter, ...sectionToTaskFilter(options?.section) },
-        taskStatusFilter: options?.section === 'blocked' ? 'Blocked' : 'All',
+        executionFilter: isTaskRecordOpen ? { ...get().executionFilter, types: ['task'], blockedOnly: false, readyToCloseParentOnly: false } : { ...get().executionFilter, ...sectionToTaskFilter(options?.section) },
+        taskStatusFilter: isTaskRecordOpen ? 'All' : options?.section === 'blocked' ? 'Blocked' : 'All',
       });
     },
   };

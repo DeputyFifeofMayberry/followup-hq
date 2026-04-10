@@ -9,6 +9,7 @@ import {
   type VerificationSourceSnapshot,
 } from '../persistenceVerification';
 import type { PersistedPayload } from '../persistence';
+import { canonicalizeEntityRecordForVerification } from '../persistenceCanonicalization';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -26,17 +27,20 @@ function payload(): PersistedPayload {
 }
 
 function cloudSnapshotFromPayload(local: PersistedPayload): VerificationSourceSnapshot {
-  const mapFrom = (records: any[]) => new Map(records.map((record) => [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: stableHashRecord(record), normalizedRecord: record }]));
+  const mapFrom = (entity: 'items' | 'tasks' | 'projects' | 'contacts' | 'companies', records: any[]) => new Map(records.map((record) => {
+    const canonical = canonicalizeEntityRecordForVerification(entity, record);
+    return [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: stableHashRecord(canonical), normalizedRecord: canonical, canonicalStrippedPaths: [], canonicalDefaultedPaths: [] }];
+  }));
   return {
     fetchedAt: '2026-04-06T10:00:00.000Z',
     schemaVersionCloud: undefined,
     readSucceeded: true,
     entities: {
-      items: mapFrom(local.items),
-      tasks: mapFrom(local.tasks),
-      projects: mapFrom(local.projects),
-      contacts: mapFrom(local.contacts),
-      companies: mapFrom(local.companies),
+      items: mapFrom('items', local.items),
+      tasks: mapFrom('tasks', local.tasks),
+      projects: mapFrom('projects', local.projects),
+      contacts: mapFrom('contacts', local.contacts),
+      companies: mapFrom('companies', local.companies),
     },
     auxiliary: local.auxiliary,
   };
@@ -95,7 +99,7 @@ async function testMissingLocalRecord(): Promise<void> {
 async function testContentMismatchAndTombstoneMismatch(): Promise<void> {
   const local = payload();
   const cloud = cloudSnapshotFromPayload(local);
-  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, normalizedRecord: { id: 'p1', name: 'Changed' }, digest: 'changed-digest' });
+  cloud.entities.projects.set('p1', { ...cloud.entities.projects.get('p1')!, normalizedRecord: { id: 'p1', name: 'Changed' }, digest: 'changed-digest', canonicalStrippedPaths: [], canonicalDefaultedPaths: [] });
   cloud.entities.contacts.set('c1', { ...cloud.entities.contacts.get('c1')!, deletedAt: '2026-04-06T09:59:00.000Z' });
   const result = await verifyPersistedState({ target: { payload: local }, context: { mode: 'manual' }, cloudSnapshotReader: async () => cloud });
   assert(result.mismatches.some((m) => m.category === 'content_mismatch' && m.entity === 'projects'), 'content mismatch should be detected');
@@ -211,7 +215,7 @@ async function testMismatchDiagnosticsIncludeChangedPaths(): Promise<void> {
   cloud.entities.items.set('i1', {
     ...cloud.entities.items.get('i1')!,
     normalizedRecord: { ...cloud.entities.items.get('i1')!.normalizedRecord, title: 'Changed title' },
-    digest: 'changed',
+    digest: 'changed', canonicalStrippedPaths: [], canonicalDefaultedPaths: [],
   });
   cloud.auxiliary = { ...cloud.auxiliary, followUpTableDensity: 'comfortable' } as any;
   const result = await verifyPersistedState({
@@ -223,6 +227,63 @@ async function testMismatchDiagnosticsIncludeChangedPaths(): Promise<void> {
   const auxiliaryMismatch = result.mismatches.find((mismatch) => mismatch.category === 'auxiliary_mismatch');
   assert(Boolean(contentMismatch?.technicalDetail.includes('Changed paths: title')), 'content mismatch should include changed paths diagnostics');
   assert(Boolean(auxiliaryMismatch?.technicalDetail.includes('Changed paths: followUpTableDensity')), 'auxiliary mismatch should include changed paths diagnostics');
+}
+
+
+async function testCanonicalParityForProjectsContactsAndHydrationFields(): Promise<void> {
+  const local = payload();
+  local.projects = [{
+    ...local.projects[0],
+    tags: undefined,
+    archived: undefined,
+  } as any];
+  local.contacts = [{
+    ...local.contacts[0],
+    role: undefined,
+    relationshipStatus: undefined,
+    riskTier: undefined,
+    active: undefined,
+    tags: undefined,
+  } as any];
+  local.items = [{
+    ...local.items[0],
+    lifecycleState: 'ready',
+    reviewReasons: ['missing_owner'],
+    dataQuality: 'valid_live',
+    provenance: { sourceType: 'migration' },
+  } as any];
+
+  const cloud = cloudSnapshotFromPayload(payload());
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'projects/contacts defaults and hydration-only item fields should canonicalize to parity');
+}
+
+async function testCloudTombstonesWithoutLocalActiveRecordDoNotMismatch(): Promise<void> {
+  const local = payload();
+  local.contacts = [];
+  const cloud = cloudSnapshotFromPayload(payload());
+  cloud.entities.contacts = new Map([['c1', { ...cloud.entities.contacts.get('c1')!, deletedAt: '2026-04-06T09:00:00.000Z' }]]);
+  const result = await verifyPersistedState({
+    target: { payload: local },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(!result.mismatches.some((mismatch) => mismatch.category === 'missing_locally'), 'cloud tombstones should not be counted as missing_locally mismatches when local has no active row');
+}
+
+async function testVerificationReadFailureDetailsIncludeLocalPayloadSource(): Promise<void> {
+  const local = payload();
+  const result = await verifyPersistedState({
+    target: { payload: local, localPayloadSource: 'cached-persisted-payload' },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => ({ ...cloudSnapshotFromPayload(local), readSucceeded: false, readFailureMessage: 'network down' }),
+  });
+  const readFailure = result.mismatches.find((mismatch) => mismatch.category === 'verification_read_failed');
+  assert(Boolean(readFailure?.technicalDetail.includes('Local source: cached-persisted-payload')), 'verification read diagnostics should include local payload source details');
 }
 
 function testCompareEntityCollectionsHelper(): void {
@@ -245,5 +306,8 @@ function testCompareEntityCollectionsHelper(): void {
   testBackendContractFailureClassification();
   await testExportReportHasSummaryAndNoSecrets();
   await testMismatchDiagnosticsIncludeChangedPaths();
+  await testCanonicalParityForProjectsContactsAndHydrationFields();
+  await testCloudTombstonesWithoutLocalActiveRecordDoNotMismatch();
+  await testVerificationReadFailureDetailsIncludeLocalPayloadSource();
   testCompareEntityCollectionsHelper();
 })();

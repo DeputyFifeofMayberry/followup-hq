@@ -180,7 +180,8 @@ function testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean(): void {
     tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
   }));
   const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
-  assert(selected.tasks[0]?.title === 'Persisted raw', 'clean verify runs should compare against canonical cached persisted payload');
+  assert(selected.payload.tasks[0]?.title === 'Persisted raw', 'clean verify runs should compare against canonical cached persisted payload');
+  assert(selected.source === 'cached-persisted-payload', 'clean verify runs should report canonical cache as verification source');
 }
 
 function testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist(): void {
@@ -194,7 +195,8 @@ function testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist(): void {
     tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
   }));
   const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
-  assert(selected.tasks[0]?.title === 'Unsaved edit', 'verify should include live state only when unsaved/local outbox drift exists');
+  assert(selected.payload.tasks[0]?.title === 'Unsaved edit', 'verify should include live state only when unsaved/local outbox drift exists');
+  assert(selected.source === 'runtime-rebuild', 'dirty verify runs should report runtime rebuild source');
 }
 
 (function run() {

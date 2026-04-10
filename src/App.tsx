@@ -187,12 +187,11 @@ function LoginScreen() {
 
 function MainApp({ session }: { session: Session }) {
   const initializeApp = useAppStore((s) => s.initializeApp);
-  const { setActiveView, setProjectFilter, setSelectedId, openExecutionLane } = useAppStore(
+  const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
     useShallow((s) => ({
       setActiveView: s.setActiveView,
       setProjectFilter: s.setProjectFilter,
       setSelectedId: s.setSelectedId,
-      openExecutionLane: s.openExecutionLane,
     })),
   );
   const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated, reminderPreferences, reminderCenterSummary, pendingReminders, updateReminderPreferences, requestReminderPermission, runReminderEvaluation, testReminderNotification } = useAppStore(
@@ -342,8 +341,15 @@ function MainApp({ session }: { session: Session }) {
   }, [openTrackerView, setSelectedId]);
 
   const openTaskItem = useCallback((taskId: string, project = 'All') => {
+    const executionSource = workspace === 'intake'
+      ? 'outlook'
+      : workspace === 'directory'
+        ? 'relationships'
+        : workspace === 'overview'
+          ? 'overview'
+          : 'overview';
     openExecutionLane('tasks', {
-      source: workspace,
+      source: executionSource,
       recordId: taskId,
       recordType: 'task',
       project,

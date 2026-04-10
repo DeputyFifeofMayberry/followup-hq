@@ -173,7 +173,10 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
-        <WorkspacePrimaryLayout inspectorWidth="330px" className="task-workspace-layout">
+        <WorkspacePrimaryLayout
+          inspectorWidth="330px"
+          className={`task-workspace-layout ${!isMobileLike && taskDetailOpen && vm.selectedTask ? '' : 'workspace-primary-layout-collapsed'}`.trim()}
+        >
           <ExecutionLaneQueueCard className="task-workspace-main-card">
             <TaskToolbar
             isMobileLike={isMobileLike}

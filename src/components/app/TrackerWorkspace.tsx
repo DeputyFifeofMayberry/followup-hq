@@ -39,7 +39,7 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
-        <WorkspacePrimaryLayout inspectorWidth="340px">
+        <WorkspacePrimaryLayout inspectorWidth="340px" className={detailModalOpen && vm.selectedFollowUp ? '' : 'workspace-primary-layout-collapsed'}>
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main">
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />

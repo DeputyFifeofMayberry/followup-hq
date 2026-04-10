@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Workspace primary-column collapse alignment fix (rendered rail root cause)
+- Fixed the true drift source in Overview, Follow Ups, and Tasks by collapsing `WorkspacePrimaryLayout` to a single full-width column whenever the inspector panel is not rendered; previously the grid reserved an invisible inspector track, which made queue/controls render narrower than the workspace header rails and produced the visible staggered alignment. (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
+- Kept inspector-enabled behavior unchanged by retaining the split layout only when the inspector is actually open, so lane detail still appears in a dedicated right panel without regressing the no-selection default layout. (`src/components/OverviewPage.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/TaskWorkspace.tsx`).
+- Strengthened the existing Playwright alignment harness with explicit rail assertions (header vs body anchor left/right edges) before screenshots, so future regressions fail the alignment spec instead of relying only on visual inspection. (`e2e/alignment-screenshots.spec.ts`).
+
 ### Shell-to-workspace rail alignment fix + screenshot verification harness
 - Fixed the remaining alignment root cause by introducing a shared shell rail contract (`--workspace-shell-rail` + `--workspace-shell-surface-padding`) in `app-main-pane` and applying it to both `workspace-header` and `workspace-body-slot`, so header chrome and page content now inherit the same horizontal rails instead of drifting by independent inset rules (`src/styles/shell.css`, `src/styles/workspaces.css`).
 - Standardized workspace header interior spacing to the same panel padding token used by queue/control surfaces, which removes the visible stagger where header text and the main operational surfaces appeared to start at different x-positions (`src/styles/workspaces.css`).

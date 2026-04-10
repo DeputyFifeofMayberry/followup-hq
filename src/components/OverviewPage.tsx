@@ -61,7 +61,10 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
       <WorkspaceContentFrame>
         <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
 
-        <WorkspacePrimaryLayout inspectorWidth="320px" className="overview-surface-layout">
+        <WorkspacePrimaryLayout
+          inspectorWidth="320px"
+          className={`overview-surface-layout ${detailOpen ? '' : 'workspace-primary-layout-collapsed'}`.trim()}
+        >
           <ExecutionLaneQueueCard className="overview-command-center">
             <div className="overview-toolbar-row">
               <div className="overview-toolbar-left">

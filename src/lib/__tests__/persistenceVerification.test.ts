@@ -1,4 +1,6 @@
 import {
+  buildVerificationSummary,
+  classifyReadFailureKind,
   compareEntityCollections,
   exportVerificationIncident,
   resolveVerificationSessionUserIdWithRetry,
@@ -27,7 +29,7 @@ function cloudSnapshotFromPayload(local: PersistedPayload): VerificationSourceSn
   const mapFrom = (records: any[]) => new Map(records.map((record) => [record.id, { id: record.id, updatedAt: record.updatedAt, deletedAt: null, digest: stableHashRecord(record), normalizedRecord: record }]));
   return {
     fetchedAt: '2026-04-06T10:00:00.000Z',
-    schemaVersionCloud: 1,
+    schemaVersionCloud: undefined,
     readSucceeded: true,
     entities: {
       items: mapFrom(local.items),
@@ -50,6 +52,7 @@ async function testVerificationSuccess(): Promise<void> {
   });
   assert(result.summary.verified === true, 'matching snapshots should verify');
   assert(result.summary.mismatchCount === 0, 'matching snapshots should have zero mismatches');
+  assert(result.summary.schemaVersionCloud === undefined, 'cloud schema version should be optional');
 }
 
 async function testMissingCloudRecord(): Promise<void> {
@@ -98,6 +101,40 @@ async function testAuxAndSchemaMismatchAndReadFailure(): Promise<void> {
   assert(readFailed.summary.verificationReadFailed === true, 'verification summary should explicitly flag read-failed runs');
 }
 
+async function testOptionalCloudSchemaMetadataDoesNotBlockVerification(): Promise<void> {
+  const local = payload();
+  const cloud = cloudSnapshotFromPayload(local);
+  cloud.schemaVersionCloud = undefined;
+  const result = await verifyPersistedState({
+    target: { payload: local, schemaVersionClient: 1 },
+    context: { mode: 'manual' },
+    cloudSnapshotReader: async () => cloud,
+  });
+  assert(result.summary.verified === true, 'verification should succeed when optional schema metadata is absent');
+  assert(result.mismatches.every((mismatch) => mismatch.category !== 'schema_version_mismatch'), 'schema mismatch should not be emitted when cloud schema metadata is missing');
+}
+
+function testBackendContractFailureClassification(): void {
+  const contractFailureKind = classifyReadFailureKind({ code: '42703', message: 'column user_preferences.schema_version does not exist' });
+  assert(contractFailureKind === 'backend-contract', `missing-column errors should classify as backend-contract, got ${contractFailureKind}`);
+  const networkFailureKind = classifyReadFailureKind(new Error('network timeout while fetching'));
+  assert(networkFailureKind === 'network', `network errors should remain network, got ${networkFailureKind}`);
+  const noSessionSummary = buildVerificationSummary({
+    runId: 'run-1',
+    startedAt: '2026-04-06T10:00:00.000Z',
+    completedAt: '2026-04-06T10:00:10.000Z',
+    context: { mode: 'manual' },
+    mismatches: [],
+    comparedRecordCountsByEntity: {},
+    cloudReadSucceeded: false,
+    cloudReadFailureMessage: 'Verification cloud read could not start because no signed-in session was available.',
+    cloudReadFailureKind: 'no-session',
+    cloudReadFailureStage: 'auth',
+    cloudReadAttempts: 1,
+  });
+  assert(noSessionSummary.verificationReadFailureKind === 'no-session', 'no-session failures should remain distinct from backend contract failures');
+}
+
 async function testTransientSessionRecoveryReadPath(): Promise<void> {
   let sessionReads = 0;
   const resolved = await resolveVerificationSessionUserIdWithRetry({
@@ -134,7 +171,9 @@ function testCompareEntityCollectionsHelper(): void {
   await testMissingLocalRecord();
   await testContentMismatchAndTombstoneMismatch();
   await testAuxAndSchemaMismatchAndReadFailure();
+  await testOptionalCloudSchemaMetadataDoesNotBlockVerification();
   await testTransientSessionRecoveryReadPath();
+  testBackendContractFailureClassification();
   await testExportReportHasSummaryAndNoSecrets();
   testCompareEntityCollectionsHelper();
 })();

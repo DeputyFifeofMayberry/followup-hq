@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { AppAuxiliaryState, PersistedPayload } from './persistence';
+import { normalizePersistenceError } from './persistenceError';
 import type { SaveBatchEntity } from './persistenceTypes';
 
 export type VerificationMode = 'manual' | 'post-save' | 'startup-review';
@@ -17,7 +18,7 @@ export interface VerificationSourceSnapshot {
   auxiliary: AppAuxiliaryState | null;
   readSucceeded: boolean;
   readFailureMessage?: string;
-  readFailureKind?: 'no-session' | 'auth-session' | 'auth-refresh' | 'table-read' | 'preferences-read' | 'network';
+  readFailureKind?: 'no-session' | 'auth-session' | 'auth-refresh' | 'table-read' | 'backend-contract' | 'network';
   readFailureStage?: 'auth' | SaveBatchEntity | 'user_preferences' | 'unknown';
   attempts?: number;
 }
@@ -263,7 +264,7 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
 
     const { data: pref, error: prefError } = await supabase
       .from('user_preferences')
-      .select('auxiliary, schema_version, updated_at')
+      .select('auxiliary, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
     if (prefError) {
@@ -282,7 +283,7 @@ async function readCloudSnapshot(): Promise<VerificationSourceSnapshot> {
 
     return {
       fetchedAt,
-      schemaVersionCloud: typeof pref?.schema_version === 'number' ? pref.schema_version : undefined,
+      schemaVersionCloud: undefined,
       entities,
       auxiliary: (pref?.auxiliary as AppAuxiliaryState | null) ?? null,
       readSucceeded: true,
@@ -356,14 +357,21 @@ async function readVerificationTableWithRetry(table: string, userId: string): Pr
   return { rows: [], error: lastError };
 }
 
-function classifyReadFailureKind(error: unknown): VerificationSourceSnapshot['readFailureKind'] {
-  const message = error instanceof Error ? error.message : String(error ?? '').toLowerCase();
-  const lowered = message.toLowerCase();
+export function classifyReadFailureKind(error: unknown): VerificationSourceSnapshot['readFailureKind'] {
+  const normalized = normalizePersistenceError(error, { operation: 'verification-read' });
+  const lowered = [normalized.message, normalized.details, normalized.hint, normalized.rawSummary]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  const code = normalized.code?.toUpperCase();
+
+  if (code === '42703' || (lowered.includes('column') && lowered.includes('does not exist'))) return 'backend-contract';
+  if (code === 'PGRST205' || (lowered.includes('relation') && lowered.includes('does not exist'))) return 'backend-contract';
+  if (code === 'PGRST202' || lowered.includes('could not find the function')) return 'backend-contract';
   if (lowered.includes('network') || lowered.includes('fetch') || lowered.includes('timeout')) return 'network';
   if (lowered.includes('jwt') || lowered.includes('token') || lowered.includes('refresh')) return 'auth-refresh';
   if (lowered.includes('auth') || lowered.includes('session')) return 'auth-session';
-  if (lowered.includes('user_preferences')) return 'preferences-read';
-  if (lowered.includes('follow_up_items') || lowered.includes('tasks') || lowered.includes('projects') || lowered.includes('contacts') || lowered.includes('companies')) return 'table-read';
+  if (lowered.includes('follow_up_items') || lowered.includes('tasks') || lowered.includes('projects') || lowered.includes('contacts') || lowered.includes('companies') || lowered.includes('user_preferences')) return 'table-read';
   return 'table-read';
 }
 

@@ -16,7 +16,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { buildReviewerActionHints, buildWorkCandidateFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeReviewQueue, type IntakeQueueItem } from '../lib/intakeReviewQueue';
-import { buildCandidateFieldSuggestions, buildIntakeReviewPlan } from '../lib/intakeReviewPlan';
+import { buildCandidateFieldSuggestions, buildIntakeReviewPlan, type IntakeQuickFixAction, type IntakeReviewPlan } from '../lib/intakeReviewPlan';
 import { describeIntakeFileSupport, getIntakeFileCapability, getIntakeFileInputAccept } from '../lib/intakeFileCapabilities';
 import { toDateInputValue } from '../lib/intakeDates';
 import { useAppStore } from '../store/useAppStore';
@@ -49,6 +49,27 @@ function reviewReasonForField(key: string) {
   if (key === 'owner') return 'Owner clarity prevents orphaned follow-ups.';
   if (key === 'nextStep') return 'A concrete next step reduces decision hesitation.';
   return 'Needs reviewer confirmation before safe approval.';
+}
+function correctionBucketLabel(status: 'missing' | 'weak' | 'conflicting') {
+  if (status === 'missing') return 'Missing';
+  if (status === 'conflicting') return 'Conflicting';
+  return 'Weak signal';
+}
+function recommendedActionDescription(mode: 'create_new_task' | 'create_new_followup' | 'link_existing' | 'duplicate_update_review' | 'save_reference' | 'reject') {
+  if (mode === 'create_new_followup') return 'This appears actionable and follow-up shaped after required checks are complete.';
+  if (mode === 'create_new_task') return 'This appears actionable with task ownership and completion expectations.';
+  if (mode === 'link_existing') return 'Existing-record overlap is strong; linking is safer than creating a new record.';
+  if (mode === 'save_reference') return 'Signals look informational; save without creating a new action item.';
+  if (mode === 'reject') return 'Evidence is unsafe or insufficient for creating or linking work.';
+  return 'Correct blockers first, then resolve duplicate/link pressure before create-new.';
+}
+function actionIsPrimary(decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link', plan: IntakeReviewPlan, createBlocked: boolean) {
+  if (createBlocked) return decision === 'link' || decision === 'reference';
+  if (plan.suggestedDecision === 'create_new_followup') return decision === 'approve_followup';
+  if (plan.suggestedDecision === 'create_new_task') return decision === 'approve_task';
+  if (plan.suggestedDecision === 'link_existing' || plan.suggestedDecision === 'duplicate_update_review') return decision === 'link';
+  if (plan.suggestedDecision === 'save_reference') return decision === 'reference';
+  return decision === 'reject';
 }
 
 function queueLane(item: IntakeQueueItem): QueueLane {
@@ -130,6 +151,14 @@ export function UniversalIntakeWorkspace() {
   const selectedMatch = selectedCandidate?.existingRecordMatches.find((m) => m.id === selectedMatchId) ?? selectedCandidate?.existingRecordMatches[0] ?? null;
   const createBlocked = Boolean(selectedReviewPlan && selectedReviewPlan.requiredCorrections.length > 0);
   const suggestedActionLabel = selectedReviewPlan ? decisionLabel(selectedReviewPlan.suggestedDecision) : 'Needs more correction';
+  const requiredCorrectionsByStatus = useMemo(() => {
+    const groups: Record<'missing' | 'weak' | 'conflicting', NonNullable<typeof selectedReviewPlan>['requiredCorrections']> = { missing: [], weak: [], conflicting: [] };
+    selectedReviewPlan?.requiredCorrections.forEach((field) => {
+      if (field.status === 'missing' || field.status === 'weak' || field.status === 'conflicting') groups[field.status].push(field);
+    });
+    return groups;
+  }, [selectedReviewPlan]);
+  const suggestedQuickFixes = useMemo(() => selectedReviewPlan?.quickFixActions.slice(0, 3) ?? [], [selectedReviewPlan]);
 
   const onFiles = async (list: FileList | null, source: 'drop' | 'file_picker') => {
     if (!list?.length) return;
@@ -164,6 +193,23 @@ export function UniversalIntakeWorkspace() {
     }
     decideIntakeWorkCandidate(selectedCandidate.id, decision === 'approve_followup' ? 'approve_followup' : decision === 'approve_task' ? 'approve_task' : decision, undefined, { overrideUnsafeCreate: unsafe && confirmUnsafeCreate });
     setConfirmUnsafeCreate(false);
+  };
+  const applyQuickFixAction = (action: IntakeQuickFixAction) => {
+    if (!selectedCandidate) return;
+    if (action.kind === 'apply_suggestion' && action.suggestion) {
+      const value = action.suggestion.value;
+      if (action.suggestion.field === 'candidateType') updateIntakeWorkCandidate(selectedCandidate.id, { candidateType: value as IntakeWorkCandidate['candidateType'] });
+      if (action.suggestion.field === 'title') updateIntakeWorkCandidate(selectedCandidate.id, { title: value });
+      if (action.suggestion.field === 'project') updateIntakeWorkCandidate(selectedCandidate.id, { project: value });
+      if (action.suggestion.field === 'owner') updateIntakeWorkCandidate(selectedCandidate.id, { owner: value });
+      if (action.suggestion.field === 'assignee') updateIntakeWorkCandidate(selectedCandidate.id, { assignee: value });
+      if (action.suggestion.field === 'dueDate') updateIntakeWorkCandidate(selectedCandidate.id, { dueDate: value });
+      if (action.suggestion.field === 'nextStep') updateIntakeWorkCandidate(selectedCandidate.id, { nextStep: value });
+      setFeedback({ tone: 'success', message: `Applied quick fix: ${action.label}.` });
+      return;
+    }
+    if (action.kind === 'link_best_match') return handleDecision('link');
+    if (action.kind === 'save_reference') return handleDecision('reference');
   };
 
   const activeBatches = intakeBatches.filter((batch) => batch.status !== 'archived');
@@ -218,12 +264,19 @@ export function UniversalIntakeWorkspace() {
 
             {selectedReviewPlan ? <div className="intake-guidance-card intake-guidance-required">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Required to approve</div>
-              {selectedReviewPlan.requiredCorrections.length ? <div className="mt-1 space-y-1.5">{selectedReviewPlan.requiredCorrections.map((field) => {
-                const hint = selectedActionHints.find((entry) => entry.field.key === field.key);
-                return <div key={field.key} className="rounded-md border border-rose-200 bg-white px-2 py-1.5 text-xs text-slate-700">
-                  <div className="font-semibold text-slate-900">{field.label} • {field.status}</div>
-                  <div>{hint?.nextStep || 'Resolve this field before approving.'}</div>
-                  <div className="text-[11px] text-rose-700">{reviewReasonForField(field.key)}</div>
+              {selectedReviewPlan.requiredCorrections.length ? <div className="mt-1 space-y-2">{(['missing', 'conflicting', 'weak'] as const).map((status) => {
+                const fields = requiredCorrectionsByStatus[status];
+                if (!fields.length) return null;
+                return <div key={status} className="space-y-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700/90">{correctionBucketLabel(status)}</div>
+                  {fields.map((field) => {
+                    const hint = selectedActionHints.find((entry) => entry.field.key === field.key);
+                    return <div key={field.key} className="rounded-md border border-rose-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+                      <div className="font-semibold text-slate-900">{field.label}</div>
+                      <div>{hint?.nextStep || 'Resolve this field before approving.'}</div>
+                      <div className="text-[11px] text-rose-700">{reviewReasonForField(field.key)}</div>
+                    </div>;
+                  })}
                 </div>;
               })}</div> : <div className="mt-1 text-xs text-emerald-700">No blocking corrections. Candidate can move to decision.</div>}
             </div> : null}
@@ -242,12 +295,14 @@ export function UniversalIntakeWorkspace() {
             {selectedReviewPlan ? <div className="intake-guidance-card intake-guidance-next-action">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">Suggested next action</div>
               <div className="mt-1 text-sm font-semibold text-slate-900">{suggestedActionLabel}</div>
-              <div className="mt-1 text-xs text-slate-700">{selectedReviewPlan.suggestedDecisionReason}</div>
-              {createBlocked ? <div className="mt-1 text-xs text-rose-700">Complete required corrections first ({selectedReviewPlan.requiredCorrections.length} remaining).</div> : null}
+              <div className="mt-1 text-xs text-slate-700">{createBlocked ? `Needs more correction before action. ${selectedReviewPlan.requiredCorrections.length} blocker(s) remaining.` : selectedReviewPlan.suggestedDecisionReason}</div>
+              <div className="mt-1 text-[11px] text-slate-600">{recommendedActionDescription(selectedReviewPlan.suggestedDecision)}</div>
+              {suggestedQuickFixes.length ? <div className="mt-2 flex flex-wrap gap-1.5">{suggestedQuickFixes.map((action) => <button key={action.id} className={`action-btn !px-2 !py-1 text-[11px] ${action.emphasis === 'primary' ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => applyQuickFixAction(action)}>{action.label}</button>)}</div> : null}
             </div> : null}
 
             {safety && (safety.requiresLinkReview || selectedCandidate.existingRecordMatches.length > 0) ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs">
               <div className="mb-1 font-semibold">Link / duplicate review</div>
+              <div className="mb-1 text-[11px] text-amber-800">{createBlocked ? 'Complete blockers first, then decide whether to link.' : 'If this is the same work, link instead of creating new.'}</div>
               <div className="space-y-1">{selectedCandidate.existingRecordMatches.map((match) => <button key={match.id} className={`w-full rounded border px-2 py-1 text-left ${selectedMatch?.id === match.id ? 'border-sky-300 bg-white' : 'border-amber-200 bg-amber-100/30'}`} onClick={() => setSelectedMatchId(match.id)}>{match.recordType} • {match.title} • {match.project} • {Math.round(match.score * 100)}%<div className="text-[11px]">{match.reason}</div></button>)}</div>
               {selectedMatch ? <div className="mt-2 rounded border border-slate-200 bg-white p-2">Compare: <strong>{selectedCandidate.title}</strong> ↔ <strong>{selectedMatch.title}</strong> ({selectedMatch.project})</div> : null}
             </div> : null}
@@ -256,28 +311,34 @@ export function UniversalIntakeWorkspace() {
               <div className="space-y-1">{duplicateGroup.map((entry) => <button key={entry.id} className={`w-full rounded border px-2 py-1 text-left ${entry.id === selectedCandidate.id ? 'border-sky-300 bg-white' : 'border-amber-200 bg-amber-100/30'}`} onClick={() => setSelectedCandidateId(entry.id)}>{entry.title} • {entry.project || 'No project'} • due {entry.dueDate || '—'}</button>)}</div>
             </div> : null}
 
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="intake-guidance-card">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Editable fields</div>
+              <div className="mt-1 grid gap-2 md:grid-cols-2">
               <label className="field-block md:col-span-2"><span className="field-label">Title (required)</span><input className="field-input" value={selectedCandidate.title} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { title: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Type</span><select className="field-input" value={selectedCandidate.candidateType} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { candidateType: event.target.value as IntakeWorkCandidate['candidateType'] })}><option value="followup">Follow-up</option><option value="task">Task</option><option value="reference">Reference</option><option value="update_existing_followup">Update follow-up</option><option value="update_existing_task">Update task</option></select></label>
               <label className="field-block"><span className="field-label">Project (required)</span><input className="field-input" value={selectedCandidate.project || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { project: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Due date</span><input type="date" className="field-input" value={toDateInputValue(selectedCandidate.dueDate)} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { dueDate: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Next step</span><input className="field-input" value={selectedCandidate.nextStep || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { nextStep: event.target.value })} /></label>
-              <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { owner: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={selectedCandidate.assignee || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { assignee: event.target.value })} /></label>
+              <label className="field-block"><span className="field-label">Owner</span><input className="field-input" value={selectedCandidate.owner || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { owner: event.target.value })} /></label>
               <label className="field-block md:col-span-2"><span className="field-label">Summary</span><textarea className="field-textarea" value={selectedCandidate.summary} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { summary: event.target.value })} /></label>
               <label className="field-block"><span className="field-label">Priority</span><select className="field-input" value={selectedCandidate.priority} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { priority: event.target.value as IntakeWorkCandidate['priority'] })}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label>
               <label className="field-block"><span className="field-label">Waiting on</span><input className="field-input" value={selectedCandidate.waitingOn || ''} onChange={(event) => updateIntakeWorkCandidate(selectedCandidate.id, { waitingOn: event.target.value })} /></label>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button className="action-btn" onClick={() => handleDecision('link')}><Link2 className="h-4 w-4" />Link existing</button>
-              <button className={createBlocked ? 'action-btn' : `primary-btn ${safety?.duplicateRiskLevel === 'high' ? 'opacity-80' : ''}`} disabled={createBlocked} onClick={() => handleDecision('approve_followup')}><Mail className="h-4 w-4" />Create follow-up</button>
-              <button className="action-btn" disabled={createBlocked} onClick={() => handleDecision('approve_task')}><ClipboardCheck className="h-4 w-4" />Create task</button>
-              <button className="action-btn" onClick={() => handleDecision('reference')}>Save reference</button>
-              <button className="action-btn" onClick={() => handleDecision('reject')}>Dismiss</button>
+            <div className="intake-guidance-card">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Final decision</div>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <button className={selectedReviewPlan && actionIsPrimary('link', selectedReviewPlan, createBlocked) ? 'primary-btn' : 'action-btn'} onClick={() => handleDecision('link')}><Link2 className="h-4 w-4" />Link existing</button>
+                <button className={selectedReviewPlan && actionIsPrimary('approve_followup', selectedReviewPlan, createBlocked) ? `primary-btn ${safety?.duplicateRiskLevel === 'high' ? 'opacity-80' : ''}` : 'action-btn'} disabled={createBlocked} onClick={() => handleDecision('approve_followup')}><Mail className="h-4 w-4" />Create follow-up</button>
+                <button className={selectedReviewPlan && actionIsPrimary('approve_task', selectedReviewPlan, createBlocked) ? 'primary-btn' : 'action-btn'} disabled={createBlocked} onClick={() => handleDecision('approve_task')}><ClipboardCheck className="h-4 w-4" />Create task</button>
+                <button className={selectedReviewPlan && actionIsPrimary('reference', selectedReviewPlan, createBlocked) ? 'primary-btn' : 'action-btn'} onClick={() => handleDecision('reference')}>Save reference</button>
+                <button className="action-btn" onClick={() => handleDecision('reject')}>Dismiss</button>
+              </div>
+              {createBlocked ? <div className="mt-1 text-xs text-rose-700">Create actions are paused until required corrections are resolved.</div> : null}
+              {safety && !safety.safeToCreateNew ? <label className="mt-1 flex items-center gap-2 text-xs text-rose-700"><input type="checkbox" checked={confirmUnsafeCreate} onChange={(event) => setConfirmUnsafeCreate(event.target.checked)} />Confirm override: create new despite duplicate risk.</label> : null}
             </div>
-            {createBlocked ? <div className="text-xs text-rose-700">Create actions are paused until required corrections are resolved.</div> : null}
-            {safety && !safety.safeToCreateNew ? <label className="flex items-center gap-2 text-xs text-rose-700"><input type="checkbox" checked={confirmUnsafeCreate} onChange={(event) => setConfirmUnsafeCreate(event.target.checked)} />Confirm override: create new despite duplicate risk.</label> : null}
           </div> : <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No record selected.</div>}
         </div>
 

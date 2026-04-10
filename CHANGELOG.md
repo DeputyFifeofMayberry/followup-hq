@@ -8,6 +8,7 @@
 - Integrated duplicate/link pressure into the guided flow without letting it dominate by keeping link/duplicate modules contextual, while feeding that signal into the suggested action and de-emphasizing create actions whenever required corrections remain (`src/components/UniversalIntakeWorkspace.tsx`).
 - Reordered edit fields for faster correction pass-through (title, type, project, due date, next step, owner/assignee, summary, then secondary fields), and clarified final action hierarchy by pausing create actions until required blockers are addressed (`src/components/UniversalIntakeWorkspace.tsx`).
 - Added dedicated reviewer-guidance card styles for required blockers and suggested next action emphasis so blocker severity and decision guidance are visually distinct from lower-priority edits (`src/styles/workspaces.css`).
+- Added guided quick-fix controls sourced from shared `quickFixActions` planning output and wired final-decision emphasis to the same suggested decision state, so the workbench now presents one clear next move instead of equally weighted action buttons (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeReviewPlan.ts`).
 
 ### Intake hierarchy rebuild: reviewer-first workbench flow
 - Rebuilt Intake page structure so a compact operational header is followed immediately by the main reviewer surface (`Review queue`, `Reviewer workbench`, `Source evidence`) instead of leading with import/admin stacks, making pending review decisions the first-screen center of gravity for daily use (`src/components/UniversalIntakeWorkspace.tsx`).

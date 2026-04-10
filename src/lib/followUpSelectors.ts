@@ -11,7 +11,7 @@ interface FollowUpSelectorInput {
   filters: FollowUpAdvancedFilters;
 }
 
-interface FollowUpViewScopeInput extends Omit<FollowUpSelectorInput, 'activeView'> {}
+type FollowUpViewScopeInput = Omit<FollowUpSelectorInput, 'activeView'>;
 
 export interface FollowUpViewCounts {
   allItems: number;

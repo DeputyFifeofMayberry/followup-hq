@@ -78,7 +78,17 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       get().dismissToast(toastId);
       get().executeUndo(toast.action.actionId);
     },
-    selectAllVisibleFollowUps: (ids) => set({ selectedFollowUpIds: ids }),
+    selectAllVisibleFollowUps: (ids, selected = true) => set((state: AppStore) => {
+      const existing = new Set(state.selectedFollowUpIds);
+      if (selected) {
+        ids.forEach((id) => existing.add(id));
+      } else {
+        ids.forEach((id) => existing.delete(id));
+      }
+      return {
+        selectedFollowUpIds: Array.from(existing),
+      };
+    }),
     saveFollowUpCustomView: (name, search) => {
       set((state: AppStore) => ({
         savedFollowUpViews: [{ id: createId('FUV'), name, search, activeView: state.activeView, filters: state.followUpFilters, createdAt: todayIso() }, ...state.savedFollowUpViews],

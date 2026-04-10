@@ -96,7 +96,7 @@ export interface AppStoreActions {
   expireUndoEntry: (entryId: string) => void;
   clearExpiredUndoEntries: () => void;
   invalidateOverlappingUndoEntries: (entityRefs: Array<{ type: 'followup' | 'task' | 'project' | 'contact' | 'company' | 'auxiliary'; id: string }>, reason?: UndoConflictReason | 'record_changed_again') => void;
-  selectAllVisibleFollowUps: (ids: string[]) => void;
+  selectAllVisibleFollowUps: (ids: string[], selected?: boolean) => void;
   saveFollowUpCustomView: (name: string, search: string) => void;
   applySavedFollowUpCustomView: (id: string) => void;
   setFollowUpColumns: (columns: FollowUpColumnKey[]) => void;

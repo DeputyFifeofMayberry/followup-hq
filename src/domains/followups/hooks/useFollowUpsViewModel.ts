@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
 import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
@@ -72,11 +72,6 @@ export function useFollowUpsViewModel() {
     [store.items, filteredRows, store.selectedFollowUpIds],
   );
 
-  useEffect(() => {
-    if (!selectionScope.missingIds.length) return;
-    store.selectAllVisibleFollowUps(selectionScope.selectedIds);
-  }, [selectionScope.missingIds.length, selectionScope.selectedIds, store.selectAllVisibleFollowUps]);
-
   const viewCounts = useMemo(
     () => selectFollowUpViewCounts({
       items: store.items,
@@ -94,7 +89,8 @@ export function useFollowUpsViewModel() {
     openTaskCount: store.tasks.filter((task) => task.status !== 'Done').length,
     selectedCount: selectionScope.selectedIds.length,
     actionableSelectedCount: selectionScope.actionableIds.length,
-  }), [store.tasks, selectionScope.selectedIds.length, selectionScope.actionableIds.length]);
+    hiddenSelectedCount: selectionScope.hiddenIds.length,
+  }), [store.tasks, selectionScope.selectedIds.length, selectionScope.actionableIds.length, selectionScope.hiddenIds.length]);
 
   const activeRowAffectingOptions = useMemo(() => getActiveFollowUpRowAffectingOptions({
     search: store.search,
@@ -176,6 +172,58 @@ export function useFollowUpsViewModel() {
     });
   };
 
+  const revealFollowUpRecord = (recordId: string) => {
+    const record = store.items.find((item) => item.id === recordId);
+    if (!record) return false;
+
+    const queueMatches = selectFollowUpRows({
+      items: [record],
+      contacts: store.contacts,
+      companies: store.companies,
+      search: '',
+      activeView: store.activeView,
+      filters: defaultFollowUpFilters,
+    }).length > 0;
+    if (!queueMatches) store.setActiveView(record.status === 'Closed' ? 'All items' : 'All');
+
+    const term = store.search.trim().toLowerCase();
+    if (term) {
+      const haystack = [
+        record.id,
+        record.title,
+        record.project,
+        record.owner,
+        record.assigneeDisplayName || '',
+        record.nextAction,
+        record.summary,
+        record.tags.join(' '),
+        record.threadKey ?? '',
+        record.waitingOn ?? '',
+        store.contacts.find((entry) => entry.id === record.contactId)?.name ?? '',
+        store.companies.find((entry) => entry.id === record.companyId)?.name ?? '',
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(term)) store.setSearch('');
+    }
+
+    const patch: Partial<typeof store.followUpFilters> = {};
+    if (store.followUpFilters.status !== 'All' && store.followUpFilters.status !== record.status) patch.status = 'All';
+    if (store.followUpFilters.project !== 'All' && store.followUpFilters.project !== record.project) patch.project = 'All';
+    if (store.followUpFilters.owner !== 'All' && store.followUpFilters.owner !== record.owner) patch.owner = 'All';
+    if (store.followUpFilters.assignee !== 'All' && store.followUpFilters.assignee !== (record.assigneeDisplayName || record.owner)) patch.assignee = 'All';
+    if (store.followUpFilters.waitingOn !== 'All' && store.followUpFilters.waitingOn !== (record.waitingOn || 'Unspecified')) patch.waitingOn = 'All';
+    if (store.followUpFilters.escalation !== 'All' && store.followUpFilters.escalation !== record.escalationLevel) patch.escalation = 'All';
+    if (store.followUpFilters.priority !== 'All' && store.followUpFilters.priority !== record.priority) patch.priority = 'All';
+    if (store.followUpFilters.actionState !== 'All' && store.followUpFilters.actionState !== (record.actionState || 'Draft created')) patch.actionState = 'All';
+    if (store.followUpFilters.category !== 'All' && store.followUpFilters.category !== record.category) patch.category = 'All';
+    if (store.followUpFilters.dueDateRange !== 'all') patch.dueDateRange = 'all';
+    if (store.followUpFilters.nextTouchDateRange !== 'all') patch.nextTouchDateRange = 'all';
+    if (store.followUpFilters.promisedDateRange !== 'all') patch.promisedDateRange = 'all';
+    if (store.followUpFilters.linkedTaskState !== 'all') patch.linkedTaskState = 'all';
+    if (store.followUpFilters.cleanupOnly && !record.needsCleanup) patch.cleanupOnly = false;
+    if (Object.keys(patch).length) store.setFollowUpFilters(patch);
+    return true;
+  };
+
   const duplicateCount = store.duplicateReviews.length;
   const hasActiveRowNarrowing = activeRowAffectingOptions.length > 0;
   const emptyStateMessage = hasActiveRowNarrowing
@@ -206,6 +254,7 @@ export function useFollowUpsViewModel() {
     emptyStateMessage,
     clearFollowUpRowAffectingOption,
     resetAllRowAffectingOptions,
+    revealFollowUpRecord,
     queueSummary,
     selectionScope,
     actionableSelectedFollowUpIds: selectionScope.actionableIds,

@@ -1,16 +1,16 @@
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
-import { AppShellCard, AppBadge, EmptyState } from './ui/AppPrimitives';
+import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { TrackerMobileList } from './TrackerMobileList';
 import { useViewportBand } from '../hooks/useViewport';
 import { useFollowUpsViewModel } from '../domains/followups';
 
-const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'nextAction', 'actionState'];
-const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'nextAction', 'promisedDate']);
+const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'nextAction', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
+const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'promisedDate']);
 const TIMING_COLUMNS = new Set(['status', 'dueDate', 'nextTouchDate', 'priority']);
 const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate']);
 
@@ -44,6 +44,11 @@ export function TrackerTable({
   const [sorting, setSorting] = useState<SortingState>([{ id: 'dueDate', desc: false }]);
   const { isMobileLike } = useViewportBand();
 
+  const visibleColumns = useMemo(
+    () => vm.followUpColumns.includes('nextAction') ? vm.followUpColumns : [...vm.followUpColumns, 'nextAction'],
+    [vm.followUpColumns],
+  );
+
   const baseColumns = useMemo<Record<FollowUpColumnKey, ColumnDef<FollowUpItem>>>(() => ({
     title: {
       accessorKey: 'title',
@@ -55,18 +60,11 @@ export function TrackerTable({
           !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
           row.original.owner !== (row.original.assigneeDisplayName || row.original.owner) ? `Owner: ${row.original.owner}` : null,
         ].filter(Boolean);
-        const showInlineNextMove = !vm.followUpColumns.includes('nextAction');
-        const showUrgencyBadge = matterNow.tone !== 'info';
         return (
           <div className="tracker-title-cell">
             <div className="tracker-title-primary">{row.original.title}</div>
-            <div className="tracker-title-secondary">{matterNow.label}</div>
-            {showInlineNextMove ? <div className="tracker-title-next">Next move: {row.original.nextAction || 'No next move set'}</div> : null}
+            <div className={`tracker-title-secondary tracker-title-secondary-${matterNow.tone}`}>{matterNow.label}</div>
             <div className="tracker-title-meta">{supportMeta.join(' • ')}</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge>
-              {showUrgencyBadge && matterNow.tone !== 'info' ? <AppBadge tone={matterNow.tone}>{matterNow.label}</AppBadge> : null}
-            </div>
           </div>
         );
       },
@@ -92,18 +90,21 @@ export function TrackerTable({
         return <div className="text-xs text-slate-700">{open}/{total} open</div>;
       },
     },
-    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="tracker-next-move-content text-xs text-slate-600">{row.original.nextAction || '—'}</div> },
-  }), [personalMode, vm.followUpColumns]);
+    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="tracker-next-move-content text-xs text-slate-600">{row.original.nextAction || 'No next move set'}</div> },
+  }), [personalMode]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
-    const effectiveColumnOrder = personalMode && vm.followUpColumns.includes('owner') && vm.followUpColumns.includes('assignee')
+    const effectiveColumnOrder = personalMode && visibleColumns.includes('owner') && visibleColumns.includes('assignee')
       ? columnOrder.filter((key) => key !== 'owner')
       : columnOrder;
-    const dynamic = effectiveColumnOrder.filter((key) => vm.followUpColumns.includes(key)).map((key) => baseColumns[key]);
+    const dynamic = effectiveColumnOrder.filter((key) => visibleColumns.includes(key)).map((key) => baseColumns[key]);
     return [
       {
         id: 'select',
-        header: () => <input aria-label="Select all visible follow-ups" type="checkbox" checked={rows.length > 0 && rows.every((item) => vm.selectedFollowUpIds.includes(item.id))} onChange={(event) => vm.selectAllVisibleFollowUps(event.target.checked ? rows.map((item) => item.id) : [])} />,
+        header: () => {
+          const visibleIds = rows.map((item) => item.id);
+          return <input aria-label="Select all visible follow-ups" type="checkbox" checked={rows.length > 0 && visibleIds.every((id) => vm.selectedFollowUpIds.includes(id))} onChange={(event) => vm.selectAllVisibleFollowUps(visibleIds, event.target.checked)} />;
+        },
         cell: ({ row }) => <input aria-label={`Select ${row.original.title}`} type="checkbox" checked={vm.selectedFollowUpIds.includes(row.original.id)} onChange={() => vm.toggleFollowUpSelection(row.original.id)} onClick={(event) => event.stopPropagation()} />,
         enableSorting: false,
       },
@@ -113,10 +114,10 @@ export function TrackerTable({
         header: 'Actions',
         enableSorting: false,
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1 row-quick-actions">
+          <div className="row-quick-actions">
             <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Inspect</button>
             <details className="tracker-row-more-actions">
-              <summary>Act</summary>
+              <summary><MoreHorizontal className="h-3.5 w-3.5" /> More</summary>
               <div className="flex flex-wrap gap-1">
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); }}>Log touch</button>
                 <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); }}>Nudge</button>
@@ -128,7 +129,7 @@ export function TrackerTable({
         ),
       },
     ];
-  }, [vm.followUpColumns, rows, vm.selectedFollowUpIds, vm.selectAllVisibleFollowUps, vm.toggleFollowUpSelection, personalMode, baseColumns, onRowOpen, vm]);
+  }, [visibleColumns, rows, vm.selectedFollowUpIds, vm.selectAllVisibleFollowUps, vm.toggleFollowUpSelection, personalMode, baseColumns, onRowOpen, vm, onRequestDelete]);
 
   const table = useReactTable({ data: rows, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
 

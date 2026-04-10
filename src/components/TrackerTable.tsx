@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, PencilLine, Send, Clock3, Trash2, SearchCheck } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from './Badge';
@@ -83,7 +83,16 @@ export function TrackerTable({
     project: { accessorKey: 'project', header: 'Project' },
     owner: { accessorKey: 'owner', header: 'Owner' },
     assignee: { id: 'assigneeDisplayName', accessorFn: (row) => row.assigneeDisplayName || row.owner, header: 'Assignee' },
-    status: { accessorKey: 'status', header: 'Status', cell: ({ row }) => <Badge variant={statusTone(row.original.status)}>{row.original.status}</Badge> },
+    status: {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className={`tracker-status-pill tracker-status-pill-${statusTone(row.original.status)}`}>
+          <span className="tracker-status-pill-dot" />
+          {row.original.status}
+        </span>
+      ),
+    },
     priority: { accessorKey: 'priority', header: 'Priority', cell: ({ row }) => <Badge variant={priorityTone(row.original.priority)}>{row.original.priority}</Badge> },
     dueDate: { accessorKey: 'dueDate', header: 'Due', enableSorting: true, cell: ({ row }) => formatDate(row.original.dueDate) },
     nextTouchDate: { accessorKey: 'nextTouchDate', header: 'Next touch', enableSorting: true, cell: ({ row }) => formatDate(row.original.nextTouchDate) },
@@ -147,10 +156,21 @@ export function TrackerTable({
               </button>
               {openActionMenuId === row.original.id ? (
                 <div className="tracker-row-action-menu-popover" role="menu">
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); setOpenActionMenuId(null); }}>Log touch</button>
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); setOpenActionMenuId(null); }}>Nudge</button>
-                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); setOpenActionMenuId(null); }}>Snooze</button>
-                  <button type="button" className="tracker-row-action-menu-item tracker-row-action-menu-item-danger" role="menuitem" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); setOpenActionMenuId(null); }}>Delete</button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); setOpenActionMenuId(null); }}>
+                    <SearchCheck className="h-3.5 w-3.5" />Open timeline
+                  </button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(row.original.id); vm.openTouchModal(); setOpenActionMenuId(null); }}>
+                    <PencilLine className="h-3.5 w-3.5" />Log update
+                  </button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(row.original.id); setOpenActionMenuId(null); }}>
+                    <Send className="h-3.5 w-3.5" />Mark nudged
+                  </button>
+                  <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(row.original.id, 2); setOpenActionMenuId(null); }}>
+                    <Clock3 className="h-3.5 w-3.5" />Snooze 2d
+                  </button>
+                  <button type="button" className="tracker-row-action-menu-item tracker-row-action-menu-item-danger" role="menuitem" onClick={(event) => { event.stopPropagation(); onRequestDelete?.(row.original); setOpenActionMenuId(null); }}>
+                    <Trash2 className="h-3.5 w-3.5" />Delete
+                  </button>
                 </div>
               ) : null}
             </div>

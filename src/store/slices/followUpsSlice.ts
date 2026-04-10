@@ -63,8 +63,9 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
     },
     addItem: (item) => {
       set((state: AppStore) => {
+        const timeline = item.timeline?.length ? item.timeline : [buildTouchEvent('Follow-up created.', 'created')];
         const normalized = enforceFollowUpIntegrity(
-          applyItemRules(normalizeItem({ ...item, auditHistory: [makeAuditEntry({ actorUserId: item.createdByUserId || 'user-current', actorDisplayName: item.createdByDisplayName || 'Current user', action: 'created', summary: 'Record created.' }), ...(item.auditHistory || [])] })),
+          applyItemRules(normalizeItem({ ...item, timeline, auditHistory: [makeAuditEntry({ actorUserId: item.createdByUserId || 'user-current', actorDisplayName: item.createdByDisplayName || 'Current user', action: 'created', summary: 'Record created.' }), ...(item.auditHistory || [])] })),
           state.projects,
         );
         const items = [normalized, ...state.items].map(normalizeItem);

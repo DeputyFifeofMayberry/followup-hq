@@ -100,7 +100,20 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
   const [actionFeedback, setActionFeedback] = useState<FollowUpActionFeedback | null>(null);
 
   const noteEntries = useMemo(() => (item ? parseRunningNotes(item.notes) : []), [item]);
-  const activityEntries = useMemo(() => (item ? item.timeline.slice(0, 8) : []), [item]);
+  const activityEntries = useMemo(() => (item ? item.timeline : []), [item]);
+  const progressMilestones = useMemo(() => {
+    if (!item) return [];
+    const createdAt = item.createdAt || item.timeline[item.timeline.length - 1]?.at;
+    const closedEvent = item.status === 'Closed'
+      ? item.timeline.find((entry) => entry.type === 'status_changed' && /closed/i.test(entry.summary))
+      : null;
+    return [
+      createdAt ? `Opened ${formatDateTime(createdAt)}` : null,
+      item.lastTouchDate ? `Last touch ${formatDate(item.lastTouchDate)}` : null,
+      item.lastActionAt ? `Last action ${formatDateTime(item.lastActionAt)}` : null,
+      closedEvent ? `Closed ${formatDateTime(closedEvent.at)}` : null,
+    ].filter(Boolean) as string[];
+  }, [item]);
   const visibleQueueIds = useMemo(() => viewModel.filteredRows.map((entry) => entry.id), [viewModel.filteredRows]);
 
   const recommendedAction = useMemo(() => {
@@ -182,8 +195,13 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
         </details>
 
         <details className="detail-card inspector-block" open>
-          <summary className="cursor-pointer text-sm font-semibold text-slate-900">Recent activity</summary>
+          <summary className="cursor-pointer text-sm font-semibold text-slate-900">Progress history</summary>
           <div className="mt-2 space-y-2">
+            {progressMilestones.length ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+                {progressMilestones.join(' • ')}
+              </div>
+            ) : null}
             {activityEntries.length ? activityEntries.map((entry) => <div key={entry.id} className="timeline-row"><div className="timeline-dot" /><div><div className="text-sm font-medium text-slate-900">{entry.summary}</div><div className="text-xs text-slate-500">{entry.type} • {formatDateTime(entry.at)}</div></div></div>) : <div className="text-xs text-slate-500">No recent activity.</div>}
             <div className="text-xs text-slate-500">{noteEntries.length} notes • {linkedTasks.length} linked tasks</div>
           </div>

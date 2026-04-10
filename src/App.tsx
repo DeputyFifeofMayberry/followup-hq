@@ -589,10 +589,12 @@ function MainApp({ session }: { session: Session }) {
                       {currentMeta.primaryAction.label}
                     </button>
                   ) : null}
-                  <button type="button" className="action-btn" onClick={() => runPrimaryAction('new-followup')} title="Quick capture (Ctrl/Cmd+Shift+N)">
-                    <Sparkles className="h-4 w-4" />
-                    Quick add
-                  </button>
+                  {workspace !== 'followups' ? (
+                    <button type="button" className="action-btn" onClick={() => runPrimaryAction('new-followup')} title="Quick capture (Ctrl/Cmd+Shift+N)">
+                      <Sparkles className="h-4 w-4" />
+                      Quick add
+                    </button>
+                  ) : null}
                 </div>
 
                 <details className="daily-focus-strip">

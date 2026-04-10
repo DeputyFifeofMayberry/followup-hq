@@ -1,7 +1,7 @@
 import { createId, todayIso, resolveProjectName, normalizeItem } from '../../lib/utils';
 import { attachProjects } from '../../domains/followups/helpers';
 import { normalizeTask } from '../../domains/tasks/helpers';
-import { stampProject } from '../../domains/projects/helpers';
+import { normalizeProjectRecord, stampProject } from '../../domains/projects/helpers';
 import { normalizeProjectInput, validateProjectIdentity } from '../../domains/projects/validation';
 import { enforceFollowUpIntegrity, enforceTaskIntegrity } from '../../domains/records/integrity';
 import type { IntakeDocumentRecord } from '../../types';
@@ -19,7 +19,7 @@ export function createProjectsSlice(set: SliceSet, { queuePersist }: SliceContex
         const validation = validateProjectIdentity({ name: normalized.name, code: normalized.code }, state.projects);
         if (validation.errors.length > 0) return state;
         return {
-          projects: [...state.projects, {
+          projects: [...state.projects, normalizeProjectRecord({
             id,
             ...input,
             ...normalized,
@@ -28,7 +28,7 @@ export function createProjectsSlice(set: SliceSet, { queuePersist }: SliceContex
             linkedCompanyIds: input.linkedCompanyIds ?? [],
             createdAt: todayIso(),
             updatedAt: todayIso(),
-          }].sort((a, b) => a.name.localeCompare(b.name)),
+          })].sort((a, b) => a.name.localeCompare(b.name)),
         };
       });
       queuePersist();
@@ -43,7 +43,7 @@ export function createProjectsSlice(set: SliceSet, { queuePersist }: SliceContex
         const validation = validateProjectIdentity({ name: nextName, code: nextCode }, state.projects, id);
         if (validation.errors.length > 0) return state;
         const projects = state.projects.map((project) => (project.id === id
-          ? stampProject(project, {
+          ? normalizeProjectRecord(stampProject(project, {
             ...patch,
             name: nextName,
             code: nextCode,
@@ -53,7 +53,7 @@ export function createProjectsSlice(set: SliceSet, { queuePersist }: SliceContex
             tags: patch.tags ? patch.tags.map((entry) => entry.trim()).filter(Boolean) : project.tags,
             linkedContactIds: patch.linkedContactIds ?? project.linkedContactIds ?? [],
             linkedCompanyIds: patch.linkedCompanyIds ?? project.linkedCompanyIds ?? [],
-          })
+          }))
           : project));
         const renamedTo = projects.find((project) => project.id === id)?.name ?? original.name ?? 'General';
         const items = patch.name && patch.name !== original.name

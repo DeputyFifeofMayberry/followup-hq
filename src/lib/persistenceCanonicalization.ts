@@ -1,6 +1,9 @@
 import type { ContactRecord, FollowUpItem, ProjectRecord } from '../types';
 import type { PersistedPayload } from './persistence';
 import type { SaveBatchEntity } from './persistenceTypes';
+import { normalizeItem } from './utils';
+import { normalizeContact } from '../domains/relationships/helpers';
+import { normalizeProjectRecord } from '../domains/projects/helpers';
 
 const FOLLOW_UP_RUNTIME_ONLY_FIELDS = [
   'linkedTaskCount',
@@ -21,6 +24,7 @@ const FOLLOW_UP_HYDRATION_ONLY_FIELDS = [
 ] as const;
 
 const COMMON_TRANSIENT_FIELDS = ['_runtime', '_ui', 'isSelected', 'isExpanded', '__optimistic'] as const;
+const SYNC_TRANSPORT_FIELDS = ['recordVersion', 'updatedByDevice', 'lastBatchId', 'lastOperationAt', 'deletedAt', 'conflictMarker'] as const;
 
 export interface CanonicalizationMetadata {
   strippedPaths: string[];
@@ -48,7 +52,33 @@ export function normalizeRecordForVerification(record: unknown): Record<string, 
 }
 
 function canonicalizeItem(record: Record<string, unknown>, metadata?: CanonicalizationMetadata): Record<string, unknown> {
-  const canonical = normalizeRecordForVerification(record) as FollowUpItem & Record<string, unknown>;
+  const raw = normalizeRecordForVerification(record) as Record<string, unknown>;
+  const seeded = {
+    id: String(raw.id ?? ''),
+    title: String(raw.title ?? ''),
+    source: (raw.source as FollowUpItem['source']) ?? 'Notes',
+    project: String(raw.project ?? ''),
+    owner: String(raw.owner ?? ''),
+    status: (raw.status as FollowUpItem['status']) ?? 'Needs action',
+    priority: (raw.priority as FollowUpItem['priority']) ?? 'Medium',
+    dueDate: typeof raw.dueDate === 'string' ? raw.dueDate : '1970-01-01T00:00:00.000Z',
+    lastTouchDate: typeof raw.lastTouchDate === 'string' ? raw.lastTouchDate : '1970-01-01T00:00:00.000Z',
+    nextTouchDate: typeof raw.nextTouchDate === 'string' ? raw.nextTouchDate : '1970-01-01T00:00:00.000Z',
+    nextAction: String(raw.nextAction ?? ''),
+    summary: String(raw.summary ?? ''),
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    sourceRef: String(raw.sourceRef ?? ''),
+    sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
+    mergedItemIds: Array.isArray(raw.mergedItemIds) ? raw.mergedItemIds : [],
+    notes: String(raw.notes ?? ''),
+    timeline: Array.isArray(raw.timeline) ? raw.timeline : [],
+    category: (raw.category as FollowUpItem['category']) ?? 'General',
+    owesNextAction: (raw.owesNextAction as FollowUpItem['owesNextAction']) ?? 'Unknown',
+    escalationLevel: (raw.escalationLevel as FollowUpItem['escalationLevel']) ?? 'None',
+    cadenceDays: typeof raw.cadenceDays === 'number' && raw.cadenceDays > 0 ? raw.cadenceDays : 3,
+    ...raw,
+  } as FollowUpItem;
+  const canonical = normalizeItem(seeded) as FollowUpItem & Record<string, unknown>;
   FOLLOW_UP_RUNTIME_ONLY_FIELDS.forEach((key) => {
     if (key in canonical) metadata?.strippedPaths.push(key);
     delete canonical[key];
@@ -57,44 +87,36 @@ function canonicalizeItem(record: Record<string, unknown>, metadata?: Canonicali
     if (key in canonical) metadata?.strippedPaths.push(key);
     delete canonical[key];
   });
+  SYNC_TRANSPORT_FIELDS.forEach((key) => {
+    if (key in canonical) metadata?.strippedPaths.push(key);
+    delete canonical[key];
+  });
   return canonical;
 }
 
 function canonicalizeProject(record: Record<string, unknown>, metadata?: CanonicalizationMetadata): Record<string, unknown> {
-  const canonical = normalizeRecordForVerification(record) as ProjectRecord & Record<string, unknown>;
-  if (!Array.isArray(canonical.tags)) {
-    canonical.tags = [];
-    metadata?.defaultedPaths.push('tags');
-  }
-  if (canonical.archived === undefined) {
-    canonical.archived = false;
-    metadata?.defaultedPaths.push('archived');
-  }
+  const raw = normalizeRecordForVerification(record) as ProjectRecord & Record<string, unknown>;
+  const canonical = normalizeProjectRecord(raw) as ProjectRecord & Record<string, unknown>;
+  if (!Array.isArray(raw.tags) && Array.isArray(canonical.tags)) metadata?.defaultedPaths.push('tags');
+  SYNC_TRANSPORT_FIELDS.forEach((key) => {
+    if (key in canonical) metadata?.strippedPaths.push(key);
+    delete canonical[key];
+  });
   return canonical;
 }
 
 function canonicalizeContact(record: Record<string, unknown>, metadata?: CanonicalizationMetadata): Record<string, unknown> {
-  const canonical = normalizeRecordForVerification(record) as ContactRecord & Record<string, unknown>;
-  if (!Array.isArray(canonical.tags)) {
-    canonical.tags = [];
-    metadata?.defaultedPaths.push('tags');
-  }
-  if (canonical.role === undefined || canonical.role === '') {
-    canonical.role = 'External';
-    metadata?.defaultedPaths.push('role');
-  }
-  if (canonical.relationshipStatus === undefined) {
-    canonical.relationshipStatus = 'Active';
-    metadata?.defaultedPaths.push('relationshipStatus');
-  }
-  if (canonical.riskTier === undefined) {
-    canonical.riskTier = 'Low';
-    metadata?.defaultedPaths.push('riskTier');
-  }
-  if (canonical.active === undefined) {
-    canonical.active = true;
-    metadata?.defaultedPaths.push('active');
-  }
+  const raw = normalizeRecordForVerification(record) as ContactRecord & Record<string, unknown>;
+  const canonical = normalizeContact(raw) as ContactRecord & Record<string, unknown>;
+  if (!Array.isArray(raw.tags) && Array.isArray(canonical.tags)) metadata?.defaultedPaths.push('tags');
+  if ((raw.role === undefined || raw.role === '') && canonical.role) metadata?.defaultedPaths.push('role');
+  if (raw.relationshipStatus === undefined && canonical.relationshipStatus) metadata?.defaultedPaths.push('relationshipStatus');
+  if (raw.riskTier === undefined && canonical.riskTier) metadata?.defaultedPaths.push('riskTier');
+  if (raw.active === undefined && canonical.active !== undefined) metadata?.defaultedPaths.push('active');
+  SYNC_TRANSPORT_FIELDS.forEach((key) => {
+    if (key in canonical) metadata?.strippedPaths.push(key);
+    delete canonical[key];
+  });
   return canonical;
 }
 

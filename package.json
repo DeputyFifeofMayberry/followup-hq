@@ -19,7 +19,10 @@
     "e2e:headed": "playwright test --headed",
     "e2e:smoke": "playwright test e2e/smoke",
     "test:all": "npm run test && npm run e2e:smoke",
-    "e2e:full": "playwright test e2e/workflows"
+    "e2e:full": "playwright test e2e/workflows",
+    "generate:build-meta": "node scripts/generate-build-meta.mjs",
+    "predev": "npm run generate:build-meta",
+    "prebuild": "npm run generate:build-meta"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

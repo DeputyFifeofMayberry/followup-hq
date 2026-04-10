@@ -341,3 +341,88 @@
 }
 
 .app-compact-shell-wordmark { font-size: 0.85rem; font-weight: 740; color: var(--brand-wordmark-dark); }
+
+.app-nav-build-slot {
+  margin-top: 0.55rem;
+  padding-top: 0.48rem;
+  border-top: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+.build-stamp {
+  border: 1px solid rgba(100, 116, 139, 0.32);
+  border-radius: 0.72rem;
+  background: rgba(15, 23, 42, 0.2);
+  padding: 0.38rem 0.44rem;
+  color: #9fb3cd;
+}
+
+.build-stamp[open] {
+  background: rgba(15, 23, 42, 0.32);
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+.build-stamp-summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.build-stamp-summary::-webkit-details-marker { display: none; }
+
+.build-stamp-line {
+  font-size: 0.66rem;
+  line-height: 1.2;
+  color: #b6c8dd;
+}
+
+.build-stamp-sha {
+  color: #d8e6f6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.build-stamp-detail {
+  margin-top: 0.45rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  padding-top: 0.4rem;
+}
+
+.build-stamp-detail dl {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0;
+}
+
+.build-stamp-detail dl div {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.build-stamp-detail dt {
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8ea3be;
+  font-weight: 700;
+}
+
+.build-stamp-detail dd {
+  margin: 0;
+  font-size: 0.66rem;
+  color: #d4e2f2;
+}
+
+.build-stamp-pr-title {
+  color: #a5bad3;
+}
+
+.build-stamp-break {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.build-stamp-detail a {
+  color: #c8dcf6;
+  text-decoration: underline;
+  text-decoration-color: rgba(148, 163, 184, 0.45);
+}

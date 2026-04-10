@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, createId, fromDateInputValue, todayIso } from '../lib/utils';
-import { ExecutionLaneFooterMeta, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
+import { ExecutionLaneFooterMeta, ExecutionLaneInspectorCard, SectionHeader, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getModeConfig } from '../lib/appModeConfig';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
@@ -183,8 +183,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
         </div>
       </div>
 
-      <section className="detail-card task-workspace-main-card">
-        <TaskToolbar
+      <WorkspacePrimaryLayout inspectorWidth="420px" className="task-workspace-layout">
+        <section className="detail-card task-workspace-main-card">
+          <TaskToolbar
           isMobileLike={isMobileLike}
           searchQuery={vm.searchQuery}
           onSearchQueryChange={vm.setSearchQuery}
@@ -223,7 +224,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           sortSummary={vm.sortSummary}
         />
 
-        <TaskList
+          <TaskList
           filteredTasks={vm.filteredTasks}
           selectedTaskId={vm.selectedTask?.id ?? null}
           laneFeedback={laneFeedback}
@@ -244,28 +245,56 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false, appM
           renderNowSignal={vm.getTaskSignal}
         />
 
-        <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} />
-      </section>
+          <ExecutionLaneFooterMeta shownCount={vm.filteredTasks.length} selectedCount={vm.selectedTask ? 1 : 0} scopeSummary={`Queue: ${taskViewOptions.find((entry) => entry.value === vm.view)?.label || vm.view}`} />
+        </section>
 
-      <TaskInspectorModal
-        open={taskDetailOpen}
-        selectedTask={vm.selectedTask}
-        linkedFollowUp={vm.linkedFollowUpForSelected}
-        linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
-        linkedParentRollup={vm.linkedParentRollup}
-        linkedParentCloseout={vm.linkedParentCloseout}
-        recommendedAction={vm.recommendedAction}
-        ownerOptions={vm.ownerOptions}
-        assigneeOptions={vm.assigneeOptions}
-        renderNowSignal={vm.getTaskSignal}
-        onClose={() => setTaskDetailOpen(false)}
-        onRunRecommendedTaskAction={runRecommendedTaskAction}
-        onOpenTaskFlow={openTaskFlow}
-        onUpdateTask={vm.updateTask}
-        onOpenLinkedFollowUp={onOpenLinkedFollowUp}
-        onOpenRecordDrawer={openRecordDrawer}
-        onOpenRecordEditor={openRecordEditor}
-      />
+        {!isMobileLike && taskDetailOpen && vm.selectedTask ? (
+          <ExecutionLaneInspectorCard>
+            <TaskInspectorModal
+              open={taskDetailOpen}
+              presentation="panel"
+              selectedTask={vm.selectedTask}
+              linkedFollowUp={vm.linkedFollowUpForSelected}
+              linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
+              linkedParentRollup={vm.linkedParentRollup}
+              linkedParentCloseout={vm.linkedParentCloseout}
+              recommendedAction={vm.recommendedAction}
+              ownerOptions={vm.ownerOptions}
+              assigneeOptions={vm.assigneeOptions}
+              renderNowSignal={vm.getTaskSignal}
+              onClose={() => setTaskDetailOpen(false)}
+              onRunRecommendedTaskAction={runRecommendedTaskAction}
+              onOpenTaskFlow={openTaskFlow}
+              onUpdateTask={vm.updateTask}
+              onOpenLinkedFollowUp={onOpenLinkedFollowUp}
+              onOpenRecordDrawer={openRecordDrawer}
+              onOpenRecordEditor={openRecordEditor}
+            />
+          </ExecutionLaneInspectorCard>
+        ) : null}
+      </WorkspacePrimaryLayout>
+
+      {isMobileLike ? (
+        <TaskInspectorModal
+          open={taskDetailOpen}
+          selectedTask={vm.selectedTask}
+          linkedFollowUp={vm.linkedFollowUpForSelected}
+          linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
+          linkedParentRollup={vm.linkedParentRollup}
+          linkedParentCloseout={vm.linkedParentCloseout}
+          recommendedAction={vm.recommendedAction}
+          ownerOptions={vm.ownerOptions}
+          assigneeOptions={vm.assigneeOptions}
+          renderNowSignal={vm.getTaskSignal}
+          onClose={() => setTaskDetailOpen(false)}
+          onRunRecommendedTaskAction={runRecommendedTaskAction}
+          onOpenTaskFlow={openTaskFlow}
+          onUpdateTask={vm.updateTask}
+          onOpenLinkedFollowUp={onOpenLinkedFollowUp}
+          onOpenRecordDrawer={openRecordDrawer}
+          onOpenRecordEditor={openRecordEditor}
+        />
+      ) : null}
 
       <TaskActionFlow
         flowState={flowState}

@@ -41,7 +41,7 @@ export function TouchLogModal() {
     <AppModal size="standard">
       <AppModalHeader
         title="Log touchpoint"
-        subtitle="Record what happened and update timeline fields in one pass."
+        subtitle="Record outcome and update key dates."
         onClose={closeTouchModal}
       />
       <AppModalBody>

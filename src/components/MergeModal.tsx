@@ -29,8 +29,8 @@ export function MergeModal() {
   return (
     <AppModal size="wide">
       <AppModalHeader
-        title="Merge duplicate records"
-        subtitle={`Keep ${baseItem.id} as the master record and absorb ${candidateItem.id}.`}
+        title="Merge duplicates"
+        subtitle={`Keep ${baseItem.id} and absorb ${candidateItem.id}.`}
         onClose={closeMergeModal}
       />
       <AppModalBody>

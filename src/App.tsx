@@ -483,7 +483,7 @@ function MainApp({ session }: { session: Session }) {
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
             <SetPointWordmark variant="shell" className="app-brand-title" decorative />
-            <div className="app-brand-subline">Daily construction execution.</div>
+            <div className="app-brand-subline">Execution workspace</div>
           </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
@@ -520,8 +520,7 @@ function MainApp({ session }: { session: Session }) {
                             <span className="nav-label-primary">{meta.userLabel}</span>
                           </span>
                           <span className="nav-card-meta-row">
-                            {meta.startSurface ? <span className="nav-start-pill">Start here</span> : null}
-                            {navCounts[key] ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
+                                                        {navCounts[key] && (active || section.tone === 'core') ? <span className="nav-pill"><span className="nav-pill-text">{navCounts[key]}</span></span> : null}
                           </span>
                         </div>
                       </button>
@@ -531,7 +530,7 @@ function MainApp({ session }: { session: Session }) {
               </section>
             ))}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open FollowUp HQ command palette</button></div>
+          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command</button></div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 
@@ -592,10 +591,10 @@ function MainApp({ session }: { session: Session }) {
                   </button>
                 </div>
 
-                <details className="daily-focus-strip" open={dailyFocus.pressure > 0}>
+                <details className="daily-focus-strip">
                   <summary>
                     <span className="daily-focus-label">Daily focus</span>
-                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today • {dailyFocus.nudgeFollowUps} need nudge</span>
+                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today • {dailyFocus.nudgeFollowUps} nudge</span>
                   </summary>
                   <div className="daily-focus-actions">
                     <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>Overdue</button>
@@ -605,8 +604,6 @@ function MainApp({ session }: { session: Session }) {
                   </div>
                 </details>
               </div>
-
-              <p className="workspace-shell-subcopy">{modeConfig.shellDescription}</p>
             </header>
             <section className="workspace-body-slot">
               {workspaceBody}
@@ -618,7 +615,7 @@ function MainApp({ session }: { session: Session }) {
         <div>
           <AppModal size="standard" onBackdropClick={() => setShowCommand(false)}>
             <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
-              <AppModalHeader title="Command palette" onClose={() => setShowCommand(false)} />
+              <AppModalHeader title="Command" onClose={() => setShowCommand(false)} />
               <AppModalBody scrollable={false}>
             <label className="field-block">
               <span className="field-label">Quick find command</span>
@@ -696,7 +693,7 @@ function MainApp({ session }: { session: Session }) {
         }}
         >
           <div role="dialog" aria-modal="true" aria-label="Confirm sign out" onClick={(e) => e.stopPropagation()}>
-            <AppModalHeader title="Sign out with local recovery safety" onClose={() => {
+            <AppModalHeader title="Sign out" subtitle="Choose how to handle local recovery data." onClose={() => {
               if (signOutInProgress || saveAndSignOutInProgress) return;
               setShowSignOutModal(false);
               setSignOutError(null);

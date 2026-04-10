@@ -115,13 +115,16 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
       <ExecutionLaneToolbarScaffold
         className="followup-primary-toolbar"
         left={(
-          <label className="field-block followup-search-block">
-            <div className="search-field-wrap">
-              <Search className="search-field-icon h-4 w-4" />
-              <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
-              {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
-            </div>
-          </label>
+          <div className="followup-search-block">
+            <label className="field-block">
+              <div className="search-field-wrap">
+                <Search className="search-field-icon h-4 w-4" />
+                <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
+                {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+              </div>
+            </label>
+            <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
+          </div>
         )}
         right={(
           <>
@@ -130,7 +133,7 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               Options{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
               <ChevronDown className={`h-4 w-4 ${showOptions ? 'rotate-180' : ''}`} />
             </button>
-            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
+            {duplicateCount > 0 && showOptions ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
             <button onClick={vm.openCreateModal} className="primary-btn">Add follow-up</button>
           </>
         )}

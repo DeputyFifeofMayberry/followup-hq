@@ -40,7 +40,6 @@ export function TrackerWorkspace({ personalMode, appMode }: { personalMode: bool
         <div className="tracker-main-single">
           <div className="tracker-workspace-main app-shell-card">
             <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
-            <div className="followup-queue-summary" aria-live="polite">{vm.queueSummary}</div>
             <TrackerTable
               personalMode={personalMode}
               appMode={appMode}

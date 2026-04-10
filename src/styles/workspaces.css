@@ -315,6 +315,39 @@
   align-items: center;
 }
 .task-filter-chip-quiet { background: #f8fbff; border-color: #dce7f4; }
+.followup-filter-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.followup-filter-chip-row-muted {
+  min-height: 1.9rem;
+  padding: 0.15rem 0;
+}
+.followup-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid #d5e2f1;
+  border-radius: 999px;
+  background: #eef5fc;
+  color: #1f3653;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  cursor: pointer;
+}
+.followup-filter-chip:hover { border-color: #b8cde7; background: #e6f0fb; }
+.followup-filter-chip-quiet { background: #f8fbff; border-color: #dce7f4; }
+.tracker-empty-state-wrap { display: grid; gap: 0.6rem; justify-items: center; }
+.followup-hidden-intent-notice {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 0.75rem;
+  font-size: 0.76rem;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
 .task-sort-summary { font-size: 0.68rem; color: #6b7f95; }
 .task-control-stack-calm {
   border-color: var(--border-subtle);

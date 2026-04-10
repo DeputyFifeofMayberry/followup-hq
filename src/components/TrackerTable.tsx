@@ -150,6 +150,9 @@ export function TrackerTable({
       }}
       onNudge={vm.markNudged}
       onSnooze={(id) => vm.snoozeItem(id, 2)}
+      emptyStateMessage={vm.emptyStateMessage}
+      hasActiveRowNarrowing={vm.hasActiveRowNarrowing}
+      onResetFilters={vm.resetAllRowAffectingOptions}
     />
   );
 
@@ -222,7 +225,12 @@ export function TrackerTable({
             })}
           </tbody>
         </table>
-        {rows.length === 0 ? <div className="p-4"><EmptyState title="No follow-ups found" message="Adjust filters or clear search to find matching follow-ups." /></div> : null}
+        {rows.length === 0 ? (
+          <div className="p-4 tracker-empty-state-wrap">
+            <EmptyState title={vm.hasActiveRowNarrowing ? 'No follow-ups match the current filters' : 'No follow-ups yet'} message={vm.emptyStateMessage} />
+            {vm.hasActiveRowNarrowing ? <button type="button" className="primary-btn" onClick={vm.resetAllRowAffectingOptions}>Reset filters</button> : null}
+          </div>
+        ) : null}
       </div>
       <ExecutionLaneFooterMeta
         shownCount={rows.length}

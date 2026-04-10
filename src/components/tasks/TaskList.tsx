@@ -39,6 +39,9 @@ type TaskListProps = {
   onQuickAdd: (payload: QuickCapturePayload) => { ok: boolean; message?: string };
   getParentLinkedFollowUpId: (linkedFollowUpId?: string | null) => boolean;
   renderNowSignal: (task: TaskItem) => TaskSignal;
+  hasActiveNarrowing?: boolean;
+  activeFilterLabels?: string[];
+  onResetFilters?: () => void;
 };
 
 function summarizeMeta(task: TaskItem) {
@@ -66,6 +69,9 @@ export function TaskList({
   onQuickAdd,
   getParentLinkedFollowUpId,
   renderNowSignal,
+  hasActiveNarrowing = false,
+  activeFilterLabels = [],
+  onResetFilters,
 }: TaskListProps) {
   const [quickAddActive, setQuickAddActive] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
@@ -155,7 +161,15 @@ export function TaskList({
 
       {laneFeedback ? <div className={`task-lane-feedback ${laneFeedback.tone === 'warn' ? 'task-lane-feedback-warn' : 'task-lane-feedback-success'}`}>{laneFeedback.message}</div> : null}
 
-      {filteredTasks.length === 0 ? <EmptyState title="No tasks in this queue" message="Switch queue views or adjust Options to expose work." /> : filteredTasks.map((task) => {
+      {filteredTasks.length === 0 ? (
+        <div className="tracker-empty-state-wrap">
+          <EmptyState
+            title={hasActiveNarrowing ? 'No tasks match the current filters' : 'No tasks in this queue'}
+            message={hasActiveNarrowing ? `No tasks match: ${activeFilterLabels.join(' • ')}.` : 'Switch queue views or adjust filters to expose work.'}
+          />
+          {hasActiveNarrowing ? <button type="button" className="primary-btn" onClick={onResetFilters}>Reset filters</button> : null}
+        </div>
+      ) : filteredTasks.map((task) => {
         const hasParent = getParentLinkedFollowUpId(task.linkedFollowUpId);
         const signal = renderNowSignal(task);
         const isSelected = selectedTaskId === task.id;

@@ -2,6 +2,17 @@
 
 ## 2026-04-10
 
+### Follow Ups filter-trust visibility + empty-state reliability fix
+- Fixed the Follow Ups lane trust gap where persisted row filters/search/view narrowing could hide records with no clear explanation by introducing explicit active filter chips (including secondary queue view + search + all row-affecting advanced filters), one-click per-chip removal, and a top-level **Reset all filters** action directly above the queue table (`src/components/ControlBar.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`, `src/styles/workspaces.css`).
+- Corrected `Options (n)` semantics so it now reflects only true row-affecting narrowing (including search and secondary queue view) and no longer counts presentation-only controls like table density/column visibility (`src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`).
+- Upgraded Follow Ups empty-state trust messaging: when rows are hidden by active narrowing, the lane now states that no records match current filters, lists exactly which active constraints are applied, and provides a prominent **Reset filters** action; when no narrowing is active, it falls back to true-empty copy (`src/components/TrackerTable.tsx`, `src/components/TrackerMobileList.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`).
+- Added explicit in-lane notice handling for create/open handoff cases where a newly targeted follow-up exists but is hidden by the current Follow Ups filters, with a direct **Reveal follow-up** action that clears narrowing and opens the record (`src/components/app/TrackerWorkspace.tsx`).
+- Expanded Follow Ups options controls to include all persisted row-affecting filters (waiting-on, escalation, action state, category, promised date range, linked-task state) so persisted narrowing is always both visible and directly controllable in-lane (`src/components/ControlBar.tsx`).
+- Added selector regression checks that verify persisted narrowing can hide rows and that active row-affecting option accounting covers every row-filtering dimension used by the selector (`src/domains/followups/__tests__/followUpSelectors.test.ts`).
+
+### Tasks filter-trust parity polish
+- Aligned Tasks filtering trust cues with Follow Ups by counting search as a real active filter, excluding pure sort preference from filter counts, surfacing a search chip in the active chip row, and using filter-aware empty-state messaging with a reset action when narrowing hides all tasks (`src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskList.tsx`).
+
 ### Manual create execution-lane integrity fix (follow-ups + tasks)
 - Fixed the Create Work editor save pipeline so newly created **manual follow-ups** are born execution-ready instead of legacy/review-required: create payloads now always stamp a readable non-empty `sourceRef`, set `provenance` to `quick_capture`, and set integrity lifecycle fields (`lifecycleState: ready`, `dataQuality: valid_live`, `needsCleanup: false`, clear review/invalid markers) at creation time (`src/domains/editor/adapters.ts`).
 - Applied the same root-cause fix for **manual tasks** created from the modal so they also enter normal task execution lanes immediately with explicit quick-capture provenance and valid-live lifecycle defaults rather than being classified into review-needed behavior (`src/domains/editor/adapters.ts`).

@@ -22,6 +22,75 @@ export interface FollowUpViewCounts {
   closed: number;
 }
 
+export const primaryFollowUpViews: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Ready to close', 'Closed'];
+export const secondaryFollowUpViews: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
+
+export type FollowUpRowAffectingOptionKey =
+  | 'activeView'
+  | 'search'
+  | 'status'
+  | 'project'
+  | 'owner'
+  | 'assignee'
+  | 'waitingOn'
+  | 'escalation'
+  | 'priority'
+  | 'actionState'
+  | 'category'
+  | 'dueDateRange'
+  | 'nextTouchDateRange'
+  | 'promisedDateRange'
+  | 'linkedTaskState'
+  | 'cleanupOnly';
+
+export type FollowUpRowAffectingOption = {
+  key: FollowUpRowAffectingOptionKey;
+  label: string;
+};
+
+function labelDateRange(range: FollowUpAdvancedFilters['dueDateRange']): string {
+  if (range === 'all') return 'All dates';
+  if (range === 'overdue') return 'Overdue';
+  if (range === 'today') return 'Today';
+  if (range === 'this_week') return 'This week';
+  return 'Next 7 days';
+}
+
+function labelLinkedTaskState(state: FollowUpAdvancedFilters['linkedTaskState']): string {
+  if (state === 'blocked_child') return 'Blocked child tasks';
+  if (state === 'overdue_child') return 'Overdue child tasks';
+  if (state === 'all_children_done') return 'All child tasks done';
+  if (state === 'has_open_children') return 'Has open child tasks';
+  if (state === 'none') return 'No child tasks';
+  return 'All';
+}
+
+export function getActiveFollowUpRowAffectingOptions(input: {
+  search: string;
+  activeView: SavedViewKey;
+  filters: FollowUpAdvancedFilters;
+}): FollowUpRowAffectingOption[] {
+  const entries: FollowUpRowAffectingOption[] = [];
+  const term = input.search.trim();
+  if (secondaryFollowUpViews.includes(input.activeView)) entries.push({ key: 'activeView', label: `View: ${input.activeView}` });
+  if (term) entries.push({ key: 'search', label: `Search: ${term}` });
+  if (input.filters.status !== 'All') entries.push({ key: 'status', label: `Status: ${input.filters.status}` });
+  if (input.filters.project !== 'All') entries.push({ key: 'project', label: `Project: ${input.filters.project}` });
+  if (input.filters.owner !== 'All') entries.push({ key: 'owner', label: `Owner: ${input.filters.owner}` });
+  if (input.filters.assignee !== 'All') entries.push({ key: 'assignee', label: `Assignee: ${input.filters.assignee}` });
+  if (input.filters.waitingOn !== 'All') entries.push({ key: 'waitingOn', label: `Waiting on: ${input.filters.waitingOn}` });
+  if (input.filters.escalation !== 'All') entries.push({ key: 'escalation', label: `Escalation: ${input.filters.escalation}` });
+  if (input.filters.priority !== 'All') entries.push({ key: 'priority', label: `Priority: ${input.filters.priority}` });
+  if (input.filters.actionState !== 'All') entries.push({ key: 'actionState', label: `Action: ${input.filters.actionState}` });
+  if (input.filters.category !== 'All') entries.push({ key: 'category', label: `Category: ${input.filters.category}` });
+  if (input.filters.dueDateRange !== 'all') entries.push({ key: 'dueDateRange', label: `Due date: ${labelDateRange(input.filters.dueDateRange)}` });
+  if (input.filters.nextTouchDateRange !== 'all') entries.push({ key: 'nextTouchDateRange', label: `Touch date: ${labelDateRange(input.filters.nextTouchDateRange)}` });
+  if (input.filters.promisedDateRange !== 'all') entries.push({ key: 'promisedDateRange', label: `Promised: ${labelDateRange(input.filters.promisedDateRange)}` });
+  if (input.filters.linkedTaskState !== 'all') entries.push({ key: 'linkedTaskState', label: `Linked tasks: ${labelLinkedTaskState(input.filters.linkedTaskState)}` });
+  if (input.filters.cleanupOnly) entries.push({ key: 'cleanupOnly', label: 'Cleanup only' });
+  return entries;
+}
+
 function isClosed(item: FollowUpItem): boolean {
   return item.status === 'Closed';
 }

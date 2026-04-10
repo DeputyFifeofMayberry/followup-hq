@@ -2,6 +2,11 @@
 
 ## 2026-04-10
 
+### Production build-blocker cleanup follow-up
+- Cleared remaining TypeScript production build blockers by tightening Universal Intake preview/date typing, aligning directory modal/enum usage with shared primitives, and fixing queue badge variant compatibility (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/universalIntake.ts`, `src/components/directory/CompanyCreateModal.tsx`, `src/components/directory/ContactCreateModal.tsx`, `src/components/directory/ProjectCreateModal.tsx`, `src/components/directory/ProjectDeleteModal.tsx`, `src/components/directory/DirectoryProjectsPane.tsx`, `src/components/overview/OverviewTriageList.tsx`).
+- Removed unused code/imports uncovered by strict checks and fixed undo/conflict typing paths in store/persistence logic to restore strict `tsc -b` compatibility (`src/lib/intakeDates.ts`, `src/lib/intakeDecisionPolicy.ts`, `src/lib/persistence.ts`, `src/store/persistenceActivity.ts`, `src/store/slices/followUpsSlice.ts`, `src/store/useAppStore.ts`).
+- Excluded `*.test.ts(x)` files from the production app TypeScript build graph so non-production test-only imports do not block release builds (`tsconfig.app.json`).
+
 ### Production build-blocker TypeScript cleanup
 - Removed unused imports/selector fields and tightened sync status typing (including explicit `pendingBatchCount` selection plus mutable-copy handoff for verification export touched tables) to clear Vercel production TypeScript build blockers (`src/components/SyncStatusControl.tsx`, `src/components/ItemDetailPanel.tsx`, `src/components/ProjectCommandCenter.tsx`, `src/components/UniversalIntakeWorkspace.tsx`).
 

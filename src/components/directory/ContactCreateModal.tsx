@@ -13,7 +13,7 @@ interface ContactCreateModalProps {
 export function ContactCreateModal({ open, name, role, onNameChange, onRoleChange, onClose, onCreate }: ContactCreateModalProps) {
   if (!open) return null;
   return (
-    <AppModal size="md" onClose={onClose} onBackdropClick={onClose}>
+    <AppModal onClose={onClose} onBackdropClick={onClose}>
       <AppModalHeader title="New contact" subtitle="Create a people directory record." onClose={onClose} />
       <AppModalBody>
         <div className="space-y-2">

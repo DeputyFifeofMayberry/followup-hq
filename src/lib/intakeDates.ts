@@ -2,13 +2,6 @@ import type { IntakeDateSignalSet } from '../types';
 
 const isoPattern = /^\d{4}-\d{2}-\d{2}$/;
 
-function toIso(value: Date): string {
-  const year = value.getUTCFullYear();
-  const month = `${value.getUTCMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getUTCDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 export function normalizeDetectedDate(raw?: string): { iso?: string; warning?: string; raw?: string } {
   if (!raw) return {};
   const trimmed = raw.trim();

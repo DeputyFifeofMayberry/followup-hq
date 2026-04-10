@@ -7,7 +7,6 @@ import {
   Link2,
   Loader2,
   Mail,
-  Sheet,
   TriangleAlert,
   Upload,
   XCircle,
@@ -20,7 +19,7 @@ import { buildIntakeReviewQueue, type IntakeQueueItem } from '../lib/intakeRevie
 import { describeIntakeFileSupport, getIntakeFileCapability, getIntakeFileInputAccept } from '../lib/intakeFileCapabilities';
 import { toDateInputValue } from '../lib/intakeDates';
 import { useAppStore } from '../store/useAppStore';
-import type { IntakeAssetRecord, IntakeWorkCandidate } from '../types';
+import type { IntakeWorkCandidate } from '../types';
 
 type Tone = 'success' | 'error' | 'info';
 type QueueLane = 'ready_to_create' | 'needs_correction' | 'link_duplicate_review' | 'reference_only';
@@ -125,7 +124,7 @@ export function UniversalIntakeWorkspace() {
       decideIntakeWorkCandidate(selectedCandidate.id, 'link', selectedMatch.id);
       return setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id} with intake provenance and context note.` });
     }
-    const unsafe = safety && !safety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task');
+    const unsafe = Boolean(safety && !safety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task'));
     if (unsafe && !confirmUnsafeCreate) {
       setFeedback({ tone: 'info', message: 'Duplicate-risk override requires confirmation. Check override then retry create.' });
       return;
@@ -273,7 +272,7 @@ export function UniversalIntakeWorkspace() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2"><div className="font-semibold text-slate-800">{selectedAsset.fileName}</div><div className="text-slate-600">{prettyFileSize(selectedAsset.sizeBytes)} • {selectedAsset.kind}</div></div>
               {selectedCandidate?.dateSignals ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">Source date: {selectedCandidate.dateSignals.sourceDate || selectedCandidate.dateSignals.dueDateRaw || '—'}<br />Due: {selectedCandidate.dateSignals.dueDate || selectedCandidate.dateSignals.dueDateRaw || '—'}<br />Promised: {selectedCandidate.dateSignals.promisedDate || selectedCandidate.dateSignals.promisedDateRaw || '—'}<br />Next touch: {selectedCandidate.dateSignals.nextTouchDate || selectedCandidate.dateSignals.nextTouchDateRaw || '—'}</div> : null}
             </> : null}
-            {selectedSourceTab === 'preview' ? <div className="space-y-1.5 max-h-[420px] overflow-auto">{(selectedAsset.extractionChunks?.length ? selectedAsset.extractionChunks : [{ id: 'fallback', sourceRef: selectedAsset.fileName, kind: 'text', text: selectedAsset.extractedPreview || selectedAsset.extractedText.slice(0, 2000) }]).map((chunk) => <div key={chunk.id} className={`rounded border p-2 whitespace-pre-wrap ${selectedEvidenceLocator && (chunk.locator === selectedEvidenceLocator || chunk.sourceRef === selectedEvidenceLocator) ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50'}`}><div className="text-[11px] uppercase tracking-wide text-slate-500">{chunk.kind} • {chunk.locator || chunk.sourceRef}</div>{chunk.sheetName ? <div className="mb-1 text-[11px] text-slate-600">Sheet: {chunk.sheetName} • Row {chunk.rowNumber || '—'}</div> : null}<div>{chunk.text}</div>{chunk.rowContext?.length ? <div className="mt-1 border-t border-slate-200 pt-1 text-[11px] text-slate-600">Nearby rows: {chunk.rowContext.join(' || ')}</div> : null}</div>)}</div> : null}
+            {selectedSourceTab === 'preview' ? <div className="space-y-1.5 max-h-[420px] overflow-auto">{(selectedAsset.extractionChunks?.length ? selectedAsset.extractionChunks : [{ id: 'fallback', sourceRef: selectedAsset.fileName, kind: 'text', text: selectedAsset.extractedPreview || selectedAsset.extractedText.slice(0, 2000), locator: undefined, sheetName: undefined, rowNumber: undefined, rowContext: undefined }]).map((chunk) => <div key={chunk.id} className={`rounded border p-2 whitespace-pre-wrap ${selectedEvidenceLocator && (chunk.locator === selectedEvidenceLocator || chunk.sourceRef === selectedEvidenceLocator) ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50'}`}><div className="text-[11px] uppercase tracking-wide text-slate-500">{chunk.kind} • {chunk.locator || chunk.sourceRef}</div>{chunk.sheetName ? <div className="mb-1 text-[11px] text-slate-600">Sheet: {chunk.sheetName} • Row {chunk.rowNumber || '—'}</div> : null}<div>{chunk.text}</div>{chunk.rowContext?.length ? <div className="mt-1 border-t border-slate-200 pt-1 text-[11px] text-slate-600">Nearby rows: {chunk.rowContext.join(' || ')}</div> : null}</div>)}</div> : null}
             {selectedSourceTab === 'evidence' ? <div className="space-y-1.5">{(selectedCandidate?.evidence || []).map((entry) => <button key={entry.id} className="w-full rounded border border-slate-200 bg-slate-50 p-2 text-left" onClick={() => setSelectedEvidenceLocator(entry.locator || entry.sourceRef)}><div className="text-[11px] uppercase tracking-wide text-slate-500">{entry.field} • {entry.locator || entry.sourceRef}</div><div>{sanitizeSnippet(entry.snippet).slice(0, 220)}</div>{entry.locator?.includes('#row') ? <div className="mt-1 inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600"><FileSpreadsheet className="h-3 w-3" />{entry.locator}</div> : null}</button>)}</div> : null}
             {selectedSourceTab === 'metadata' ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">{Object.entries(selectedAsset.metadata).map(([key, value]) => <div key={key}><strong>{key}:</strong> {String(value)}</div>)}</div> : null}
           </div> : <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">Select a record to inspect source preview/evidence.</div>}

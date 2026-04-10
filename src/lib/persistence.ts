@@ -53,7 +53,6 @@ const SAVE_BATCH_SCHEMA_VERSION = 1;
 
 type EntityKey = 'items' | 'tasks' | 'projects' | 'contacts' | 'companies';
 type DirtyRecordType = DirtyRecordRef['type'];
-type EntityRecord = FollowUpItem | TaskItem | ProjectRecord | ContactRecord | CompanyRecord;
 type EntityRecordMap = Record<EntityKey, Array<{ id: string }>>;
 
 interface EntityConfig {
@@ -704,24 +703,6 @@ async function applyEntityUpserts(table: string, userId: string, operations: Pen
   if (!upserts.length) return;
   const { error } = await supabase.from(table).upsert(upserts, { onConflict: 'user_id,record_id' });
   if (error) throw error;
-}
-
-async function applyEntityDeletes(table: string, userId: string, operations: PendingEntityOperation[]): Promise<{ staleDeleteWarning?: string }> {
-  const deletes = operations.filter((operation) => operation.operation === 'delete');
-  if (!deletes.length) return {};
-  if (deletes.length > STALE_DELETE_ABORT_THRESHOLD) {
-    throw new Error(`Delete safety guard triggered for ${table}: refusing to tombstone ${deletes.length} records in one pass.`);
-  }
-  const rows = deletes.map((operation) => ({
-    user_id: userId,
-    record_id: operation.recordId,
-    record: operation.recordSnapshot ?? { id: operation.recordId, _tombstone: true },
-    deleted_at: operation.deletedAt ?? new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }));
-  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'user_id,record_id' });
-  if (error) throw error;
-  return { staleDeleteWarning: `${table}: applied ${deletes.length} explicit tombstone operation${deletes.length === 1 ? '' : 's'}.` };
 }
 
 async function saveAuxiliaryState(userId: string, auxiliary: AppAuxiliaryState, migrationComplete = true) {

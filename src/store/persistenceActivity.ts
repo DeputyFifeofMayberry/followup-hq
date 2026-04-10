@@ -38,7 +38,7 @@ export function appendPersistenceActivity(
     const priorIndex = existing.findIndex((event) => event.kind === 'failed' && event.summary === next.summary && event.detail === next.detail);
     if (priorIndex >= 0) {
       const prior = existing[priorIndex];
-      const pruned = existing.filter((event, index) => index !== priorIndex);
+      const pruned = existing.filter((_, index) => index !== priorIndex);
       return [{ ...next, id: prior.id }, ...pruned].slice(0, max);
     }
   }
@@ -46,7 +46,7 @@ export function appendPersistenceActivity(
     const priorIndex = existing.findIndex((event) => event.summary === next.summary && event.detail === next.detail);
     if (priorIndex >= 0) {
       const prior = existing[priorIndex];
-      const pruned = existing.filter((event, index) => index !== priorIndex);
+      const pruned = existing.filter((_, index) => index !== priorIndex);
       return [{ ...next, id: prior.id }, ...pruned].slice(0, max);
     }
   }

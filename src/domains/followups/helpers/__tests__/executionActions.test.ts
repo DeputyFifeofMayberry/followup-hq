@@ -55,4 +55,7 @@ const item = normalizeItem({
 
   const advancedSelection = resolveFollowUpInspectorProgression(['b', 'c'], 'a', false);
   assert(Boolean(advancedSelection.nextId) && ['b', 'c'].includes(advancedSelection.nextId || ''), 'should advance to an available queue record when current is removed');
+
+  const clearedSelection = resolveFollowUpInspectorProgression([], 'a', false);
+  assert(clearedSelection.nextId === null && clearedSelection.reason === 'cleared', 'should clear selection when queue empties');
 })();

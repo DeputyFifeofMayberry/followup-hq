@@ -140,6 +140,28 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
     vm.clearExecutionIntent();
   }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord, openFollowUpInspector]);
 
+  useEffect(() => {
+    if (!followUpInspector.open) return;
+    if (!followUpInspector.itemId || !selectedFollowUp) {
+      setFlowState(null);
+      vm.setSelectedId('');
+      closeFollowUpInspector();
+      return;
+    }
+    const visibleInQueue = vm.filteredRows.some((row) => row.id === followUpInspector.itemId);
+    if (!visibleInQueue) {
+      setFlowState(null);
+      vm.setSelectedId('');
+      closeFollowUpInspector();
+      setLaneFeedback('Inspector closed because this follow-up is no longer visible in the current queue.');
+    }
+  }, [followUpInspector.open, followUpInspector.itemId, selectedFollowUp, vm.filteredRows, vm.setSelectedId, closeFollowUpInspector]);
+
+  useEffect(() => {
+    setRevealNotice(null);
+    setLaneFeedback(null);
+  }, [vm.activeView, vm.search, vm.followUpFilters]);
+
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>

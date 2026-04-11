@@ -1,4 +1,4 @@
-import { Clock3, Ellipsis, Hand } from 'lucide-react';
+import { Ellipsis } from 'lucide-react';
 import { Badge } from './Badge';
 import { AppBadge, EmptyState } from './ui/AppPrimitives';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
@@ -9,9 +9,6 @@ type TrackerMobileListProps = {
   selectedId: string | null;
   personalMode?: boolean;
   onOpenDetails: (id: string) => void;
-  onLogTouch: (id: string) => void;
-  onNudge: (id: string) => void;
-  onSnooze: (id: string) => void;
   onDelete: (id: string) => void;
   emptyStateMessage?: string;
   hasActiveRowNarrowing?: boolean;
@@ -63,9 +60,6 @@ export function TrackerMobileList({
   selectedId,
   personalMode = false,
   onOpenDetails,
-  onLogTouch,
-  onNudge,
-  onSnooze,
   onDelete,
   emptyStateMessage = 'Adjust filters or clear search to find matching follow-ups.',
   hasActiveRowNarrowing = false,
@@ -109,25 +103,13 @@ export function TrackerMobileList({
                 </button>
 
                 <div className="tracker-mobile-actions-row">
-                  {item.status !== 'Closed' ? (
-                    <button type="button" className="action-btn tracker-mobile-primary-action" onClick={() => onLogTouch(item.id)}>
-                      <Hand className="h-4 w-4" />Log touch
-                    </button>
-                  ) : (
-                    <span className="tracker-mobile-secondary-label">Closed</span>
-                  )}
+                  <span className="tracker-mobile-secondary-label">Open inspector for execution actions</span>
 
                   <details className="tracker-mobile-more-actions" onClick={(event) => event.stopPropagation()}>
                     <summary className="action-btn tracker-mobile-more-trigger">
                       <Ellipsis className="h-4 w-4" />More
                     </summary>
                     <div className="tracker-mobile-more-menu" role="menu" aria-label={`More actions for ${item.title}`}>
-                      <button type="button" className="tracker-mobile-more-item" role="menuitem" onClick={() => onNudge(item.id)}>
-                        <Hand className="h-3.5 w-3.5" />Mark nudged
-                      </button>
-                      <button type="button" className="tracker-mobile-more-item" role="menuitem" onClick={() => onSnooze(item.id)}>
-                        <Clock3 className="h-3.5 w-3.5" />Snooze 2d
-                      </button>
                       <button type="button" className="tracker-mobile-more-item tracker-mobile-more-item-danger" role="menuitem" onClick={() => onDelete(item.id)}>
                         Delete follow-up
                       </button>

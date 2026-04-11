@@ -81,11 +81,21 @@ export function createFollowUpsSlice(set: SliceSet, get: SliceGet, { queuePersis
       set((state: AppStore) => {
         const nextItems = state.items.filter((item) => item.id !== id).map(normalizeItem);
         const dismissedDuplicatePairs = state.dismissedDuplicatePairs.filter((pairKey) => !pairKey.split('::').includes(id));
+        const retainedDrawerRef = state.recordDrawerRef?.type === 'followup' && state.recordDrawerRef.id === id ? null : state.recordDrawerRef;
+        const activeRecordRemoved = state.activeRecordRef?.type === 'followup' && state.activeRecordRef.id === id;
         return {
           ...applyItemMutationEffects({ ...state, dismissedDuplicatePairs }, nextItems),
           intakeDocuments: state.intakeDocuments.map((doc) => doc.linkedFollowUpId === id ? { ...doc, linkedFollowUpId: undefined, disposition: 'Unprocessed' } : doc),
           dismissedDuplicatePairs,
+          selectedFollowUpIds: state.selectedFollowUpIds.filter((value) => value !== id),
           selectedId: state.selectedId === id ? nextItems[0]?.id ?? null : state.selectedId,
+          followUpInspector: state.followUpInspector.itemId === id ? { open: false, itemId: null } : state.followUpInspector,
+          itemModal: state.itemModal.itemId === id ? { open: false, mode: 'create', itemId: null } : state.itemModal,
+          recordDrawerRef: retainedDrawerRef,
+          activeRecordSurface: activeRecordRemoved ? (retainedDrawerRef ? 'context_drawer' : 'none') : state.activeRecordSurface,
+          activeRecordRef: activeRecordRemoved ? retainedDrawerRef : state.activeRecordRef,
+          activeEditorMode: activeRecordRemoved ? null : state.activeEditorMode,
+          recordSurfaceSource: activeRecordRemoved ? (retainedDrawerRef ? 'context_open' : null) : state.recordSurfaceSource,
         };
       });
       if (before) {

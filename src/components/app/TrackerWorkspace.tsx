@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFollowUpsViewModel } from '../../domains/followups';
 import {
   AppModal,
@@ -16,6 +16,10 @@ import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import type { FollowUpItem } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { FollowUpInspectorModal } from '../followups/FollowUpInspectorModal';
+import { FollowUpActionFlow, type FollowUpFlowState } from '../followups/FollowUpActionFlow';
+import { buildExecutionPatch, getDefaultExecutionDraft, type FollowUpExecutionActionId } from '../../domains/followups/helpers/executionActions';
+import { resolveFollowUpInspectorProgression } from '../../domains/followups/helpers/executionProgression';
+import { selectFollowUpRows } from '../../lib/followUpSelectors';
 
 export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
@@ -26,7 +30,92 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [revealNotice, setRevealNotice] = useState<string | null>(null);
+  const [laneFeedback, setLaneFeedback] = useState<string | null>(null);
   const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
+  const [flowState, setFlowState] = useState<FollowUpFlowState>(null);
+  const [flowWarnings, setFlowWarnings] = useState<string[]>([]);
+  const [flowBlockers, setFlowBlockers] = useState<string[]>([]);
+  const [flowResult, setFlowResult] = useState<{ tone: 'success' | 'warn' | 'danger'; message: string } | null>(null);
+  const [waitingOnDraft, setWaitingOnDraft] = useState('');
+  const [nextTouchDraft, setNextTouchDraft] = useState('');
+  const [snoozedUntilDraft, setSnoozedUntilDraft] = useState('');
+  const [noteDraft, setNoteDraft] = useState('');
+  const [overrideClose, setOverrideClose] = useState(false);
+  const [overrideAllowed, setOverrideAllowed] = useState(false);
+
+  const selectedFollowUp = useMemo(
+    () => vm.items.find((item) => item.id === followUpInspector.itemId) ?? null,
+    [vm.items, followUpInspector.itemId],
+  );
+
+  const handlePostExecutionProgression = (recordId: string, actionLabel: string) => {
+    const nextRows = selectFollowUpRows({
+      items: useAppStore.getState().items,
+      contacts: useAppStore.getState().contacts,
+      companies: useAppStore.getState().companies,
+      search: vm.search,
+      activeView: vm.activeView,
+      filters: vm.followUpFilters,
+    });
+    const nextIds = nextRows.map((row) => row.id);
+    const stillVisible = nextIds.includes(recordId);
+    const progression = resolveFollowUpInspectorProgression(nextIds, recordId, stillVisible);
+
+    if (progression.nextId) {
+      vm.setSelectedId(progression.nextId);
+      openFollowUpInspector(progression.nextId, 'workspace');
+      if (!stillVisible) {
+        setLaneFeedback(`Applied ${actionLabel}. This follow-up moved out of the current queue; advanced to the next record.`);
+      } else {
+        setLaneFeedback(`Applied ${actionLabel}. Follow-up remains in this queue.`);
+      }
+    } else {
+      vm.setSelectedId('');
+      closeFollowUpInspector();
+      setLaneFeedback(`Applied ${actionLabel}. No more follow-ups match this queue.`);
+    }
+  };
+
+  const beginActionFlow = (action: FollowUpExecutionActionId, item: FollowUpItem) => {
+    const defaults = getDefaultExecutionDraft(item, action);
+    setFlowState({ action, itemId: item.id });
+    setWaitingOnDraft(defaults.waitingOn || '');
+    setNextTouchDraft(defaults.nextTouchDate || '');
+    setSnoozedUntilDraft(defaults.snoozedUntilDate || '');
+    setNoteDraft(defaults.note || '');
+    setOverrideClose(false);
+    setOverrideAllowed(false);
+    setFlowWarnings([]);
+    setFlowBlockers([]);
+    setFlowResult(null);
+  };
+
+  const runExecutionAction = () => {
+    if (!flowState) return;
+    const item = vm.items.find((entry) => entry.id === flowState.itemId);
+    if (!item) return;
+    const draft = { waitingOn: waitingOnDraft, nextTouchDate: nextTouchDraft, snoozedUntilDate: snoozedUntilDraft, note: noteDraft, override: overrideClose };
+    const execution = buildExecutionPatch(item, flowState.action, draft);
+
+    if (execution.targetStatus) {
+      const attempt = vm.attemptFollowUpTransition(flowState.itemId, execution.targetStatus, execution.patch, execution.override ? { override: true } : undefined);
+      setFlowWarnings(attempt.validation.warnings);
+      setFlowBlockers(attempt.validation.blockers);
+      setOverrideAllowed(attempt.validation.overrideAllowed);
+      if (!attempt.applied) {
+        setFlowResult({ tone: 'danger', message: 'Action blocked. Resolve blockers and retry.' });
+        return;
+      }
+      setFlowResult({ tone: attempt.validation.warnings.length ? 'warn' : 'success', message: 'Action applied.' });
+    } else {
+      if (flowState.action === 'mark_nudged') vm.markNudged(flowState.itemId);
+      else if (flowState.action === 'log_touch') vm.openTouchModal();
+      setFlowResult({ tone: 'success', message: 'Action applied.' });
+    }
+
+    setFlowState(null);
+    handlePostExecutionProgression(flowState.itemId, flowState.action.replaceAll('_', ' '));
+  };
 
   useEffect(() => {
     const intent = vm.executionIntent;
@@ -53,6 +142,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
             <ExecutionLaneQueueCard className="tracker-workspace-main">
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
               {revealNotice ? <div className="followup-hidden-intent-notice" role="status">{revealNotice}</div> : null}
+              {laneFeedback ? <div className="followup-hidden-intent-notice" role="status">{laneFeedback}</div> : null}
               <TrackerTable
                 personalMode={personalMode}
                 embedded
@@ -103,7 +193,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
               onClick={() => {
                 vm.deleteItem(pendingDeleteFollowUp.id);
                 setPendingDeleteFollowUp(null);
-                if (vm.selectedId === pendingDeleteFollowUp.id) vm.setSelectedId('');
+                handlePostExecutionProgression(pendingDeleteFollowUp.id, 'delete');
               }}
             >
               Delete follow-up
@@ -114,13 +204,41 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
 
       <FollowUpInspectorModal
         open={followUpInspector.open}
-        selectedFollowUp={vm.items.find((item) => item.id === followUpInspector.itemId) ?? null}
+        selectedFollowUp={selectedFollowUp}
         onClose={closeFollowUpInspector}
         onOpenRecordEditor={openRecordEditor}
         onOpenRecordDrawer={openRecordDrawer}
         onOpenTouchModal={() => vm.openTouchModal()}
-        onMarkNudged={vm.markNudged}
-        onSnooze={vm.snoozeItem}
+        onMarkNudged={(id) => {
+          vm.markNudged(id);
+          handlePostExecutionProgression(id, 'mark nudged');
+        }}
+        onSnooze={(id, days) => {
+          void days;
+          const record = vm.items.find((entry) => entry.id === id);
+          if (record) beginActionFlow('snooze', record);
+        }}
+        onStartActionFlow={beginActionFlow}
+      />
+
+      <FollowUpActionFlow
+        flowState={flowState}
+        waitingOnDraft={waitingOnDraft}
+        nextTouchDraft={nextTouchDraft}
+        snoozedUntilDraft={snoozedUntilDraft}
+        noteDraft={noteDraft}
+        overrideClose={overrideClose}
+        warnings={flowWarnings}
+        blockers={flowBlockers}
+        result={flowResult}
+        overrideAllowed={overrideAllowed}
+        onCancel={() => setFlowState(null)}
+        onConfirm={runExecutionAction}
+        onWaitingOnChange={setWaitingOnDraft}
+        onNextTouchChange={setNextTouchDraft}
+        onSnoozedUntilChange={setSnoozedUntilDraft}
+        onNoteChange={setNoteDraft}
+        onOverrideCloseChange={setOverrideClose}
       />
     </WorkspacePage>
   );

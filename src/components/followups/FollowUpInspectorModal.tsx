@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Clock3, Link2, Pencil, Send } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Clock3, Link2, Pencil, Send, MessageSquareReply, ShieldAlert, CheckCircle2, RotateCcw } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildFollowUpChildRollup } from '../../lib/childWorkRollups';
@@ -14,6 +14,7 @@ import { AppBadge, AppModal, AppModalBody, AppModalFooter, AppModalHeader, Secti
 import { deriveFollowUpAttentionSignal } from '../../domains/followups/helpers/attentionSignal';
 import { deriveFollowUpNextMove } from '../../domains/followups/helpers/nextMove';
 import { deriveFollowUpRecommendedAction } from '../../domains/shared/execution/recommendedAction';
+import type { FollowUpExecutionActionId } from '../../domains/followups/helpers/executionActions';
 
 type FollowUpInspectorModalProps = {
   open: boolean;
@@ -24,6 +25,7 @@ type FollowUpInspectorModalProps = {
   onOpenTouchModal: () => void;
   onMarkNudged: (id: string) => void;
   onSnooze: (id: string, days: number) => void;
+  onStartActionFlow: (action: FollowUpExecutionActionId, item: FollowUpItem) => void;
 };
 
 export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
@@ -35,6 +37,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
   onOpenTouchModal,
   onMarkNudged,
   onSnooze,
+  onStartActionFlow,
 }: FollowUpInspectorModalProps) {
   const { tasks, duplicateReviews } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
@@ -120,7 +123,14 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
               <button type="button" className="primary-btn" onClick={() => onOpenTouchModal()}>Log touch</button>
               <button type="button" className="action-btn" onClick={() => onMarkNudged(selectedFollowUp.id)}><Send className="h-4 w-4" />Mark nudged</button>
               <button type="button" className="action-btn" onClick={() => onSnooze(selectedFollowUp.id, 2)}><Clock3 className="h-4 w-4" />Snooze 2d</button>
-              <button type="button" className="action-btn" disabled title="Prompt 3 will wire structured transitions."><ArrowRight className="h-4 w-4" />Run recommended flow</button>
+              <button type="button" className="action-btn" onClick={() => onStartActionFlow('confirm_sent', selectedFollowUp)}><CheckCircle2 className="h-4 w-4" />Confirm outreach</button>
+              <button type="button" className="action-btn" onClick={() => onStartActionFlow('mark_waiting_external', selectedFollowUp)}><ArrowRight className="h-4 w-4" />Mark waiting</button>
+              <button type="button" className="action-btn" onClick={() => onStartActionFlow('reply_received', selectedFollowUp)}><MessageSquareReply className="h-4 w-4" />Reply received</button>
+              <button type="button" className="action-btn" onClick={() => onStartActionFlow('escalate', selectedFollowUp)}><ShieldAlert className="h-4 w-4" />Escalate at risk</button>
+              {selectedFollowUp.status === 'Closed'
+                ? <button type="button" className="action-btn" onClick={() => onStartActionFlow('reopen', selectedFollowUp)}><RotateCcw className="h-4 w-4" />Reopen</button>
+                : <button type="button" className="action-btn" onClick={() => onStartActionFlow('close', selectedFollowUp)}><CheckCircle2 className="h-4 w-4" />Close</button>}
+              <button type="button" className="action-btn" onClick={() => onStartActionFlow(context.recommendedAction.id === 'waiting_on_response' ? 'mark_waiting_external' : context.recommendedAction.id === 'close' ? 'close' : context.recommendedAction.id === 'escalate' ? 'escalate' : 'confirm_sent', selectedFollowUp)}><ArrowRight className="h-4 w-4" />Run recommended flow</button>
             </div>
           </section>
 
@@ -155,7 +165,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
               <div className="text-xs text-slate-600">Use full edit for schema-level updates, fields not shown in execution view, and deeper record maintenance.</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" className="action-btn !px-2.5 !py-1.5 text-xs" onClick={() => onOpenRecordEditor({ type: 'followup', id: selectedFollowUp.id }, 'edit', 'workspace')}><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
-                <button type="button" className="action-btn !px-2.5 !py-1.5 text-xs" disabled title="Prompt 3 will wire close/escalate flow actions."><AlertTriangle className="h-4 w-4" />Maintenance actions (Prompt 3)</button>
+                <button type="button" className="action-btn !px-2.5 !py-1.5 text-xs" onClick={() => onStartActionFlow(selectedFollowUp.status === 'Closed' ? 'reopen' : 'close', selectedFollowUp)}><AlertTriangle className="h-4 w-4" />Transition actions</button>
               </div>
             </div>
           </section>

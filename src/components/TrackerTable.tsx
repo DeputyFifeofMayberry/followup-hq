@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, PencilLine, Send, Clock3, Trash2, SearchCheck } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Trash2, SearchCheck } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -312,15 +312,6 @@ export function TrackerTable({
       <div className="tracker-row-action-menu-popover" role="menu" ref={actionMenuRef} style={{ top: `${actionMenuPosition.top}px`, right: `${actionMenuPosition.right}px` }}>
         <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(openActionMenuId); setOpenActionMenuId(null); }}>
           <SearchCheck className="h-3.5 w-3.5" />Open inspector
-        </button>
-        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(openActionMenuId); vm.openTouchModal(); setOpenActionMenuId(null); }}>
-          <PencilLine className="h-3.5 w-3.5" />Log update
-        </button>
-        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.markNudged(openActionMenuId); setOpenActionMenuId(null); }}>
-          <Send className="h-3.5 w-3.5" />Mark nudged
-        </button>
-        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.snoozeItem(openActionMenuId, 2); setOpenActionMenuId(null); }}>
-          <Clock3 className="h-3.5 w-3.5" />Snooze 2d
         </button>
         <button
           type="button"

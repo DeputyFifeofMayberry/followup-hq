@@ -42,6 +42,7 @@ export function useFollowUpsViewModel() {
       clearFollowUpSelection: s.clearFollowUpSelection,
       batchUpdateFollowUps: s.batchUpdateFollowUps,
       runValidatedBatchFollowUpTransition: s.runValidatedBatchFollowUpTransition,
+      attemptFollowUpTransition: s.attemptFollowUpTransition,
       setFollowUpColumns: s.setFollowUpColumns,
       setFollowUpTableDensity: s.setFollowUpTableDensity,
       toggleFollowUpSelection: s.toggleFollowUpSelection,

@@ -30,6 +30,22 @@ const degradedState = {
   lastReceiptOperationCount: undefined,
   lastReceiptOperationCountsByEntity: undefined,
   lastFailedBatchId: undefined,
+  saveProof: {
+    latestLocalSaveAttemptAt: '2026-04-05T09:00:00.000Z',
+    latestDurableLocalWriteAt: '2026-04-05T09:00:00.000Z',
+    latestCloudConfirmedCommitAt: '2026-04-05T08:00:00.000Z',
+    latestConfirmedBatchId: undefined,
+    latestReceiptStatus: undefined,
+    latestReceiptHashMatch: undefined,
+    latestReceiptSchemaVersion: undefined,
+    latestReceiptTouchedTables: undefined,
+    latestReceiptOperationCount: undefined,
+    latestReceiptOperationCountsByEntity: undefined,
+    latestFailedBatchId: undefined,
+    latestFailureMessage: undefined,
+    latestFailureClass: undefined,
+    cloudProofState: 'degraded',
+  },
 } as const;
 
 function testNoOpDoesNotRecoverSession(): void {
@@ -44,9 +60,17 @@ function testLocalOnlySaveDoesNotRecoverCloudDegradedSession(): void {
 }
 
 function testConfirmedCloudSaveRecoversSession(): void {
-  const postSave = resolvePostSaveMetaState(degradedState, 'supabase', '2026-04-05T11:00:00.000Z', true);
+  const postSave = resolvePostSaveMetaState(degradedState, 'supabase', '2026-04-05T11:00:00.000Z', true, {
+    attemptedAt: '2026-04-05T11:00:00.000Z',
+    completedTables: [],
+    staleDeleteWarnings: [],
+    receiptStatus: 'committed',
+    batchId: 'batch-recover',
+    committedAt: '2026-04-05T11:00:00.000Z',
+  });
   assert(postSave.sessionDegraded === false, 'cloud-confirmed save should clear degraded state');
   assert(postSave.sessionDegradedClearedByCloudSave === true, 'cloud-confirmed save should mark explicit recovery');
+  assert(postSave.saveProof.cloudProofState === 'confirmed', 'cloud-confirmed save should mark canonical proof confirmed');
 }
 
 (function run() {

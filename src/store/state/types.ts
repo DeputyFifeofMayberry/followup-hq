@@ -248,6 +248,23 @@ export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' |
 export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
 export type OperationCountsByEntity = SaveBatchEntityCounts;
 export type ReceiptStatus = SaveBatchStatus;
+export type SaveProofCloudState = 'confirmed' | 'pending' | 'degraded' | 'local-only';
+export interface SaveProofState {
+  latestLocalSaveAttemptAt?: string;
+  latestDurableLocalWriteAt?: string;
+  latestCloudConfirmedCommitAt?: string;
+  latestConfirmedBatchId?: string;
+  latestReceiptStatus?: ReceiptStatus;
+  latestReceiptHashMatch?: boolean;
+  latestReceiptSchemaVersion?: number;
+  latestReceiptTouchedTables?: string[];
+  latestReceiptOperationCount?: number;
+  latestReceiptOperationCountsByEntity?: OperationCountsByEntity;
+  latestFailedBatchId?: string;
+  latestFailureMessage?: string;
+  latestFailureClass?: 'payload-invalid' | 'backend-setup' | 'network-transient' | 'rpc-receipt' | 'conflict-revision' | 'cloud-read-fallback' | 'unknown';
+  cloudProofState: SaveProofCloudState;
+}
 export type VerificationState = VerificationLifecycleState;
 export type OutboxState = OutboxLifecycleState;
 export type ConflictQueueItem = PersistenceConflictItem;
@@ -327,6 +344,7 @@ export interface AppMetaState {
   lastReceiptCommittedAt?: string;
   lastFailureMessage?: string;
   lastFailureClass?: 'payload-invalid' | 'backend-setup' | 'network-transient' | 'rpc-receipt' | 'conflict-revision' | 'cloud-read-fallback' | 'unknown';
+  saveProof: SaveProofState;
   lastFailureNonRetryable?: boolean;
   lastSanitizedFieldCount?: number;
   lastSanitizedEntityTypes?: string[];

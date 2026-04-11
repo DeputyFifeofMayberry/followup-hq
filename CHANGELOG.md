@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Persistence trust contract hardening: canonical save-proof state across store + cache write paths
+- Replaced fragmented post-save evidence fields with a canonical `saveProof` contract in meta state (`SaveProofState`) that explicitly records latest local attempt/write, cloud commit evidence, receipt metadata, failure details, and proof classification (`confirmed` / `pending` / `degraded` / `local-only`) so persistence confidence now has one authoritative shape. (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/persistenceMeta.ts`, `src/store/useAppStore.ts`)
+- Refactored post-save meta resolution to build/return canonical save proof first and derive compatibility legacy fields from it, reducing independent field updates and preventing accidental trust promotion when saves are noop, pending, or degraded. (`src/store/persistenceMeta.ts`)
+- Updated persistence cache normalization/writes to persist canonical `saveProof` alongside cached payloads, while still reading older cache shapes and deriving proof safely from legacy receipt/failure fields for backward compatibility. (`src/lib/persistence.ts`)
+- Extended trust regression coverage to assert canonical proof classification for cloud-confirmed, pending, degraded/no-op behavior, and legacy-cache normalization paths. (`src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/store/__tests__/persistenceMeta.recovery.test.ts`, `src/lib/__tests__/persistenceReliability.test.ts`)
+
 ### Directory final integration cleanup: canonical session normalization and cross-pane state hardening
 - Fixed a root trust gap in Directory session ownership by introducing canonical session merge normalization (`mergeDirectoryWorkspaceSession`) so `activeTab`, `selectedRecordType`, `selectedRecordId`, and `selectedByType` can no longer drift out of sync during partial patches; tab changes now restore per-type selection predictably and record selection updates always backfill type memory. (`src/domains/directory/session.ts`, `src/store/slices/uiSlice.ts`)
 - Removed duplicate manual session-shaping paths from Directory navigation callers and view model setters; both `openDirectoryRecord` and Directory VM selection/tab updates now route through canonical session patching instead of hand-building `selectedByType`, eliminating stale-closure overwrite risk and reducing brittle integration code. (`src/App.tsx`, `src/domains/directory/hooks/useDirectoryViewModel.ts`)

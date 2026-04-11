@@ -42,6 +42,7 @@ import type {
   TaskItem,
 } from '../types';
 import type { DirtyRecordRef } from '../store/persistenceQueue';
+import type { SaveProofState } from '../store/state/types';
 import { getDefaultForwardedRules } from './intakeRules';
 import { sanitizePersistedPayload } from './persistenceSanitization';
 import { buildCanonicalVerificationPayload } from './persistenceCanonicalization';
@@ -133,6 +134,7 @@ export interface LocalCachePayload {
   lastReceiptStatus?: SaveBatchReceipt['status'];
   lastReceiptCommittedTime?: string;
   lastFailureMessage?: string;
+  saveProof?: SaveProofState;
 }
 
 export interface LoadResult {
@@ -157,6 +159,7 @@ export interface LoadResult {
   lastReceiptStatus?: SaveBatchReceipt['status'];
   lastReceiptCommittedTime?: string;
   lastFailureMessage?: string;
+  saveProof?: SaveProofState;
 }
 
 export type LoadFailureStage =
@@ -370,6 +373,38 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     : undefined;
   const lastFailedBatchId = typeof asRecord.lastFailedBatchId === 'string' ? asRecord.lastFailedBatchId : undefined;
 
+  const legacyReceiptStatus = asRecord.lastReceiptStatus === 'committed' || asRecord.lastReceiptStatus === 'conflict' || asRecord.lastReceiptStatus === 'received' || asRecord.lastReceiptStatus === 'rejected'
+    ? asRecord.lastReceiptStatus
+    : undefined;
+  const legacySaveProof: SaveProofState = {
+    latestLocalSaveAttemptAt: updatedAt,
+    latestDurableLocalWriteAt: updatedAt,
+    latestCloudConfirmedCommitAt: typeof asRecord.lastCloudConfirmedAt === 'string' ? asRecord.lastCloudConfirmedAt : undefined,
+    latestConfirmedBatchId: typeof asRecord.lastCommittedBatchId === 'string' ? asRecord.lastCommittedBatchId : undefined,
+    latestReceiptStatus: legacyReceiptStatus,
+    latestReceiptHashMatch: typeof lastSaveReceipt?.hashMatch === 'boolean' ? lastSaveReceipt.hashMatch : undefined,
+    latestReceiptSchemaVersion: typeof lastSaveReceipt?.schemaVersion === 'number' ? lastSaveReceipt.schemaVersion : undefined,
+    latestReceiptTouchedTables: Array.isArray(lastSaveReceipt?.touchedTables) ? lastSaveReceipt.touchedTables : undefined,
+    latestReceiptOperationCount: typeof lastSaveReceipt?.operationCount === 'number' ? lastSaveReceipt.operationCount : undefined,
+    latestReceiptOperationCountsByEntity: lastSaveReceipt?.operationCountsByEntity,
+    latestFailedBatchId: typeof asRecord.lastFailedBatchId === 'string' ? asRecord.lastFailedBatchId : undefined,
+    latestFailureMessage: typeof asRecord.lastFailureMessage === 'string' ? asRecord.lastFailureMessage : undefined,
+    latestFailureClass: 'unknown',
+    cloudProofState: asRecord.cloudStatus === 'confirmed'
+      ? 'confirmed'
+      : (typeof asRecord.lastFailedBatchId === 'string' || typeof asRecord.lastFailureMessage === 'string')
+        ? 'degraded'
+        : 'pending',
+  };
+  const saveProofRaw = asRecord.saveProof;
+  const saveProof: SaveProofState = saveProofRaw && typeof saveProofRaw === 'object'
+    ? {
+      ...legacySaveProof,
+      ...(saveProofRaw as Partial<SaveProofState>),
+      cloudProofState: (saveProofRaw as Partial<SaveProofState>).cloudProofState ?? legacySaveProof.cloudProofState,
+    }
+    : legacySaveProof;
+
   const toNonNegativeInt = (value: unknown): number => {
     const next = Number(value);
     return Number.isFinite(next) && next >= 0 ? Math.floor(next) : 0;
@@ -387,9 +422,10 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     lastSaveReceipt,
     lastFailedBatchId,
     lastCommittedBatchId: typeof asRecord.lastCommittedBatchId === 'string' ? asRecord.lastCommittedBatchId : undefined,
-    lastReceiptStatus: asRecord.lastReceiptStatus === 'committed' || asRecord.lastReceiptStatus === 'conflict' || asRecord.lastReceiptStatus === 'received' || asRecord.lastReceiptStatus === 'rejected' ? asRecord.lastReceiptStatus : undefined,
+    lastReceiptStatus: saveProof.latestReceiptStatus,
     lastReceiptCommittedTime: typeof asRecord.lastReceiptCommittedTime === 'string' ? asRecord.lastReceiptCommittedTime : undefined,
-    lastFailureMessage: typeof asRecord.lastFailureMessage === 'string' ? asRecord.lastFailureMessage : undefined,
+    lastFailureMessage: saveProof.latestFailureMessage,
+    saveProof,
   };
 }
 
@@ -901,6 +937,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         lastReceiptStatus: cache.lastReceiptStatus,
         lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
         lastFailureMessage: cache.lastFailureMessage,
+        saveProof: cache.saveProof,
       };
     }
     throw new PersistenceLoadError({
@@ -989,6 +1026,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         lastReceiptStatus: cache.lastReceiptStatus,
         lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
         lastFailureMessage: cache.lastFailureMessage,
+        saveProof: cache.saveProof,
       };
     }
     throw new PersistenceLoadError({
@@ -1060,6 +1098,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         lastReceiptStatus: cache.lastReceiptStatus,
         lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
         lastFailureMessage: cache.lastFailureMessage,
+        saveProof: cache.saveProof,
       };
     }
     throw new PersistenceLoadError({
@@ -1092,6 +1131,17 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
         lastReceiptStatus: cache.lastReceiptStatus,
         lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
         lastFailureMessage: undefined,
+        saveProof: cache.saveProof
+          ? {
+            ...cache.saveProof,
+            latestLocalSaveAttemptAt: confirmedAt,
+            latestDurableLocalWriteAt: confirmedAt,
+            latestCloudConfirmedCommitAt: confirmedAt,
+            latestFailureMessage: undefined,
+            latestFailureClass: undefined,
+            cloudProofState: 'confirmed',
+          }
+          : undefined,
       }, userId);
       return {
         payload: cache.entities,
@@ -1125,6 +1175,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       lastReceiptStatus: cache.lastReceiptStatus,
       lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
       lastFailureMessage: cache.lastFailureMessage,
+      saveProof: cache.saveProof,
     }, userId);
 
     return {
@@ -1145,6 +1196,7 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
       lastReceiptStatus: cache.lastReceiptStatus,
       lastReceiptCommittedTime: cache.lastReceiptCommittedTime,
       lastFailureMessage: cache.lastFailureMessage,
+      saveProof: cache.saveProof,
     };
   }
 
@@ -1170,6 +1222,15 @@ export async function loadPersistedPayload(): Promise<LoadResult> {
     localCacheLastCloudConfirmedAt: confirmedAt,
     localRevision: (cache?.localRevision ?? 0) + 1,
     lastCloudConfirmedRevision: (cache?.localRevision ?? 0) + 1,
+    saveProof: cache?.saveProof
+      ? {
+        ...cache.saveProof,
+        latestCloudConfirmedCommitAt: confirmedAt,
+        latestFailureMessage: undefined,
+        latestFailureClass: undefined,
+        cloudProofState: 'confirmed',
+      }
+      : undefined,
   };
 }
 
@@ -1251,6 +1312,22 @@ export async function savePersistedPayload(
 
   const hasLocalChanges = auxiliaryChanged || scopedOps.length > 0;
   const nextLocalRevision = hasLocalChanges ? (existingCache?.localRevision ?? 0) + 1 : (existingCache?.localRevision ?? 0);
+  const previousSaveProof: SaveProofState = existingCache?.saveProof ?? {
+    latestLocalSaveAttemptAt: undefined,
+    latestDurableLocalWriteAt: undefined,
+    latestCloudConfirmedCommitAt: existingCache?.lastCloudConfirmedAt,
+    latestConfirmedBatchId: existingCache?.lastCommittedBatchId,
+    latestReceiptStatus: existingCache?.lastReceiptStatus,
+    latestReceiptHashMatch: existingCache?.lastSaveReceipt?.hashMatch,
+    latestReceiptSchemaVersion: existingCache?.lastSaveReceipt?.schemaVersion,
+    latestReceiptTouchedTables: existingCache?.lastSaveReceipt?.touchedTables,
+    latestReceiptOperationCount: existingCache?.lastSaveReceipt?.operationCount,
+    latestReceiptOperationCountsByEntity: existingCache?.lastSaveReceipt?.operationCountsByEntity,
+    latestFailedBatchId: existingCache?.lastFailedBatchId,
+    latestFailureMessage: existingCache?.lastFailureMessage,
+    latestFailureClass: 'unknown',
+    cloudProofState: 'pending',
+  };
 
   await writeLocalCache({
     entities: canonicalPayload,
@@ -1267,6 +1344,12 @@ export async function savePersistedPayload(
     lastReceiptStatus: existingCache?.lastReceiptStatus,
     lastReceiptCommittedTime: existingCache?.lastReceiptCommittedTime,
     lastFailureMessage: existingCache?.lastFailureMessage,
+    saveProof: {
+      ...previousSaveProof,
+      latestLocalSaveAttemptAt: saveAttemptAt,
+      latestDurableLocalWriteAt: saveAttemptAt,
+      cloudProofState: currentUserId ? (previousSaveProof.cloudProofState === 'degraded' ? 'degraded' : 'pending') : 'local-only',
+    },
   }, currentUserId);
 
   if (!currentUserId) {
@@ -1281,6 +1364,15 @@ export async function savePersistedPayload(
       pendingOperations: [],
       lastSaveReceipt: existingCache?.lastSaveReceipt,
       lastFailedBatchId: undefined,
+      saveProof: {
+        ...previousSaveProof,
+        latestLocalSaveAttemptAt: saveAttemptAt,
+        latestDurableLocalWriteAt: saveAttemptAt,
+        latestFailedBatchId: undefined,
+        latestFailureMessage: undefined,
+        latestFailureClass: undefined,
+        cloudProofState: 'local-only',
+      },
     }, currentUserId);
     return { mode: 'browser', diagnostics };
   }
@@ -1326,6 +1418,14 @@ export async function savePersistedPayload(
       lastReceiptStatus: existingCache?.lastReceiptStatus,
       lastReceiptCommittedTime: existingCache?.lastReceiptCommittedTime,
       lastFailureMessage: errorMessage,
+      saveProof: {
+        ...previousSaveProof,
+        latestLocalSaveAttemptAt: saveAttemptAt,
+        latestDurableLocalWriteAt: saveAttemptAt,
+        latestFailureMessage: errorMessage,
+        latestFailureClass: diagnostics.failureClass,
+        cloudProofState: 'degraded',
+      },
     }, currentUserId);
     throw new PersistenceSaveError(errorMessage, diagnostics);
   }
@@ -1421,6 +1521,23 @@ export async function savePersistedPayload(
       lastReceiptStatus: receipt.status,
       lastReceiptCommittedTime: receipt.committedAt,
       lastFailureMessage: undefined,
+      saveProof: {
+        ...previousSaveProof,
+        latestLocalSaveAttemptAt: saveAttemptAt,
+        latestDurableLocalWriteAt: saveAttemptAt,
+        latestCloudConfirmedCommitAt: receipt.committedAt ?? saveAttemptAt,
+        latestConfirmedBatchId: envelope.batchId,
+        latestReceiptStatus: receipt.status,
+        latestReceiptHashMatch: receipt.hashMatch,
+        latestReceiptSchemaVersion: receipt.schemaVersion,
+        latestReceiptTouchedTables: receipt.touchedTables,
+        latestReceiptOperationCount: receipt.operationCount,
+        latestReceiptOperationCountsByEntity: receipt.operationCountsByEntity,
+        latestFailedBatchId: undefined,
+        latestFailureMessage: undefined,
+        latestFailureClass: undefined,
+        cloudProofState: 'confirmed',
+      },
     }, currentUserId);
 
     return { mode: 'supabase', diagnostics };
@@ -1506,6 +1623,16 @@ export async function savePersistedPayload(
       lastReceiptStatus: diagnostics.receiptStatus,
       lastReceiptCommittedTime: undefined,
       lastFailureMessage: rawMessageWithClassification,
+      saveProof: {
+        ...previousSaveProof,
+        latestLocalSaveAttemptAt: saveAttemptAt,
+        latestDurableLocalWriteAt: saveAttemptAt,
+        latestReceiptStatus: diagnostics.receiptStatus ?? previousSaveProof.latestReceiptStatus,
+        latestFailedBatchId: envelope.batchId,
+        latestFailureMessage: rawMessageWithClassification,
+        latestFailureClass: diagnostics.failureClass,
+        cloudProofState: 'degraded',
+      },
     }, currentUserId);
 
     throw new PersistenceSaveError(`Cloud save did not fully complete. ${rawMessageWithClassification}`, diagnostics);

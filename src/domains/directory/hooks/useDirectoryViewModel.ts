@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { applyProjectFilters, applyProjectSort, buildProjectDerivedRecords, defaultProjectFilters, type ProjectFilterState } from '../../../lib/projectSelectors';
+import { applyProjectFilters, applyProjectSort, buildProjectDerivedRecords, defaultProjectFilters, type ProjectDerivedRecord, type ProjectFilterState } from '../../../lib/projectSelectors';
 import { useAppStore } from '../../../store/useAppStore';
 import type { DirectoryRecordType, DirectoryTab, ProjectRecord, ProjectSortKey, ProjectStatus } from '../../../types';
 import { normalizeProjectInput, validateProjectIdentity } from '../../projects/validation';
 import { directoryRecordTypeByTab, directoryTabByRecordType } from '../session';
 
 export type ProjectDetailTab = 'profile' | 'operational';
-export type ProjectViewMode = 'directory' | 'operational';
+export type ProjectWorkspaceMode = 'directory' | 'operational';
 export type ProjectDraft = Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>;
 
 export const PROJECT_STATUS_OPTIONS: ProjectStatus[] = ['Active', 'On hold', 'Closeout', 'Complete'];
@@ -31,6 +31,15 @@ export function splitLocationValue(value: string): Pick<ProjectDraft, 'location'
   return { location: location || '', facility: facility || '', building: building || '' };
 }
 
+export function deriveProjectSelection(rows: ProjectDerivedRecord[], visibleRows: ProjectDerivedRecord[], selectedProjectId: string): {
+  selectedRow: ProjectDerivedRecord | null;
+  selectedVisible: boolean;
+} {
+  const selectedRow = selectedProjectId ? rows.find((row) => row.project.id === selectedProjectId) ?? null : null;
+  const selectedVisible = selectedProjectId ? visibleRows.some((row) => row.project.id === selectedProjectId) : false;
+  return { selectedRow, selectedVisible };
+}
+
 export function useDirectoryViewModel() {
   const {
     projects, items, tasks, contacts, companies, intakeDocuments,
@@ -51,7 +60,7 @@ export function useDirectoryViewModel() {
     setDirectoryWorkspaceSession: s.setDirectoryWorkspaceSession,
   })));
 
-  const [projectViewMode, setProjectViewMode] = useState<ProjectViewMode>('directory');
+  const [projectWorkspaceMode, setProjectWorkspaceMode] = useState<ProjectWorkspaceMode>('directory');
   const [projectFilters, setProjectFilters] = useState<ProjectFilterState>(defaultProjectFilters);
   const [archivedFilter, setArchivedFilter] = useState<'active' | 'archived' | 'all'>('active');
   const [sortKey, setSortKey] = useState<ProjectSortKey>('name');
@@ -102,27 +111,51 @@ export function useDirectoryViewModel() {
     if (archivedFilter === 'archived') return archivedRows;
     return filteredRows;
   }, [archivedFilter, filteredRows]);
-  const sortedRows = useMemo(() => applyProjectSort(displayRows, sortKey, sortDirection), [displayRows, sortKey, sortDirection]);
 
+  const directoryRows = useMemo(() => applyProjectSort(displayRows, sortKey, sortDirection), [displayRows, sortKey, sortDirection]);
+  const operationalRows = useMemo(() => {
+    const ordered = [...displayRows].sort((a, b) => {
+      const pressureA = a.overdueFollowUpCount + a.overdueTaskCount + a.blockedTaskCount;
+      const pressureB = b.overdueFollowUpCount + b.overdueTaskCount + b.blockedTaskCount;
+      if (pressureB !== pressureA) return pressureB - pressureA;
+      if (b.health.score !== a.health.score) return b.health.score - a.health.score;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+    return ordered;
+  }, [displayRows]);
+
+  const visibleRows = projectWorkspaceMode === 'directory' ? directoryRows : operationalRows;
   const selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
-  const selectedProjectVisible = selectedProjectId ? sortedRows.some((row) => row.project.id === selectedProjectId) : false;
+
+  const { selectedRow, selectedVisible } = useMemo(
+    () => deriveProjectSelection(rows, visibleRows, selectedProjectId),
+    [rows, visibleRows, selectedProjectId],
+  );
 
   useEffect(() => {
-    if (!sortedRows.length) {
+    if (!rows.length) {
       if (selectedProjectId) setSelectedRecord('project', null);
       return;
     }
     if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
-      setSelectedProjectId(sortedRows[0].project.id);
+      const fallback = visibleRows[0]?.project.id ?? rows[0]?.project.id;
+      if (fallback) setSelectedProjectId(fallback);
     }
-  }, [projects, selectedProjectId, setDirectoryWorkspaceSession, sortedRows]);
-
-  const selectedRow = sortedRows.find((row) => row.project.id === selectedProjectId) ?? null;
+  }, [projects, rows, selectedProjectId, visibleRows]);
 
   useEffect(() => {
     if (!selectedRow || editing) return;
     setDraft(selectedRow.project);
   }, [selectedRow, editing]);
+
+  useEffect(() => {
+    if (projectWorkspaceMode === 'directory' && detailTab === 'operational') {
+      setDetailTab('profile');
+    }
+    if (projectWorkspaceMode === 'operational' && detailTab === 'profile' && !editing) {
+      setDetailTab('operational');
+    }
+  }, [projectWorkspaceMode, detailTab, editing]);
 
   const validateCreate = () => {
     const normalized = normalizeProjectInput(createDraft);
@@ -184,8 +217,8 @@ export function useDirectoryViewModel() {
     intakeDocuments,
     tab,
     setTab,
-    projectViewMode,
-    setProjectViewMode,
+    projectWorkspaceMode,
+    setProjectWorkspaceMode,
     projectFilters,
     setProjectFilters,
     archivedFilter,
@@ -197,7 +230,7 @@ export function useDirectoryViewModel() {
     selectedProjectId,
     setSelectedProjectId,
     selectedProject,
-    selectedProjectVisible,
+    selectedProjectVisible: selectedVisible,
     selectedRecordType: directorySession.selectedRecordType,
     selectedRecordId: directorySession.selectedRecordId,
     setSelectedRecord,
@@ -220,7 +253,9 @@ export function useDirectoryViewModel() {
     deleteConfirm,
     setDeleteConfirm,
     rows,
-    sortedRows,
+    visibleRows,
+    directoryRows,
+    operationalRows,
     selectedRow,
     saveCreate,
     saveDraft,

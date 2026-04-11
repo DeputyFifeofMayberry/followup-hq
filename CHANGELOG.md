@@ -2,6 +2,14 @@
 
 ## 2026-04-11
 
+### Directory Projects workspace redesign: explicit Directory vs Operational modes with stable canonical selection
+- Reworked the Directory **Projects** pane into explicit `Project Directory` and `Operational Context` modes with mode-aware copy, a simplified control bar, and intentionally separated list surfaces so master-record maintenance and pressure triage no longer compete in one overloaded view. (`src/components/directory/DirectoryProjectsPane.tsx`)
+- Reduced default project scan density by replacing the old wide project grid with a focused table centered on decision-useful fields (identity, owner, status, timing, linked-record summary, and pressure), moving secondary detail into the inspector. (`src/components/directory/ProjectDirectoryTable.tsx`)
+- Expanded operational mode into actionable pressure cards with direct route-out actions to project follow-ups/tasks and clearer at-a-glance pressure/milestone readiness signals. (`src/components/directory/ProjectOperationalCards.tsx`)
+- Rebuilt the project inspector hierarchy so profile maintenance and operational routing are separated, action priority changes by workspace mode, maintenance actions are demoted, and operational route actions are explicit when triaging pressure. (`src/components/directory/ProjectProfilePanel.tsx`)
+- Fixed a trust gap in project selection ownership by deriving selected-project context from canonical directory session + full project rows (not only filtered-visible rows), so inspector context remains stable when filters hide the selected project while still showing hidden-selection messaging. (`src/domains/directory/hooks/useDirectoryViewModel.ts`)
+- Added focused helper regression tests for project-selection anchoring/visibility behavior to protect filtered-selection reliability as Projects evolves. (`src/domains/directory/hooks/useDirectoryViewModel.test.ts`)
+
 
 ### Directory Companies workspace overhaul: first-class company workflow with canonical selection ownership
 - Rebuilt the Directory **Companies** pane around a dedicated companies view model integrated with canonical directory record session selection, replacing thin pane-local behavior with deterministic selection anchoring, hidden-selection messaging, and first-visible fallback when current filters exclude the selected company. (`src/components/directory/CompaniesDirectoryPane.tsx`, `src/domains/directory/hooks/useCompaniesDirectoryViewModel.ts`)

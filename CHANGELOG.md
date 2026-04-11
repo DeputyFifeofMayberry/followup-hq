@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Follow Ups unified interaction model: direct full editor open, no intermediate record popup
+- Removed the extra Follow Ups inspect step by changing lane row-open behavior and routed execution intents to open the full follow-up editor immediately (`openRecordEditor`) after selection, so clicking a follow-up now enters editing directly with no separate detail popup in between (`src/components/app/TrackerWorkspace.tsx`).
+- Removed the now-obsolete `FollowUpInspectorModal` surface and its modal-open state path so Follow Ups no longer maintain split `view record` vs `edit record` interaction modes for core daily workflow (`src/components/followups/FollowUpInspectorModal.tsx`, `src/components/app/TrackerWorkspace.tsx`).
+- Brought follow-up record quick actions into the full editor for edit sessions (Draft, Waiting, Snooze, Escalate, Close, Delete) by embedding `FollowUpActionModal` controls in `CreateWorkModal`, preserving high-value record actions while consolidating to one authoritative workspace (`src/components/CreateWorkModal.tsx`, `src/components/actions/FollowUpActionModal.tsx`).
+
 ### Tasks + Follow Ups inspection model reset: side inspectors replaced with modal workspaces
 - Replaced the Tasks lane split master-detail dependency with a modal-first inspection flow: selecting a task now opens Task detail in a large overlay dialog, while the queue layout stays single-column/full-width with no reserved right inspector column or selection-driven page reflow (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskInspectorModal.tsx`).
 - Replaced the Follow Ups lane desktop side inspector with a large modal inspection surface and explicit open/close state management decoupled from row selection; selecting from the table now opens a follow-up detail modal while preserving queue density and keeping the list as the primary surface (`src/components/app/TrackerWorkspace.tsx`, `src/components/followups/FollowUpInspectorModal.tsx`).

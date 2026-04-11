@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Intake trust model hardening: evidence-first create-new gating and safer decision lanes
+- Hardened intake import safety to classify critical fields (`title`, `type`, `project`, `owner`, `dueDate`, and existing-link overlap) by evidence strength (`strong`, `medium`, `weak`, `missing`, `conflicting`) instead of relying on broad confidence alone, and now block create-new when core fields are weak/conflicting or execution-critical fields remain unresolved. (`src/lib/intakeImportSafety.ts`)
+- Tightened fast-approve/batch-safe criteria so only strong-evidence candidates (across all critical execution fields) qualify, reducing the chance of weak inferred project/owner/due-date values slipping through automated approvals. (`src/lib/intakeImportSafety.ts`, `src/lib/intakeReviewPlan.ts`, `src/lib/intakeReviewQueue.ts`)
+- Strengthened decision policy escalation to correction-first when critical evidence remains weak/missing (including owner/due-date resolution guards), and increased link-review pressure whenever overlap signals suggest create-new is riskier than linking. (`src/lib/intakeDecisionPolicy.ts`)
+- Improved review-plan explanation quality by grounding suggested decision reasons in concrete create-new blockers/warnings derived from safety analysis instead of generic fallback guidance. (`src/lib/intakeReviewPlan.ts`)
+- Added/expanded intake trust-model regression coverage for weak inferred due dates, missing/weak project evidence, weak owner detection, strong duplicate overlap, safe strong candidates, and reference-only outcomes to verify the stricter gating behavior end to end. (`src/lib/__tests__/intakeWorkflowPaths.test.ts`, `src/lib/__tests__/intakeReviewPlan.test.ts`, `src/lib/__tests__/intakeDecisionPolicy.test.ts`)
+
 
 ### Intake selected-candidate workbench: one-record-at-a-time resolution flow hardening
 - Rebuilt the selected-candidate workbench hierarchy so reviewers can move in one clear sequence (orient summary → required blockers → quieter recommendations → decision-critical edits → duplicate/link compare aid → decisive action bar), reducing dense admin-like scanning and making the next click explicit throughout resolution. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)

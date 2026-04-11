@@ -198,7 +198,7 @@ export function buildWorkCandidateFieldReviews(candidate: IntakeWorkCandidate): 
   const typeEvidence = findEvidence(candidate.evidence, 'type');
 
   return [
-    buildField({ key: 'type', value: candidate.candidateType.replace('update_existing_', 'update ').replace('_', ' '), score: candidate.confidence, evidence: typeEvidence, reasons: candidate.explanation }),
+    buildField({ key: 'type', value: candidate.candidateType.replace('update_existing_', 'update ').replace('_', ' '), score: candidate.fieldConfidence?.type ?? candidate.confidence, evidence: typeEvidence, reasons: candidate.explanation }),
     buildField({ key: 'title', value: candidate.title, score: candidate.fieldConfidence?.title ?? candidate.confidence, evidence: titleEvidence, reasons: candidate.explanation, missing: !candidate.title?.trim() }),
     buildField({ key: 'project', value: candidate.project, score: candidate.fieldConfidence?.project, evidence: findEvidence(candidate.evidence, 'project'), reasons: candidate.explanation, missing: !candidate.project }),
     buildField({ key: 'owner', value: candidate.owner || candidate.assignee, score: candidate.fieldConfidence?.owner ?? candidate.fieldConfidence?.assignee, evidence: [...findEvidence(candidate.evidence, 'owner'), ...findEvidence(candidate.evidence, 'assignee')], reasons: candidate.explanation, missing: !(candidate.owner || candidate.assignee) }),

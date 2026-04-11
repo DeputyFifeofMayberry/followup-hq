@@ -7,10 +7,11 @@ import { isExecutionReady } from '../../records/integrity';
 import { deriveTaskRecommendedAction } from '../../shared';
 import { useAppStore } from '../../../store/useAppStore';
 import type { TaskItem, TaskPriority } from '../../../types';
-import { isTaskOpen, normalizeTaskStatus, selectTaskCounts, selectVisibleTasksForQueue } from '../selectors';
+import { TASK_LANE_DEFINITIONS, type TaskQueueView } from '../lanes';
+import { normalizeTaskStatus, selectTaskCounts, selectVisibleTasksForQueue } from '../selectors';
 import { getTaskDueBucket, isTaskOverdueByDay } from '../timing';
 
-export type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
+export type TaskView = TaskQueueView;
 export type TaskSort = 'due' | 'priority' | 'updated';
 
 type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
@@ -136,15 +137,17 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   }), [store.tasks, followUpById]);
 
   const taskSummary = useMemo(() => {
-    const counts = selectTaskCounts(derivedTasks, { isReviewNeeded: (task) => task.needsReview });
-    return {
-      ...counts,
-      reviewNotReady: derivedTasks.filter((task) => isTaskOpen(task) && task.needsReview && !task.executionReady).length,
-    };
+    return selectTaskCounts(derivedTasks, {
+      isReviewNeeded: (task) => task.needsReview,
+      isExecutionReady: (task) => task.executionReady,
+    });
   }, [derivedTasks]);
 
   const viewScopedTasks = useMemo(() => {
-    return selectVisibleTasksForQueue(derivedTasks, view, { isReviewNeeded: (task) => task.needsReview });
+    return selectVisibleTasksForQueue(derivedTasks, view, {
+      isReviewNeeded: (task) => task.needsReview,
+      isExecutionReady: (task) => task.executionReady,
+    });
   }, [derivedTasks, view]);
 
   const filteredTasks = useMemo(() => {
@@ -220,11 +223,13 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const projectOptions = useMemo(() => ['All', ...store.projects.map((project) => project.name)], [store.projects]);
 
   const queueSummary = useMemo(() => {
-    if (view === 'review') return `Repair queue: ${taskSummary.reviewRequired} tasks need trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
-    if (view === 'overdue') return `Overdue pressure: ${taskSummary.overdue} tasks are late — clear blockers and commit a next move.`;
-    if (view === 'deferred') return `Deferred queue: ${taskSummary.deferred} snoozed tasks waiting to re-enter execution.`;
-    if (view === 'recent') return `Recently completed: ${filteredTasks.length} tasks finished today.`;
-    return `Execution pressure: ${taskSummary.open} open · ${taskSummary.overdue} overdue · ${taskSummary.blocked} blocked · ${taskSummary.reviewRequired} review needed.`;
+    if (view === 'today') return `Now lane: ${filteredTasks.length} execution-ready tasks due today or ready now (${taskSummary.overdue} overdue tracked separately).`;
+    if (view === 'review') return `Review lane: ${filteredTasks.length} tasks need trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
+    if (view === 'overdue') return `Overdue lane: ${filteredTasks.length} late tasks need recovery moves and clear owners.`;
+    if (view === 'deferred') return `Deferred lane: ${filteredTasks.length} intentionally snoozed tasks not yet ready to re-enter.`;
+    if (view === 'recent') return `Done today lane: ${filteredTasks.length} tasks completed today.`;
+    if (view === 'all') return `All open lane: ${taskSummary.open} open · ${taskSummary.overdue} overdue · ${taskSummary.blocked} blocked · ${taskSummary.reviewRequired} review needed.`;
+    return `${TASK_LANE_DEFINITIONS[view].label}: ${filteredTasks.length} tasks in this operational queue.`;
   }, [filteredTasks.length, taskSummary, view]);
 
   const activeFilterCount = useMemo(() => (
@@ -256,13 +261,6 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   }, [searchQuery, projectFilter, assigneeFilter, personalMode, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const sortSummary = sortBy === 'due' ? '' : sortBy === 'priority' ? 'Sorted by priority' : 'Sorted by recently updated';
-
-  useEffect(() => {
-    const noManualNarrowing = activeFilterCount === 0;
-    const queueLooksEmpty = view === 'today' && noManualNarrowing && filteredTasks.length === 0;
-    if (!queueLooksEmpty || taskSummary.open === 0) return;
-    setView('all');
-  }, [activeFilterCount, filteredTasks.length, taskSummary.open, view]);
 
   const completedToday = useMemo(() => {
     const todayStartTs = new Date().setHours(0, 0, 0, 0);

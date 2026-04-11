@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, fromDateInputValue, todayIso } from '../lib/utils';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
+import { TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView } from '../domains/tasks/lanes';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useViewportBand } from '../hooks/useViewport';
@@ -11,29 +12,7 @@ import { TaskInspectorModal } from './tasks/TaskInspectorModal';
 import { TaskActionFlow } from './tasks/TaskActionFlow';
 import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 
-const taskViewOptions = [
-  { value: 'today' as const, label: 'Now' },
-  { value: 'overdue' as const, label: 'Overdue' },
-  { value: 'upcoming' as const, label: 'Upcoming' },
-  { value: 'blocked' as const, label: 'Blocked' },
-  { value: 'review' as const, label: 'Review needed' },
-  { value: 'deferred' as const, label: 'Deferred' },
-  { value: 'unlinked' as const, label: 'Unlinked' },
-  { value: 'recent' as const, label: 'Done today' },
-  { value: 'all' as const, label: 'All open' },
-];
-
-const queueIntentByView: Record<(typeof taskViewOptions)[number]['value'], string> = {
-  today: 'Immediate execution queue: due work plus ready unscheduled tasks that can move now.',
-  overdue: 'Pressure-removal queue: late commitments that need a recovery move and clear owner.',
-  upcoming: 'Look-ahead queue: near-term tasks due this week to keep delivery smooth.',
-  blocked: 'Unblock queue: work that cannot progress until constraints are removed.',
-  review: 'Trust cleanup queue: task integrity needs repair before confident execution.',
-  deferred: 'Re-entry queue: snoozed work that should be intentionally reactivated.',
-  unlinked: 'Coverage queue: tasks missing a parent follow-up linkage and context.',
-  recent: 'Momentum queue: tasks completed today to confirm execution progress.',
-  all: 'Full open workload queue across all active execution states.',
-};
+const taskViewOptions = TASK_QUEUE_VIEWS.map((view) => ({ value: view as TaskQueueView, label: TASK_LANE_DEFINITIONS[view].label }));
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const vm = useTasksViewModel({ personalMode });
@@ -173,7 +152,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   }, [isMobileLike, vm]);
 
   const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
-  const queueIntent = queueIntentByView[vm.view];
+  const queueIntent = TASK_LANE_DEFINITIONS[vm.view].intent;
   const queueStats = [
     { label: 'Open', value: vm.taskSummary.open, tone: 'default' },
     { label: 'Overdue', value: vm.taskSummary.overdue, tone: vm.taskSummary.overdue > 0 ? 'danger' : 'default' },

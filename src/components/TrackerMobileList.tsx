@@ -1,4 +1,4 @@
-import { Clock3, ExternalLink, Hand, TimerReset } from 'lucide-react';
+import { Clock3, Ellipsis, Hand } from 'lucide-react';
 import { Badge } from './Badge';
 import { AppBadge, EmptyState } from './ui/AppPrimitives';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
@@ -17,6 +17,23 @@ type TrackerMobileListProps = {
   hasActiveRowNarrowing?: boolean;
   onResetFilters?: () => void;
 };
+
+function getPrimarySignal(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success' } {
+  const dueDelta = daysUntil(item.dueDate);
+  const touchDelta = daysUntil(item.nextTouchDate);
+
+  if (item.status === 'Closed') return { label: 'Closed', tone: 'success' };
+  if (isOverdue(item)) return { label: `Overdue ${Math.abs(dueDelta)}d`, tone: 'danger' };
+  if (needsNudge(item)) return { label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today', tone: 'warn' };
+  if (item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn) return { label: 'Waiting', tone: 'info' };
+  return { label: 'On track', tone: 'success' };
+}
+
+function getSupportLine(item: FollowUpItem, personalMode: boolean) {
+  const assignee = personalMode ? item.owner : (item.assigneeDisplayName || item.owner);
+  const waitingOn = item.waitingOn ? `Waiting: ${item.waitingOn}` : null;
+  return [item.project, assignee, waitingOn].filter(Boolean).join(' • ');
+}
 
 export function TrackerMobileList({
   items,
@@ -42,11 +59,9 @@ export function TrackerMobileList({
         ) : (
           items.map((item) => {
             const active = selectedId === item.id;
-            const dueDelta = daysUntil(item.dueDate);
+            const primarySignal = getPrimarySignal(item);
             const touchDelta = daysUntil(item.nextTouchDate);
-            const linkedOpen = item.openLinkedTaskCount ?? 0;
-            const linkedTotal = item.linkedTaskCount ?? 0;
-            const waitingOn = item.waitingOn || 'Not specified';
+            const dueDelta = daysUntil(item.dueDate);
 
             return (
               <article key={item.id} className={active ? 'tracker-mobile-card tracker-mobile-card-active' : 'tracker-mobile-card'}>
@@ -58,32 +73,48 @@ export function TrackerMobileList({
                       {(item.priority === 'High' || item.priority === 'Critical') ? <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge> : null}
                     </div>
                   </div>
-                  <p className="tracker-mobile-project">{item.project} • {personalMode ? item.owner : (item.assigneeDisplayName || item.owner)}</p>
-                  <p className="tracker-mobile-next">What matters now: <strong>{isOverdue(item) ? `Overdue ${Math.abs(dueDelta)}d` : needsNudge(item) ? (touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today') : item.nextAction ? 'Next move set' : 'Needs direction'}</strong></p>
-                  <p className="tracker-mobile-next">Next move: <strong>{item.nextAction || 'No next move set'}</strong></p>
-                  <div className="tracker-mobile-timing">
-                    <span><Clock3 className="h-3.5 w-3.5" />Due {formatDate(item.dueDate)}</span>
-                    <span><Hand className="h-3.5 w-3.5" />Touch {formatDate(item.nextTouchDate)}</span>
-                    {item.promisedDate ? <span><TimerReset className="h-3.5 w-3.5" />Promised {formatDate(item.promisedDate)}</span> : null}
+
+                  <div className="tracker-mobile-signals">
+                    <AppBadge tone={primarySignal.tone}>{primarySignal.label}</AppBadge>
+                    {isOverdue(item) ? <AppBadge tone="danger">Due {formatDate(item.dueDate)}</AppBadge> : null}
+                    {!isOverdue(item) && needsNudge(item) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
                   </div>
-                  <div className="tracker-mobile-meta-row">
-                    <span>Waiting on {waitingOn}</span>
-                    <span>Linked {linkedOpen}/{linkedTotal} open</span>
-                  </div>
-                  <div className="tracker-mobile-alerts">
-                    {isOverdue(item) ? <AppBadge tone="danger">Overdue {Math.abs(dueDelta)}d</AppBadge> : null}
-                    {needsNudge(item) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
-                  </div>
+
+                  <p className="tracker-mobile-mainline">
+                    {isOverdue(item)
+                      ? `Needs attention now • Due ${formatDate(item.dueDate)} (${Math.abs(dueDelta)}d ${dueDelta < 0 ? 'late' : 'remaining'})`
+                      : needsNudge(item)
+                        ? `Needs touch • ${touchDelta < 0 ? `${Math.abs(touchDelta)}d overdue` : 'touch due today'}`
+                        : item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn
+                          ? `Waiting state • ${item.waitingOn || 'Awaiting response'}`
+                          : `Next checkpoint • Due ${formatDate(item.dueDate)}`}
+                  </p>
+
+                  <p className="tracker-mobile-next-move">Next move: <strong>{item.nextAction || 'Set the next move in the editor'}</strong></p>
+                  <p className="tracker-mobile-support">{getSupportLine(item, personalMode)}</p>
                 </button>
 
-                <div className="tracker-mobile-actions">
-                  <button type="button" className="action-btn" onClick={() => onLogTouch(item.id)}>Log touch</button>
-                  <button type="button" className="action-btn" onClick={() => onNudge(item.id)}>Nudge</button>
-                  <button type="button" className="action-btn" onClick={() => onSnooze(item.id)}>Snooze</button>
-                  <button type="button" className="action-btn action-btn-danger" onClick={() => onDelete(item.id)}>Delete</button>
-                  <button type="button" className="action-btn" onClick={() => onOpenDetails(item.id)}>
-                    <ExternalLink className="h-4 w-4" />Details
+                <div className="tracker-mobile-actions-row">
+                  <button type="button" className="action-btn tracker-mobile-primary-action" onClick={() => onLogTouch(item.id)}>
+                    <Hand className="h-4 w-4" />Log touch
                   </button>
+
+                  <details className="tracker-mobile-more-actions" onClick={(event) => event.stopPropagation()}>
+                    <summary className="action-btn tracker-mobile-more-trigger">
+                      <Ellipsis className="h-4 w-4" />More
+                    </summary>
+                    <div className="tracker-mobile-more-menu" role="menu" aria-label={`More actions for ${item.title}`}>
+                      <button type="button" className="tracker-mobile-more-item" role="menuitem" onClick={() => onNudge(item.id)}>
+                        <Hand className="h-3.5 w-3.5" />Mark nudged
+                      </button>
+                      <button type="button" className="tracker-mobile-more-item" role="menuitem" onClick={() => onSnooze(item.id)}>
+                        <Clock3 className="h-3.5 w-3.5" />Snooze 2d
+                      </button>
+                      <button type="button" className="tracker-mobile-more-item tracker-mobile-more-item-danger" role="menuitem" onClick={() => onDelete(item.id)}>
+                        Delete follow-up
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </article>
             );

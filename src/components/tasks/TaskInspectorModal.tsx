@@ -16,8 +16,6 @@ type TaskInspectorModalProps = {
   linkedParentRollup: { explanations?: string[] } | null;
   linkedParentCloseout: React.ComponentProps<typeof CloseoutReadinessCard>['evaluation'] | null;
   recommendedAction: { id: string; label: string; tone: 'default' | 'info' | 'warn' | 'success' | 'danger'; reason?: string } | null;
-  ownerOptions: string[];
-  assigneeOptions: string[];
   renderNowSignal: (task: TaskItem) => { whyNow: string; nextMove: string };
   onClose: () => void;
   onRunRecommendedTaskAction: () => void;
@@ -34,12 +32,6 @@ type EditDraft = {
   nextStep: string;
   dueDate: string;
   priority: TaskItem['priority'];
-  owner: string;
-  assigneeDisplayName: string;
-  blockReason: string;
-  deferredUntil: string;
-  linkedProjectContext: string;
-  status: TaskItem['status'];
 };
 
 function buildDraft(task: TaskItem): EditDraft {
@@ -47,14 +39,10 @@ function buildDraft(task: TaskItem): EditDraft {
     nextStep: task.nextStep || '',
     dueDate: toDateInputValue(task.dueDate),
     priority: task.priority,
-    owner: task.owner || '',
-    assigneeDisplayName: task.assigneeDisplayName || '',
-    blockReason: task.blockReason || '',
-    deferredUntil: toDateInputValue(task.deferredUntil),
-    linkedProjectContext: task.linkedProjectContext || '',
-    status: task.status,
   };
 }
+
+export const TASK_INSPECTOR_QUICK_EDIT_FIELDS = ['nextStep', 'dueDate', 'priority'] as const;
 
 export const TaskInspectorModal = memo(function TaskInspectorModal({
   open,
@@ -64,8 +52,6 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   linkedParentRollup,
   linkedParentCloseout,
   recommendedAction,
-  ownerOptions,
-  assigneeOptions,
   renderNowSignal,
   onClose,
   onRunRecommendedTaskAction,
@@ -101,12 +87,6 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
       nextStep: draft.nextStep.trim(),
       dueDate: draft.dueDate ? fromDateInputValue(draft.dueDate) : undefined,
       priority: draft.priority,
-      owner: draft.owner.trim(),
-      assigneeDisplayName: draft.assigneeDisplayName.trim() || undefined,
-      blockReason: draft.blockReason.trim() || undefined,
-      deferredUntil: draft.deferredUntil ? fromDateInputValue(draft.deferredUntil) : undefined,
-      linkedProjectContext: draft.linkedProjectContext.trim() || undefined,
-      status: draft.status,
     });
   };
 
@@ -129,7 +109,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
           </section>
 
           <section className="detail-card">
-            <SectionHeader title="Why now" subtitle="Scan signal, decide, act." compact />
+            <SectionHeader title="Why now" subtitle={editSurfacePolicy.execution.intent} compact />
             <div className="mt-2 task-execution-focus">
               <div className="tonal-micro"><strong>{nowSignal.whyNow}</strong></div>
               <div className="tonal-micro">Best next move: <strong>{nowSignal.nextMove}</strong></div>
@@ -138,30 +118,25 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
           </section>
 
           <section className="detail-card">
-            <SectionHeader title="Primary actions" subtitle={recommendedAction?.reason ?? 'Fast transitions for active work.'} compact />
+            <SectionHeader title="What to do next" subtitle={recommendedAction?.reason ?? 'Use structured flows for real workflow transitions.'} compact />
             <div className={`task-inspector-actions mt-2 ${isMobileLike ? 'task-inspector-actions-mobile' : ''}`.trim()}>
               <button onClick={onRunRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
+            </div>
+            <div className="task-inspector-action-maintenance mt-2">
               <button onClick={() => onUpdateTask(selectedTask.id, { dueDate: fromDateInputValue(todayIso()) })} className="action-btn">Due today</button>
               <button onClick={() => onUpdateTask(selectedTask.id, { dueDate: fromDateInputValue(addDaysIso(todayIso(), 1)) })} className="action-btn">Due tomorrow</button>
-              {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn">Open linked follow-up</button> : null}
             </div>
           </section>
 
           <section className="detail-card">
-            <SectionHeader title="Quick edit" subtitle="Common changes without leaving this lane." compact />
+            <SectionHeader title="Quick edit essentials" subtitle="Only live execution fields are editable here." compact />
             <div className="task-quick-edit-grid mt-2 task-quick-edit-grid-two-up">
               <label className="field-block"><span className="field-label">Priority</span><select value={draft.priority} onChange={(event) => setDraft((prev) => prev ? { ...prev, priority: event.target.value as TaskItem['priority'] } : prev)} className="field-input"><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
-              <label className="field-block"><span className="field-label">Status</span><select value={draft.status} onChange={(event) => setDraft((prev) => prev ? { ...prev, status: event.target.value as TaskItem['status'] } : prev)} className="field-input"><option value="To do">To do</option><option value="In progress">In progress</option><option value="Blocked">Blocked</option><option value="Done">Done</option></select></label>
-              <label className="field-block"><span className="field-label">Owner</span><select value={draft.owner} onChange={(event) => setDraft((prev) => prev ? { ...prev, owner: event.target.value } : prev)} className="field-input"><option value="">Select owner</option>{ownerOptions.filter((owner) => owner !== 'All').map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label>
-              <label className="field-block"><span className="field-label">Assignee</span><select value={draft.assigneeDisplayName} onChange={(event) => setDraft((prev) => prev ? { ...prev, assigneeDisplayName: event.target.value } : prev)} className="field-input"><option value="">Same as owner</option>{assigneeOptions.filter((assignee) => assignee !== 'All').map((assignee) => <option key={assignee} value={assignee}>{assignee}</option>)}</select></label>
               <label className="field-block"><span className="field-label">Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setDraft((prev) => prev ? { ...prev, dueDate: event.target.value } : prev)} className="field-input" /></label>
-              <label className="field-block"><span className="field-label">Deferred until</span><input type="date" value={draft.deferredUntil} onChange={(event) => setDraft((prev) => prev ? { ...prev, deferredUntil: event.target.value } : prev)} className="field-input" /></label>
               <label className="field-block task-quick-edit-grid-full"><span className="field-label">Next step</span><input value={draft.nextStep} onChange={(event) => setDraft((prev) => prev ? { ...prev, nextStep: event.target.value } : prev)} className="field-input" /></label>
-              {draft.status === 'Blocked' ? <label className="field-block task-quick-edit-grid-full"><span className="field-label">Block reason</span><input value={draft.blockReason} onChange={(event) => setDraft((prev) => prev ? { ...prev, blockReason: event.target.value } : prev)} className="field-input" /></label> : null}
-              <label className="field-block task-quick-edit-grid-full"><span className="field-label">Linked project context</span><input value={draft.linkedProjectContext} onChange={(event) => setDraft((prev) => prev ? { ...prev, linkedProjectContext: event.target.value } : prev)} className="field-input" /></label>
             </div>
             <div className="task-quick-edit-actions mt-2">
               <button onClick={resetDraft} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><RotateCcw className="h-3.5 w-3.5" />Reset</button>
@@ -173,6 +148,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             <SectionHeader title="Linked context" subtitle="Parent follow-up and linked-task posture." compact />
             <div className="mt-2 rounded-2xl tonal-panel task-link-context-panel">
               <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
+              <div className="tonal-micro mt-1">Owner: <strong>{selectedTask.owner}</strong> • Assignee: <strong>{selectedTask.assigneeDisplayName || selectedTask.owner}</strong></div>
               {linkedFollowUp ? <div className="tonal-micro mt-1">Open linked tasks: <strong>{linkedTaskOpenCount}</strong></div> : null}
               {linkedFollowUp && linkedParentRollup?.explanations?.length ? <div className="mt-2 space-y-1 text-xs text-slate-600">{linkedParentRollup.explanations.slice(0, 2).map((reason) => <div key={reason}>• {reason}</div>)}</div> : null}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -227,7 +203,6 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             <button onClick={() => onOpenTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
             <button onClick={() => onOpenTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
             <button onClick={() => onOpenTaskFlow(selectedTask, 'defer')} className="action-btn">Defer</button>
-            {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn">Linked follow-up</button> : <button onClick={() => onOpenRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'workspace')} className="action-btn">Full edit</button>}
           </div>
           <div className="task-mobile-action-grid task-mobile-action-grid-secondary">
             <button onClick={() => onUpdateTask(selectedTask.id, { dueDate: fromDateInputValue(todayIso()) })} className="action-btn">Due today</button>
@@ -240,11 +215,8 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
         <SectionHeader title="Update essentials" subtitle="Fast edits for active execution." compact />
         <div className="task-mobile-edit-grid mt-2">
           <label className="field-block task-quick-edit-grid-full"><span className="field-label">Next step</span><input value={draft.nextStep} onChange={(event) => setDraft((prev) => prev ? { ...prev, nextStep: event.target.value } : prev)} className="field-input" /></label>
-          <label className="field-block"><span className="field-label">Status</span><select value={draft.status} onChange={(event) => setDraft((prev) => prev ? { ...prev, status: event.target.value as TaskItem['status'] } : prev)} className="field-input"><option value="To do">To do</option><option value="In progress">In progress</option><option value="Blocked">Blocked</option><option value="Done">Done</option></select></label>
           <label className="field-block"><span className="field-label">Priority</span><select value={draft.priority} onChange={(event) => setDraft((prev) => prev ? { ...prev, priority: event.target.value as TaskItem['priority'] } : prev)} className="field-input"><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
           <label className="field-block"><span className="field-label">Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setDraft((prev) => prev ? { ...prev, dueDate: event.target.value } : prev)} className="field-input" /></label>
-          <label className="field-block"><span className="field-label">Deferred until</span><input type="date" value={draft.deferredUntil} onChange={(event) => setDraft((prev) => prev ? { ...prev, deferredUntil: event.target.value } : prev)} className="field-input" /></label>
-          {draft.status === 'Blocked' ? <label className="field-block task-quick-edit-grid-full"><span className="field-label">Block reason</span><input value={draft.blockReason} onChange={(event) => setDraft((prev) => prev ? { ...prev, blockReason: event.target.value } : prev)} className="field-input" /></label> : null}
           <div className="task-quick-edit-actions mt-1">
             <button onClick={resetDraft} className="action-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><RotateCcw className="h-3.5 w-3.5" />Reset</button>
             <button onClick={saveQuickEdit} className="primary-btn !px-2.5 !py-1.5 text-xs" disabled={!hasDraftChanges}><Save className="h-3.5 w-3.5" />Save updates</button>
@@ -255,9 +227,9 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
       <details className="detail-card task-mobile-secondary-details">
         <summary>Secondary details</summary>
         <div className="task-mobile-secondary-panel">
-          <label className="field-block"><span className="field-label">Owner</span><select value={draft.owner} onChange={(event) => setDraft((prev) => prev ? { ...prev, owner: event.target.value } : prev)} className="field-input"><option value="">Select owner</option>{ownerOptions.filter((owner) => owner !== 'All').map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label>
-          <label className="field-block"><span className="field-label">Assignee</span><select value={draft.assigneeDisplayName} onChange={(event) => setDraft((prev) => prev ? { ...prev, assigneeDisplayName: event.target.value } : prev)} className="field-input"><option value="">Same as owner</option>{assigneeOptions.filter((assignee) => assignee !== 'All').map((assignee) => <option key={assignee} value={assignee}>{assignee}</option>)}</select></label>
-          <label className="field-block task-quick-edit-grid-full"><span className="field-label">Linked project context</span><input value={draft.linkedProjectContext} onChange={(event) => setDraft((prev) => prev ? { ...prev, linkedProjectContext: event.target.value } : prev)} className="field-input" /></label>
+          <div className="tonal-micro">Owner: <strong>{selectedTask.owner}</strong></div>
+          <div className="tonal-micro">Assignee: <strong>{selectedTask.assigneeDisplayName || selectedTask.owner}</strong></div>
+          {linkedFollowUp ? <button onClick={() => onOpenLinkedFollowUp(linkedFollowUp.id)} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />Open linked follow-up</button> : null}
           <div className="mt-1 flex flex-wrap gap-2">
             <button onClick={() => onOpenRecordDrawer({ type: 'task', id: selectedTask.id })} className="action-btn !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" />{editSurfacePolicy.context.label}</button>
             <button onClick={() => onOpenRecordEditor({ type: 'task', id: selectedTask.id }, 'edit', 'workspace')} className="action-btn !px-2.5 !py-1.5 text-xs"><Pencil className="h-4 w-4" />{editSurfaceCtas.fullEditTask}</button>

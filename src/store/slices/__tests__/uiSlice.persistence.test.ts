@@ -52,6 +52,9 @@ if (queueCount !== 4) throw new Error('persisted follow-up actions should queue 
 if (state.taskWorkspaceSession.searchQuery !== '') throw new Error('resetTaskWorkspaceSession should clear search query by default');
 if (state.taskWorkspaceSession.statusFilter !== 'All') throw new Error('resetTaskWorkspaceSession should clear status filter');
 if (state.directoryWorkspaceSession.selectedRecordType !== 'company' || state.directoryWorkspaceSession.selectedRecordId !== 'CO-9') throw new Error('setDirectoryWorkspaceSession should patch canonical directory selection state');
+if (state.directoryWorkspaceSession.activeTab !== 'companies' || state.directoryWorkspaceSession.selectedByType.company !== 'CO-9') {
+  throw new Error('setDirectoryWorkspaceSession should keep selectedByType and tab in sync with canonical selection state');
+}
 
 slice.openEditModal('FUP-1');
 if (!state.itemModal.open || state.taskModal.open || state.recordDrawerRef !== null) throw new Error('openEditModal should focus canonical full-editor modal');

@@ -22,3 +22,29 @@ export const defaultDirectoryWorkspaceSession: DirectoryWorkspaceSession = {
     company: null,
   },
 };
+
+export function mergeDirectoryWorkspaceSession(
+  current: DirectoryWorkspaceSession,
+  patch: Partial<DirectoryWorkspaceSession>,
+): DirectoryWorkspaceSession {
+  const mergedByType = {
+    ...current.selectedByType,
+    ...(patch.selectedByType ?? {}),
+  };
+
+  const selectedRecordType = patch.selectedRecordType
+    ?? (patch.activeTab ? directoryRecordTypeByTab[patch.activeTab] : current.selectedRecordType);
+
+  const selectedRecordId = patch.selectedRecordId !== undefined
+    ? patch.selectedRecordId
+    : mergedByType[selectedRecordType] ?? null;
+
+  mergedByType[selectedRecordType] = selectedRecordId;
+
+  return {
+    activeTab: directoryTabByRecordType[selectedRecordType],
+    selectedRecordType,
+    selectedRecordId,
+    selectedByType: mergedByType,
+  };
+}

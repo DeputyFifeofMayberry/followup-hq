@@ -32,7 +32,6 @@ import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 import { selectOpenTaskCount } from './domains/tasks/selectors';
-import { directoryTabByRecordType } from './domains/directory/session';
 
 type WorkspaceKey = ModeWorkspaceKey;
 const LAST_WORKSPACE_STORAGE_KEY = 'followup-hq:last-workspace';
@@ -364,15 +363,9 @@ function MainApp({ session }: { session: Session }) {
   }, [openExecutionLane, workspace]);
 
   const openDirectoryRecord = useCallback((recordType: 'project' | 'contact' | 'company', recordId: string) => {
-    const current = useAppStore.getState().directoryWorkspaceSession;
     setDirectoryWorkspaceSession({
-      activeTab: directoryTabByRecordType[recordType],
       selectedRecordType: recordType,
       selectedRecordId: recordId,
-      selectedByType: {
-        ...current.selectedByType,
-        [recordType]: recordId,
-      },
     });
     setWorkspace('directory');
   }, [setDirectoryWorkspaceSession, setWorkspace]);

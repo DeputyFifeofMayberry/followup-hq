@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Directory final integration cleanup: canonical session normalization and cross-pane state hardening
+- Fixed a root trust gap in Directory session ownership by introducing canonical session merge normalization (`mergeDirectoryWorkspaceSession`) so `activeTab`, `selectedRecordType`, `selectedRecordId`, and `selectedByType` can no longer drift out of sync during partial patches; tab changes now restore per-type selection predictably and record selection updates always backfill type memory. (`src/domains/directory/session.ts`, `src/store/slices/uiSlice.ts`)
+- Removed duplicate manual session-shaping paths from Directory navigation callers and view model setters; both `openDirectoryRecord` and Directory VM selection/tab updates now route through canonical session patching instead of hand-building `selectedByType`, eliminating stale-closure overwrite risk and reducing brittle integration code. (`src/App.tsx`, `src/domains/directory/hooks/useDirectoryViewModel.ts`)
+- Added regression coverage for session normalization and store patch behavior so cross-pane navigation state integrity is now explicitly protected (record-type selection sync, tab/type alignment, and per-type selection persistence on tab switches). (`src/domains/directory/session.test.ts`, `src/store/slices/__tests__/uiSlice.persistence.test.ts`)
+
 ### Directory Projects workspace redesign: explicit Directory vs Operational modes with stable canonical selection
 - Reworked the Directory **Projects** pane into explicit `Project Directory` and `Operational Context` modes with mode-aware copy, a simplified control bar, and intentionally separated list surfaces so master-record maintenance and pressure triage no longer compete in one overloaded view. (`src/components/directory/DirectoryProjectsPane.tsx`)
 - Reduced default project scan density by replacing the old wide project grid with a focused table centered on decision-useful fields (identity, owner, status, timing, linked-record summary, and pressure), moving secondary detail into the inspector. (`src/components/directory/ProjectDirectoryTable.tsx`)

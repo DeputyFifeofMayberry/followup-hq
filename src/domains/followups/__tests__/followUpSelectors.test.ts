@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, getFollowUpLanePresentation, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { starterCompanies, starterContacts, starterItems } from '../../../lib/sample-data';
 import { daysUntil, isOverdue, localDayDelta } from '../../../lib/utils';
 import { buildDailyFocusSummary } from '../../../lib/dailyFocus';
@@ -157,6 +157,11 @@ export function runFollowUpSelectorChecks() {
     },
   });
   assert(activeOptions.length === 16, `Expected all row-affecting options to be tracked, got ${activeOptions.length}`);
+  const waitingLane = getFollowUpLanePresentation('Waiting');
+  assert(waitingLane.laneLabel === 'Waiting', 'Lane presentation should map canonical lane label for Waiting view');
+  assert(waitingLane.expectedAction.toLowerCase().includes('monitor'), 'Waiting lane should describe response-monitor action intent');
+  const fallbackLane = getFollowUpLanePresentation('By project');
+  assert(fallbackLane.laneLabel === 'By project', 'Non-canonical queue should preserve view label in lane presentation');
 
   withMockedNow('2026-04-10T08:15:00', () => {
     const dueEarlierToday = makeFollowUp({ id: 'TODAY-AM', dueDate: '2026-04-10T00:30:00' });

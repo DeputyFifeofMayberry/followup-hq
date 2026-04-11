@@ -1,30 +1,31 @@
-import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneToolbarScaffold } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { useFollowUpsViewModel } from '../domains/followups';
-import { primaryFollowUpViews, secondaryFollowUpViews } from '../lib/followUpSelectors';
+import { primaryFollowUpViews, secondaryFollowUpViews, type FollowUpQueuePressureCounts } from '../lib/followUpSelectors';
 import { useViewportBand } from '../hooks/useViewport';
 
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
-const FOLLOWUP_QUEUE_PRESSURE_STRIP: Array<{ key: 'allOpen' | 'needsNudge' | 'atRisk' | 'waiting' | 'overdue'; view: SavedViewKey; label: string }> = [
-  { key: 'allOpen', view: 'All', label: 'All open' },
-  { key: 'waiting', view: 'Waiting', label: 'Waiting' },
-  { key: 'needsNudge', view: 'Needs nudge', label: 'Needs nudge' },
-  { key: 'atRisk', view: 'At risk', label: 'At risk' },
-  { key: 'overdue', view: 'Overdue', label: 'Overdue' },
-];
-
 const QUEUE_OPTIONS: Array<{ value: SavedViewKey; label: string; kind: 'primary' | 'secondary' }> = [
   ...primaryFollowUpViews.map((view) => ({ value: view, label: view === 'All' ? 'All open' : view, kind: 'primary' as const })),
   ...secondaryFollowUpViews.map((view) => ({ value: view, label: view, kind: 'secondary' as const })),
 ];
 
-export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOpenDuplicateReview?: () => void; duplicateCount?: number }) {
+export function ControlBar({
+  onOpenDuplicateReview,
+  duplicateCount = 0,
+  queuePressureCounts,
+}: {
+  onOpenDuplicateReview?: () => void;
+  duplicateCount?: number;
+  queuePressureCounts: FollowUpQueuePressureCounts;
+}) {
   const vm = useFollowUpsViewModel();
   const { isMobileLike } = useViewportBand();
   const [showFilters, setShowFilters] = useState(false);
+  const [showMaintenance, setShowMaintenance] = useState(false);
   const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
   const [batchDate, setBatchDate] = useState('');
@@ -101,10 +102,31 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
 
   const activeFilterPreview = vm.activeRowAffectingOptions.slice(0, 2);
 
+  const queuePressure = [
+    { key: 'allOpen' as const, view: 'All' as const, label: 'All open' },
+    { key: 'overdue' as const, view: 'Overdue' as const, label: 'Overdue' },
+    { key: 'needsNudge' as const, view: 'Needs nudge' as const, label: 'Needs nudge' },
+    { key: 'waiting' as const, view: 'Waiting' as const, label: 'Waiting' },
+    { key: 'atRisk' as const, view: 'At risk' as const, label: 'At risk' },
+  ];
+
   return (
     <div className="workspace-control-stack followup-control-stack">
       {isMobileLike ? (
         <div className="followup-mobile-control-stack">
+          <div className="task-mobile-view-rail" aria-label="Follow-up queue pressure">
+            {queuePressure.map((queue) => (
+              <button
+                key={queue.key}
+                type="button"
+                className={`task-mobile-view-chip ${vm.activeView === queue.view ? 'task-mobile-view-chip-active' : ''}`.trim()}
+                onClick={() => vm.setActiveView(queue.view)}
+              >
+                {queue.label} ({queuePressureCounts[queue.key]})
+              </button>
+            ))}
+          </div>
+
           <div className="task-mobile-search-row">
             <label className="field-block followup-queue-field">
               <select value={vm.activeView} onChange={(event) => vm.setActiveView(event.target.value as SavedViewKey)} className="field-input">
@@ -148,8 +170,6 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               <div className="task-sort-summary">{vm.queueSummary}</div>
             )}
           </div>
-
-          {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
         </div>
       ) : (
         <ExecutionLaneToolbarScaffold
@@ -183,34 +203,20 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           )}
           right={(
             <>
-              <button onClick={() => setShowFilters((value) => !value)} className="action-btn">
+              <button onClick={() => setShowFilters((value) => !value)} className="action-btn" aria-expanded={showFilters}>
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters & layout{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
                 <ChevronDown className={`h-4 w-4 ${showFilters ? 'rotate-180' : ''}`} />
               </button>
-              {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
+              <button onClick={() => setShowMaintenance((value) => !value)} className="action-btn followup-maintenance-btn" aria-expanded={showMaintenance}>
+                <Wrench className="h-4 w-4" />
+                Maintenance
+                <ChevronDown className={`h-4 w-4 ${showMaintenance ? 'rotate-180' : ''}`} />
+              </button>
             </>
           )}
         />
       )}
-      <div className="followup-queue-pressure-strip" role="tablist" aria-label="Follow-up queue pressure">
-        {FOLLOWUP_QUEUE_PRESSURE_STRIP.map((queue) => {
-          const active = vm.activeView === queue.view;
-          return (
-            <button
-              key={queue.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`followup-queue-pressure-chip ${active ? 'followup-queue-pressure-chip-active' : ''}`.trim()}
-              onClick={() => vm.setActiveView(queue.view)}
-            >
-              <span>{queue.label}</span>
-              <strong>{vm.queuePressureCounts[queue.key]}</strong>
-            </button>
-          );
-        })}
-      </div>
 
       {!isMobileLike ? (
         <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
@@ -234,20 +240,10 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
       {showFilters && !isMobileLike ? (
         <div className="followup-options-panel advanced-filter-surface">
           <section className="followup-options-section">
-            <h4>People and ownership</h4>
+            <h4>Queue shaping</h4>
             <div className="followup-options-grid">
               <select value={vm.followUpFilters.owner} onChange={(event) => vm.setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
               <select value={vm.followUpFilters.assignee} onChange={(event) => vm.setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
-              <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
-                <option value="All">All waiting-on</option>
-                {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </div>
-          </section>
-
-          <section className="followup-options-section">
-            <h4>Project, status, and priority</h4>
-            <div className="followup-options-grid">
               <select value={vm.followUpFilters.project} onChange={(event) => vm.setFollowUpFilters({ project: event.target.value })} className="field-input">{projects.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
               <select value={vm.followUpFilters.status} onChange={(event) => vm.setFollowUpFilters({ status: event.target.value as typeof vm.followUpFilters.status })} className="field-input">
                 <option value="All">All statuses</option>
@@ -256,20 +252,15 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
                 <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
               </select>
-              <select value={vm.followUpFilters.escalation} onChange={(event) => vm.setFollowUpFilters({ escalation: event.target.value as typeof vm.followUpFilters.escalation })} className="field-input">
-                <option value="All">All escalations</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
-              </select>
-              <select value={vm.followUpFilters.actionState} onChange={(event) => vm.setFollowUpFilters({ actionState: event.target.value as typeof vm.followUpFilters.actionState })} className="field-input">
-                <option value="All">All action states</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option>
-              </select>
-              <select value={vm.followUpFilters.category} onChange={(event) => vm.setFollowUpFilters({ category: event.target.value as typeof vm.followUpFilters.category })} className="field-input">
-                <option value="All">All categories</option><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option>
+              <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
+                <option value="All">All waiting-on</option>
+                {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
           </section>
 
           <section className="followup-options-section">
-            <h4>Date ranges and linked tasks</h4>
+            <h4>Execution pressure</h4>
             <div className="followup-options-grid">
               <select value={vm.followUpFilters.dueDateRange} onChange={(event) => vm.setFollowUpFilters({ dueDateRange: event.target.value as typeof vm.followUpFilters.dueDateRange })} className="field-input">
                 <option value="all">All due dates</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="next_7_days">Due in next 7 days</option>
@@ -277,34 +268,56 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
               <select value={vm.followUpFilters.nextTouchDateRange} onChange={(event) => vm.setFollowUpFilters({ nextTouchDateRange: event.target.value as typeof vm.followUpFilters.nextTouchDateRange })} className="field-input">
                 <option value="all">All next touch dates</option><option value="overdue">Touch overdue</option><option value="today">Touch today</option><option value="this_week">Touch this week</option><option value="next_7_days">Touch in next 7 days</option>
               </select>
-              <select value={vm.followUpFilters.promisedDateRange} onChange={(event) => vm.setFollowUpFilters({ promisedDateRange: event.target.value as typeof vm.followUpFilters.promisedDateRange })} className="field-input">
-                <option value="all">All promised dates</option><option value="overdue">Promised overdue</option><option value="today">Promised today</option><option value="this_week">Promised this week</option><option value="next_7_days">Promised next 7 days</option>
-              </select>
               <select value={vm.followUpFilters.linkedTaskState} onChange={(event) => vm.setFollowUpFilters({ linkedTaskState: event.target.value as typeof vm.followUpFilters.linkedTaskState })} className="field-input">
                 <option value="all">All linked task states</option><option value="blocked_child">Blocked child tasks</option><option value="overdue_child">Overdue child tasks</option><option value="all_children_done">All child tasks done</option><option value="has_open_children">Has open child tasks</option><option value="none">No child tasks</option>
               </select>
-              <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup maintenance only</label>
+              <select value={vm.followUpFilters.promisedDateRange} onChange={(event) => vm.setFollowUpFilters({ promisedDateRange: event.target.value as typeof vm.followUpFilters.promisedDateRange })} className="field-input">
+                <option value="all">All promised dates</option><option value="overdue">Promised overdue</option><option value="today">Promised today</option><option value="this_week">Promised this week</option><option value="next_7_days">Promised next 7 days</option>
+              </select>
             </div>
           </section>
 
-          <section className="followup-options-section">
-            <h4>Table layout (presentation only)</h4>
-            <div className="followup-options-grid">
-              <label className="field-block"><span className="field-label">Density</span>
-                <select value={vm.followUpTableDensity} onChange={(event) => vm.setFollowUpTableDensity(event.target.value as typeof vm.followUpTableDensity)} className="field-input"><option value="compact">Compact</option><option value="comfortable">Expanded</option></select>
-              </label>
-              <div className="followup-columns-list">
-                {OPTIONAL_COLUMNS.map((column) => (
-                  <label key={column} className="inline-flex items-center gap-2 text-xs text-slate-600">
-                    <input type="checkbox" checked={vm.followUpColumns.includes(column)} onChange={() => toggleColumn(column)} />{column}
+          <details className="task-maintenance-disclosure">
+            <summary>Layout and maintenance</summary>
+            <div className="task-maintenance-body">
+              <section className="followup-options-section">
+                <h4>Lower-priority filters</h4>
+                <div className="followup-options-grid">
+                  <select value={vm.followUpFilters.escalation} onChange={(event) => vm.setFollowUpFilters({ escalation: event.target.value as typeof vm.followUpFilters.escalation })} className="field-input">
+                    <option value="All">All escalations</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
+                  </select>
+                  <select value={vm.followUpFilters.actionState} onChange={(event) => vm.setFollowUpFilters({ actionState: event.target.value as typeof vm.followUpFilters.actionState })} className="field-input">
+                    <option value="All">All action states</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option>
+                  </select>
+                  <select value={vm.followUpFilters.category} onChange={(event) => vm.setFollowUpFilters({ category: event.target.value as typeof vm.followUpFilters.category })} className="field-input">
+                    <option value="All">All categories</option><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option>
+                  </select>
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup maintenance only</label>
+                </div>
+              </section>
+
+              <section className="followup-options-section">
+                <h4>Table layout (presentation only)</h4>
+                <div className="followup-options-grid">
+                  <label className="field-block"><span className="field-label">Density</span>
+                    <select value={vm.followUpTableDensity} onChange={(event) => vm.setFollowUpTableDensity(event.target.value as typeof vm.followUpTableDensity)} className="field-input"><option value="compact">Compact</option><option value="comfortable">Expanded</option></select>
                   </label>
-                ))}
-              </div>
+                  <div className="followup-columns-list">
+                    {OPTIONAL_COLUMNS.map((column) => (
+                      <label key={column} className="inline-flex items-center gap-2 text-xs text-slate-600">
+                        <input type="checkbox" checked={vm.followUpColumns.includes(column)} onChange={() => toggleColumn(column)} />{column}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+          </details>
+
           <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetAllRowAffectingOptions}>Reset row filters</button></div>
         </div>
       ) : null}
+
       {showFilters && isMobileLike ? (
         <AppModal size="standard" onClose={() => setShowFilters(false)} onBackdropClick={() => setShowFilters(false)} ariaLabel="Follow-up filters and layout">
           <AppModalHeader title="Follow-up filters" subtitle="Apply filters, then continue from your queue." onClose={() => setShowFilters(false)} closeLabel="Back to queue" />
@@ -322,56 +335,34 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             ) : null}
             <div className="followup-options-panel advanced-filter-surface">
               <section className="followup-options-section">
-                <h4>People and ownership</h4>
+                <h4>Queue shaping</h4>
                 <div className="followup-options-grid">
                   <select value={vm.followUpFilters.owner} onChange={(event) => vm.setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
                   <select value={vm.followUpFilters.assignee} onChange={(event) => vm.setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
-                  <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
-                    <option value="All">All waiting-on</option>
-                    {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                </div>
-              </section>
-
-              <section className="followup-options-section">
-                <h4>Project, status, and priority</h4>
-                <div className="followup-options-grid">
                   <select value={vm.followUpFilters.project} onChange={(event) => vm.setFollowUpFilters({ project: event.target.value })} className="field-input">{projects.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
                   <select value={vm.followUpFilters.status} onChange={(event) => vm.setFollowUpFilters({ status: event.target.value as typeof vm.followUpFilters.status })} className="field-input">
                     <option value="All">All statuses</option>
                     <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
                   </select>
-                  <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
-                    <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-                  </select>
-                  <select value={vm.followUpFilters.escalation} onChange={(event) => vm.setFollowUpFilters({ escalation: event.target.value as typeof vm.followUpFilters.escalation })} className="field-input">
-                    <option value="All">All escalations</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
-                  </select>
-                  <select value={vm.followUpFilters.actionState} onChange={(event) => vm.setFollowUpFilters({ actionState: event.target.value as typeof vm.followUpFilters.actionState })} className="field-input">
-                    <option value="All">All action states</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option>
-                  </select>
-                  <select value={vm.followUpFilters.category} onChange={(event) => vm.setFollowUpFilters({ category: event.target.value as typeof vm.followUpFilters.category })} className="field-input">
-                    <option value="All">All categories</option><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option>
-                  </select>
                 </div>
               </section>
 
               <section className="followup-options-section">
-                <h4>Date ranges and linked tasks</h4>
+                <h4>Execution pressure</h4>
                 <div className="followup-options-grid">
+                  <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
+                    <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                  </select>
+                  <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
+                    <option value="All">All waiting-on</option>
+                    {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
                   <select value={vm.followUpFilters.dueDateRange} onChange={(event) => vm.setFollowUpFilters({ dueDateRange: event.target.value as typeof vm.followUpFilters.dueDateRange })} className="field-input">
                     <option value="all">All due dates</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="next_7_days">Due in next 7 days</option>
                   </select>
                   <select value={vm.followUpFilters.nextTouchDateRange} onChange={(event) => vm.setFollowUpFilters({ nextTouchDateRange: event.target.value as typeof vm.followUpFilters.nextTouchDateRange })} className="field-input">
                     <option value="all">All next touch dates</option><option value="overdue">Touch overdue</option><option value="today">Touch today</option><option value="this_week">Touch this week</option><option value="next_7_days">Touch in next 7 days</option>
                   </select>
-                  <select value={vm.followUpFilters.promisedDateRange} onChange={(event) => vm.setFollowUpFilters({ promisedDateRange: event.target.value as typeof vm.followUpFilters.promisedDateRange })} className="field-input">
-                    <option value="all">All promised dates</option><option value="overdue">Promised overdue</option><option value="today">Promised today</option><option value="this_week">Promised this week</option><option value="next_7_days">Promised next 7 days</option>
-                  </select>
-                  <select value={vm.followUpFilters.linkedTaskState} onChange={(event) => vm.setFollowUpFilters({ linkedTaskState: event.target.value as typeof vm.followUpFilters.linkedTaskState })} className="field-input">
-                    <option value="all">All linked task states</option><option value="blocked_child">Blocked child tasks</option><option value="overdue_child">Overdue child tasks</option><option value="all_children_done">All child tasks done</option><option value="has_open_children">Has open child tasks</option><option value="none">No child tasks</option>
-                  </select>
-                  <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup maintenance only</label>
                 </div>
               </section>
             </div>
@@ -381,6 +372,15 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
             <button type="button" className="action-btn" onClick={() => setShowFilters(false)}>Back to queue</button>
           </AppModalFooter>
         </AppModal>
+      ) : null}
+
+      {showMaintenance && !isMobileLike ? (
+        <div className="followup-maintenance-panel">
+          <div className="followup-maintenance-row">
+            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates ({duplicateCount})</button> : <span className="task-sort-summary">No duplicate follow-up review items right now.</span>}
+            <button type="button" className="action-btn" onClick={() => setShowMaintenance(false)}>Hide maintenance</button>
+          </div>
+        </div>
       ) : null}
 
       {vm.followUpStats.selectedCount > 0 ? (

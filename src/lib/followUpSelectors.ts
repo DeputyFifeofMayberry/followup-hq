@@ -3,6 +3,7 @@ import { daysUntil, localDayDelta } from './utils';
 import {
   classifyFollowUpItem,
   getSavedViewLaneKey,
+  getFollowUpLaneDefinition,
   type FollowUpClassification,
   type FollowUpLaneKey,
 } from '../domains/followups/helpers/followUpLanes';
@@ -31,8 +32,54 @@ export type FollowUpQueuePressureKey = 'allOpen' | 'needsNudge' | 'atRisk' | 'wa
 
 export type FollowUpQueuePressureCounts = Record<FollowUpQueuePressureKey, number>;
 
+export type FollowUpLanePresentation = {
+  laneLabel: string;
+  laneIntent: string;
+  expectedAction: string;
+};
+
 export const primaryFollowUpViews: SavedViewKey[] = ['All items', 'All', 'Needs nudge', 'At risk', 'Closed'];
 export const secondaryFollowUpViews: SavedViewKey[] = ['Today', 'Waiting', 'Overdue', 'By project', 'Waiting on others', 'Promises due this week', 'Blocked by child tasks'];
+
+export function getFollowUpLanePresentation(view: SavedViewKey): FollowUpLanePresentation {
+  const lane = getSavedViewLaneKey(view);
+  if (lane) {
+    const definition = getFollowUpLaneDefinition(lane);
+    return {
+      laneLabel: definition.label,
+      laneIntent: definition.description,
+      expectedAction: definition.urgencyContract,
+    };
+  }
+
+  if (view === 'Ready to close') {
+    return {
+      laneLabel: 'Ready to close',
+      laneIntent: 'Open follow-ups that can be confidently closed based on linked-task readiness.',
+      expectedAction: 'Confirm closeout details, then run close transition without leaving unresolved work.',
+    };
+  }
+  if (view === 'Promises due this week') {
+    return {
+      laneLabel: 'Promises due this week',
+      laneIntent: 'Open commitments with promised dates inside the next seven days.',
+      expectedAction: 'Verify commitments, adjust next touch, and proactively recover at-risk promises.',
+    };
+  }
+  if (view === 'Blocked by child tasks') {
+    return {
+      laneLabel: 'Blocked by child tasks',
+      laneIntent: 'Open follow-ups blocked by unfinished or blocked linked tasks.',
+      expectedAction: 'Unblock linked child work first, then resume follow-up execution.',
+    };
+  }
+
+  return {
+    laneLabel: view,
+    laneIntent: 'Execution queue narrowed by the selected follow-up view.',
+    expectedAction: 'Work records top-down and keep next move context current.',
+  };
+}
 
 export type FollowUpRowAffectingOptionKey =
   | 'activeView'

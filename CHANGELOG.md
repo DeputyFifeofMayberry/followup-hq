@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Follow Ups Prompt 4: execution workspace hierarchy reset (summary → controls → worklist)
+- Rebuilt the Follow Ups workspace hierarchy into a clear execution stack: a new lane summary strip now leads the page with canonical lane meaning, queue-specific intent, expected action guidance, and scan-friendly pressure chips before controls and worklist. (`src/components/app/TrackerWorkspace.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`, `src/styles/workspaces.css`)
+- Refactored the Follow Ups control bar into clearer responsibility zones (queue shaping, filter chips/reset, optional advanced filters/layout, and separate maintenance tray) so queue controls stay primary while lower-frequency maintenance/config controls are demoted. (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`)
+- Simplified row-level worklist chrome by removing redundant explicit row Inspect button and keeping a single quiet overflow action path; also tightened row signal content by emphasizing what-matters-now + next move while reducing duplicated metadata in the identity cell. (`src/components/TrackerTable.tsx`, `src/styles/workspaces.css`)
+- Added focused selector-level coverage for the new lane presentation model to ensure canonical/fallback queue presentation metadata remains trustworthy as views evolve. (`src/domains/followups/__tests__/followUpSelectors.test.ts`)
+
 ### Follow-up inspector execution flows: structured action transitions + queue progression
 - Turned the Prompt 2 follow-up inspector into an execution surface by adding structured action flows for confirm outreach, mark waiting on response, snooze/defer, reply received, close, reopen, and escalate-at-risk; each flow now supports targeted inputs, transition validation feedback (warnings/blockers), and close override when allowed. (`src/components/app/TrackerWorkspace.tsx`, `src/components/followups/FollowUpInspectorModal.tsx`, `src/components/followups/FollowUpActionFlow.tsx`)
 - Added reusable follow-up execution helpers (`buildExecutionPatch`, draft defaults, and inspector progression resolution) so status/lifecycle/action-state updates are coherent and shared rather than scattered UI field patches. (`src/domains/followups/helpers/executionActions.ts`, `src/domains/followups/helpers/executionProgression.ts`)

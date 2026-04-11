@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Follow Ups canonical lane system: single source of queue truth across lanes, Daily Focus, and row urgency
+- Introduced a domain-level canonical follow-up lane/classification model that defines lane contracts (`All open`, `Today`, `Overdue`, `Needs nudge`, `Waiting`, `At risk`, `Closed`, `All items`) with explicit inclusion/exclusion semantics, cleanup allowances, and reusable urgency signals so queue meaning no longer depends on scattered ad hoc checks. (`src/domains/followups/helpers/followUpLanes.ts`)
+- Refactored follow-up selectors and counts to consume canonical classification/lane membership, including a tighter `Today` contract (due-today only) and consistent queue pressure/view counts driven by the same source of truth used for row membership. (`src/lib/followUpSelectors.ts`)
+- Refactored Daily Focus follow-up counters to derive overdue/due-today/needs-nudge from the canonical lane model so app-level focus metrics align with follow-up queue chips and table lane membership. (`src/lib/dailyFocus.ts`)
+- Updated follow-up row “what matters now” messaging to use canonical urgency signals (while preserving linked-task blocked override) so row execution cues match lane semantics and Daily Focus definitions. (`src/components/TrackerTable.tsx`)
+- Added expanded follow-up selector/lane regression coverage for due-today vs overdue separation, overdue pressure-bucket exclusivity, needs-nudge consistency, waiting/at-risk classification, cleanup-only handling, closed exclusion from open lanes, and Daily Focus count alignment with lane membership. (`src/domains/followups/__tests__/followUpSelectors.test.ts`)
+
 ### Mobile cross-page refinement pass: aligned Follow Ups controls with Overview/Tasks queue model
 - Completed a cross-page mobile coherence pass across Overview, Follow Ups, and Tasks by fixing the highest remaining interaction drift: Follow Ups now uses the same queue-first mobile control pattern as Tasks (compact queue/search controls, active-filter summary strip, and on-demand filter modal instead of an always-expanded desktop-style control wall), so all three core workspaces start from a consistent “scan queue first, then open controls” mobile posture. (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`)
 - Aligned mobile overlay close behavior language across core queue/detail surfaces by shifting Overview route inspector and Tasks detail mobile close affordances to explicit **Back to queue** wording, reducing close/return ambiguity when moving between Overview triage, Follow Ups, and Tasks workflows. (`src/components/OverviewPage.tsx`, `src/components/tasks/TaskInspectorModal.tsx`)

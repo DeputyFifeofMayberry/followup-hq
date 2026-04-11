@@ -1,6 +1,11 @@
 import type { CompanyRecord, ContactRecord, FollowUpAdvancedFilters, FollowUpItem, SavedViewKey } from '../types';
-import { daysUntil, isOverdue, localDayDelta, needsNudge } from './utils';
-import { isExecutionReady } from '../domains/records/integrity';
+import { daysUntil, localDayDelta } from './utils';
+import {
+  classifyFollowUpItem,
+  getSavedViewLaneKey,
+  type FollowUpClassification,
+  type FollowUpLaneKey,
+} from '../domains/followups/helpers/followUpLanes';
 
 interface FollowUpSelectorInput {
   items: FollowUpItem[];
@@ -95,22 +100,8 @@ export function getActiveFollowUpRowAffectingOptions(input: {
   return entries;
 }
 
-function isClosed(item: FollowUpItem): boolean {
-  return item.status === 'Closed';
-}
-
-function isOpen(item: FollowUpItem): boolean {
-  return !isClosed(item);
-}
-
-function isAtRisk(item: FollowUpItem): boolean {
-  return item.status === 'At risk' || item.escalationLevel === 'Critical';
-}
-
-function isReadyToClose(item: FollowUpItem): boolean {
-  // An item with no linked tasks is a close candidate the moment it's open.
-  // An item with linked tasks is only a close candidate once all tasks are done.
-  return isOpen(item) && ((item.linkedTaskCount ?? 0) === 0 || !!item.allLinkedTasksDone);
+function isReadyToClose(item: FollowUpItem, classification: FollowUpClassification): boolean {
+  return classification.isOpen && ((item.linkedTaskCount ?? 0) === 0 || !!item.allLinkedTasksDone);
 }
 
 function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['dueDateRange']): boolean {
@@ -124,32 +115,25 @@ function inDateRange(iso: string | undefined, range: FollowUpAdvancedFilters['du
   return true;
 }
 
+function hasLane(classification: FollowUpClassification, lane: FollowUpLaneKey): boolean {
+  return classification.laneMemberships.has(lane);
+}
+
 function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem[] {
-  const openItems = items.filter(isOpen);
+  const lane = getSavedViewLaneKey(view);
+  if (lane) {
+    return items.filter((item) => hasLane(classifyFollowUpItem(item), lane));
+  }
+
+  const openItems = items.filter((item) => classifyFollowUpItem(item).isOpen);
   switch (view) {
-    case 'All items':
-      return items;
-    case 'All':
-      return openItems;
-    case 'Closed':
-      return items.filter(isClosed);
-    case 'Today':
-      return openItems.filter((item) => isOverdue(item) || daysUntil(item.dueDate) <= 0 || needsNudge(item));
-    case 'Waiting':
-    case 'Waiting on others':
-      return openItems.filter((item) => item.status === 'Waiting on external' || item.status === 'Waiting internal' || !!item.waitingOn);
-    case 'Needs nudge':
-      return openItems.filter(needsNudge);
-    case 'At risk':
-      return openItems.filter(isAtRisk);
-    case 'Overdue':
-      return openItems.filter(isOverdue);
     case 'Ready to close':
-      return openItems.filter(isReadyToClose);
+      return openItems.filter((item) => isReadyToClose(item, classifyFollowUpItem(item)));
     case 'Promises due this week':
       return openItems.filter((item) => !!item.promisedDate && daysUntil(item.promisedDate) <= 7);
     case 'Blocked by child tasks':
       return openItems.filter((item) => (item.blockedLinkedTaskCount ?? 0) > 0 || item.childWorkflowSignal === 'blocked');
+    case 'By project':
     default:
       return openItems;
   }
@@ -157,12 +141,15 @@ function applySavedView(items: FollowUpItem[], view: SavedViewKey): FollowUpItem
 
 function applyBaseFilters(items: FollowUpItem[], input: FollowUpViewScopeInput): FollowUpItem[] {
   const { contacts, companies, search, filters } = input;
-  const scopedItems = filters.cleanupOnly
-    ? items.filter((item) => !isExecutionReady(item) || item.needsCleanup)
-    : items.filter((item) => isExecutionReady(item));
   const term = search.trim().toLowerCase();
 
-  return scopedItems.filter((item) => {
+  return items.filter((item) => {
+    const classification = classifyFollowUpItem(item);
+    const includeForCleanupMode = filters.cleanupOnly
+      ? classification.isCleanupOnly
+      : classification.isExecutionReady;
+    if (!includeForCleanupMode) return false;
+
     const contact = contacts.find((entry) => entry.id === item.contactId)?.name ?? '';
     const company = companies.find((entry) => entry.id === item.companyId)?.name ?? '';
     const haystack = [
@@ -193,7 +180,6 @@ function applyBaseFilters(items: FollowUpItem[], input: FollowUpViewScopeInput):
     if (!inDateRange(item.dueDate, filters.dueDateRange)) return false;
     if (!inDateRange(item.nextTouchDate, filters.nextTouchDateRange)) return false;
     if (!inDateRange(item.promisedDate, filters.promisedDateRange)) return false;
-    if (filters.cleanupOnly && !item.needsCleanup) return false;
 
     if (filters.linkedTaskState === 'blocked_child' && (item.blockedLinkedTaskCount ?? 0) === 0) return false;
     if (filters.linkedTaskState === 'overdue_child' && (item.overdueLinkedTaskCount ?? 0) === 0) return false;
@@ -233,19 +219,20 @@ export function selectFollowUpQueuePressureCounts(input: FollowUpViewScopeInput)
 }
 
 export function buildFollowUpCounts(rows: FollowUpItem[]) {
-  const openRows = rows.filter(isOpen);
+  const classifications = rows.map((item) => ({ item, classification: classifyFollowUpItem(item) }));
   return {
     total: rows.length,
-    allOpen: openRows.length,
-    closed: rows.length - openRows.length,
-    overdue: openRows.filter(isOverdue).length,
-    needsNudge: openRows.filter(needsNudge).length,
-    atRisk: openRows.filter(isAtRisk).length,
-    waiting: openRows.filter((item) => item.status.includes('Waiting') || !!item.waitingOn).length,
-    readyToClose: openRows.filter(isReadyToClose).length,
-    promisesDueThisWeek: openRows.filter((item) => !!item.promisedDate && daysUntil(item.promisedDate) <= 7).length,
-    blockedByChild: openRows.filter((item) => (item.blockedLinkedTaskCount ?? 0) > 0).length,
-    overdueTouches: openRows.filter((item) => {
+    allOpen: classifications.filter(({ classification }) => classification.isOpen).length,
+    closed: classifications.filter(({ classification }) => classification.isClosed).length,
+    overdue: classifications.filter(({ classification }) => classification.isOverdue).length,
+    needsNudge: classifications.filter(({ classification }) => classification.laneMemberships.has('needs_nudge')).length,
+    atRisk: classifications.filter(({ classification }) => classification.isAtRisk).length,
+    waiting: classifications.filter(({ classification }) => classification.isWaiting).length,
+    readyToClose: classifications.filter(({ item, classification }) => isReadyToClose(item, classification)).length,
+    promisesDueThisWeek: classifications.filter(({ item, classification }) => classification.isOpen && !!item.promisedDate && daysUntil(item.promisedDate) <= 7).length,
+    blockedByChild: classifications.filter(({ item, classification }) => classification.isOpen && (item.blockedLinkedTaskCount ?? 0) > 0).length,
+    overdueTouches: classifications.filter(({ item, classification }) => {
+      if (!classification.isOpen) return false;
       const touchDelta = daysUntil(item.nextTouchDate);
       return Number.isFinite(touchDelta) && touchDelta < 0;
     }).length,

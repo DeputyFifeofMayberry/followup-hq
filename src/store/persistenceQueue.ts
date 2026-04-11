@@ -7,6 +7,7 @@ interface QueueConfig {
   debounceMs?: number;
   maxRetries?: number;
   retryDelayMs?: number;
+  saveFn?: typeof savePersistedPayload;
 }
 
 export interface DirtyRecordRef {
@@ -30,9 +31,9 @@ interface QueueHandlers {
   getPayload: () => PersistedPayload;
   getSyncAttemptContext?: () => SyncAttemptContext;
   onQueued: (meta?: QueueRequestMeta) => void;
-  onSaving: (context: { reason: 'auto' | 'manual' | 'retry'; attempt: number }) => void;
-  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry', didPersist: boolean, diagnostics?: SaveResult['diagnostics']) => void;
-  onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry', diagnostics?: SaveResult['diagnostics']) => void;
+  onSaving: (context: { reason: 'auto' | 'manual' | 'retry' | 'replay'; attempt: number }) => void;
+  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry' | 'replay', didPersist: boolean, diagnostics?: SaveResult['diagnostics']) => void;
+  onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry' | 'replay', diagnostics?: SaveResult['diagnostics']) => void;
 }
 
 export interface PersistenceQueueController {
@@ -54,32 +55,30 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   const debounceMs = config.debounceMs ?? 350;
   const maxRetries = config.maxRetries ?? 2;
   const retryDelayMs = config.retryDelayMs ?? 700;
+  const saveFn = config.saveFn ?? savePersistedPayload;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let lastMode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading' = 'browser';
   let pendingDirtyRefs = new Map<string, DirtyRecordRef>();
 
-  const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' = 'auto'): Promise<void> => {
-    const syncContext = handlers.getSyncAttemptContext?.();
-    if (syncContext) {
-      lastMode = syncContext.persistenceMode;
-    }
-    handlers.onSaving({ reason, attempt });
-    const payload = handlers.getPayload();
-    const shouldSync = syncContext ? shouldAttemptCloudSync(syncContext) : true;
+  let inFlight: Promise<void> | null = null;
+  let rerunReason: 'auto' | 'manual' | 'retry' | 'replay' | null = null;
 
-    if (!shouldSync && pendingDirtyRefs.size === 0 && reason !== 'manual') {
-      handlers.onSaved(lastMode, todayIso(), reason, false);
+  const flush = async (attempt = 0, reason: 'auto' | 'manual' | 'retry' | 'replay' = 'auto'): Promise<void> => {
+    if (inFlight) {
+      rerunReason = reason === 'replay' ? 'replay' : (rerunReason ?? reason);
+      await inFlight;
       return;
     }
+    inFlight = (async () => {
+    handlers.onSaving({ reason, attempt });
+    const payload = handlers.getPayload();
 
     try {
       const dirtyRecords = Array.from(pendingDirtyRefs.values());
-      const saveResult = await savePersistedPayload(payload, {
+      const saveResult = await saveFn(payload, {
         dirtyRecords,
         forceSchemaCheck: reason === 'retry',
       });
-      lastMode = saveResult.mode;
       pendingDirtyRefs = new Map();
       handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
     } catch (error) {
@@ -100,6 +99,14 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
         return;
       }
       handlers.onError(message, todayIso(), reason, diagnostics);
+    }
+    })();
+    await inFlight;
+    inFlight = null;
+    if (rerunReason) {
+      const nextReason = rerunReason;
+      rerunReason = null;
+      await flush(0, nextReason);
     }
   };
 
@@ -126,7 +133,7 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
 
   const replayPendingBatchesNow = async () => {
     if (timer) clearTimeout(timer);
-    await flush(0, 'retry');
+    await flush(0, 'replay');
   };
 
   const cancelPending = () => {
@@ -137,7 +144,8 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
   const resetInternalState = () => {
     cancelPending();
     pendingDirtyRefs = new Map();
-    lastMode = 'browser';
+    rerunReason = null;
+    inFlight = null;
   };
 
   return {

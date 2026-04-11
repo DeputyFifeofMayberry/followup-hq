@@ -33,6 +33,35 @@ async function testCancelAndResetPreventsCarryover() {
   assert(saving === 0 && saved === 0, 'resetInternalState should clear timers and pending refs across logout boundary');
 }
 
+async function testReplayWaitsForInflightFlushWithoutDuplicateSends() {
+  let saveCalls = 0;
+  const savingReasons: string[] = [];
+  const queue = createPersistenceQueue({
+    getPayload: () => ({ items: [], tasks: [], projects: [], contacts: [], companies: [], auxiliary: {} as any }),
+    onQueued: () => undefined,
+    onSaving: ({ reason }) => { savingReasons.push(reason); },
+    onSaved: () => undefined,
+    onError: () => { throw new Error('unexpected error callback'); },
+  }, {
+    debounceMs: 10,
+    maxRetries: 0,
+    saveFn: async () => {
+      saveCalls += 1;
+      await wait(40);
+      return { mode: 'supabase', diagnostics: {} as any };
+    },
+  });
+
+  queue.enqueue({ dirtyRecords: [{ type: 'followup', id: 'a' }] });
+  await wait(15);
+  void queue.replayPendingBatchesNow();
+  await wait(120);
+
+  assert(saveCalls === 2, 'replay should run once after in-flight save finishes, without concurrent duplicate sends');
+  assert(savingReasons[0] === 'auto' && savingReasons[1] === 'replay', 'queue should preserve replay intent when rerunning after in-flight save');
+}
+
 (async function run() {
   await testCancelAndResetPreventsCarryover();
+  await testReplayWaitsForInflightFlushWithoutDuplicateSends();
 })();

@@ -1,6 +1,7 @@
 import { createId, todayIso } from '../../lib/utils';
 import { getRecentWorkMode } from '../../lib/dataEntryDefaults';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
+import { defaultTaskWorkspaceSession } from '../../domains/tasks';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceGet, SliceSet } from './types';
 import type { QueueRequestMeta } from '../persistenceQueue';
@@ -10,8 +11,8 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
   'toggleFollowUpSelection' | 'clearFollowUpSelection' | 'pushToast' | 'dismissToast' | 'dismissAllToasts' | 'expireToast' | 'handleToastAction' |
   'selectAllVisibleFollowUps' | 'saveFollowUpCustomView' | 'applySavedFollowUpCustomView' |
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
-  'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
-  'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateWorkModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
+  'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskWorkspaceSession' |
+  'resetTaskWorkspaceSession' | 'openCreateTaskModal' | 'openCreateWorkModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
   'openRecordEditor' | 'openFollowUpInspector' | 'closeFollowUpInspector' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
 > {
   return {
@@ -160,8 +161,19 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
         },
       },
     })),
-    setTaskOwnerFilter: (value) => set({ taskOwnerFilter: value }),
-    setTaskStatusFilter: (value) => set({ taskStatusFilter: value }),
+    setTaskWorkspaceSession: (patch) => set((state: AppStore) => ({
+      taskWorkspaceSession: {
+        ...state.taskWorkspaceSession,
+        ...patch,
+      },
+    })),
+    resetTaskWorkspaceSession: (options) => set((state: AppStore) => ({
+      taskWorkspaceSession: {
+        ...defaultTaskWorkspaceSession,
+        ...(options?.preserveView ? { view: state.taskWorkspaceSession.view } : {}),
+        ...(options?.preserveSearch ? { searchQuery: state.taskWorkspaceSession.searchQuery } : {}),
+      },
+    })),
     openCreateTaskModal: () => set({
       taskModal: { open: true, mode: 'create', taskId: null },
       itemModal: { open: false, mode: 'create', itemId: null },

@@ -1,5 +1,6 @@
 import { starterCompanies, starterContacts, starterItems, starterProjects, starterTasks } from '../../../lib/sample-data';
 import { defaultFollowUpFilters } from '../../../lib/followUpSelectors';
+import { defaultTaskWorkspaceSession } from '../../../domains/tasks';
 import { buildPersistedPayload } from '../persistence';
 import { initialBusinessState } from '../initialState';
 import { DEFAULT_REMINDER_CENTER_SUMMARY, DEFAULT_REMINDER_PREFERENCES, DEFAULT_WORKSPACE_ATTENTION_COUNTS } from '../../../lib/reminders';
@@ -33,6 +34,7 @@ export function runPersistenceChecks() {
     intakeReviewerFeedback: [],
     savedExecutionViews: [],
     followUpFilters: defaultFollowUpFilters,
+    taskWorkspaceSession: defaultTaskWorkspaceSession,
     followUpColumns: ['title'],
     savedFollowUpViews: [],
     followUpTableDensity: 'compact',

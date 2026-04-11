@@ -2,6 +2,7 @@ import { defaultExecutionViews } from '../../lib/unifiedQueue';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { getDefaultOutlookSettings } from '../../lib/outlookGraph';
+import { defaultTaskWorkspaceSession } from '../../domains/tasks';
 import {
   DEFAULT_REMINDER_CENTER_SUMMARY,
   DEFAULT_REMINDER_PREFERENCES,
@@ -60,8 +61,7 @@ export const initialUiState: AppUiState = {
   followUpInspector: { open: false, itemId: null },
   createWorkDraft: null,
   selectedTaskId: null,
-  taskOwnerFilter: 'All',
-  taskStatusFilter: 'All',
+  taskWorkspaceSession: defaultTaskWorkspaceSession,
   queuePreset: 'Today',
   executionFilter: {},
   executionSort: 'queue_score',

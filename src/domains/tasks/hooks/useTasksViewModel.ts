@@ -6,29 +6,21 @@ import { addDaysIso, formatDate, isTaskDeferred, todayIso } from '../../../lib/u
 import { isExecutionReady } from '../../records/integrity';
 import { deriveTaskRecommendedAction } from '../../shared';
 import { useAppStore } from '../../../store/useAppStore';
-import type { TaskItem, TaskPriority } from '../../../types';
-import { TASK_LANE_DEFINITIONS, type TaskQueueView } from '../lanes';
+import type { TaskItem, TaskStatus } from '../../../types';
+import { TASK_LANE_DEFINITIONS } from '../lanes';
 import { normalizeTaskStatus, selectTaskCounts, selectVisibleTasksForQueue } from '../selectors';
 import { getTaskDueBucket, isTaskOverdueByDay } from '../timing';
+import {
+  defaultTaskWorkspaceSession,
+  type TaskLinkageFilter,
+  type TaskPriorityFilter,
+  type TaskSort,
+  type TaskStateFilter,
+  type TaskTimingFilter,
+  type TaskView,
+} from '../types';
 
-export type TaskView = TaskQueueView;
-export type TaskSort = 'due' | 'priority' | 'updated';
-
-type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
-type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';
-type LinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
-type PriorityFilter = 'All' | TaskPriority;
-
-const defaultFilterState = {
-  project: 'All',
-  assignee: 'All',
-  linked: 'all' as LinkageFilter,
-  sortBy: 'due' as TaskSort,
-  view: 'all' as TaskView,
-  timingFilter: 'all' as TimingFilter,
-  stateFilter: 'all' as StateFilter,
-  priorityFilter: 'All' as PriorityFilter,
-};
+export type { TaskView, TaskSort };
 
 const priorityRank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
 
@@ -54,11 +46,10 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     items: s.items,
     projects: s.projects,
     selectedTaskId: s.selectedTaskId,
-    taskOwnerFilter: s.taskOwnerFilter,
-    taskStatusFilter: s.taskStatusFilter,
+    taskWorkspaceSession: s.taskWorkspaceSession,
     setSelectedTaskId: s.setSelectedTaskId,
-    setTaskOwnerFilter: s.setTaskOwnerFilter,
-    setTaskStatusFilter: s.setTaskStatusFilter,
+    setTaskWorkspaceSession: s.setTaskWorkspaceSession,
+    resetTaskWorkspaceSession: s.resetTaskWorkspaceSession,
     openCreateTaskModal: s.openCreateTaskModal,
     openEditTaskModal: s.openEditTaskModal,
     updateTask: s.updateTask,
@@ -67,31 +58,23 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     executionIntent: s.executionIntent,
     clearExecutionIntent: s.clearExecutionIntent,
   })));
-
-  const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-  const [view, setViewState] = useState<TaskView>(() => {
-    const saved = localStorage.getItem('tasks_pref_view');
-    return (saved as TaskView) || defaultFilterState.view;
-  });
-  const [sortBy, setSortByState] = useState<TaskSort>(() => {
-    const saved = localStorage.getItem('tasks_pref_sortBy');
-    return (saved as TaskSort) || defaultFilterState.sortBy;
-  });
-  const setView = (v: TaskView) => { setViewState(v); localStorage.setItem('tasks_pref_view', v); };
-  const setSortBy = (s: TaskSort) => { setSortByState(s); localStorage.setItem('tasks_pref_sortBy', s); };
-
-  const [projectFilter, setProjectFilter] = useState(defaultFilterState.project);
-  const [assigneeFilter, setAssigneeFilter] = useState(defaultFilterState.assignee);
-  const [linkedFilter, setLinkedFilter] = useState<LinkageFilter>(defaultFilterState.linked);
-  const [timingFilter, setTimingFilter] = useState<TimingFilter>(defaultFilterState.timingFilter);
-  const [stateFilter, setStateFilter] = useState<StateFilter>(defaultFilterState.stateFilter);
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>(defaultFilterState.priorityFilter);
+  const session = store.taskWorkspaceSession;
+  const view = session.view;
+  const sortBy = session.sortBy;
+  const searchQuery = session.searchQuery;
+  const projectFilter = session.projectFilter;
+  const assigneeFilter = session.assigneeFilter;
+  const linkedFilter = session.linkedFilter;
+  const timingFilter = session.timingFilter;
+  const stateFilter = session.stateFilter;
+  const priorityFilter = session.priorityFilter;
+  const taskOwnerFilter = session.ownerFilter;
+  const taskStatusFilter = session.statusFilter;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery.trim().toLowerCase()), 160);
-    return () => clearTimeout(timer);
+  return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const followUpById = useMemo(() => new Map(store.items.map((item) => [item.id, item])), [store.items]);
@@ -155,9 +138,9 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     const weekEndTs = now.getTime() + 7 * 86400000;
 
     const byFilters = viewScopedTasks.filter((task) => {
-      const ownerMatch = store.taskOwnerFilter === 'All' || task.owner === store.taskOwnerFilter;
+      const ownerMatch = taskOwnerFilter === 'All' || task.owner === taskOwnerFilter;
       const taskStatus = normalizeTaskStatus(task.status);
-      const statusMatch = store.taskStatusFilter === 'All' || taskStatus === store.taskStatusFilter;
+      const statusMatch = taskStatusFilter === 'All' || taskStatus === taskStatusFilter;
       const projectMatch = projectFilter === 'All' || task.project === projectFilter;
       const assigneeMatch = assigneeFilter === 'All' || (task.assigneeDisplayName || task.owner) === assigneeFilter;
       const textMatch = !debouncedSearchQuery || task.searchBlob.includes(debouncedSearchQuery);
@@ -189,7 +172,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
       const bDue = b.dueTs ?? Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [viewScopedTasks, view, sortBy, store.taskOwnerFilter, store.taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, timingFilter, stateFilter, priorityFilter]);
+  }, [viewScopedTasks, view, sortBy, taskOwnerFilter, taskStatusFilter, projectFilter, assigneeFilter, linkedFilter, debouncedSearchQuery, timingFilter, stateFilter, priorityFilter]);
 
   const selectedTask = useMemo(
     () => filteredTasks.find((task) => task.id === store.selectedTaskId) ?? store.tasks.find((task) => task.id === store.selectedTaskId) ?? null,
@@ -235,30 +218,30 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const activeFilterCount = useMemo(() => (
     [
       debouncedSearchQuery.length > 0,
-      projectFilter !== defaultFilterState.project,
-      assigneeFilter !== defaultFilterState.assignee,
-      !personalMode && store.taskOwnerFilter !== 'All',
-      store.taskStatusFilter !== 'All',
-      linkedFilter !== defaultFilterState.linked,
-      timingFilter !== defaultFilterState.timingFilter,
-      stateFilter !== defaultFilterState.stateFilter,
-      priorityFilter !== defaultFilterState.priorityFilter,
+      projectFilter !== defaultTaskWorkspaceSession.projectFilter,
+      assigneeFilter !== defaultTaskWorkspaceSession.assigneeFilter,
+      !personalMode && taskOwnerFilter !== 'All',
+      taskStatusFilter !== 'All',
+      linkedFilter !== defaultTaskWorkspaceSession.linkedFilter,
+      timingFilter !== defaultTaskWorkspaceSession.timingFilter,
+      stateFilter !== defaultTaskWorkspaceSession.stateFilter,
+      priorityFilter !== defaultTaskWorkspaceSession.priorityFilter,
     ].filter(Boolean).length
-  ), [debouncedSearchQuery.length, projectFilter, assigneeFilter, personalMode, store.taskOwnerFilter, store.taskStatusFilter, linkedFilter, timingFilter, stateFilter, priorityFilter]);
+  ), [debouncedSearchQuery.length, projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = [];
-    if (searchQuery.trim()) chips.push({ key: 'search', label: `Search: ${searchQuery.trim()}`, clear: () => setSearchQuery('') });
-    if (projectFilter !== defaultFilterState.project) chips.push({ key: 'project', label: `Project: ${projectFilter}`, clear: () => setProjectFilter(defaultFilterState.project) });
-    if (assigneeFilter !== defaultFilterState.assignee) chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => setAssigneeFilter(defaultFilterState.assignee) });
-    if (!personalMode && store.taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${store.taskOwnerFilter}`, clear: () => store.setTaskOwnerFilter('All') });
-    if (store.taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${store.taskStatusFilter}`, clear: () => store.setTaskStatusFilter('All') });
-    if (linkedFilter !== defaultFilterState.linked) chips.push({ key: 'linked', label: `Linkage: ${linkedFilter.replaceAll('_', ' ')}`, clear: () => setLinkedFilter(defaultFilterState.linked) });
-    if (timingFilter !== defaultFilterState.timingFilter) chips.push({ key: 'timing', label: `Timing: ${timingFilter.replaceAll('_', ' ')}`, clear: () => setTimingFilter(defaultFilterState.timingFilter) });
-    if (stateFilter !== defaultFilterState.stateFilter) chips.push({ key: 'state', label: `State: ${stateFilter.replaceAll('_', ' ')}`, clear: () => setStateFilter(defaultFilterState.stateFilter) });
-    if (priorityFilter !== defaultFilterState.priorityFilter) chips.push({ key: 'priority', label: `Priority: ${priorityFilter}`, clear: () => setPriorityFilter(defaultFilterState.priorityFilter) });
+    if (searchQuery.trim()) chips.push({ key: 'search', label: `Search: ${searchQuery.trim()}`, clear: () => store.setTaskWorkspaceSession({ searchQuery: '' }) });
+    if (projectFilter !== defaultTaskWorkspaceSession.projectFilter) chips.push({ key: 'project', label: `Project: ${projectFilter}`, clear: () => store.setTaskWorkspaceSession({ projectFilter: defaultTaskWorkspaceSession.projectFilter }) });
+    if (assigneeFilter !== defaultTaskWorkspaceSession.assigneeFilter) chips.push({ key: 'assignee', label: `Assignee: ${assigneeFilter}`, clear: () => store.setTaskWorkspaceSession({ assigneeFilter: defaultTaskWorkspaceSession.assigneeFilter }) });
+    if (!personalMode && taskOwnerFilter !== 'All') chips.push({ key: 'owner', label: `Owner: ${taskOwnerFilter}`, clear: () => store.setTaskWorkspaceSession({ ownerFilter: 'All' }) });
+    if (taskStatusFilter !== 'All') chips.push({ key: 'status', label: `Status: ${taskStatusFilter}`, clear: () => store.setTaskWorkspaceSession({ statusFilter: 'All' }) });
+    if (linkedFilter !== defaultTaskWorkspaceSession.linkedFilter) chips.push({ key: 'linked', label: `Linkage: ${linkedFilter.replaceAll('_', ' ')}`, clear: () => store.setTaskWorkspaceSession({ linkedFilter: defaultTaskWorkspaceSession.linkedFilter }) });
+    if (timingFilter !== defaultTaskWorkspaceSession.timingFilter) chips.push({ key: 'timing', label: `Timing: ${timingFilter.replaceAll('_', ' ')}`, clear: () => store.setTaskWorkspaceSession({ timingFilter: defaultTaskWorkspaceSession.timingFilter }) });
+    if (stateFilter !== defaultTaskWorkspaceSession.stateFilter) chips.push({ key: 'state', label: `State: ${stateFilter.replaceAll('_', ' ')}`, clear: () => store.setTaskWorkspaceSession({ stateFilter: defaultTaskWorkspaceSession.stateFilter }) });
+    if (priorityFilter !== defaultTaskWorkspaceSession.priorityFilter) chips.push({ key: 'priority', label: `Priority: ${priorityFilter}`, clear: () => store.setTaskWorkspaceSession({ priorityFilter: defaultTaskWorkspaceSession.priorityFilter }) });
     return chips;
-  }, [searchQuery, projectFilter, assigneeFilter, personalMode, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
+  }, [searchQuery, projectFilter, assigneeFilter, personalMode, taskOwnerFilter, taskStatusFilter, store, linkedFilter, timingFilter, stateFilter, priorityFilter]);
 
   const sortSummary = sortBy === 'due' ? '' : sortBy === 'priority' ? 'Sorted by priority' : 'Sorted by recently updated';
 
@@ -270,15 +253,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const reviewRequiredTasks = useMemo(() => derivedTasks.filter((task) => task.needsReview), [derivedTasks]);
 
   const resetPanelFilters = () => {
-    store.setTaskOwnerFilter('All');
-    store.setTaskStatusFilter('All');
-    setProjectFilter(defaultFilterState.project);
-    setAssigneeFilter(defaultFilterState.assignee);
-    setLinkedFilter(defaultFilterState.linked);
-    setTimingFilter(defaultFilterState.timingFilter);
-    setStateFilter(defaultFilterState.stateFilter);
-    setPriorityFilter(defaultFilterState.priorityFilter);
-    setSortBy(defaultFilterState.sortBy);
+    store.resetTaskWorkspaceSession({ preserveView: true });
   };
 
   const getTaskSignal = (task: TaskItem) => {
@@ -314,23 +289,11 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const openTaskInWorkspace = (taskId: string, options?: { project?: string }) => {
     const task = store.tasks.find((entry) => entry.id === taskId);
     store.setSelectedTaskId(taskId);
-    setSearchQuery('');
-    setView('all');
-    store.setTaskOwnerFilter('All');
-    store.setTaskStatusFilter('All');
-    setAssigneeFilter('All');
-    setLinkedFilter('all');
-    setTimingFilter('all');
-    setStateFilter('all');
-    setPriorityFilter('All');
-    setSortBy(defaultFilterState.sortBy);
-
-    if (!task) {
-      setProjectFilter('All');
-      return;
-    }
-
-    setProjectFilter(resolveTaskOpenProjectFilter(task.project, options?.project));
+    store.resetTaskWorkspaceSession();
+    store.setTaskWorkspaceSession({
+      view: 'all',
+      projectFilter: task ? resolveTaskOpenProjectFilter(task.project, options?.project) : 'All',
+    });
   };
 
   return {
@@ -354,24 +317,28 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     recommendedAction,
     queueSummary,
     searchQuery,
-    setSearchQuery,
-    clearSearchQuery: () => setSearchQuery(''),
+    setSearchQuery: (value: string) => store.setTaskWorkspaceSession({ searchQuery: value }),
+    clearSearchQuery: () => store.setTaskWorkspaceSession({ searchQuery: '' }),
     sortBy,
-    setSortBy,
+    setSortBy: (value: TaskSort) => store.setTaskWorkspaceSession({ sortBy: value }),
     view,
-    setView,
+    setView: (value: TaskView) => store.setTaskWorkspaceSession({ view: value }),
     projectFilter,
-    setProjectFilter,
+    setProjectFilter: (value: string) => store.setTaskWorkspaceSession({ projectFilter: value }),
     assigneeFilter,
-    setAssigneeFilter,
+    setAssigneeFilter: (value: string) => store.setTaskWorkspaceSession({ assigneeFilter: value }),
+    taskOwnerFilter,
+    setTaskOwnerFilter: (value: string) => store.setTaskWorkspaceSession({ ownerFilter: value }),
+    taskStatusFilter,
+    setTaskStatusFilter: (value: 'All' | TaskStatus) => store.setTaskWorkspaceSession({ statusFilter: value }),
     linkedFilter,
-    setLinkedFilter,
+    setLinkedFilter: (value: TaskLinkageFilter) => store.setTaskWorkspaceSession({ linkedFilter: value }),
     timingFilter,
-    setTimingFilter,
+    setTimingFilter: (value: TaskTimingFilter) => store.setTaskWorkspaceSession({ timingFilter: value }),
     stateFilter,
-    setStateFilter,
+    setStateFilter: (value: TaskStateFilter) => store.setTaskWorkspaceSession({ stateFilter: value }),
     priorityFilter,
-    setPriorityFilter,
+    setPriorityFilter: (value: TaskPriorityFilter) => store.setTaskWorkspaceSession({ priorityFilter: value }),
     resetPanelFilters,
     sortSummary,
     getTaskSignal,

@@ -97,10 +97,13 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
         return;
       }
       if (options?.recordType === 'task' && options.recordId) set({ selectedTaskId: options.recordId });
-      set({
+      set((state: AppStore) => ({
         executionFilter: isTaskRecordOpen ? { ...get().executionFilter, types: ['task'], blockedOnly: false, readyToCloseParentOnly: false } : { ...get().executionFilter, ...sectionToTaskFilter(options?.section) },
-        taskStatusFilter: isTaskRecordOpen ? 'All' : options?.section === 'blocked' ? 'Blocked' : 'All',
-      });
+        taskWorkspaceSession: {
+          ...state.taskWorkspaceSession,
+          statusFilter: isTaskRecordOpen ? 'All' : options?.section === 'blocked' ? 'Blocked' : 'All',
+        },
+      }));
     },
   };
 }

@@ -34,7 +34,7 @@ import type {
   FollowUpDuplicateModuleMode,
   SavedViewKey,
   TaskItem,
-  TaskStatus,
+  TaskWorkspaceSession,
   UnifiedQueueDensity,
   UnifiedQueueFilter,
   UnifiedQueuePreset,
@@ -189,8 +189,7 @@ export interface AppUiState {
   followUpInspector: FollowUpInspectorState;
   createWorkDraft: UniversalCaptureDraft | null;
   selectedTaskId: string | null;
-  taskOwnerFilter: string;
-  taskStatusFilter: 'All' | TaskStatus;
+  taskWorkspaceSession: TaskWorkspaceSession;
   queuePreset: UnifiedQueuePreset;
   executionFilter: UnifiedQueueFilter;
   executionSort: UnifiedQueueSort;

@@ -5,6 +5,7 @@ import type { AppBusinessState } from './types';
 export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'intakeReviewerFeedback'> & {
   savedExecutionViews: SavedExecutionView[];
   followUpFilters: FollowUpAdvancedFilters;
+  taskWorkspaceSession: PersistedPayload['auxiliary']['taskWorkspaceSession'];
   followUpColumns: FollowUpColumnKey[];
   savedFollowUpViews: SavedFollowUpCustomView[];
   followUpTableDensity: FollowUpTableDensity;
@@ -41,6 +42,7 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       intakeReviewerFeedback: state.intakeReviewerFeedback,
       savedExecutionViews: state.savedExecutionViews,
       followUpFilters: state.followUpFilters,
+      taskWorkspaceSession: state.taskWorkspaceSession,
       followUpColumns: state.followUpColumns,
       savedFollowUpViews: state.savedFollowUpViews,
       followUpTableDensity: state.followUpTableDensity,

@@ -1,14 +1,15 @@
 import { ChevronDown, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from '../ui/AppPrimitives';
-import type { TaskQueueView } from '../../domains/tasks/lanes';
-
-type TaskView = TaskQueueView;
-type TaskSort = 'due' | 'priority' | 'updated';
-type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
-type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';
-type LinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
-type PriorityFilter = 'All' | 'Low' | 'Medium' | 'High' | 'Critical';
+import type {
+  TaskLinkageFilter as LinkageFilter,
+  TaskPriorityFilter as PriorityFilter,
+  TaskSort,
+  TaskStateFilter as StateFilter,
+  TaskTimingFilter as TimingFilter,
+  TaskView,
+} from '../../domains/tasks';
+import type { TaskStatus } from '../../types';
 
 type TaskToolbarProps = {
   isMobileLike: boolean;
@@ -34,8 +35,8 @@ type TaskToolbarProps = {
   taskOwnerFilter: string;
   owners: string[];
   onTaskOwnerFilterChange: (value: string) => void;
-  taskStatusFilter: 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done';
-  onTaskStatusFilterChange: (value: 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done') => void;
+  taskStatusFilter: 'All' | TaskStatus;
+  onTaskStatusFilterChange: (value: 'All' | TaskStatus) => void;
   linkedFilter: LinkageFilter;
   onLinkedFilterChange: (value: LinkageFilter) => void;
   timingFilter: TimingFilter;
@@ -87,7 +88,7 @@ function TaskFilterContent({
       <section className="task-view-options-section">
         <h4 className="task-view-options-title">State</h4>
         <div className="task-view-options-grid task-view-options-grid-personal">
-          <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => onTaskStatusFilterChange(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
+          <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => onTaskStatusFilterChange(event.target.value as 'All' | TaskStatus)} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
           <label className="field-block"><span className="field-label">Operational state</span><select value={stateFilter} onChange={(event) => onStateFilterChange(event.target.value as StateFilter)} className="field-input"><option value="all">All</option><option value="deferred_only">Deferred only</option><option value="review_needed_only">Review needed only</option><option value="blocked_without_unblock">Blocked without next step</option></select></label>
         </div>
       </section>

@@ -13,6 +13,26 @@ export type FollowUpPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type TaskStatus = 'To do' | 'In progress' | 'Blocked' | 'Done';
 export type TaskWorkflowState = 'ready' | 'blocked' | 'deferred' | 'done';
 export type TaskPriority = FollowUpPriority;
+export type TaskSort = 'due' | 'priority' | 'updated';
+export type TaskView = 'today' | 'review' | 'overdue' | 'deferred' | 'upcoming' | 'recent' | 'all';
+export type TaskTimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
+export type TaskStateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';
+export type TaskLinkageFilter = 'all' | 'linked' | 'unlinked' | 'parent_at_risk';
+export type TaskPriorityFilter = 'All' | TaskPriority;
+
+export interface TaskWorkspaceSession {
+  view: TaskView;
+  searchQuery: string;
+  sortBy: TaskSort;
+  projectFilter: string;
+  assigneeFilter: string;
+  ownerFilter: string;
+  statusFilter: 'All' | TaskStatus;
+  linkedFilter: TaskLinkageFilter;
+  timingFilter: TaskTimingFilter;
+  stateFilter: TaskStateFilter;
+  priorityFilter: TaskPriorityFilter;
+}
 export type ReminderKind =
   | 'followup_overdue'
   | 'followup_due_today'
@@ -1486,6 +1506,7 @@ export interface AppSnapshot {
   intakeReviewerFeedback?: IntakeReviewerFeedback[];
   savedExecutionViews?: SavedExecutionView[];
   followUpFilters?: FollowUpAdvancedFilters;
+  taskWorkspaceSession?: TaskWorkspaceSession;
   followUpColumns?: FollowUpColumnKey[];
   savedFollowUpViews?: SavedFollowUpCustomView[];
   followUpTableDensity?: FollowUpTableDensity;

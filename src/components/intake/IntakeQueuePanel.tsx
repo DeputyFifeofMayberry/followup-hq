@@ -33,7 +33,7 @@ export function IntakeQueuePanel({ activeLane, byLane, queue, selectedCandidateI
           </div>
         </button>;
       })}
-      {!visible.length ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No candidates in this lane right now.</div> : null}
+      {!visible.length ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">This lane is clear. Switch lanes or ingest more sources to continue review.</div> : null}
       </div>
     </section>
   );

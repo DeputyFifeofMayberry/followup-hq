@@ -108,15 +108,20 @@ export function UniversalIntakeWorkspace() {
   const handleDecision = (decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link') => {
     if (!selectedCandidate) return;
     const selectedMatch = selectedCandidate.existingRecordMatches.find((m) => m.id === selectedMatchId) ?? selectedCandidate.existingRecordMatches[0] ?? null;
+    const currentIdx = visibleCandidates.findIndex((entry) => entry.id === selectedCandidate.id);
+    const nextInLane = currentIdx >= 0 ? visibleCandidates[currentIdx + 1] ?? visibleCandidates[currentIdx - 1] ?? null : null;
     if (decision === 'link') {
       if (!selectedMatch) return setFeedback({ tone: 'error', message: 'Select a matching record first.' });
       decideIntakeWorkCandidate(selectedCandidate.id, 'link', selectedMatch.id);
-      setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id}.` });
+      if (nextInLane) setSelectedCandidateId(nextInLane.id);
+      setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id}. ${nextInLane ? 'Loaded next candidate in this lane.' : 'Lane complete.'}` });
       return;
     }
     const unsafe = Boolean(safety && !safety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task'));
     if (unsafe && !confirmUnsafeCreate) return setFeedback({ tone: 'info', message: 'Duplicate-risk override requires confirmation first.' });
     decideIntakeWorkCandidate(selectedCandidate.id, decision, undefined, { overrideUnsafeCreate: unsafe && confirmUnsafeCreate });
+    if (nextInLane) setSelectedCandidateId(nextInLane.id);
+    setFeedback({ tone: 'success', message: `${decision.replaceAll('_', ' ')} complete. ${nextInLane ? 'Loaded next candidate in this lane.' : 'No more candidates in this lane.'}` });
     setConfirmUnsafeCreate(false);
   };
 

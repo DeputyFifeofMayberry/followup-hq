@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Follow Ups execution architecture reset: queue now opens dedicated inspector by default
+- Reintroduced a dedicated execution-first Follow-up inspector modal and rebuilt it around action hierarchy rather than full-schema editing: primary execution actions (log touch, nudge, snooze), explicit recommended-next-move signal, lifecycle/trust warnings, linked-task summary, and recent timeline are now available in one lane-native workspace surface. (`src/components/followups/FollowUpInspectorModal.tsx`)
+- Refactored Follow Ups lane row-open behavior and execution-intent routing so the canonical queue-open path is now **row → follow-up inspector** instead of immediate full editor, including reveal/handoff behavior when routing to off-filter follow-ups. (`src/components/app/TrackerWorkspace.tsx`)
+- Added explicit UI-slice state/actions for follow-up execution inspection (`openFollowUpInspector` / `closeFollowUpInspector`) and updated unified surface tracking to include an `execution_inspector` surface, so inspector ownership is explicit and no longer competes ambiguously with full editor/drawer state. (`src/store/slices/uiSlice.ts`, `src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/types.ts`)
+- Preserved full edit and context drawer as secondary escape hatches from the inspector (`Edit full follow-up`, `Open record context`) while keeping queue-open default singular and execution-first. (`src/components/followups/FollowUpInspectorModal.tsx`)
+- Added regression checks for inspector surface state transitions to verify queue-open intent can land on execution inspector and that full-editor handoff correctly closes inspector state. (`src/store/slices/__tests__/uiSlice.persistence.test.ts`)
+
 ### Follow Ups canonical lane system: single source of queue truth across lanes, Daily Focus, and row urgency
 - Introduced a domain-level canonical follow-up lane/classification model that defines lane contracts (`All open`, `Today`, `Overdue`, `Needs nudge`, `Waiting`, `At risk`, `Closed`, `All items`) with explicit inclusion/exclusion semantics, cleanup allowances, and reusable urgency signals so queue meaning no longer depends on scattered ad hoc checks. (`src/domains/followups/helpers/followUpLanes.ts`)
 - Refactored follow-up selectors and counts to consume canonical classification/lane membership, including a tighter `Today` contract (due-today only) and consistent queue pressure/view counts driven by the same source of truth used for row membership. (`src/lib/followUpSelectors.ts`)

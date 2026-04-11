@@ -122,6 +122,8 @@ export interface AppStoreActions {
   openEditTaskModal: (id: string) => void;
   closeTaskModal: () => void;
   openRecordEditor: (ref: RecordRef, mode?: 'create' | 'edit', source?: string) => void;
+  openFollowUpInspector: (id: string, source?: string) => void;
+  closeFollowUpInspector: () => void;
   openRecordDrawer: (ref: RecordRef) => void;
   closeRecordDrawer: () => void;
   setSupportWorkspaceSession: (lens: 'projects' | 'relationships', patch: Partial<{ selectedRecordId: string | null; searchQuery: string; sortKey: string; lastRouteTarget: 'followups' | 'tasks' | null; lastRouteReason: string | null; lastLinkedSubset: 'followups' | 'tasks' | null }>) => void;

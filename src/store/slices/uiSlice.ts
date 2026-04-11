@@ -12,7 +12,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskOwnerFilter' |
   'setTaskStatusFilter' | 'openCreateTaskModal' | 'openCreateWorkModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
-  'openRecordEditor' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
+  'openRecordEditor' | 'openFollowUpInspector' | 'closeFollowUpInspector' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
 > {
   return {
     setSelectedId: (id) => set((state: AppStore) => ({
@@ -121,6 +121,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       itemModal: { open: true, mode: 'create', itemId: null },
       taskModal: { open: false, mode: 'create', taskId: null },
       recordDrawerRef: null,
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'full_editor',
       activeRecordRef: { type: 'followup', id: 'new-followup' },
       activeEditorMode: 'create',
@@ -132,13 +133,14 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       itemModal: { open: true, mode: 'edit', itemId: id },
       taskModal: { open: false, mode: 'create', taskId: null },
       recordDrawerRef: null,
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'full_editor',
       activeRecordRef: { type: 'followup', id },
       activeEditorMode: 'edit',
       recordSurfaceSource: 'direct_open',
       selectedId: id,
     }),
-    closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, createWorkDraft: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
+    closeItemModal: () => set({ itemModal: { open: false, mode: 'create', itemId: null }, followUpInspector: { open: false, itemId: null }, createWorkDraft: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
     openTouchModal: () => set({ touchModalOpen: true }),
     closeTouchModal: () => set({ touchModalOpen: false }),
     openImportModal: () => set({ importModalOpen: true }),
@@ -164,6 +166,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       taskModal: { open: true, mode: 'create', taskId: null },
       itemModal: { open: false, mode: 'create', itemId: null },
       recordDrawerRef: null,
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'full_editor',
       activeRecordRef: { type: 'task', id: 'new-task' },
       activeEditorMode: 'create',
@@ -176,6 +179,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
         itemModal: recentMode === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
         taskModal: recentMode === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
         recordDrawerRef: null,
+        followUpInspector: { open: false, itemId: null },
         activeRecordSurface: 'full_editor',
         activeRecordRef: { type: recentMode, id: recentMode === 'task' ? 'new-task' : 'new-followup' },
         activeEditorMode: 'create',
@@ -188,6 +192,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       itemModal: draft.kind === 'followup' ? { open: true, mode: 'create', itemId: null } : { open: false, mode: 'create', itemId: null },
       taskModal: draft.kind === 'task' ? { open: true, mode: 'create', taskId: null } : { open: false, mode: 'create', taskId: null },
       recordDrawerRef: null,
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'full_editor',
       activeRecordRef: { type: draft.kind, id: draft.kind === 'task' ? 'new-task' : 'new-followup' },
       activeEditorMode: 'create',
@@ -198,18 +203,20 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       taskModal: { open: true, mode: 'edit', taskId: id },
       itemModal: { open: false, mode: 'create', itemId: null },
       recordDrawerRef: null,
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'full_editor',
       activeRecordRef: { type: 'task', id },
       activeEditorMode: 'edit',
       recordSurfaceSource: 'direct_open',
       selectedTaskId: id,
     }),
-    closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, createWorkDraft: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
+    closeTaskModal: () => set({ taskModal: { open: false, mode: 'create', taskId: null }, followUpInspector: { open: false, itemId: null }, createWorkDraft: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
     openRecordEditor: (ref, mode = 'edit', source = 'context_handoff') => set((state: AppStore) => {
       if (ref.type === 'followup') {
         return {
           itemModal: { open: true, mode, itemId: mode === 'edit' ? ref.id : null },
           taskModal: { open: false, mode: 'create', taskId: null },
+          followUpInspector: { open: false, itemId: null },
           recordDrawerRef: mode === 'edit' ? state.recordDrawerRef : null,
           activeRecordSurface: 'full_editor',
           activeRecordRef: ref,
@@ -222,6 +229,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
         return {
           taskModal: { open: true, mode, taskId: mode === 'edit' ? ref.id : null },
           itemModal: { open: false, mode: 'create', itemId: null },
+          followUpInspector: { open: false, itemId: null },
           recordDrawerRef: mode === 'edit' ? state.recordDrawerRef : null,
           activeRecordSurface: 'full_editor',
           activeRecordRef: ref,
@@ -230,18 +238,36 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
           selectedTaskId: mode === 'edit' ? ref.id : state.selectedTaskId,
         };
       }
-      return { recordDrawerRef: ref, activeRecordSurface: 'context_drawer', activeRecordRef: ref, activeEditorMode: null, recordSurfaceSource: source };
+      return { followUpInspector: { open: false, itemId: null }, recordDrawerRef: ref, activeRecordSurface: 'context_drawer', activeRecordRef: ref, activeEditorMode: null, recordSurfaceSource: source };
     }),
     // Context-inspection surface: record drawer (not the primary full editor).
     openRecordDrawer: (ref) => set({
       recordDrawerRef: ref,
       itemModal: { open: false, mode: 'create', itemId: null },
       taskModal: { open: false, mode: 'create', taskId: null },
+      followUpInspector: { open: false, itemId: null },
       activeRecordSurface: 'context_drawer',
       activeRecordRef: ref,
       activeEditorMode: null,
       recordSurfaceSource: 'context_open',
     }),
+    openFollowUpInspector: (id, source = 'workspace') => set({
+      followUpInspector: { open: true, itemId: id },
+      itemModal: { open: false, mode: 'create', itemId: null },
+      taskModal: { open: false, mode: 'create', taskId: null },
+      activeRecordSurface: 'execution_inspector',
+      activeRecordRef: { type: 'followup', id },
+      activeEditorMode: null,
+      recordSurfaceSource: source,
+      selectedId: id,
+    }),
+    closeFollowUpInspector: () => set((state: AppStore) => ({
+      followUpInspector: { open: false, itemId: null },
+      activeRecordSurface: state.recordDrawerRef ? 'context_drawer' : 'none',
+      activeRecordRef: state.recordDrawerRef,
+      activeEditorMode: null,
+      recordSurfaceSource: state.recordDrawerRef ? 'context_open' : null,
+    })),
     closeRecordDrawer: () => set({ recordDrawerRef: null, activeRecordSurface: 'none', activeRecordRef: null, activeEditorMode: null, recordSurfaceSource: null }),
     setSupportWorkspaceSession: (lens, patch) => set((state: AppStore) => ({
       supportWorkspaceSession: {

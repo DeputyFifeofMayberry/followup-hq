@@ -99,6 +99,11 @@ export interface TaskModalState {
   taskId: string | null;
 }
 
+export interface FollowUpInspectorState {
+  open: boolean;
+  itemId: string | null;
+}
+
 export type AppToastTone = 'success' | 'info' | 'warning' | 'error';
 export type AppToastKind = 'action_result' | 'bulk_result' | 'undo_offer' | 'system_notice';
 
@@ -136,7 +141,7 @@ export interface AppToastRuntimeConfig {
   defaultDurationMs: Record<AppToastTone, number>;
 }
 
-export type ActiveRecordSurface = 'none' | 'context_drawer' | 'full_editor' | 'transition_flow';
+export type ActiveRecordSurface = 'none' | 'execution_inspector' | 'context_drawer' | 'full_editor' | 'transition_flow';
 
 export interface AppBusinessState {
   items: FollowUpItem[];
@@ -181,6 +186,7 @@ export interface AppUiState {
   mergeModal: MergeModalState;
   draftModal: DraftModalState;
   taskModal: TaskModalState;
+  followUpInspector: FollowUpInspectorState;
   createWorkDraft: UniversalCaptureDraft | null;
   selectedTaskId: string | null;
   taskOwnerFilter: string;

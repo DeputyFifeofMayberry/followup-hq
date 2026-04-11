@@ -13,6 +13,7 @@ let state = {
   selectedTaskId: null,
   itemModal: { open: false, mode: 'create', itemId: null },
   taskModal: { open: false, mode: 'create', taskId: null },
+  followUpInspector: { open: false, itemId: null },
   recordDrawerRef: null,
   activeRecordSurface: 'none',
   activeRecordRef: null,
@@ -47,3 +48,11 @@ if ((state as any).activeRecordSurface !== 'context_drawer') throw new Error('op
 
 slice.openRecordEditor({ type: 'task', id: 'TSK-1' }, 'edit', 'test');
 if (!(state as any).taskModal.open || (state as any).activeRecordSurface !== 'full_editor' || (state as any).activeRecordRef?.id !== 'TSK-1') throw new Error('openRecordEditor should support task full editor handoff');
+
+
+slice.openFollowUpInspector('FUP-1', 'workspace');
+if (!(state as any).followUpInspector.open || (state as any).followUpInspector.itemId !== 'FUP-1') throw new Error('openFollowUpInspector should open execution inspector for follow-up');
+if ((state as any).activeRecordSurface !== 'execution_inspector' || (state as any).activeRecordRef?.id !== 'FUP-1') throw new Error('openFollowUpInspector should set execution inspector as active surface');
+
+slice.openRecordEditor({ type: 'followup', id: 'FUP-1' }, 'edit', 'workspace');
+if ((state as any).followUpInspector.open) throw new Error('openRecordEditor should close follow-up inspector when handing off to full edit');

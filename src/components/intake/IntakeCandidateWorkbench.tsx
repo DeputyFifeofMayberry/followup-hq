@@ -7,7 +7,7 @@ import type { ImportSafetyResult } from '../../lib/intakeImportSafety';
 import type { IntakeQueueItem } from '../../lib/intakeReviewQueue';
 import type { IntakeAssetRecord, IntakeWorkCandidate } from '../../types';
 import { IntakeEvidencePanel } from './IntakeEvidencePanel';
-import { candidateTypeLabel, confidenceBand, correctionBucketLabel, decisionLabel, recommendedActionDescription, reviewReasonForField, type SourceTab } from './intakeWorkspaceTypes';
+import { actionIsPrimary, candidateTypeLabel, confidenceBand, correctionBucketLabel, createActionBlockReason, decisionLabel, recommendedActionDescription, reviewReasonForField, type SourceTab } from './intakeWorkspaceTypes';
 
 interface Props {
   selectedCandidate: IntakeWorkCandidate | null;
@@ -38,6 +38,12 @@ export function IntakeCandidateWorkbench(props: Props) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const selectedMatch = props.selectedCandidate?.existingRecordMatches.find((m) => m.id === props.selectedMatchId) ?? props.selectedCandidate?.existingRecordMatches[0] ?? null;
   const suggestedActionLabel = props.selectedReviewPlan ? decisionLabel(props.selectedReviewPlan.suggestedDecision) : 'Needs more correction';
+  const createActionBlockedReason = createActionBlockReason({
+    createBlocked: props.createBlocked,
+    safeToCreateNew: Boolean(props.safety?.safeToCreateNew),
+    confirmUnsafeCreate: props.confirmUnsafeCreate,
+  });
+  const createActionDisabled = Boolean(createActionBlockedReason);
 
   const compareRows = useMemo(() => (props.selectedCandidate && selectedMatch ? buildCandidateMatchCompareRows(props.selectedCandidate, selectedMatch) : []), [props.selectedCandidate, selectedMatch]);
 
@@ -161,16 +167,16 @@ export function IntakeCandidateWorkbench(props: Props) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Finalize decision</div>
           <div className="mt-1 text-xs text-slate-700">Primary action reflects recommendation. After action, workbench advances to the next candidate in this lane.</div>
           <div className="intake-decision-primary-row mt-2">
-            <button className="primary-btn" disabled={props.createBlocked} onClick={() => props.onDecision('approve_followup')}><Mail className="h-4 w-4" />Create follow-up</button>
-            <button className="action-btn" disabled={props.createBlocked} onClick={() => props.onDecision('approve_task')}><ClipboardCheck className="h-4 w-4" />Create task</button>
-            <button className="action-btn" onClick={() => props.onDecision('link')}><Link2 className="h-4 w-4" />Link existing</button>
+            <button className={props.selectedReviewPlan && actionIsPrimary('approve_followup', props.selectedReviewPlan, props.createBlocked) ? 'primary-btn' : 'action-btn'} disabled={createActionDisabled} onClick={() => props.onDecision('approve_followup')}><Mail className="h-4 w-4" />Create follow-up</button>
+            <button className={props.selectedReviewPlan && actionIsPrimary('approve_task', props.selectedReviewPlan, props.createBlocked) ? 'primary-btn' : 'action-btn'} disabled={createActionDisabled} onClick={() => props.onDecision('approve_task')}><ClipboardCheck className="h-4 w-4" />Create task</button>
+            <button className={props.selectedReviewPlan && actionIsPrimary('link', props.selectedReviewPlan, props.createBlocked) ? 'primary-btn' : 'action-btn'} disabled={!c.existingRecordMatches.length} onClick={() => props.onDecision('link')}><Link2 className="h-4 w-4" />Link existing</button>
           </div>
           <div className="intake-decision-secondary-row mt-2">
-            <button className="action-btn" onClick={() => props.onDecision('reference')}><Files className="h-4 w-4" />Save reference</button>
-            <button className="action-btn" onClick={() => props.onDecision('reject')}><ShieldAlert className="h-4 w-4" />Dismiss</button>
+            <button className={props.selectedReviewPlan && actionIsPrimary('reference', props.selectedReviewPlan, props.createBlocked) ? 'primary-btn' : 'action-btn'} onClick={() => props.onDecision('reference')}><Files className="h-4 w-4" />Save reference</button>
+            <button className={props.selectedReviewPlan && actionIsPrimary('reject', props.selectedReviewPlan, props.createBlocked) ? 'primary-btn' : 'action-btn'} onClick={() => props.onDecision('reject')}><ShieldAlert className="h-4 w-4" />Dismiss</button>
           </div>
           {props.safety && !props.safety.safeToCreateNew ? <label className="mt-2 flex items-center gap-2 text-xs text-rose-700"><input type="checkbox" checked={props.confirmUnsafeCreate} onChange={(event) => props.onSetConfirmUnsafeCreate(event.target.checked)} />Allow unsafe create override (duplicate risk acknowledged).</label> : null}
-          {props.createBlocked ? <div className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">Create-new actions are disabled until blockers are corrected.</div> : null}
+          {createActionBlockedReason ? <div className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">{createActionBlockedReason}</div> : null}
         </div>
 
         <div className="intake-guidance-card">

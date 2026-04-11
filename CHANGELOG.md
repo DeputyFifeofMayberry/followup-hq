@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Intake audit/regression tightening: decision trust gating, candidate context continuity, and honest retry feedback
+- Fixed selected-candidate continuity gaps in the intake workbench by resetting candidate-scoped context (selected link target, evidence locator/tab focus, and unsafe-create confirmation state) whenever selection changes, preventing stale prior-candidate context from leaking into the next candidate during lane auto-advance. (`src/components/UniversalIntakeWorkspace.tsx`)
+- Tightened decision-bar trust behavior so create-new actions now remain disabled not only for required corrections, but also for unsafe duplicate-risk candidates until reviewers explicitly acknowledge the override, aligning button affordances with actual create gating rules. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/components/intake/intakeWorkspaceTypes.ts`)
+- Made final-action hierarchy match recommendation signals by promoting the recommended action (create/link/reference/reject) to primary styling and disabling link when no match exists, reducing misleading “always-primary create” emphasis in link/reference-first flows. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/components/intake/intakeWorkspaceTypes.ts`)
+- Hardened failed-parse retry honesty by returning explicit retry outcomes from store actions and surfacing success/error feedback based on real parse result instead of always reporting success after retry clicks. (`src/store/types.ts`, `src/store/slices/intakeSlice.ts`, `src/components/intake/IntakeBatchToolsPanel.tsx`)
+- Added focused regression checks for intake decision-bar gating/primary-action behavior so unsafe-create acknowledgement and recommended-action emphasis remain covered. (`src/lib/__tests__/intakeWorkspaceDecisionBar.test.ts`)
+
 ### Intake file coverage expansion: Outlook `.msg` support + safer degraded routing
 - Reclassified high-friction real-world intake formats (`.msg`, `.doc`, `.pptx`) from hard-blocked to `manual_review_only`, added clearer capability reasons, and included them in the file-picker accept list so users can ingest common workflow files instead of hitting dead-end rejection at capture time. (`src/lib/intakeFileCapabilities.ts`)
 - Extended universal intake extraction with a dedicated best-effort `.msg` path (subject/from/date/body signal recovery + attachment-hint warnings), plus degraded extractors for legacy `.doc` string recovery and `.pptx` slide-text recovery, with explicit warnings and confidence limits to avoid overstating parse trust. (`src/lib/universalIntake.ts`)

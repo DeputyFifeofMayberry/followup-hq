@@ -27,6 +27,7 @@ type TaskInspectorModalProps = {
   onOpenLinkedFollowUp: (followUpId: string) => void;
   onOpenRecordDrawer: (payload: { type: 'task' | 'followup'; id: string }) => void;
   onOpenRecordEditor: (payload: { type: 'task'; id: string }, mode: 'edit', source: 'workspace') => void;
+  isMobileLike?: boolean;
 };
 
 type EditDraft = {
@@ -74,6 +75,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   onOpenLinkedFollowUp,
   onOpenRecordDrawer,
   onOpenRecordEditor,
+  isMobileLike = false,
 }: TaskInspectorModalProps) {
   const [draft, setDraft] = useState<EditDraft | null>(null);
 
@@ -137,7 +139,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
 
           <section className="detail-card">
             <SectionHeader title="Primary actions" subtitle={recommendedAction?.reason ?? 'Fast transitions for active work.'} compact />
-            <div className="task-inspector-actions mt-2">
+            <div className={`task-inspector-actions mt-2 ${isMobileLike ? 'task-inspector-actions-mobile' : ''}`.trim()}>
               <button onClick={onRunRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, 'done')} className="action-btn">Complete</button>
               <button onClick={() => onOpenTaskFlow(selectedTask, selectedTask.status === 'Blocked' ? 'unblock' : 'block')} className="action-btn">{selectedTask.status === 'Blocked' ? 'Unblock' : 'Block'}</button>
@@ -200,14 +202,14 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
   );
 
   return (
-    <AppModal size="wide" onBackdropClick={onClose} onClose={onClose} ariaLabel="Task detail">
+    <AppModal size={isMobileLike ? "standard" : "wide"} onBackdropClick={onClose} onClose={onClose} ariaLabel="Task detail">
       <AppModalHeader
         title={selectedTask.title}
         subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}
         onClose={onClose}
         closeLabel="Close"
       />
-      <AppModalBody>{inspectorContent}</AppModalBody>
+      <AppModalBody className={isMobileLike ? "task-inspector-modal-mobile" : ""}>{inspectorContent}</AppModalBody>
       <AppModalFooter>
         <button onClick={onClose} className="action-btn">Close</button>
       </AppModalFooter>

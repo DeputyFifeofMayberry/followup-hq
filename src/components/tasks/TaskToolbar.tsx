@@ -1,5 +1,6 @@
 import { ChevronDown, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from '../ui/AppPrimitives';
 
 type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 type TaskSort = 'due' | 'priority' | 'updated';
@@ -44,17 +45,7 @@ type TaskToolbarProps = {
   onResetFilters: () => void;
 };
 
-export const TaskToolbar = memo(function TaskToolbar({
-  isMobileLike,
-  searchQuery,
-  onSearchQueryChange,
-  onClearSearch,
-  view,
-  onViewChange,
-  taskViewOptions,
-  viewOptionsOpen,
-  onToggleViewOptions,
-  activeFilterCount,
+function TaskFilterContent({
   personalMode,
   projectFilter,
   projectOptions,
@@ -77,11 +68,115 @@ export const TaskToolbar = memo(function TaskToolbar({
   onPriorityFilterChange,
   sortBy,
   onSortByChange,
-  onResetFilters
-}: TaskToolbarProps) {
+  onResetFilters,
+}: Omit<TaskToolbarProps, 'isMobileLike' | 'searchQuery' | 'onSearchQueryChange' | 'onClearSearch' | 'view' | 'onViewChange' | 'taskViewOptions' | 'viewOptionsOpen' | 'onToggleViewOptions' | 'activeFilterCount'>) {
+  return (
+    <>
+      <section className="task-view-options-section">
+        <h4 className="task-view-options-title">Scope</h4>
+        <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
+          <label className="field-block"><span className="field-label">Project</span><select value={projectFilter} onChange={(event) => onProjectFilterChange(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select></label>
+          <label className="field-block"><span className="field-label">Assignee</span><select value={assigneeFilter} onChange={(event) => onAssigneeFilterChange(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select></label>
+          {!personalMode ? <label className="field-block"><span className="field-label">Owner</span><select value={taskOwnerFilter} onChange={(event) => onTaskOwnerFilterChange(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select></label> : null}
+        </div>
+      </section>
+
+      <section className="task-view-options-section">
+        <h4 className="task-view-options-title">State</h4>
+        <div className="task-view-options-grid task-view-options-grid-personal">
+          <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => onTaskStatusFilterChange(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
+          <label className="field-block"><span className="field-label">Operational state</span><select value={stateFilter} onChange={(event) => onStateFilterChange(event.target.value as StateFilter)} className="field-input"><option value="all">All</option><option value="deferred_only">Deferred only</option><option value="review_needed_only">Review needed only</option><option value="blocked_without_unblock">Blocked without next step</option></select></label>
+        </div>
+      </section>
+
+      <section className="task-view-options-section">
+        <h4 className="task-view-options-title">Timing</h4>
+        <div className="task-view-options-grid task-view-options-grid-personal">
+          <label className="field-block"><span className="field-label">Date window</span><select value={timingFilter} onChange={(event) => onTimingFilterChange(event.target.value as TimingFilter)} className="field-input"><option value="all">All timing</option><option value="overdue">Overdue only</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="no_due_date">No due date</option></select></label>
+          <label className="field-block"><span className="field-label">Priority</span><select value={priorityFilter} onChange={(event) => onPriorityFilterChange(event.target.value as PriorityFilter)} className="field-input"><option value="All">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
+        </div>
+      </section>
+
+      <section className="task-view-options-section">
+        <h4 className="task-view-options-title">Linkage and sort</h4>
+        <div className="task-view-options-grid task-view-options-grid-personal">
+          <label className="field-block"><span className="field-label">Parent linkage</span><select value={linkedFilter} onChange={(event) => onLinkedFilterChange(event.target.value as LinkageFilter)} className="field-input"><option value="all">All</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option><option value="parent_at_risk">Parent at risk</option></select></label>
+          <label className="field-block"><span className="field-label">Order</span><select value={sortBy} onChange={(event) => onSortByChange(event.target.value as TaskSort)} className="field-input"><option value="due">Due date</option><option value="priority">Priority</option><option value="updated">Recently updated</option></select></label>
+        </div>
+      </section>
+
+      <div className="task-view-options-reset-row">
+        <button onClick={onResetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
+      </div>
+    </>
+  );
+}
+
+export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
+  const {
+    isMobileLike,
+    searchQuery,
+    onSearchQueryChange,
+    onClearSearch,
+    view,
+    onViewChange,
+    taskViewOptions,
+    viewOptionsOpen,
+    onToggleViewOptions,
+    activeFilterCount,
+    ...filterProps
+  } = props;
+
+  if (isMobileLike) {
+    return (
+      <div className="workspace-control-stack task-control-stack-calm task-mobile-control-stack">
+        <div className="task-mobile-view-rail" aria-label="Task queue view">
+          {taskViewOptions.filter((option) => ['today', 'overdue', 'upcoming', 'all'].includes(option.value)).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`task-mobile-view-chip ${view === option.value ? 'task-mobile-view-chip-active' : ''}`.trim()}
+              onClick={() => onViewChange(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="task-mobile-search-row">
+          <label className="field-block task-search-block">
+            <div className="search-field-wrap">
+              <Search className="search-field-icon h-4 w-4" />
+              <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Search tasks" className="field-input search-field-input" />
+              {searchQuery ? <button type="button" onClick={onClearSearch} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+            </div>
+          </label>
+          <button onClick={onToggleViewOptions} className="action-btn task-mobile-filter-btn" aria-expanded={viewOptionsOpen}>
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
+        </div>
+
+        {viewOptionsOpen ? (
+          <AppModal size="standard" onClose={onToggleViewOptions} onBackdropClick={onToggleViewOptions} ariaLabel="Task filters">
+            <AppModalHeader title="Task filters" subtitle="Tune queue scope without crowding the main list." onClose={onToggleViewOptions} />
+            <AppModalBody>
+              <div className="task-filters-panel-slim task-filters-panel-mobile">
+                <TaskFilterContent {...filterProps} />
+              </div>
+            </AppModalBody>
+            <AppModalFooter>
+              <button type="button" className="action-btn" onClick={onToggleViewOptions}>Back to queue</button>
+            </AppModalFooter>
+          </AppModal>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="workspace-control-stack task-control-stack-calm">
-      <div className={`task-primary-toolbar-slim ${isMobileLike ? 'task-primary-toolbar-slim-mobile' : ''}`}>
+      <div className="task-primary-toolbar-slim">
         <label className="field-block task-search-block">
           <div className="search-field-wrap">
             <Search className="search-field-icon h-4 w-4" />
@@ -108,48 +203,7 @@ export const TaskToolbar = memo(function TaskToolbar({
       {viewOptionsOpen ? (
         <div className="task-filters-panel-slim">
           <div className="task-view-options-title">More filters</div>
-          <section className="task-view-options-section">
-            <h4 className="task-view-options-title">Scope</h4>
-            <div className={`task-view-options-grid ${personalMode ? 'task-view-options-grid-personal' : ''}`}>
-              <label className="field-block"><span className="field-label">Project</span><select value={projectFilter} onChange={(event) => onProjectFilterChange(event.target.value)} className="field-input">{projectOptions.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select></label>
-              <label className="field-block"><span className="field-label">Assignee</span><select value={assigneeFilter} onChange={(event) => onAssigneeFilterChange(event.target.value)} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select></label>
-              {!personalMode ? <label className="field-block"><span className="field-label">Owner</span><select value={taskOwnerFilter} onChange={(event) => onTaskOwnerFilterChange(event.target.value)} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select></label> : null}
-            </div>
-          </section>
-
-          <section className="task-view-options-section">
-            <h4 className="task-view-options-title">State</h4>
-            <div className="task-view-options-grid task-view-options-grid-personal">
-              <label className="field-block"><span className="field-label">Status</span><select value={taskStatusFilter} onChange={(event) => onTaskStatusFilterChange(event.target.value as 'All' | 'To do' | 'In progress' | 'Blocked' | 'Done')} className="field-input">{['All', 'To do', 'In progress', 'Blocked', 'Done'].map((status) => <option key={status} value={status}>{status === 'All' ? 'All statuses' : status}</option>)}</select></label>
-              <label className="field-block"><span className="field-label">Operational state</span><select value={stateFilter} onChange={(event) => onStateFilterChange(event.target.value as StateFilter)} className="field-input"><option value="all">All</option><option value="deferred_only">Deferred only</option><option value="review_needed_only">Review needed only</option><option value="blocked_without_unblock">Blocked without next step</option></select></label>
-            </div>
-          </section>
-
-          <section className="task-view-options-section">
-            <h4 className="task-view-options-title">Timing</h4>
-            <div className="task-view-options-grid task-view-options-grid-personal">
-              <label className="field-block"><span className="field-label">Date window</span><select value={timingFilter} onChange={(event) => onTimingFilterChange(event.target.value as TimingFilter)} className="field-input"><option value="all">All timing</option><option value="overdue">Overdue only</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="no_due_date">No due date</option></select></label>
-              <label className="field-block"><span className="field-label">Priority</span><select value={priorityFilter} onChange={(event) => onPriorityFilterChange(event.target.value as PriorityFilter)} className="field-input"><option value="All">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
-            </div>
-          </section>
-
-          <section className="task-view-options-section">
-            <h4 className="task-view-options-title">Linkage</h4>
-            <div className="task-view-options-grid task-view-options-grid-personal">
-              <label className="field-block"><span className="field-label">Parent linkage</span><select value={linkedFilter} onChange={(event) => onLinkedFilterChange(event.target.value as LinkageFilter)} className="field-input"><option value="all">All</option><option value="linked">Linked only</option><option value="unlinked">Unlinked only</option><option value="parent_at_risk">Parent at risk</option></select></label>
-            </div>
-          </section>
-
-          <section className="task-view-options-section">
-            <h4 className="task-view-options-title">Sort</h4>
-            <div className="task-view-options-grid task-view-options-grid-personal">
-              <label className="field-block"><span className="field-label">Order</span><select value={sortBy} onChange={(event) => onSortByChange(event.target.value as TaskSort)} className="field-input"><option value="due">Due date</option><option value="priority">Priority</option><option value="updated">Recently updated</option></select></label>
-            </div>
-          </section>
-
-          <div className="task-view-options-reset-row">
-            <button onClick={onResetFilters} className="action-btn !px-2.5 !py-1 text-xs"><Undo2 className="h-3.5 w-3.5" />Reset</button>
-          </div>
+          <TaskFilterContent {...filterProps} />
         </div>
       ) : null}
     </div>

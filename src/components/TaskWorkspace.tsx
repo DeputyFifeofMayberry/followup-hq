@@ -181,11 +181,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           className="task-workspace-layout workspace-primary-layout-collapsed"
         >
           <ExecutionLaneQueueCard className="task-workspace-main-card">
-            <section className="task-queue-summary-strip" aria-label="Task queue summary">
+            <section className={`task-queue-summary-strip ${isMobileLike ? 'task-queue-summary-strip-mobile' : ''}`.trim()} aria-label="Task queue summary">
               <div className="task-queue-summary-head">
                 <div className="task-queue-summary-kicker">{activeQueueLabel}</div>
-                <p className="task-queue-summary-text">{queueIntent}</p>
-                <p className="task-queue-summary-subtext">{vm.queueSummary}</p>
+                <p className="task-queue-summary-text">{isMobileLike ? vm.queueSummary : queueIntent}</p>
+                {!isMobileLike ? <p className="task-queue-summary-subtext">{vm.queueSummary}</p> : null}
               </div>
               <div className="task-queue-summary-stats">
                 {queueStats.map((stat) => (
@@ -237,15 +237,16 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onResetFilters={vm.resetPanelFilters}
           />
 
-            <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'}`.trim()}>
+            <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'} ${isMobileLike ? 'task-filter-chip-row-mobile' : ''}`.trim()}>
               {vm.activeFilterChips.length > 0 ? (
                 <>
-                  {vm.activeFilterChips.map((chip) => (
+                  {(isMobileLike ? vm.activeFilterChips.slice(0, 2) : vm.activeFilterChips).map((chip) => (
                     <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
                       {chip.label}
                       <span aria-hidden>×</span>
                     </button>
                   ))}
+                  {isMobileLike && vm.activeFilterChips.length > 2 ? <span className="task-sort-summary">+{vm.activeFilterChips.length - 2} more</span> : null}
                   <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={vm.resetPanelFilters}>Clear all filters</button>
                 </>
               ) : (
@@ -254,6 +255,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             </div>
 
             <TaskList
+            isMobileLike={isMobileLike}
             filteredTasks={vm.filteredTasks}
             selectedTaskId={vm.selectedTask?.id ?? null}
             laneFeedback={laneFeedback}
@@ -302,6 +304,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         onOpenLinkedFollowUp={onOpenLinkedFollowUp}
         onOpenRecordDrawer={openRecordDrawer}
         onOpenRecordEditor={openRecordEditor}
+        isMobileLike={isMobileLike}
       />
 
       <TaskActionFlow

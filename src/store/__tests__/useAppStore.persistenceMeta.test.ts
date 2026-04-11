@@ -37,11 +37,28 @@ function testNoOpSavePreservesConservativeTrust(): void {
     lastReceiptOperationCount: undefined,
     lastReceiptOperationCountsByEntity: undefined,
     lastFailedBatchId: undefined,
+    saveProof: {
+      latestLocalSaveAttemptAt: '2026-04-05T10:05:00.000Z',
+      latestDurableLocalWriteAt: '2026-04-05T10:05:00.000Z',
+      latestCloudConfirmedCommitAt: '2026-04-05T10:00:00.000Z',
+      latestConfirmedBatchId: undefined,
+      latestReceiptStatus: undefined,
+      latestReceiptHashMatch: undefined,
+      latestReceiptSchemaVersion: undefined,
+      latestReceiptTouchedTables: undefined,
+      latestReceiptOperationCount: undefined,
+      latestReceiptOperationCountsByEntity: undefined,
+      latestFailedBatchId: undefined,
+      latestFailureMessage: undefined,
+      latestFailureClass: undefined,
+      cloudProofState: 'degraded',
+    },
   }, 'supabase', '2026-04-05T11:00:00.000Z', false);
 
   assert(state.cloudSyncStatus === 'cloud-save-failed-local-preserved', 'no-op save should not promote trust status');
   assert(state.lastCloudConfirmedAt === '2026-04-05T10:00:00.000Z', 'no-op save should not refresh cloud confirmation timestamp');
   assert(state.lastLocalWriteAt === '2026-04-05T10:05:00.000Z', 'no-op save should not refresh local write timestamp');
+  assert(state.saveProof.cloudProofState === 'degraded', 'no-op save should preserve degraded proof classification');
 }
 
 function testPersistedSupabaseSavePromotesTrust(): void {
@@ -71,6 +88,22 @@ function testPersistedSupabaseSavePromotesTrust(): void {
     lastReceiptOperationCount: undefined,
     lastReceiptOperationCountsByEntity: undefined,
     lastFailedBatchId: undefined,
+    saveProof: {
+      latestLocalSaveAttemptAt: undefined,
+      latestDurableLocalWriteAt: undefined,
+      latestCloudConfirmedCommitAt: undefined,
+      latestConfirmedBatchId: undefined,
+      latestReceiptStatus: undefined,
+      latestReceiptHashMatch: undefined,
+      latestReceiptSchemaVersion: undefined,
+      latestReceiptTouchedTables: undefined,
+      latestReceiptOperationCount: undefined,
+      latestReceiptOperationCountsByEntity: undefined,
+      latestFailedBatchId: undefined,
+      latestFailureMessage: undefined,
+      latestFailureClass: undefined,
+      cloudProofState: 'pending',
+    },
   }, 'supabase', '2026-04-05T11:00:00.000Z', true, {
     attemptedAt: '2026-04-05T11:00:00.000Z',
     completedTables: [],
@@ -84,6 +117,7 @@ function testPersistedSupabaseSavePromotesTrust(): void {
   assert(state.lastCloudConfirmedAt === '2026-04-05T11:00:00.000Z', 'persisted save should update cloud confirmed timestamp');
   assert(state.sessionDegraded === false, 'confirmed cloud save should clear degraded session state');
   assert(state.sessionTrustState === 'recovered', 'confirmed cloud save should mark recovered session trust state');
+  assert(state.saveProof.cloudProofState === 'confirmed', 'persisted save should mark canonical save proof as confirmed');
 }
 
 function testSupabasePersistWithoutCommittedReceiptStaysPendingCloud(): void {
@@ -113,6 +147,22 @@ function testSupabasePersistWithoutCommittedReceiptStaysPendingCloud(): void {
     lastReceiptOperationCount: undefined,
     lastReceiptOperationCountsByEntity: undefined,
     lastFailedBatchId: undefined,
+    saveProof: {
+      latestLocalSaveAttemptAt: '2026-04-05T10:00:00.000Z',
+      latestDurableLocalWriteAt: '2026-04-05T10:00:00.000Z',
+      latestCloudConfirmedCommitAt: '2026-04-05T10:00:00.000Z',
+      latestConfirmedBatchId: undefined,
+      latestReceiptStatus: undefined,
+      latestReceiptHashMatch: undefined,
+      latestReceiptSchemaVersion: undefined,
+      latestReceiptTouchedTables: undefined,
+      latestReceiptOperationCount: undefined,
+      latestReceiptOperationCountsByEntity: undefined,
+      latestFailedBatchId: undefined,
+      latestFailureMessage: undefined,
+      latestFailureClass: undefined,
+      cloudProofState: 'confirmed',
+    },
   }, 'supabase', '2026-04-05T11:00:00.000Z', true, {
     attemptedAt: '2026-04-05T11:00:00.000Z',
     completedTables: [],
@@ -123,6 +173,7 @@ function testSupabasePersistWithoutCommittedReceiptStaysPendingCloud(): void {
   assert(state.cloudSyncStatus === 'pending-cloud', 'uncommitted receipt should remain pending-cloud');
   assert(state.lastCloudConfirmedAt === '2026-04-05T10:00:00.000Z', 'uncommitted receipt should not update cloud confirmation timestamp');
   assert(state.lastConfirmedBatchId === undefined, 'uncommitted receipt should not synthesize confirmed batch id');
+  assert(state.saveProof.cloudProofState === 'pending', 'uncommitted receipt should keep canonical save proof pending');
 }
 
 function testVerifyNowProjectionStates(): void {

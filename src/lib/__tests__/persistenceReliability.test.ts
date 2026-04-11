@@ -254,6 +254,7 @@ async function run() {
   cache = readUserCache();
   assert(cache.cloudStatus === 'confirmed', 'cache should be confirmed after successful cloud save');
   assert(Boolean((cache.lastSaveReceipt as any)?.batchId), 'successful save should persist receipt metadata');
+  assert((cache.saveProof as any)?.cloudProofState === 'confirmed', 'successful save should persist canonical confirmed save proof');
 
   reset();
   storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({ entities: payloadFixture, updatedAt: '2026-04-05T10:00:00.000Z', cloudStatus: 'pending' }));
@@ -264,6 +265,7 @@ async function run() {
   assert(loaded.loadFailureStage === 'auth_session', 'auth session failure should report auth_session stage');
   assert((loaded.loadFailureMessage ?? '').includes('JWT expired'), 'auth session failure should include source message');
   assert(loaded.loadFailureRecoveredWithLocalCache === true, 'auth session failure should report cache recovery');
+  assert(loaded.saveProof?.cloudProofState === 'pending', 'legacy cache should normalize into canonical pending save proof');
 
   // A. missing follow_up_items table with local cache available
   reset();

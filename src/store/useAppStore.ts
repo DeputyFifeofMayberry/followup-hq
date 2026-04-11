@@ -130,8 +130,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const saveKind = getSaveResultKind(mode, didPersist);
               const nextLocalRevision = didPersist ? state.localRevision + 1 : state.localRevision;
               const hasConfirmedCloudReceipt = mode === 'supabase'
-                && postSave.lastReceiptStatus === 'committed'
-                && Boolean(postSave.lastConfirmedBatchId);
+                && postSave.saveProof.latestReceiptStatus === 'committed'
+                && Boolean(postSave.saveProof.latestConfirmedBatchId);
               const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
                 ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
                 : '';
@@ -193,6 +193,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastReceiptOperationCount: postSave.lastReceiptOperationCount,
                 lastReceiptOperationCountsByEntity: postSave.lastReceiptOperationCountsByEntity,
                 lastFailedBatchId: postSave.lastFailedBatchId,
+                saveProof: postSave.saveProof,
                 lastFailureClass: undefined,
                 lastFailureNonRetryable: undefined,
                 lastSanitizedFieldCount: diagnostics?.sanitizedFieldCount,
@@ -238,7 +239,23 @@ export const useAppStore = create<AppStore>()((set, get) => {
               };
             });
           },
-          onError: (message, timestamp, reason, diagnostics) => set((state) => ({
+          onError: (message, timestamp, reason, diagnostics) => set((state) => {
+            const nextSaveProof = {
+              ...state.saveProof,
+              latestLocalSaveAttemptAt: timestamp,
+              latestDurableLocalWriteAt: timestamp,
+              latestReceiptStatus: diagnostics?.receiptStatus ?? state.saveProof.latestReceiptStatus,
+              latestReceiptHashMatch: diagnostics?.hashMatch ?? state.saveProof.latestReceiptHashMatch,
+              latestReceiptSchemaVersion: diagnostics?.schemaVersion ?? state.saveProof.latestReceiptSchemaVersion,
+              latestReceiptTouchedTables: diagnostics?.touchedTables ?? state.saveProof.latestReceiptTouchedTables,
+              latestReceiptOperationCount: diagnostics?.operationCount ?? state.saveProof.latestReceiptOperationCount,
+              latestReceiptOperationCountsByEntity: diagnostics?.operationCountsByEntity ?? state.saveProof.latestReceiptOperationCountsByEntity,
+              latestFailedBatchId: diagnostics?.failedBatchId,
+              latestFailureMessage: message,
+              latestFailureClass: diagnostics?.failureClass ?? 'unknown',
+              cloudProofState: 'degraded' as const,
+            };
+            return ({
             conflictQueue: diagnostics?.receiptStatus === 'conflict'
               ? [
                 ...state.conflictQueue,
@@ -281,13 +298,20 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   : 'cloud-save-failed',
             sessionDegradedAt: state.sessionDegradedAt ?? timestamp,
             sessionDegradedClearedByCloudSave: false,
-            lastFailedBatchId: diagnostics?.failedBatchId,
+            lastFailedBatchId: nextSaveProof.latestFailedBatchId,
+            lastReceiptStatus: nextSaveProof.latestReceiptStatus,
+            lastReceiptHashMatch: nextSaveProof.latestReceiptHashMatch,
+            lastReceiptSchemaVersion: nextSaveProof.latestReceiptSchemaVersion,
+            lastReceiptTouchedTables: nextSaveProof.latestReceiptTouchedTables,
+            lastReceiptOperationCount: nextSaveProof.latestReceiptOperationCount,
+            lastReceiptOperationCountsByEntity: nextSaveProof.latestReceiptOperationCountsByEntity,
             pendingBatchCount: Math.max(state.pendingBatchCount, diagnostics?.operationCount ?? 1),
             localSaveState: 'error',
             cloudSyncState: diagnostics?.receiptStatus === 'conflict' ? 'conflict' : 'failed',
             trustState: 'degraded',
-            lastFailureMessage: message,
-            lastFailureClass: diagnostics?.failureClass ?? 'unknown',
+            lastFailureMessage: nextSaveProof.latestFailureMessage,
+            lastFailureClass: nextSaveProof.latestFailureClass,
+            saveProof: nextSaveProof,
             lastFailureNonRetryable: diagnostics?.nonRetryable,
             lastSanitizedFieldCount: diagnostics?.sanitizedFieldCount ?? state.lastSanitizedFieldCount,
             lastSanitizedEntityTypes: diagnostics?.sanitizedEntityTypes ?? state.lastSanitizedEntityTypes,
@@ -327,7 +351,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
                     ? `${message} (Technical detail: table ${diagnostics.failedTable}; completed tables: ${diagnostics.completedTables.join(', ') || 'none'}.)`
                     : message,
             })),
-          })),
+          });
+          }),
         },
         { debounceMs: 350, maxRetries: 2, retryDelayMs: 650 },
       );

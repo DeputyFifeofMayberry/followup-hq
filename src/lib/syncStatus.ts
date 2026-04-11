@@ -9,6 +9,7 @@ import type {
   VerificationResult,
   VerificationState,
   VerificationSummary,
+  SaveProofState,
 } from '../store/state/types';
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -80,6 +81,7 @@ export interface SyncMetaSnapshot {
   lastFailureNonRetryable?: boolean;
   lastSanitizedFieldCount?: number;
   lastSanitizedEntityTypes?: string[];
+  saveProof?: SaveProofState;
 }
 
 export interface SyncStatusModel {
@@ -187,6 +189,7 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     lastFailureNonRetryable: state.lastFailureNonRetryable,
     lastSanitizedFieldCount: state.lastSanitizedFieldCount,
     lastSanitizedEntityTypes: state.lastSanitizedEntityTypes,
+    saveProof: state.saveProof,
   };
 }
 

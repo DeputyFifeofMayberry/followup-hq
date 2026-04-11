@@ -581,8 +581,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       stage: 'saved-local',
       primaryState: 'saved',
       stateLabel: 'Saved locally',
-      stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
-      reassurance: 'Changes saved on this device; cloud sync will resume automatically',
+      stateDescription: 'Changes are saved on this device profile only.',
+      reassurance: 'Local-only save is active for this browser profile.',
       tone: 'default',
       stateTone: 'success',
       showSpinner: false,
@@ -591,12 +591,17 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   if (hasLocalOnly) {
+    const cloudBackedMode = meta.persistenceMode === 'supabase';
+    const localLabel = cloudBackedMode ? 'Saved locally, awaiting cloud' : 'Saved locally';
+    const localDescription = cloudBackedMode
+      ? 'Changes are durably saved locally while cloud confirmation catches up.'
+      : 'Changes are saved on this device.';
     return {
-      stage: meta.persistenceMode === 'supabase' ? 'saved-local' : 'cloud-confirmed',
+      stage: 'saved-local',
       primaryState: 'saved',
-      stateLabel: meta.persistenceMode === 'supabase' ? 'Saved locally, awaiting cloud' : 'Saved locally',
-      stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
-      reassurance: 'Changes saved on this device; cloud sync will resume automatically',
+      stateLabel: localLabel,
+      stateDescription: localDescription,
+      reassurance: localDescription,
       tone: 'info',
       stateTone: 'info',
       showSpinner: false,

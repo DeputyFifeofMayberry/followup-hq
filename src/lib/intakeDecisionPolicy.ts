@@ -91,6 +91,11 @@ export function evaluateIntakeDecisionPolicy(input: {
     : ['weak', 'missing', 'conflicting'].includes(input.fieldSummary.priorityReviewFields.find((field) => field.key === 'title')?.status ?? 'weak');
 
   const missingCritical = input.fieldSummary.priorityReviewFields.filter((field) => ['missing', 'weak', 'conflicting'].includes(field.status)).length;
+  const unsafeCriticalEvidence = input.safety.criticalFieldAssessments.filter((assessment) => (
+    ['title', 'type', 'project', 'owner', 'dueDate'].includes(assessment.key)
+    && ['missing', 'weak', 'conflicting'].includes(assessment.strength)
+  ));
+  const unresolvedExecutionFields = unsafeCriticalEvidence.filter((assessment) => ['owner', 'dueDate'].includes(assessment.key));
   const candidateType = input.kind === 'forwarded'
     ? (input.candidate as ForwardedIntakeCandidate).suggestedType
     : (input.candidate as IntakeWorkCandidate).candidateType.includes('task') ? 'task' : (input.candidate as IntakeWorkCandidate).candidateType.includes('reference') ? 'reference' : 'followup';
@@ -152,7 +157,7 @@ export function evaluateIntakeDecisionPolicy(input: {
     auditExplanation.push('Historical outcomes for this source/type frequently end as reference-only.');
   }
 
-  if (duplicatePressure || patternSignals.linkInsteadOfCreateRate >= 0.4) {
+  if (duplicatePressure || patternSignals.linkInsteadOfCreateRate >= 0.4 || input.safety.createNewWarnings.some((warning) => /overlap/i.test(warning))) {
     linkReviewRequired = true;
     createNewAllowed = false;
     decisionMode = 'link_review_first';
@@ -164,7 +169,7 @@ export function evaluateIntakeDecisionPolicy(input: {
     auditExplanation.push('Top-match overlap plus reviewer history favors linking over creating new records.');
   }
 
-  if (missingCritical > 0 || parseWeak || input.safety.blockers.length > 0) {
+  if (missingCritical > 0 || parseWeak || input.safety.blockers.length > 0 || unsafeCriticalEvidence.length > 0) {
     decisionMode = 'correction_first';
     requiredReviewLevel = 'correction_required';
     autoActionEligible = false;
@@ -172,10 +177,10 @@ export function evaluateIntakeDecisionPolicy(input: {
     createNewAllowed = false;
     escalationReason = escalationReason ?? 'Critical field quality is below automation threshold.';
     policySource.push('field_quality_guard');
-    auditExplanation.push('Critical field evidence and/or parse quality did not pass required guards.');
+    auditExplanation.push(`Critical field evidence and/or parse quality did not pass required guards (${unsafeCriticalEvidence.map((entry) => entry.key).join(', ') || 'core evidence'}).`);
   }
 
-  if (!sourceReviewFirst && !hasNoisyRule && !duplicatePressure && missingCritical === 0 && !parseWeak && input.safety.blockers.length === 0) {
+  if (!sourceReviewFirst && !hasNoisyRule && !duplicatePressure && missingCritical === 0 && !parseWeak && input.safety.blockers.length === 0 && unsafeCriticalEvidence.length === 0) {
     if (strongTrust && meetsConfidence && patternRisk !== 'high') {
       decisionMode = 'auto_resolve';
       autoActionEligible = true;
@@ -203,6 +208,15 @@ export function evaluateIntakeDecisionPolicy(input: {
       policySource.push('pattern_correction_bundle_guard');
       auditExplanation.push('Historical corrections repeatedly adjust project/due date for this pattern.');
     }
+  }
+
+  if (unresolvedExecutionFields.length > 0 && decisionMode === 'ready_now') {
+    decisionMode = 'correction_first';
+    requiredReviewLevel = 'correction_required';
+    createNewAllowed = false;
+    escalationReason = escalationReason ?? 'Owner/due date evidence remains unresolved.';
+    policySource.push('execution_field_resolution_guard');
+    auditExplanation.push('Owner and due date must be reviewed before create-new to avoid weak inferred execution details.');
   }
 
   const preQueueDisposition: IntakeDecisionPolicyResult['preQueueDisposition'] = decisionMode === 'auto_resolve'

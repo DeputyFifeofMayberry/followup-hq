@@ -34,24 +34,25 @@ export interface IntakeReviewPlan {
   reviewerBurdenScore: number;
 }
 
-const REQUIRED_KEYS = new Set(['type', 'title', 'project']);
+const REQUIRED_KEYS = new Set(['type', 'title', 'project', 'owner', 'dueDate']);
 
-function fieldIsRequired(field: IntakeFieldReview, safety: ImportSafetyResult): boolean {
+function fieldIsRequired(field: IntakeFieldReview): boolean {
   if (field.status === 'conflicting') return true;
   if (field.status === 'missing' && field.key !== 'existingLink') return true;
   if (REQUIRED_KEYS.has(field.key)) return field.status !== 'strong';
-  if (field.key === 'owner') return field.status !== 'strong' && !safety.checklist.find((item) => item.key === 'core_fields')?.pass;
-  if (field.key === 'dueDate') return field.status === 'weak';
+  if (field.key === 'owner' || field.key === 'dueDate') return ['missing', 'weak', 'conflicting'].includes(field.status);
   return false;
 }
 
 function toDecisionReason(mode: IntakeDecisionMode, queueItem: IntakeQueueItem, safety: ImportSafetyResult): string {
+  const blockerSummary = safety.createNewBlockers[0] || safety.blockers[0];
+  const warningSummary = safety.createNewWarnings[0] || safety.warnings[0];
   if (mode === 'link_existing') return 'A strong existing record match was detected. Linking is safer than create-new.';
   if (mode === 'duplicate_update_review') return `Duplicate risk is ${safety.duplicateRiskLevel}; compare and link before creating.`;
   if (mode === 'save_reference') return 'Signals look informational; save as reference unless explicit work is required.';
-  if (mode === 'reject') return 'Safety blockers remain unresolved.';
+  if (mode === 'reject') return blockerSummary || 'Safety blockers remain unresolved.';
   if (queueItem.readiness === 'ready_to_approve') return 'All critical checks are green for a fast approval path.';
-  return 'Apply required corrections first, then approve using the recommended type.';
+  return blockerSummary || warningSummary || 'Apply required corrections first, then approve using the recommended type.';
 }
 
 function cleanupTitle(title: string): string {
@@ -159,7 +160,7 @@ export function buildIntakeReviewPlan(input: {
   tuningPressure?: boolean;
 }): IntakeReviewPlan {
   const actionable = buildReviewerActionHints(input.fieldSummary, 20).map((hint) => hint.field);
-  const requiredCorrections = actionable.filter((field, idx, arr) => arr.findIndex((entry) => entry.key === field.key) === idx).filter((field) => fieldIsRequired(field, input.safety));
+  const requiredCorrections = actionable.filter((field, idx, arr) => arr.findIndex((entry) => entry.key === field.key) === idx).filter((field) => fieldIsRequired(field));
   const recommendedCorrections = actionable.filter((field) => !requiredCorrections.some((required) => required.key === field.key));
   const optionalFields = input.fieldSummary.medium.filter((field) => !requiredCorrections.some((required) => required.key === field.key) && !recommendedCorrections.some((recommended) => recommended.key === field.key));
 
@@ -199,6 +200,7 @@ export function buildIntakeReviewPlan(input: {
   const fastApproveEligible = input.queueItem.readiness === 'ready_to_approve'
     && input.safety.safeToCreateNew
     && input.safety.duplicateRiskLevel === 'low'
+    && input.safety.criticalFieldAssessments.filter((assessment) => ['title', 'type', 'project', 'owner', 'dueDate'].includes(assessment.key)).every((assessment) => assessment.strength === 'strong')
     && requiredCorrections.length === 0
     && !input.tuningPressure;
 

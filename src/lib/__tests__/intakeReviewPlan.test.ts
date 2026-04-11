@@ -77,7 +77,25 @@ function runIntakeReviewPlanChecks() {
   const safeSafety = evaluateIntakeImportSafety(safeCandidate);
   const safeQueueItem = { ...buildIntakeReviewQueue([safeCandidate], [baseAsset])[0], readiness: 'ready_to_approve' as const, batchSafe: true };
   const safePlan = buildIntakeReviewPlan({ queueItem: safeQueueItem, fieldSummary: safeSummary, safety: safeSafety, suggestions: [] });
-  assert(safePlan.fastApproveEligible, 'safe candidate should receive fast-approve path');
+  assert(!safePlan.fastApproveEligible, 'medium/weak critical evidence should not receive fast-approve path');
+
+  const strongCandidate = baseCandidate({
+    id: 'c1-strong',
+    existingRecordMatches: [],
+    duplicateMatches: [],
+    fieldConfidence: { title: 0.95, project: 0.94, owner: 0.93, dueDate: 0.94, type: 0.95 },
+    evidence: [
+      { id: 'e-title', field: 'title', snippet: 'Permit update required', sourceRef: 'a1', score: 0.9, sourceType: 'email_header' },
+      { id: 'e-project', field: 'project', snippet: 'Project B995', sourceRef: 'a1', score: 0.91, sourceType: 'email_body' },
+      { id: 'e-owner', field: 'owner', snippet: 'Owner Jared', sourceRef: 'a1', score: 0.9, sourceType: 'email_body' },
+      { id: 'e-due', field: 'dueDate', snippet: 'deadline 2026-04-10', sourceRef: 'a1', score: 0.92, sourceType: 'email_body' },
+    ],
+  });
+  const strongSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(strongCandidate));
+  const strongSafety = evaluateIntakeImportSafety(strongCandidate);
+  const strongQueueItem = { ...buildIntakeReviewQueue([strongCandidate], [baseAsset])[0], readiness: 'ready_to_approve' as const, batchSafe: true };
+  const strongPlan = buildIntakeReviewPlan({ queueItem: strongQueueItem, fieldSummary: strongSummary, safety: strongSafety, suggestions: [] });
+  assert(strongPlan.fastApproveEligible, 'strong critical evidence should remain fast-approve eligible');
 
   const missingProject = baseCandidate({ project: '', existingRecordMatches: [{ ...baseCandidate().existingRecordMatches[0], project: 'B771', score: 0.89 }] });
   const missingProjectSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(missingProject));

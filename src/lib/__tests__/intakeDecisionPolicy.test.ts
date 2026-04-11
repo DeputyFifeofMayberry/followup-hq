@@ -147,6 +147,19 @@ export function runIntakeDecisionPolicyChecks() {
   });
   assert(weakPolicy.decisionMode === 'correction_first', 'weak parse quality should block auto-approval');
 
+  const weakOwnerWork = { ...baseWork, owner: '', assignee: '', fieldConfidence: { type: 0.92, title: 0.92, project: 0.9, owner: 0.41, dueDate: 0.9 } };
+  const weakOwnerPolicy = evaluateIntakeDecisionPolicy({
+    kind: 'work',
+    candidate: weakOwnerWork,
+    fieldSummary: summarizeFieldReviews([field('type', 'strong'), field('project', 'strong'), field('owner', 'missing'), field('dueDate', 'strong'), field('title', 'strong'), field('existingLink', 'missing')]),
+    safety: evaluateIntakeImportSafety(weakOwnerWork),
+    tuningModel: stableModel,
+    feedback: stableFeedback,
+    ruleIds: [],
+  });
+  assert(weakOwnerPolicy.decisionMode === 'correction_first', 'missing owner evidence should force correction-first before create-new');
+  assert(!weakOwnerPolicy.createNewAllowed, 'missing owner evidence should disable create-new');
+
   const referencePolicy = evaluateIntakeDecisionPolicy({
     kind: 'forwarded',
     candidate: { ...baseForwarded, suggestedType: 'reference' },

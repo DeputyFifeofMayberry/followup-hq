@@ -118,9 +118,14 @@ export function buildIntakeReviewQueue(
     const asset = assetsById.get(candidate.assetId);
     const model = tuningModel;
     const fieldSummary = summarizeFieldReviews(buildWorkCandidateFieldReviews(candidate));
-    const missingCriticalFields = fieldSummary.priorityReviewFields.filter((field) => ['missing', 'weak'].includes(field.status)).length;
-    const conflictingEvidence = fieldSummary.conflicting.length > 0 || candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning));
     const safety = evaluateIntakeImportSafety(candidate);
+    const missingCriticalFields = safety.criticalFieldAssessments.filter((assessment) => (
+      ['title', 'type', 'project', 'owner', 'dueDate'].includes(assessment.key)
+      && ['missing', 'weak', 'conflicting'].includes(assessment.strength)
+    )).length;
+    const conflictingEvidence = fieldSummary.conflicting.length > 0
+      || candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning))
+      || safety.criticalFieldAssessments.some((assessment) => assessment.strength === 'conflicting');
     const duplicateRisk = safety.duplicateRiskLevel !== 'low';
     const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only' || safety.recommendedDecision === 'save_reference';
     const status = candidate.approvalStatus === 'pending' ? 'pending' : 'finalized';
@@ -176,7 +181,9 @@ export function buildIntakeReviewQueue(
         ? 'reference_likely'
         : hasCriticalBlockers
           ? 'unsafe_to_create'
-          : duplicateRisk || (model?.thresholds.duplicateCautionBoost && candidate.existingRecordMatches.length > 0)
+          : !safety.safeToCreateNew
+            ? 'ready_after_correction'
+            : duplicateRisk || (model?.thresholds.duplicateCautionBoost && candidate.existingRecordMatches.length > 0)
             ? 'needs_link_decision'
             : missingCriticalFields > 0
               || candidate.confidence < minReadyConfidence

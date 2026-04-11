@@ -2,6 +2,15 @@ import type { ForwardedIntakeCandidate, IntakeExistingMatch, IntakeWorkCandidate
 
 export type DuplicateRiskLevel = 'low' | 'medium' | 'high';
 export type IntakeDecisionMode = 'create_new_task' | 'create_new_followup' | 'link_existing' | 'duplicate_update_review' | 'save_reference' | 'reject';
+export type IntakeEvidenceStrength = 'strong' | 'medium' | 'weak' | 'missing' | 'conflicting';
+export type IntakeCriticalFieldKey = 'title' | 'type' | 'project' | 'owner' | 'dueDate' | 'existingLink';
+
+export interface CriticalFieldAssessment {
+  key: IntakeCriticalFieldKey;
+  strength: IntakeEvidenceStrength;
+  confidence?: number;
+  reason: string;
+}
 
 export interface ImportSafetyChecklistItem {
   key: 'duplicate' | 'existing_match' | 'core_fields' | 'confidence' | 'type_conflict' | 'already_finalized';
@@ -24,6 +33,9 @@ export interface ImportSafetyResult {
   strongMatches: IntakeExistingMatch[];
   weakMatches: IntakeExistingMatch[];
   batchExclusionReasons: string[];
+  criticalFieldAssessments: CriticalFieldAssessment[];
+  createNewBlockers: string[];
+  createNewWarnings: string[];
 }
 
 const CONFLICT_PATTERN = /conflict|ambiguous|mismatch|unclear/i;
@@ -43,30 +55,99 @@ function splitMatchStrength(matches: IntakeExistingMatch[]) {
   };
 }
 
+function fieldConfidence(candidate: IntakeWorkCandidate, key: 'title' | 'type' | 'project' | 'owner' | 'dueDate'): number {
+  if (key === 'type') return candidate.fieldConfidence?.type ?? candidate.confidence;
+  return candidate.fieldConfidence?.[key] ?? candidate.confidence;
+}
+
+function evidenceSignals(candidate: IntakeWorkCandidate, field: 'title' | 'type' | 'project' | 'owner' | 'dueDate') {
+  const entries = candidate.evidence.filter((entry) => entry.field.toLowerCase() === field.toLowerCase());
+  const topScore = entries.reduce((max, entry) => Math.max(max, entry.score ?? 0), 0);
+  const hasTextEvidence = entries.some((entry) => entry.sourceType === 'text' || entry.sourceType === 'email_body' || entry.sourceType === 'docx_paragraph');
+  return { entries, topScore, hasTextEvidence };
+}
+
+function classifyFieldStrength(candidate: IntakeWorkCandidate, key: CriticalFieldAssessment['key']): CriticalFieldAssessment {
+  if (key === 'existingLink') {
+    const topMatch = candidate.existingRecordMatches[0];
+    if (!topMatch) return { key, strength: 'missing', reason: 'No meaningful existing-record overlap detected.' };
+    if (topMatch.score >= 0.9 || topMatch.strategy === 'duplicate') return { key, strength: 'conflicting', confidence: topMatch.score, reason: 'Strong overlap suggests link/update instead of create-new.' };
+    if (topMatch.score >= 0.82) return { key, strength: 'weak', confidence: topMatch.score, reason: 'Moderate overlap should be reviewed before creating new.' };
+    return { key, strength: 'medium', confidence: topMatch.score, reason: 'Low overlap present but not a strong blocker.' };
+  }
+
+  const value = key === 'type'
+    ? candidate.candidateType
+    : key === 'owner'
+      ? (candidate.owner || candidate.assignee)
+      : candidate[key];
+  const confidence = fieldConfidence(candidate, key as 'title' | 'type' | 'project' | 'owner' | 'dueDate');
+  const conflictFlag = candidate.warnings.some((warning) => CONFLICT_PATTERN.test(warning) && new RegExp(key, 'i').test(warning));
+  if (!value || !String(value).trim()) return { key, strength: 'missing', confidence, reason: `${key} is unresolved.` };
+  if (conflictFlag) return { key, strength: 'conflicting', confidence, reason: `${key} has conflicting extracted signals.` };
+
+  const evidence = evidenceSignals(candidate, key as 'title' | 'type' | 'project' | 'owner' | 'dueDate');
+  const inferredDueDate = key === 'dueDate'
+    && candidate.warnings.some((warning) => /due date inferred from body text/i.test(warning))
+    && evidence.topScore < 0.82;
+  if (inferredDueDate) return { key, strength: 'weak', confidence, reason: 'Due date is inferred from body text with weak evidence.' };
+
+  if (confidence >= 0.88 && (evidence.topScore >= 0.8 || key === 'type' || key === 'title')) return { key, strength: 'strong', confidence, reason: `${key} has strong explicit signal.` };
+  if (confidence >= 0.72 && (evidence.topScore >= 0.6 || evidence.hasTextEvidence || key === 'title')) return { key, strength: 'medium', confidence, reason: `${key} has acceptable but reviewable evidence.` };
+  if (confidence >= 0.45) return { key, strength: 'weak', confidence, reason: `${key} appears inferred with weak confidence.` };
+  return { key, strength: 'missing', confidence, reason: `${key} confidence is too low to trust.` };
+}
+
 export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): ImportSafetyResult {
   const allMatches = [...candidate.duplicateMatches, ...candidate.existingRecordMatches].sort((a, b) => b.score - a.score);
   const { strongMatches, weakMatches } = splitMatchStrength(allMatches);
   const duplicateRiskLevel = classifyDuplicateRisk(allMatches, false);
   const hasTypeConflict = candidate.warnings.some((warning) => CONFLICT_PATTERN.test(warning));
-  const missingCore = !candidate.title?.trim() || !candidate.project?.trim();
+  const criticalFieldKeys: IntakeCriticalFieldKey[] = ['title', 'type', 'project', 'owner', 'dueDate', 'existingLink'];
+  const criticalFieldAssessments: CriticalFieldAssessment[] = criticalFieldKeys.map((key) => classifyFieldStrength(candidate, key));
+  const assessmentByKey = new Map(criticalFieldAssessments.map((assessment) => [assessment.key, assessment]));
+  const missingCore = ['title', 'project', 'type'].some((key) => ['missing', 'weak', 'conflicting'].includes(assessmentByKey.get(key as IntakeCriticalFieldKey)?.strength ?? 'missing'));
+  const weakExecutionFields = ['owner', 'dueDate'].filter((key) => ['missing', 'weak', 'conflicting'].includes(assessmentByKey.get(key as IntakeCriticalFieldKey)?.strength ?? 'missing'));
   const lowConfidence = candidate.confidence < 0.7;
   const finalized = candidate.approvalStatus !== 'pending';
-  const requiresLinkReview = strongMatches.length > 0 || duplicateRiskLevel !== 'low';
+  const requiresLinkReview = strongMatches.length > 0 || duplicateRiskLevel !== 'low' || ['weak', 'conflicting'].includes(assessmentByKey.get('existingLink')?.strength ?? 'missing');
 
   const warnings: string[] = [];
   const blockers: string[] = [];
+  const createNewBlockers: string[] = [];
+  const createNewWarnings: string[] = [];
 
-  if (duplicateRiskLevel === 'high') blockers.push('Strong duplicate risk: review existing matches before creating new work.');
-  else if (duplicateRiskLevel === 'medium') warnings.push('Likely update to existing record.');
+  if (duplicateRiskLevel === 'high') {
+    blockers.push('Strong duplicate risk: review existing matches before creating new work.');
+    createNewBlockers.push('Duplicate/link overlap is high.');
+  } else if (duplicateRiskLevel === 'medium') {
+    warnings.push('Likely update to existing record.');
+    createNewWarnings.push('Duplicate/link overlap is medium.');
+  }
 
   if (requiresLinkReview) warnings.push('Existing-record match found: link existing should be reviewed first.');
-  if (missingCore) blockers.push('Critical fields missing (title/project).');
+  if (missingCore) {
+    blockers.push('Critical create-new fields are weak or missing (type/title/project).');
+    createNewBlockers.push('Type, title, and project must be medium+ confidence before create-new.');
+  }
+  if (weakExecutionFields.length > 0) {
+    warnings.push(`Execution fields need review (${weakExecutionFields.join(', ')}).`);
+    createNewWarnings.push(`Execution fields are unresolved or weak: ${weakExecutionFields.join(', ')}.`);
+  }
   if (lowConfidence) warnings.push('Low confidence on core fields; reviewer confirmation needed.');
   if (hasTypeConflict) blockers.push('Conflicting candidate type/evidence detected.');
   if (finalized) blockers.push('Candidate already finalized (imported/linked/reference/rejected).');
 
-  const safeToCreateNew = blockers.length === 0 && duplicateRiskLevel === 'low';
-  const safeToBatchApprove = safeToCreateNew && candidate.confidence >= 0.9 && candidate.suggestedAction === 'create_new';
+  const safeToCreateNew = blockers.length === 0
+    && duplicateRiskLevel === 'low'
+    && weakExecutionFields.length === 0
+    && ['strong', 'medium'].includes(assessmentByKey.get('title')?.strength ?? 'missing')
+    && ['strong', 'medium'].includes(assessmentByKey.get('type')?.strength ?? 'missing')
+    && ['strong', 'medium'].includes(assessmentByKey.get('project')?.strength ?? 'missing');
+  const safeToBatchApprove = safeToCreateNew
+    && candidate.confidence >= 0.92
+    && candidate.suggestedAction === 'create_new'
+    && ['title', 'type', 'project', 'owner', 'dueDate'].every((key) => assessmentByKey.get(key as IntakeCriticalFieldKey)?.strength === 'strong');
   const overrideAllowed = !finalized;
 
   const recommendedDecision: IntakeDecisionMode = strongMatches.length > 0
@@ -82,14 +163,14 @@ export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): Impo
   const checklist: ImportSafetyChecklistItem[] = [
     { key: 'duplicate', label: 'No strong duplicate match', pass: duplicateRiskLevel === 'low', severity: duplicateRiskLevel === 'high' ? 'blocker' : 'warn' },
     { key: 'existing_match', label: 'No strong existing-record overlap', pass: strongMatches.length === 0, severity: 'warn' },
-    { key: 'core_fields', label: 'Core fields present (title + project)', pass: !missingCore, severity: 'blocker' },
+    { key: 'core_fields', label: 'Core fields are medium+ confidence (type + title + project)', pass: !missingCore, severity: 'blocker' },
     { key: 'confidence', label: 'Acceptable confidence on core fields', pass: !lowConfidence, severity: 'warn' },
     { key: 'type_conflict', label: 'No conflicting type signals', pass: !hasTypeConflict, severity: 'blocker' },
     { key: 'already_finalized', label: 'Not already imported/linked', pass: !finalized, severity: 'blocker' },
   ];
 
   const batchExclusionReasons = [
-    ...(safeToBatchApprove ? [] : ['Excluded from batch approval: duplicate/link review required or safety checks failed.']),
+    ...(safeToBatchApprove ? [] : ['Excluded from batch approval: only strong-evidence candidates can fast-approve.']),
     ...checklist.filter((item) => !item.pass).map((item) => item.label),
   ];
 
@@ -106,6 +187,9 @@ export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): Impo
     strongMatches,
     weakMatches,
     batchExclusionReasons,
+    criticalFieldAssessments,
+    createNewBlockers,
+    createNewWarnings,
   };
 }
 
@@ -163,6 +247,9 @@ export function evaluateForwardedImportSafety(candidate: ForwardedIntakeCandidat
     strongMatches: [],
     weakMatches: [],
     batchExclusionReasons,
+    criticalFieldAssessments: [],
+    createNewBlockers: [],
+    createNewWarnings: [],
   };
 }
 

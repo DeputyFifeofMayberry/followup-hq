@@ -57,6 +57,7 @@ export const initialUiState: AppUiState = {
   mergeModal: { open: false, baseId: null, candidateId: null },
   draftModal: { open: false, itemId: null },
   taskModal: { open: false, mode: 'create', taskId: null },
+  followUpInspector: { open: false, itemId: null },
   createWorkDraft: null,
   selectedTaskId: null,
   taskOwnerFilter: 'All',

@@ -15,10 +15,15 @@ import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import type { FollowUpItem } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
+import { FollowUpInspectorModal } from '../followups/FollowUpInspectorModal';
 
 export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
+  const openFollowUpInspector = useAppStore((s) => s.openFollowUpInspector);
+  const closeFollowUpInspector = useAppStore((s) => s.closeFollowUpInspector);
+  const followUpInspector = useAppStore((s) => s.followUpInspector);
+  const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [revealNotice, setRevealNotice] = useState<string | null>(null);
   const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
@@ -29,7 +34,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
     if (intent.recordType === 'followup' && intent.recordId) {
       const visibleInCurrentLane = vm.filteredRows.some((row) => row.id === intent.recordId);
       vm.setSelectedId(intent.recordId);
-      openRecordEditor({ type: 'followup', id: intent.recordId }, 'edit', 'workspace');
+      openFollowUpInspector(intent.recordId, 'execution_intent');
       if (visibleInCurrentLane) {
         setRevealNotice(null);
       } else {
@@ -38,7 +43,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
       }
     }
     vm.clearExecutionIntent();
-  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord, openRecordEditor]);
+  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord, openFollowUpInspector]);
 
   return (
     <WorkspacePage>
@@ -54,7 +59,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
                 rows={vm.filteredRows}
                 onRowOpen={(id) => {
                   vm.setSelectedId(id);
-                  openRecordEditor({ type: 'followup', id }, 'edit', 'workspace');
+                  openFollowUpInspector(id, 'workspace');
                 }}
                 onRequestDelete={setPendingDeleteFollowUp}
               />
@@ -106,6 +111,17 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
           </AppModalFooter>
         </AppModal>
       ) : null}
+
+      <FollowUpInspectorModal
+        open={followUpInspector.open}
+        selectedFollowUp={vm.items.find((item) => item.id === followUpInspector.itemId) ?? null}
+        onClose={closeFollowUpInspector}
+        onOpenRecordEditor={openRecordEditor}
+        onOpenRecordDrawer={openRecordDrawer}
+        onOpenTouchModal={() => vm.openTouchModal()}
+        onMarkNudged={vm.markNudged}
+        onSnooze={vm.snoozeItem}
+      />
     </WorkspacePage>
   );
 }

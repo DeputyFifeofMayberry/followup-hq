@@ -311,7 +311,7 @@ export function TrackerTable({
     ? createPortal(
       <div className="tracker-row-action-menu-popover" role="menu" ref={actionMenuRef} style={{ top: `${actionMenuPosition.top}px`, right: `${actionMenuPosition.right}px` }}>
         <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(openActionMenuId); setOpenActionMenuId(null); }}>
-          <SearchCheck className="h-3.5 w-3.5" />Open timeline
+          <SearchCheck className="h-3.5 w-3.5" />Open inspector
         </button>
         <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); vm.setSelectedId(openActionMenuId); vm.openTouchModal(); setOpenActionMenuId(null); }}>
           <PencilLine className="h-3.5 w-3.5" />Log update

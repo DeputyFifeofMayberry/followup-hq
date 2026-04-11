@@ -148,7 +148,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                   title={inspectorTitle}
                   subtitle="Review context and route without leaving Overview."
                   onClose={() => setDetailOpen(false)}
-                  closeLabel="Close"
+                  closeLabel="Back to queue"
                 />
                 <AppModalBody>
                   <OverviewRouteInspector

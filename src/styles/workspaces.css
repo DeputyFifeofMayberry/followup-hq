@@ -377,6 +377,9 @@
 .task-sort-summary { font-size: 0.68rem; color: #6b7f95; }
 
 .task-mobile-control-stack { gap: 0.55rem; }
+.followup-mobile-control-stack { display: grid; gap: 0.55rem; }
+.followup-mobile-control-stack .followup-queue-field { min-width: 9rem; width: auto; }
+.followup-mobile-control-stack .followup-mobile-search { width: 100%; max-width: 100%; }
 .task-mobile-view-rail {
   display: flex;
   gap: 0.38rem;

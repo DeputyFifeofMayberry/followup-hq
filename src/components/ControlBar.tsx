@@ -1,10 +1,11 @@
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { ExecutionLaneToolbarScaffold } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneToolbarScaffold } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { useFollowUpsViewModel } from '../domains/followups';
 import { primaryFollowUpViews, secondaryFollowUpViews } from '../lib/followUpSelectors';
+import { useViewportBand } from '../hooks/useViewport';
 
 const OPTIONAL_COLUMNS: FollowUpColumnKey[] = ['project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
 const FOLLOWUP_QUEUE_PRESSURE_STRIP: Array<{ key: 'allOpen' | 'needsNudge' | 'atRisk' | 'waiting' | 'overdue'; view: SavedViewKey; label: string }> = [
@@ -22,6 +23,7 @@ const QUEUE_OPTIONS: Array<{ value: SavedViewKey; label: string; kind: 'primary'
 
 export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOpenDuplicateReview?: () => void; duplicateCount?: number }) {
   const vm = useFollowUpsViewModel();
+  const { isMobileLike } = useViewportBand();
   const [showFilters, setShowFilters] = useState(false);
   const [batchFlow, setBatchFlow] = useState<'close' | 'nudge' | 'snooze' | null>(null);
   const [batchNote, setBatchNote] = useState('');
@@ -97,14 +99,14 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
     setBatchResult({ tone: vm.hiddenSelectionCount ? 'warn' : 'success', message: `Snoozed ${selectedIdsInScope.length} follow-up(s).` });
   };
 
+  const activeFilterPreview = vm.activeRowAffectingOptions.slice(0, 2);
+
   return (
     <div className="workspace-control-stack followup-control-stack">
-      <ExecutionLaneToolbarScaffold
-        className="followup-primary-toolbar"
-        left={(
-          <>
+      {isMobileLike ? (
+        <div className="followup-mobile-control-stack">
+          <div className="task-mobile-search-row">
             <label className="field-block followup-queue-field">
-              <span className="field-label">Queue</span>
               <select value={vm.activeView} onChange={(event) => vm.setActiveView(event.target.value as SavedViewKey)} className="field-input">
                 <optgroup label="Primary queues">
                   {QUEUE_OPTIONS.filter((option) => option.kind === 'primary').map((option) => (
@@ -118,27 +120,79 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
                 </optgroup>
               </select>
             </label>
-            <label className="field-block followup-search-block">
-              <span className="field-label">Search</span>
-              <div className="search-field-wrap">
-                <Search className="search-field-icon h-4 w-4" />
-                <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
-                {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
-              </div>
-            </label>
-          </>
-        )}
-        right={(
-          <>
-            <button onClick={() => setShowFilters((value) => !value)} className="action-btn">
+            <button onClick={() => setShowFilters((value) => !value)} className="action-btn task-mobile-filter-btn" aria-expanded={showFilters}>
               <SlidersHorizontal className="h-4 w-4" />
-              Filters & layout{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
-              <ChevronDown className={`h-4 w-4 ${showFilters ? 'rotate-180' : ''}`} />
+              Filters{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
             </button>
-            {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
-          </>
-        )}
-      />
+          </div>
+
+          <label className="field-block followup-search-block followup-mobile-search">
+            <div className="search-field-wrap">
+              <Search className="search-field-icon h-4 w-4" />
+              <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
+              {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+            </div>
+          </label>
+
+          <div className="task-mobile-filter-summary" aria-live="polite">
+            {vm.activeRowAffectingOptions.length > 0 ? (
+              <>
+                <div className="task-mobile-filter-summary-label">Active</div>
+                <div className="task-mobile-filter-summary-values">
+                  {activeFilterPreview.map((entry) => <span key={entry.key}>{entry.label}</span>)}
+                  {vm.activeRowAffectingOptions.length > 2 ? <span>+{vm.activeRowAffectingOptions.length - 2} more</span> : null}
+                </div>
+                <button type="button" className="task-mobile-filter-summary-clear" onClick={vm.resetAllRowAffectingOptions}>Reset</button>
+              </>
+            ) : (
+              <div className="task-sort-summary">{vm.queueSummary}</div>
+            )}
+          </div>
+
+          {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
+        </div>
+      ) : (
+        <ExecutionLaneToolbarScaffold
+          className="followup-primary-toolbar"
+          left={(
+            <>
+              <label className="field-block followup-queue-field">
+                <span className="field-label">Queue</span>
+                <select value={vm.activeView} onChange={(event) => vm.setActiveView(event.target.value as SavedViewKey)} className="field-input">
+                  <optgroup label="Primary queues">
+                    {QUEUE_OPTIONS.filter((option) => option.kind === 'primary').map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Secondary queues">
+                    {QUEUE_OPTIONS.filter((option) => option.kind === 'secondary').map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
+              <label className="field-block followup-search-block">
+                <span className="field-label">Search</span>
+                <div className="search-field-wrap">
+                  <Search className="search-field-icon h-4 w-4" />
+                  <input value={vm.search} onChange={(event) => vm.setSearch(event.target.value)} placeholder="Search follow-ups" className="field-input search-field-input" />
+                  {vm.search ? <button type="button" onClick={() => vm.setSearch('')} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
+                </div>
+              </label>
+            </>
+          )}
+          right={(
+            <>
+              <button onClick={() => setShowFilters((value) => !value)} className="action-btn">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters & layout{vm.activeOptionCount > 0 ? ` (${vm.activeOptionCount})` : ''}
+                <ChevronDown className={`h-4 w-4 ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
+              {duplicateCount > 0 ? <button onClick={onOpenDuplicateReview} className="action-btn followup-duplicate-entry">Review duplicates</button> : null}
+            </>
+          )}
+        />
+      )}
       <div className="followup-queue-pressure-strip" role="tablist" aria-label="Follow-up queue pressure">
         {FOLLOWUP_QUEUE_PRESSURE_STRIP.map((queue) => {
           const active = vm.activeView === queue.view;
@@ -158,24 +212,26 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
         })}
       </div>
 
-      <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
-        {vm.activeRowAffectingOptions.length > 0 ? (
-          <>
-            <span className="task-sort-summary">Narrowing rows by:</span>
-            {vm.activeRowAffectingOptions.map((entry) => (
-              <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
-                {entry.label}
-                <span aria-hidden>×</span>
-              </button>
-            ))}
-            <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all row filters</button>
-          </>
-        ) : (
-          <span className="task-sort-summary">{vm.queueSummary}</span>
-        )}
-      </div>
+      {!isMobileLike ? (
+        <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
+          {vm.activeRowAffectingOptions.length > 0 ? (
+            <>
+              <span className="task-sort-summary">Narrowing rows by:</span>
+              {vm.activeRowAffectingOptions.map((entry) => (
+                <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
+                  {entry.label}
+                  <span aria-hidden>×</span>
+                </button>
+              ))}
+              <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all row filters</button>
+            </>
+          ) : (
+            <span className="task-sort-summary">{vm.queueSummary}</span>
+          )}
+        </div>
+      ) : null}
 
-      {showFilters ? (
+      {showFilters && !isMobileLike ? (
         <div className="followup-options-panel advanced-filter-surface">
           <section className="followup-options-section">
             <h4>People and ownership</h4>
@@ -248,6 +304,83 @@ export function ControlBar({ onOpenDuplicateReview, duplicateCount = 0 }: { onOp
           </section>
           <div className="followup-options-footer"><button className="action-btn" onClick={vm.resetAllRowAffectingOptions}>Reset row filters</button></div>
         </div>
+      ) : null}
+      {showFilters && isMobileLike ? (
+        <AppModal size="standard" onClose={() => setShowFilters(false)} onBackdropClick={() => setShowFilters(false)} ariaLabel="Follow-up filters and layout">
+          <AppModalHeader title="Follow-up filters" subtitle="Apply filters, then continue from your queue." onClose={() => setShowFilters(false)} closeLabel="Back to queue" />
+          <AppModalBody>
+            {vm.activeRowAffectingOptions.length > 0 ? (
+              <div className="task-mobile-active-filter-chips">
+                {vm.activeRowAffectingOptions.map((entry) => (
+                  <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
+                    {entry.label}
+                    <span aria-hidden>×</span>
+                  </button>
+                ))}
+                <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Clear all filters</button>
+              </div>
+            ) : null}
+            <div className="followup-options-panel advanced-filter-surface">
+              <section className="followup-options-section">
+                <h4>People and ownership</h4>
+                <div className="followup-options-grid">
+                  <select value={vm.followUpFilters.owner} onChange={(event) => vm.setFollowUpFilters({ owner: event.target.value })} className="field-input">{owners.map((owner) => <option key={owner} value={owner}>{owner === 'All' ? 'All owners' : owner}</option>)}</select>
+                  <select value={vm.followUpFilters.assignee} onChange={(event) => vm.setFollowUpFilters({ assignee: event.target.value })} className="field-input">{assignees.map((assignee) => <option key={assignee} value={assignee}>{assignee === 'All' ? 'All assignees' : assignee}</option>)}</select>
+                  <select value={vm.followUpFilters.waitingOn} onChange={(event) => vm.setFollowUpFilters({ waitingOn: event.target.value })} className="field-input">
+                    <option value="All">All waiting-on</option>
+                    {Array.from(new Set(vm.items.map((item) => item.waitingOn || 'Unspecified'))).sort().map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </div>
+              </section>
+
+              <section className="followup-options-section">
+                <h4>Project, status, and priority</h4>
+                <div className="followup-options-grid">
+                  <select value={vm.followUpFilters.project} onChange={(event) => vm.setFollowUpFilters({ project: event.target.value })} className="field-input">{projects.map((project) => <option key={project} value={project}>{project === 'All' ? 'All projects' : project}</option>)}</select>
+                  <select value={vm.followUpFilters.status} onChange={(event) => vm.setFollowUpFilters({ status: event.target.value as typeof vm.followUpFilters.status })} className="field-input">
+                    <option value="All">All statuses</option>
+                    <option>Needs action</option><option>Waiting on external</option><option>Waiting internal</option><option>In progress</option><option>At risk</option><option>Closed</option>
+                  </select>
+                  <select value={vm.followUpFilters.priority} onChange={(event) => vm.setFollowUpFilters({ priority: event.target.value as typeof vm.followUpFilters.priority })} className="field-input">
+                    <option value="All">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                  </select>
+                  <select value={vm.followUpFilters.escalation} onChange={(event) => vm.setFollowUpFilters({ escalation: event.target.value as typeof vm.followUpFilters.escalation })} className="field-input">
+                    <option value="All">All escalations</option><option>None</option><option>Watch</option><option>Escalate</option><option>Critical</option>
+                  </select>
+                  <select value={vm.followUpFilters.actionState} onChange={(event) => vm.setFollowUpFilters({ actionState: event.target.value as typeof vm.followUpFilters.actionState })} className="field-input">
+                    <option value="All">All action states</option><option>Draft created</option><option>Ready to send</option><option>Sent (confirmed)</option><option>Waiting for reply</option><option>Reply received</option><option>Complete</option>
+                  </select>
+                  <select value={vm.followUpFilters.category} onChange={(event) => vm.setFollowUpFilters({ category: event.target.value as typeof vm.followUpFilters.category })} className="field-input">
+                    <option value="All">All categories</option><option>General</option><option>RFI</option><option>Submittal</option><option>Procurement</option><option>Issue</option><option>Coordination</option><option>Closeout</option>
+                  </select>
+                </div>
+              </section>
+
+              <section className="followup-options-section">
+                <h4>Date ranges and linked tasks</h4>
+                <div className="followup-options-grid">
+                  <select value={vm.followUpFilters.dueDateRange} onChange={(event) => vm.setFollowUpFilters({ dueDateRange: event.target.value as typeof vm.followUpFilters.dueDateRange })} className="field-input">
+                    <option value="all">All due dates</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="this_week">Due this week</option><option value="next_7_days">Due in next 7 days</option>
+                  </select>
+                  <select value={vm.followUpFilters.nextTouchDateRange} onChange={(event) => vm.setFollowUpFilters({ nextTouchDateRange: event.target.value as typeof vm.followUpFilters.nextTouchDateRange })} className="field-input">
+                    <option value="all">All next touch dates</option><option value="overdue">Touch overdue</option><option value="today">Touch today</option><option value="this_week">Touch this week</option><option value="next_7_days">Touch in next 7 days</option>
+                  </select>
+                  <select value={vm.followUpFilters.promisedDateRange} onChange={(event) => vm.setFollowUpFilters({ promisedDateRange: event.target.value as typeof vm.followUpFilters.promisedDateRange })} className="field-input">
+                    <option value="all">All promised dates</option><option value="overdue">Promised overdue</option><option value="today">Promised today</option><option value="this_week">Promised this week</option><option value="next_7_days">Promised next 7 days</option>
+                  </select>
+                  <select value={vm.followUpFilters.linkedTaskState} onChange={(event) => vm.setFollowUpFilters({ linkedTaskState: event.target.value as typeof vm.followUpFilters.linkedTaskState })} className="field-input">
+                    <option value="all">All linked task states</option><option value="blocked_child">Blocked child tasks</option><option value="overdue_child">Overdue child tasks</option><option value="all_children_done">All child tasks done</option><option value="has_open_children">Has open child tasks</option><option value="none">No child tasks</option>
+                  </select>
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={vm.followUpFilters.cleanupOnly} onChange={(event) => vm.setFollowUpFilters({ cleanupOnly: event.target.checked })} />Cleanup maintenance only</label>
+                </div>
+              </section>
+            </div>
+          </AppModalBody>
+          <AppModalFooter>
+            <button type="button" className="action-btn" onClick={vm.resetAllRowAffectingOptions}>Reset filters</button>
+            <button type="button" className="action-btn" onClick={() => setShowFilters(false)}>Back to queue</button>
+          </AppModalFooter>
+        </AppModal>
       ) : null}
 
       {vm.followUpStats.selectedCount > 0 ? (

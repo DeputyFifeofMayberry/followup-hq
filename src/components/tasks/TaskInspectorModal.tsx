@@ -283,11 +283,11 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
         title={selectedTask.title}
         subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}
         onClose={onClose}
-        closeLabel="Close"
+        closeLabel={isMobileLike ? 'Back to queue' : 'Close'}
       />
       <AppModalBody className={isMobileLike ? "task-inspector-modal-mobile" : ""}>{isMobileLike ? mobileInspectorContent : desktopInspectorContent}</AppModalBody>
       <AppModalFooter>
-        <button onClick={onClose} className="action-btn">Close</button>
+        <button onClick={onClose} className="action-btn">{isMobileLike ? 'Back to queue' : 'Close'}</button>
       </AppModalFooter>
     </AppModal>
   );

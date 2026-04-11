@@ -12,8 +12,8 @@ export function deriveVerificationMetaFromResult(result: VerificationResult): {
       verificationState: 'read-failed',
       recoveryReviewNeeded: false,
       failureMessage: result.summary.verificationReadFailureMessage ?? result.mismatches[0]?.technicalDetail,
-      activitySummary: 'Could not complete cloud verification read.',
-      activityDetail: result.summary.verificationReadFailureMessage ?? 'Verification cloud read failed before mismatch comparison.',
+      activitySummary: 'Verification could not complete; saved state unchanged.',
+      activityDetail: result.summary.verificationReadFailureMessage ?? 'Cloud verification read failed before mismatch comparison; saved state evidence remains unchanged.',
     };
   }
 
@@ -23,7 +23,7 @@ export function deriveVerificationMetaFromResult(result: VerificationResult): {
       verificationState: 'verified-match',
       recoveryReviewNeeded: false,
       failureMessage: undefined,
-      activitySummary: 'Verified match with cloud state.',
+      activitySummary: 'Verified match with current cloud data.',
       activityDetail: driftCount > 0
         ? `Last verification matched current cloud state. ${driftCount} record${driftCount === 1 ? '' : 's'} had timestamp drift only.`
         : 'Last verification matched current cloud state.',
@@ -34,7 +34,7 @@ export function deriveVerificationMetaFromResult(result: VerificationResult): {
     verificationState: 'mismatch-found',
     recoveryReviewNeeded: true,
     failureMessage: undefined,
-    activitySummary: 'Recovery review needed.',
-    activityDetail: `Last verification found ${result.summary.mismatchCount} mismatch${result.summary.mismatchCount === 1 ? '' : 'es'}.`,
+    activitySummary: 'Verification found mismatches; review required.',
+    activityDetail: `Last verification found ${result.summary.mismatchCount} mismatch${result.summary.mismatchCount === 1 ? '' : 'es'} that require review.`,
   };
 }

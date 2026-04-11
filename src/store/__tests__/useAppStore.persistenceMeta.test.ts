@@ -248,6 +248,8 @@ function testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean(): void {
     tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
   }));
   const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
+  assert(Boolean(selected), 'clean verify target selection should return a payload');
+  if (!selected) return;
   assert(selected.payload.tasks[0]?.title === 'Persisted raw', 'clean verify runs should compare against canonical cached persisted payload');
   assert(selected.source === 'cached-persisted-payload', 'clean verify runs should report canonical cache as verification source');
 }
@@ -263,8 +265,30 @@ function testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist(): void {
     tasks: [{ id: 'task-1', title: 'Persisted raw', updatedAt: '2026-04-09T10:00:00.000Z' }],
   }));
   const selected = selectVerificationTargetPayload({ current, cachedPersistedPayload: cached });
+  assert(Boolean(selected), 'dirty verify target selection should return a runtime payload');
+  if (!selected) return;
   assert(selected.payload.tasks[0]?.title === 'Unsaved edit', 'verify should include live state only when unsaved/local outbox drift exists');
   assert(selected.source === 'runtime-rebuild', 'dirty verify runs should report runtime rebuild source');
+}
+
+function testAutomaticVerificationRequiresStableTarget(): void {
+  const dirty = buildStoreLikeForVerificationTarget({
+    hasLocalUnsavedChanges: true,
+    pendingBatchCount: 1,
+    unresolvedOutboxCount: 1,
+  });
+  const selectedDirty = selectVerificationTargetPayload({ current: dirty, cachedPersistedPayload: null }, { requireStablePersistedPayload: true });
+  assert(selectedDirty === null, 'automatic verification should not select a runtime target when local state is dirty');
+
+  const clean = buildStoreLikeForVerificationTarget({
+    hasLocalUnsavedChanges: false,
+    pendingBatchCount: 0,
+    unresolvedOutboxCount: 0,
+  });
+  const cached = buildPersistedPayload(clean);
+  const selectedClean = selectVerificationTargetPayload({ current: clean, cachedPersistedPayload: cached }, { requireStablePersistedPayload: true });
+  assert(Boolean(selectedClean), 'automatic verification should select cached payload when state is clean');
+  assert(selectedClean?.source === 'cached-persisted-payload', 'automatic verification should require cached persisted payload source');
 }
 
 async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> {
@@ -280,6 +304,8 @@ async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> 
   });
   const cached = buildPersistedPayload(clean);
   const target = selectVerificationTargetPayload({ current: clean, cachedPersistedPayload: cached });
+  assert(Boolean(target), 'clean startup verification should produce a comparison target');
+  if (!target) return;
   const cloudSnapshot = {
     fetchedAt: '2026-04-10T10:00:00.000Z',
     schemaVersionCloud: undefined,
@@ -309,5 +335,6 @@ async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> 
   testVerifyNowProjectionStates();
   testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean();
   testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist();
+  testAutomaticVerificationRequiresStableTarget();
   await testCleanStartupVerifyNowResultsInVerifiedMatch();
 })();

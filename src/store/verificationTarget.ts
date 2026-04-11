@@ -11,11 +11,15 @@ export interface VerificationTargetSelection {
 export function selectVerificationTargetPayload(params: {
   current: AppStore;
   cachedPersistedPayload: PersistedPayload | null;
-}): VerificationTargetSelection {
-  if (
-    params.current.hasLocalUnsavedChanges
+}, options?: { requireStablePersistedPayload?: boolean }): VerificationTargetSelection | null {
+  const hasUnsafeLocalDrift = params.current.hasLocalUnsavedChanges
     || params.current.pendingBatchCount > 0
-    || params.current.unresolvedOutboxCount > 0
+    || params.current.unresolvedOutboxCount > 0;
+  if (options?.requireStablePersistedPayload && (hasUnsafeLocalDrift || !params.cachedPersistedPayload)) {
+    return null;
+  }
+  if (
+    hasUnsafeLocalDrift
     || !params.cachedPersistedPayload
   ) {
     return {

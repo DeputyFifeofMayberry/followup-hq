@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Automatic post-save verification lifecycle: committed cloud receipts now auto-verify current cloud truth
+- Wired committed Supabase saves into a guarded automatic verification scheduler so normal cloud-confirmed saves now transition to an explicit verification-pending lifecycle and trigger a background post-save re-read/compare when state is safe (clean local state, no unresolved/pending outbox work), with duplicate-run suppression for rapid successive state updates. (`src/store/useAppStore.ts`, `src/store/state/types.ts`)
+- Hardened verification target selection for automatic runs by adding a strict stable-target mode that requires the canonical cached persisted payload and refuses runtime-state fallback when local/outbox drift is present, preventing false mismatch comparisons from volatile in-memory state. (`src/store/verificationTarget.ts`, `src/store/useAppStore.ts`)
+- Clarified trust-state semantics and activity messaging for verification outcomes so “committed”, “verifying”, “verified match”, “verification read failed (saved state unchanged)”, and “mismatch/review required” remain distinct instead of collapsing into generic save states. (`src/store/verificationState.ts`, `src/lib/syncStatus.ts`, `src/store/useAppStore.ts`)
+- Expanded trust regression coverage for automatic-verification target safety and lifecycle reporting, including strict automatic target gating and a saved-verifying sync status projection. (`src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Save orchestration hardening: durable-first queue + deterministic reconnect replay
 - Refactored persistence queue orchestration so auto/manual/retry/replay saves now share one serialized in-flight pipeline (with deterministic rerun intent) instead of loosely overlapping flush attempts; this prevents duplicate concurrent sends while still guaranteeing replay runs after current flush completes. (`src/store/persistenceQueue.ts`)
 - Hardened save diagnostics and post-save orchestration state by carrying unresolved outbox + pending-operation evidence through `savePersistedPayload` and into store transitions, so no-op/partial paths no longer clear pending/degraded trust state prematurely while meaningful cloud work remains. (`src/lib/persistence.ts`, `src/store/useAppStore.ts`)

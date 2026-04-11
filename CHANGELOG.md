@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Overview mobile workspace foundation: queue-first layout with modal route inspector
+- Reworked `OverviewPage` to branch by `useViewportBand()` so phone/tablet widths use a purpose-built single-column overview surface while desktop keeps the richer split queue-plus-inspector pattern; mobile no longer depends on the desktop side-inspector layout contract. (`src/components/OverviewPage.tsx`)
+- Replaced mobile item inspection from inline side-panel rendering to `AppModal` routing detail presentation: selecting a queue row now opens `OverviewRouteInspector` in a modal, preserving route actions and context while keeping the queue as a stable base layer behind the overlay. (`src/components/OverviewPage.tsx`, `src/components/ui/AppPrimitives.tsx`)
+- Tightened phone information hierarchy by suppressing the bulky overview start strip on phone widths so search, signal filters, and triage queue remain the primary first-screen workflow for one-handed scanning and routing. (`src/components/OverviewPage.tsx`)
+
 ### Follow Ups unified interaction model: direct full editor open, no intermediate record popup
 - Removed the extra Follow Ups inspect step by changing lane row-open behavior and routed execution intents to open the full follow-up editor immediately (`openRecordEditor`) after selection, so clicking a follow-up now enters editing directly with no separate detail popup in between (`src/components/app/TrackerWorkspace.tsx`).
 - Removed the now-obsolete `FollowUpInspectorModal` surface and its modal-open state path so Follow Ups no longer maintain split `view record` vs `edit record` interaction modes for core daily workflow (`src/components/followups/FollowUpInspectorModal.tsx`, `src/components/app/TrackerWorkspace.tsx`).

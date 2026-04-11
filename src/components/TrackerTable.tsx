@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Trash2, SearchCheck } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Trash2 } from 'lucide-react';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -87,9 +87,8 @@ export function TrackerTable({
       cell: ({ row }) => {
         const matterNow = getWhatMattersNow(row.original);
         const supportMeta = [
-          row.original.project,
-          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : row.original.owner,
-          row.original.owner !== (row.original.assigneeDisplayName || row.original.owner) ? `Owner: ${row.original.owner}` : null,
+          !personalMode ? (row.original.assigneeDisplayName || row.original.owner) : `Owner: ${row.original.owner}`,
+          row.original.waitingOn ? `Waiting on ${row.original.waitingOn}` : null,
         ].filter(Boolean);
         return (
           <div className="tracker-title-cell">
@@ -133,7 +132,8 @@ export function TrackerTable({
       cell: ({ row }) => {
         const open = row.original.openLinkedTaskCount ?? 0;
         const total = row.original.linkedTaskCount ?? 0;
-        return <div className="text-xs text-slate-700">{open}/{total} open</div>;
+        const blocked = row.original.blockedLinkedTaskCount ?? 0;
+        return <div className={`text-xs ${blocked > 0 ? 'text-rose-700 font-semibold' : 'text-slate-700'}`}>{open}/{total} open{blocked > 0 ? ` • ${blocked} blocked` : ''}</div>;
       },
     },
     nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="tracker-next-move-content text-xs text-slate-600">{row.original.nextAction || 'No next move set'}</div> },
@@ -157,11 +157,10 @@ export function TrackerTable({
       ...dynamic,
       {
         id: 'quickActions',
-        header: 'Actions',
+        header: 'More',
         enableSorting: false,
         cell: ({ row }) => (
           <div className="row-quick-actions">
-            <button type="button" className="action-btn !px-2 !py-1 text-xs !font-medium" onClick={(event) => { event.stopPropagation(); onRowOpen?.(row.original.id); }}>Inspect</button>
             <div className="tracker-row-action-menu" ref={openActionMenuId === row.original.id ? actionMenuRef : null}>
                 <button
                   type="button"
@@ -185,7 +184,7 @@ export function TrackerTable({
                 }}
               >
                 <MoreHorizontal className="h-3.5 w-3.5" />
-                Actions
+                More
               </button>
             </div>
           </div>
@@ -310,9 +309,6 @@ export function TrackerTable({
   const actionMenuPortal = openActionMenuId && actionMenuPosition
     ? createPortal(
       <div className="tracker-row-action-menu-popover" role="menu" ref={actionMenuRef} style={{ top: `${actionMenuPosition.top}px`, right: `${actionMenuPosition.right}px` }}>
-        <button type="button" className="tracker-row-action-menu-item" role="menuitem" onClick={(event) => { event.stopPropagation(); onRowOpen?.(openActionMenuId); setOpenActionMenuId(null); }}>
-          <SearchCheck className="h-3.5 w-3.5" />Open inspector
-        </button>
         <button
           type="button"
           className="tracker-row-action-menu-item tracker-row-action-menu-item-danger"

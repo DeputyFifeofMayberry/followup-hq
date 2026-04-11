@@ -690,7 +690,7 @@
 .row-action-cell .action-btn { border-color: var(--border-subtle); background: #ffffff; }
 .row-quick-actions { justify-content: flex-end; display: inline-flex; align-items: center; gap: 0.3rem; }
 .tracker-row-action-menu { position: relative; }
-.tracker-row-action-trigger { min-width: 4.9rem; justify-content: center; }
+.tracker-row-action-trigger { min-width: 4rem; justify-content: center; }
 .tracker-row-action-menu-popover {
   position: fixed;
   z-index: 1300;
@@ -754,8 +754,8 @@
   position: sticky;
   right: 0;
   z-index: 3;
-  min-width: 180px;
-  width: 180px;
+  min-width: 108px;
+  width: 108px;
   background: #f8fafc;
 }
 .tracker-head-cell-actions { z-index: 4; }
@@ -797,6 +797,54 @@
 .followup-queue-field { width: min(100%, 220px); }
 .followup-search-block { width: min(100%, 460px); min-width: 0; flex: 1 1 420px; }
 .followup-duplicate-entry { opacity: 0.88; }
+.followup-maintenance-btn { opacity: 0.86; }
+.followup-maintenance-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.72rem;
+  background: #f8fbff;
+  padding: 0.52rem;
+}
+.followup-maintenance-row { display: flex; align-items: center; justify-content: space-between; gap: 0.42rem; }
+.followup-lane-summary-strip {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.8rem;
+  background: linear-gradient(180deg, #fdfefe 0%, #f5f9ff 100%);
+  padding: 0.56rem 0.68rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.followup-lane-summary-head { display: grid; gap: 0.2rem; }
+.followup-lane-summary-kicker {
+  font-size: 0.67rem;
+  font-weight: 720;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #3b4d63;
+}
+.followup-lane-summary-text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #0f2741;
+  font-weight: 620;
+}
+.followup-lane-summary-subtext { margin: 0; font-size: 0.71rem; color: #4b637d; line-height: 1.35; }
+.followup-lane-summary-stats { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.followup-lane-summary-chip {
+  border: 1px solid #d6e2ef;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 0.2rem 0.5rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  font-size: 0.67rem;
+  color: #4a6077;
+}
+.followup-lane-summary-chip strong { font-size: 0.76rem; color: #12263d; }
+.followup-lane-summary-chip-warn { border-color: #f0cca8; background: #fff7ed; }
+.followup-lane-summary-chip-danger { border-color: #f4b8b8; background: #fff3f3; }
+.followup-lane-summary-chip-info { border-color: #bfdbfe; background: #eff6ff; }
 .followup-options-panel {
   border: 1px solid var(--border-subtle);
   border-radius: 0.82rem;

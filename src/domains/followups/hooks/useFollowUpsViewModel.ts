@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
-import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, selectFollowUpQueuePressureCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
+import { buildFollowUpCounts, defaultFollowUpFilters, getActiveFollowUpRowAffectingOptions, getFollowUpLanePresentation, selectFollowUpQueuePressureCounts, selectFollowUpRows, selectFollowUpViewCounts } from '../../../lib/followUpSelectors';
 import { deriveFollowUpSelectionScope } from '../helpers/selectionScope';
 
 type FollowUpRowResetActions = {
@@ -255,6 +255,11 @@ export function useFollowUpsViewModel() {
     return `Showing ${shown} ${store.activeView.toLowerCase()} ${itemLabel}.`;
   }, [store.activeView, filteredRows.length, queueStats.overdueTouches]);
 
+  const lanePresentation = useMemo(
+    () => getFollowUpLanePresentation(store.activeView),
+    [store.activeView],
+  );
+
   return {
     ...store,
     filteredRows,
@@ -271,6 +276,7 @@ export function useFollowUpsViewModel() {
     resetAllRowAffectingOptions,
     revealFollowUpRecord,
     queueSummary,
+    lanePresentation,
     selectionScope,
     actionableSelectedFollowUpIds: selectionScope.actionableIds,
     hiddenSelectionCount: selectionScope.hiddenIds.length,

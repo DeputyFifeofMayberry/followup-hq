@@ -47,6 +47,12 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
     () => vm.items.find((item) => item.id === followUpInspector.itemId) ?? null,
     [vm.items, followUpInspector.itemId],
   );
+  const laneStats = [
+    { label: 'In queue', value: vm.filteredRows.length, tone: 'default' as const },
+    { label: 'Overdue', value: vm.queueStats.overdue, tone: vm.queueStats.overdue > 0 ? 'danger' as const : 'default' as const },
+    { label: 'Needs nudge', value: vm.queueStats.needsNudge, tone: vm.queueStats.needsNudge > 0 ? 'warn' as const : 'default' as const },
+    { label: 'Waiting', value: vm.queueStats.waiting, tone: vm.queueStats.waiting > 0 ? 'info' as const : 'default' as const },
+  ];
 
   const handlePostExecutionProgression = (recordId: string, actionLabel: string) => {
     const nextRows = selectFollowUpRows({
@@ -140,7 +146,23 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
         <WorkspacePrimaryLayout className="workspace-primary-layout-collapsed">
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main">
-              <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} />
+              <section className="followup-lane-summary-strip" aria-label="Follow-up lane summary">
+                <div className="followup-lane-summary-head">
+                  <div className="followup-lane-summary-kicker">{vm.lanePresentation.laneLabel}</div>
+                  <p className="followup-lane-summary-text">{vm.lanePresentation.laneIntent}</p>
+                  <p className="followup-lane-summary-subtext">{vm.queueSummary}</p>
+                  <p className="followup-lane-summary-subtext">Expected action: {vm.lanePresentation.expectedAction}</p>
+                </div>
+                <div className="followup-lane-summary-stats">
+                  {laneStats.map((stat) => (
+                    <div key={stat.label} className={`followup-lane-summary-chip ${stat.tone !== 'default' ? `followup-lane-summary-chip-${stat.tone}` : ''}`.trim()}>
+                      <span>{stat.label}</span>
+                      <strong>{stat.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} queuePressureCounts={vm.queuePressureCounts} />
               {revealNotice ? <div className="followup-hidden-intent-notice" role="status">{revealNotice}</div> : null}
               {laneFeedback ? <div className="followup-hidden-intent-notice" role="status">{laneFeedback}</div> : null}
               <TrackerTable

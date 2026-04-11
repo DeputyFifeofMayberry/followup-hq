@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { addDaysIso, fromDateInputValue, todayIso } from '../lib/utils';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { addDaysIso, todayIso } from '../lib/utils';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import { TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView } from '../domains/tasks/lanes';
@@ -17,7 +17,7 @@ const taskViewOptions = TASK_QUEUE_VIEWS.map((view) => ({ value: view as TaskQue
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const vm = useTasksViewModel({ personalMode });
   const { isMobileLike } = useViewportBand();
-    const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
+  const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);
   const openRecordEditor = useAppStore((s) => s.openRecordEditor);
 
   const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
@@ -136,20 +136,24 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     setLaneFeedback({ tone: 'success', message: `Deleted "${pendingDeleteTask.title}".` });
   }, [pendingDeleteTask, vm]);
 
-  const setDueToday = useCallback((task: TaskItem) => {
-    vm.updateTask(task.id, { dueDate: fromDateInputValue(todayIso()) });
-    setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due today.` });
-  }, [vm]);
-
-  const setDueTomorrow = useCallback((task: TaskItem) => {
-    vm.updateTask(task.id, { dueDate: fromDateInputValue(addDaysIso(todayIso(), 1)) });
-    setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due tomorrow.` });
-  }, [vm]);
-
   const handleCloseTaskDetail = useCallback(() => {
     setTaskDetailOpen(false);
     if (isMobileLike) vm.setSelectedTaskId(null);
   }, [isMobileLike, vm]);
+
+  const filteredTaskIds = useMemo(() => vm.filteredTasks.map((task) => task.id), [vm.filteredTasks]);
+
+  useEffect(() => {
+    if (!vm.selectedTaskId || flowState) return;
+    if (filteredTaskIds.includes(vm.selectedTaskId)) return;
+    const progression = getExecutionLaneNextSelection(filteredTaskIds, vm.selectedTaskId, [vm.selectedTaskId]);
+    vm.setSelectedTaskId(progression.nextSelectedId);
+    setTaskDetailOpen(Boolean(progression.nextSelectedId));
+  }, [vm.selectedTaskId, vm.setSelectedTaskId, filteredTaskIds, flowState]);
+
+  useEffect(() => {
+    setLaneFeedback(null);
+  }, [vm.view, vm.searchQuery, vm.projectFilter, vm.assigneeFilter, vm.taskOwnerFilter, vm.taskStatusFilter, vm.linkedFilter, vm.timingFilter, vm.stateFilter, vm.priorityFilter, vm.sortBy]);
 
   const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
   const queueIntent = TASK_LANE_DEFINITIONS[vm.view].intent;
@@ -248,24 +252,16 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             laneFeedback={laneFeedback}
             onSelectTask={handleSelectTask}
             onDoneTask={handleDoneTask}
-            onSetDueToday={setDueToday}
-            onSetDueTomorrow={setDueTomorrow}
-            onOpenLinkedFollowUp={(task) => task.linkedFollowUpId ? onOpenLinkedFollowUp(task.linkedFollowUpId) : undefined}
-            onRequestDeleteTask={requestDeleteTask}
             getParentLinkedFollowUpId={vm.hasLinkedFollowUp}
             renderNowSignal={vm.getTaskSignal}
             completedToday={vm.completedToday}
             view={vm.view}
-            hasActiveNarrowing={vm.activeFilterCount > 0 || vm.view !== 'all'}
+            hasActiveNarrowing={vm.activeFilterCount > 0}
             activeFilterLabels={[
               ...(vm.view !== 'all' ? [`Queue: ${taskViewOptions.find((option) => option.value === vm.view)?.label ?? vm.view}`] : []),
               ...vm.activeFilterChips.map((chip) => chip.label),
             ]}
-            onResetFilters={() => {
-              vm.setView('all');
-              vm.clearSearchQuery();
-              vm.resetPanelFilters();
-            }}
+            onResetFilters={vm.resetPanelFilters}
           />
 
           </ExecutionLaneQueueCard>

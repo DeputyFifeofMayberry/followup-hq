@@ -206,13 +206,13 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
   const projectOptions = useMemo(() => ['All', ...store.projects.map((project) => project.name)], [store.projects]);
 
   const queueSummary = useMemo(() => {
-    if (view === 'today') return `Now lane: ${filteredTasks.length} execution-ready tasks due today or ready now (${taskSummary.overdue} overdue tracked separately).`;
-    if (view === 'review') return `Review lane: ${filteredTasks.length} tasks need trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
-    if (view === 'overdue') return `Overdue lane: ${filteredTasks.length} late tasks need recovery moves and clear owners.`;
-    if (view === 'deferred') return `Deferred lane: ${filteredTasks.length} intentionally snoozed tasks not yet ready to re-enter.`;
-    if (view === 'recent') return `Done today lane: ${filteredTasks.length} tasks completed today.`;
-    if (view === 'all') return `All open lane: ${taskSummary.open} open · ${taskSummary.overdue} overdue · ${taskSummary.blocked} blocked · ${taskSummary.reviewRequired} review needed.`;
-    return `${TASK_LANE_DEFINITIONS[view].label}: ${filteredTasks.length} tasks in this operational queue.`;
+    if (view === 'today') return `Now queue: ${filteredTasks.length} execution-ready tasks due today or ready to pull now.`;
+    if (view === 'review') return `Review needed queue: ${filteredTasks.length} tasks require trust cleanup (${taskSummary.reviewNotReady} not execution-ready).`;
+    if (view === 'overdue') return `Overdue queue: ${filteredTasks.length} late tasks need recovery moves and clear ownership.`;
+    if (view === 'deferred') return `Deferred queue: ${filteredTasks.length} intentionally snoozed tasks waiting to re-enter execution.`;
+    if (view === 'recent') return `Done today queue: ${filteredTasks.length} tasks completed today.`;
+    if (view === 'all') return `All open queue: ${taskSummary.open} open · ${taskSummary.overdue} overdue · ${taskSummary.blocked} blocked · ${taskSummary.reviewRequired} review needed.`;
+    return `${TASK_LANE_DEFINITIONS[view].label} queue: ${filteredTasks.length} tasks in this operational scope.`;
   }, [filteredTasks.length, taskSummary, view]);
 
   const activeFilterCount = useMemo(() => (

@@ -17,4 +17,12 @@ describe('execution lane selection helpers', () => {
   it('falls back to previous row when removed item was at end', () => {
     expect(getExecutionLaneNextSelection(['a', 'b'], 'c', ['c'])).toEqual({ nextSelectedId: 'b', reason: 'fallback_previous' });
   });
+
+  it('advances to first visible row when selected item is no longer visible after queue narrowing', () => {
+    expect(getExecutionLaneNextSelection(['b', 'c'], 'a')).toEqual({ nextSelectedId: 'b', reason: 'advanced_next' });
+  });
+
+  it('clears selection when queue becomes empty', () => {
+    expect(getExecutionLaneNextSelection([], 'a')).toEqual({ nextSelectedId: null, reason: 'cleared' });
+  });
 });

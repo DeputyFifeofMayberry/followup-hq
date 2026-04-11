@@ -2,6 +2,10 @@
 
 ## 2026-04-11
 
+### Save/trust integration hardening: remove false cloud-confirmed projection in local-only modes
+- Fixed a high-risk trust-model contradiction in sync-status derivation where local-only persistence modes could project the internal `cloud-confirmed` stage despite only local durability, which could trigger misleading confidence transitions and cloud-confirmation cues. Local-only flows now consistently resolve to `saved-local` with device-accurate wording, while Supabase pending-cloud messaging remains explicit about cloud catch-up. (`src/lib/syncStatus.ts`)
+- Expanded sync trust regression coverage to lock local-only semantics across browser and desktop local modes, including an assertion that local-only states never map to the cloud-confirmed stage. (`src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Save-trust shell UX redesign: explicit real-time confidence stages in header + calm confirmation cues
 - Rebuilt the primary save indicator model around explicit trust stages (`Unsaved changes`, `Saving changes`, `Saved locally, awaiting cloud`, `Cloud confirmed`, `Verifying current cloud state`, `Verified`, `Offline — queued locally`, `Needs attention`) so day-to-day confidence is visible directly in the shell without opening diagnostics. (`src/lib/syncStatus.ts`)
 - Refactored status precedence to follow the actual persistence lifecycle (dirty/saving/local durable/pending cloud/confirmed/verification/offline/degraded) and removed ambiguous generic “Saved” projections when confidence is still transitional. (`src/lib/syncStatus.ts`)

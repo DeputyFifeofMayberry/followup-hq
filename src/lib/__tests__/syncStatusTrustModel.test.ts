@@ -90,7 +90,7 @@ function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
   assert(model.primaryState === 'saved', `expected saved primary state in browser mode, got ${model.primaryState}`);
   assert(model.stateLabel === 'Saved locally', `expected Saved locally label in browser mode, got ${model.stateLabel}`);
   assert(model.stateTone === 'success', `expected success tone for local-only saved state, got ${model.stateTone}`);
-  assert(model.stateDescription === 'Changes saved on this device; cloud sync will resume automatically', `expected local-only saved description, got ${model.stateDescription}`);
+  assert(model.stateDescription === 'Changes are saved on this device profile only.', `expected local-only saved description, got ${model.stateDescription}`);
 }
 
 function testPendingCloudFeelsTransitionalNotDangerous(): void {
@@ -122,6 +122,19 @@ function testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving(): void {
   });
   assert(model.primaryState === 'saved', `queued lifecycle without unsaved work should not show saving, got ${model.primaryState}`);
   assert(model.stateLabel === 'Saved locally, awaiting cloud', `queued lifecycle without unsaved work should stay in awaiting-cloud state, got ${model.stateLabel}`);
+}
+
+function testLocalOnlyModesNeverProjectCloudConfirmedStage(): void {
+  const tauriModel = getSyncStatusModel({
+    ...baseMeta(),
+    persistenceMode: 'tauri-sqlite',
+    cloudSyncStatus: 'local-only-confirmed',
+    localRevision: 3,
+    lastCloudConfirmedRevision: 0,
+  });
+  assert(tauriModel.stage === 'saved-local', `tauri local mode should remain saved-local stage, got ${tauriModel.stage}`);
+  assert(tauriModel.stateLabel === 'Saved locally', `tauri local mode should use saved-local label, got ${tauriModel.stateLabel}`);
+  assert(tauriModel.stateDescription === 'Changes are saved on this device.', `tauri local mode should use local-only wording, got ${tauriModel.stateDescription}`);
 }
 
 function testFallbackCasesMapToNeedsAttention(): void {
@@ -457,6 +470,7 @@ function testExplicitPipelineStateLabels(): void {
   testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
   testPendingCloudFeelsTransitionalNotDangerous();
   testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving();
+  testLocalOnlyModesNeverProjectCloudConfirmedStage();
   testFallbackCasesMapToNeedsAttention();
   testBackendSetupIssueMapsToNeedsAttention();
   testFailureNarrativesAreCalmAndSpecific();

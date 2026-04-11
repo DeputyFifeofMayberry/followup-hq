@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Follow Ups mobile queue redesign: triage-first cards, focused actions, and cleaner mobile editor handoff
+- Reworked the mobile-only Follow Ups lane surface (`TrackerMobileList`) from dense record cards into a triage-first queue model with a clearer hierarchy: title + strongest status signals, one urgency line, one explicit next-move line, and one compact support line (project/owner/waiting), reducing per-card noise while keeping daily action context obvious. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
+- Simplified mobile card action hierarchy so tap-on-card remains the primary “open full editor” workflow, one high-frequency quick action (`Log touch`) stays visible, and lower-frequency actions (`Mark nudged`, `Snooze 2d`, `Delete`) move into a compact overflow menu; delete remains available but no longer has equal visual weight with routine actions. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
+- Improved mobile scanability/spacing with stronger card separation, cleaner signal chips, quieter secondary metadata, and reduced repeated wording so overdue/touch-due/waiting cues are faster to parse in a one-handed queue pass. (`src/styles/workspaces.css`)
+- Updated shared modal behavior at phone widths so full record editing opens in a true mobile overlay pattern (full-height/full-width modal panel with safe-area-aware padding), reinforcing the queue → authoritative full editor flow without desktop-sized dialog constraints on small screens. (`src/styles/primitives.css`)
+
 ### Overview mobile workspace foundation: queue-first layout with modal route inspector
 - Reworked `OverviewPage` to branch by `useViewportBand()` so phone/tablet widths use a purpose-built single-column overview surface while desktop keeps the richer split queue-plus-inspector pattern; mobile no longer depends on the desktop side-inspector layout contract. (`src/components/OverviewPage.tsx`)
 - Replaced mobile item inspection from inline side-panel rendering to `AppModal` routing detail presentation: selecting a queue row now opens `OverviewRouteInspector` in a modal, preserving route actions and context while keeping the queue as a stable base layer behind the overlay. (`src/components/OverviewPage.tsx`, `src/components/ui/AppPrimitives.tsx`)

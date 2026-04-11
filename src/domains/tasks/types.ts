@@ -4,6 +4,7 @@ export type {
   TaskItem,
   TaskStatus,
   TaskSort,
+  TaskQueueView,
   TaskView,
   TaskTimingFilter,
   TaskStateFilter,

@@ -7,7 +7,7 @@ import type {
   TaskSort,
   TaskStateFilter as StateFilter,
   TaskTimingFilter as TimingFilter,
-  TaskView,
+  TaskQueueView,
 } from '../../domains/tasks';
 import type { TaskStatus } from '../../types';
 
@@ -16,9 +16,9 @@ type TaskToolbarProps = {
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   onClearSearch: () => void;
-  view: TaskView;
-  onViewChange: (value: TaskView) => void;
-  taskViewOptions: Array<{ value: TaskView; label: string }>;
+  view: TaskQueueView;
+  onViewChange: (value: TaskQueueView) => void;
+  taskViewOptions: Array<{ value: TaskQueueView; label: string }>;
   viewOptionsOpen: boolean;
   onToggleViewOptions: () => void;
   activeFilterCount: number;
@@ -222,7 +222,7 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
         </label>
 
         <label className="field-block task-view-picker">
-          <select value={view} onChange={(event) => onViewChange(event.target.value as TaskView)} className="field-input">
+          <select value={view} onChange={(event) => onViewChange(event.target.value as TaskQueueView)} className="field-input">
             {taskViewOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>

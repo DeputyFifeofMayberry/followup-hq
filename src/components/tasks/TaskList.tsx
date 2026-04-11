@@ -2,7 +2,7 @@ import { Badge } from '../Badge';
 import { EmptyState } from '../ui/AppPrimitives';
 import { formatDate } from '../../lib/utils';
 import type { TaskItem } from '../../types';
-import type { TaskQueueView } from '../../domains/tasks/lanes';
+import type { TaskQueueView } from '../../domains/tasks';
 
 type TaskSignal = {
   whyNow: string;

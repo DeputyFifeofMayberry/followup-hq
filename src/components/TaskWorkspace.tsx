@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDaysIso, todayIso } from '../lib/utils';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
-import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
-import { TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView } from '../domains/tasks/lanes';
+import { getTaskFlowDefaults, TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useViewportBand } from '../hooks/useViewport';
@@ -12,7 +11,7 @@ import { TaskInspectorModal } from './tasks/TaskInspectorModal';
 import { TaskActionFlow } from './tasks/TaskActionFlow';
 import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/helpers';
 
-const taskViewOptions = TASK_QUEUE_VIEWS.map((view) => ({ value: view as TaskQueueView, label: TASK_LANE_DEFINITIONS[view].label }));
+const taskViewOptions: Array<{ value: TaskQueueView; label: string }> = TASK_QUEUE_VIEWS.map((view) => ({ value: view, label: TASK_LANE_DEFINITIONS[view].label }));
 
 export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
   const vm = useTasksViewModel({ personalMode });

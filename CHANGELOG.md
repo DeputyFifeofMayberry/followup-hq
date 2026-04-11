@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Mobile cross-page refinement pass: aligned Follow Ups controls with Overview/Tasks queue model
+- Completed a cross-page mobile coherence pass across Overview, Follow Ups, and Tasks by fixing the highest remaining interaction drift: Follow Ups now uses the same queue-first mobile control pattern as Tasks (compact queue/search controls, active-filter summary strip, and on-demand filter modal instead of an always-expanded desktop-style control wall), so all three core workspaces start from a consistent “scan queue first, then open controls” mobile posture. (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`)
+- Aligned mobile overlay close behavior language across core queue/detail surfaces by shifting Overview route inspector and Tasks detail mobile close affordances to explicit **Back to queue** wording, reducing close/return ambiguity when moving between Overview triage, Follow Ups, and Tasks workflows. (`src/components/OverviewPage.tsx`, `src/components/tasks/TaskInspectorModal.tsx`)
+- Preserved desktop behavior while applying mobile-specific refinements: Follow Ups desktop still uses the existing expanded filters-and-layout panel, while mobile now receives a dedicated filter modal with clear reset and return actions to match Tasks’ established control hierarchy and reduce top-of-page density. (`src/components/ControlBar.tsx`)
+
 ### Tasks mobile detail/list workflow cleanup: triage-first queue cards and action-focused mobile detail flow
 - Reworked mobile task queue cards to prioritize execution scanning over inline controls: each card now emphasizes title, strongest urgency signal, next move, and compact timing/linkage metadata while removing on-row mobile action clusters so tap-to-open remains the single primary interaction. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)
 - Tightened mobile task detail into an execution-first structure with clear sections for signal, primary actions, timing shortcuts, and essential edits; lower-frequency controls (owner/assignee/context/full edit/delete/closeout) now live under a secondary details disclosure so common actions stay reachable without dense desktop-style clutter. (`src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`)

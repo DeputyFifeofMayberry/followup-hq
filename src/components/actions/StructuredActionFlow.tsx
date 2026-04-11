@@ -14,6 +14,7 @@ interface StructuredActionFlowProps {
   warnings?: string[];
   blockers?: string[];
   result?: { tone: 'success' | 'warn' | 'danger'; message: string } | null;
+  isMobileLike?: boolean;
 }
 
 export function StructuredActionFlow({
@@ -29,11 +30,12 @@ export function StructuredActionFlow({
   warnings = [],
   blockers = [],
   result,
+  isMobileLike = false,
 }: StructuredActionFlowProps) {
   if (!open) return null;
 
   return (
-    <AppModal size="compact" onClose={onCancel} onBackdropClick={onCancel}>
+    <AppModal size={isMobileLike ? 'standard' : 'compact'} onClose={onCancel} onBackdropClick={onCancel}>
       <AppModalHeader title={title} subtitle={subtitle} onClose={onCancel} closeLabel={cancelLabel} />
       <AppModalBody>
         {children}

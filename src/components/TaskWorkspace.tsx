@@ -71,6 +71,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
   }, [taskDetailOpen, vm.selectedTaskId, vm.selectedTask]);
 
   const openTaskFlow = useCallback((task: TaskItem, kind: 'done' | 'block' | 'unblock' | 'defer') => {
+    if (isMobileLike) setTaskDetailOpen(false);
     setFlowState({ kind, taskId: task.id });
     const defaults = getTaskFlowDefaults(task);
     setCompletionNoteDraft(defaults.completionNoteDraft);
@@ -80,7 +81,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     setFlowWarnings([]);
     setFlowBlockers([]);
     setFlowResult(null);
-  }, []);
+  }, [isMobileLike]);
 
   const closeTaskFlow = useCallback(() => setFlowState(null), []);
 
@@ -113,6 +114,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     }
 
     setFlowState(null);
+    if (isMobileLike) setTaskDetailOpen(false);
     setLaneFeedback({
       tone: result.validation.warnings.length ? 'warn' : 'success',
       message: flowState.kind === 'done'
@@ -123,7 +125,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             ? `Unblocked "${task.title}".`
             : `Deferred "${task.title}" until ${deferDateDraft}.`,
     });
-  }, [flowState, vm.tasks, vm.attemptTaskTransition, completionNoteDraft, blockReasonDraft, nextReviewDraft, deferDateDraft]);
+  }, [flowState, vm.tasks, vm.attemptTaskTransition, completionNoteDraft, blockReasonDraft, nextReviewDraft, deferDateDraft, isMobileLike]);
 
   const runRecommendedTaskAction = useCallback(() => {
     if (!vm.selectedTask || !vm.recommendedAction) return;
@@ -164,6 +166,11 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     vm.updateTask(task.id, { dueDate: fromDateInputValue(addDaysIso(todayIso(), 1)) });
     setLaneFeedback({ tone: 'success', message: `Set "${task.title}" due tomorrow.` });
   }, [vm]);
+
+  const handleCloseTaskDetail = useCallback(() => {
+    setTaskDetailOpen(false);
+    if (isMobileLike) vm.setSelectedTaskId(null);
+  }, [isMobileLike, vm]);
 
   const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
   const queueIntent = queueIntentByView[vm.view];
@@ -297,7 +304,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         ownerOptions={vm.ownerOptions}
         assigneeOptions={vm.assigneeOptions}
         renderNowSignal={vm.getTaskSignal}
-        onClose={() => setTaskDetailOpen(false)}
+        onClose={handleCloseTaskDetail}
         onRunRecommendedTaskAction={runRecommendedTaskAction}
         onOpenTaskFlow={openTaskFlow}
         onUpdateTask={vm.updateTask}
@@ -323,6 +330,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         onBlockReasonChange={setBlockReasonDraft}
         onDeferDateChange={setDeferDateDraft}
         onNextReviewChange={setNextReviewDraft}
+        isMobileLike={isMobileLike}
       />
       {pendingDeleteTask ? (
         <AppModal onClose={() => setPendingDeleteTask(null)} onBackdropClick={() => setPendingDeleteTask(null)}>

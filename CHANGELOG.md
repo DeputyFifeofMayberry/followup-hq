@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Tasks mobile detail/list workflow cleanup: triage-first queue cards and action-focused mobile detail flow
+- Reworked mobile task queue cards to prioritize execution scanning over inline controls: each card now emphasizes title, strongest urgency signal, next move, and compact timing/linkage metadata while removing on-row mobile action clusters so tap-to-open remains the single primary interaction. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)
+- Tightened mobile task detail into an execution-first structure with clear sections for signal, primary actions, timing shortcuts, and essential edits; lower-frequency controls (owner/assignee/context/full edit/delete/closeout) now live under a secondary details disclosure so common actions stay reachable without dense desktop-style clutter. (`src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`)
+- Reduced mobile modal stacking friction by closing task detail before task transition dialogs (complete/block/unblock/defer), expanding action-flow modal sizing for phone use, and clearing mobile selection on close so queue return behavior is predictable after actions. (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskActionFlow.tsx`, `src/components/actions/StructuredActionFlow.tsx`)
+
 ### Tasks mobile controls/filter redesign: queue-first compact toolbar with on-demand filter sheet
 - Reworked `TaskToolbar` mobile behavior into a compact queue-first control model: fast queue chips (`Now`, `Overdue`, `Upcoming`, `All open`) stay always visible, search remains inline, and active filter state is summarized in a small strip instead of expanding dense controls above the queue. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
 - Moved mobile advanced filtering into a dedicated modal workflow with in-sheet active filter chips and one-tap clear/reset actions, preserving full filtering capability while removing the desktop-style “wall of selects” from initial mobile view. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)

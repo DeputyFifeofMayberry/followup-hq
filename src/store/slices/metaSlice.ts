@@ -2,6 +2,7 @@ import { loadPersistedPayload, type PersistenceLoadError } from '../../lib/persi
 import { defaultExecutionViews } from '../../lib/unifiedQueue';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
+import { defaultTaskWorkspaceSession } from '../../domains/tasks';
 import { resolveProjectName, todayIso } from '../../lib/utils';
 import { normalizeContact, normalizeCompany } from '../../domains/relationships/helpers';
 import { deriveProjects, normalizeProjectRecord, projectCanonicalKey } from '../../domains/projects/helpers';
@@ -158,6 +159,10 @@ export function createMetaSlice(
           intakeReviewerFeedback: payload.auxiliary.intakeReviewerFeedback ?? [],
           savedExecutionViews: payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews,
           followUpFilters: payload.auxiliary.followUpFilters ?? defaultFollowUpFilters,
+          taskWorkspaceSession: {
+            ...defaultTaskWorkspaceSession,
+            ...(payload.auxiliary.taskWorkspaceSession ?? {}),
+          },
           followUpColumns: payload.auxiliary.followUpColumns?.length ? payload.auxiliary.followUpColumns : (['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary'] as FollowUpColumnKey[]),
           savedFollowUpViews: payload.auxiliary.savedFollowUpViews ?? [],
           followUpTableDensity: payload.auxiliary.followUpTableDensity ?? 'compact',

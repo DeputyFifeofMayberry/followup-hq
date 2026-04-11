@@ -43,7 +43,7 @@ function assert(condition: boolean, message: string) {
   });
   state = useAppStore.getState();
   assert(state.selectedTaskId === 'TASK-22', 'task record-open should select the target task');
-  assert(state.taskStatusFilter === 'All', 'task record-open should not force blocked status scope');
+  assert(state.taskWorkspaceSession.statusFilter === 'All', 'task record-open should not force blocked status scope');
   assert(JSON.stringify(state.executionFilter.types) === JSON.stringify(['task']), 'task record-open should keep task lane filter type');
   assert(state.executionFilter.blockedOnly === false, 'task record-open should clear blocked-only narrowing');
 
@@ -53,7 +53,7 @@ function assert(condition: boolean, message: string) {
     section: 'blocked',
   });
   state = useAppStore.getState();
-  assert(state.taskStatusFilter === 'Blocked', 'task section-open should preserve blocked status scope');
+  assert(state.taskWorkspaceSession.statusFilter === 'Blocked', 'task section-open should preserve blocked status scope');
   assert(JSON.stringify(state.executionFilter.types) === JSON.stringify(['task']), 'task section-open should target task rows');
   assert(state.executionFilter.blockedOnly === true, 'task section-open should narrow to blocked rows');
 })();

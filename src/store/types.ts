@@ -26,6 +26,7 @@ import type {
   SavedViewKey,
   TaskItem,
   TaskStatus,
+  TaskWorkspaceSession,
   UnifiedQueueItem,
   UnifiedQueueFilter,
   UnifiedQueuePreset,
@@ -114,8 +115,8 @@ export interface AppStoreActions {
   openDraftModal: (id: string) => void;
   closeDraftModal: () => void;
   setSelectedTaskId: (id: string | null) => void;
-  setTaskOwnerFilter: (value: string) => void;
-  setTaskStatusFilter: (value: 'All' | TaskStatus) => void;
+  setTaskWorkspaceSession: (patch: Partial<TaskWorkspaceSession>) => void;
+  resetTaskWorkspaceSession: (options?: { preserveView?: boolean; preserveSearch?: boolean }) => void;
   openCreateTaskModal: () => void;
   openCreateWorkModal: () => void;
   openCreateFromCapture: (draft: UniversalCaptureDraft) => void;

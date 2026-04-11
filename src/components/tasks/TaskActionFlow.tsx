@@ -18,6 +18,7 @@ type TaskActionFlowProps = {
   onBlockReasonChange: (value: string) => void;
   onDeferDateChange: (value: string) => void;
   onNextReviewChange: (value: string) => void;
+  isMobileLike?: boolean;
 };
 
 export const TaskActionFlow = memo(function TaskActionFlow({
@@ -35,6 +36,7 @@ export const TaskActionFlow = memo(function TaskActionFlow({
   onBlockReasonChange,
   onDeferDateChange,
   onNextReviewChange,
+  isMobileLike = false,
 }: TaskActionFlowProps) {
   const subtitle = flowState?.kind === 'block'
     ? 'Capture why it is blocked and set the next review date.'
@@ -55,6 +57,7 @@ export const TaskActionFlow = memo(function TaskActionFlow({
       warnings={flowWarnings}
       blockers={flowBlockers}
       result={flowResult}
+      isMobileLike={isMobileLike}
     >
       {flowState?.kind === 'done' ? <CompletionNoteSection value={completionNoteDraft} onChange={onCompletionNoteChange} /> : null}
       {flowState?.kind === 'block' ? <BlockReasonSection value={blockReasonDraft} onChange={onBlockReasonChange} /> : null}

@@ -39,6 +39,11 @@ function summarizeMeta(task: TaskItem) {
   return clean.length > 78 ? `${clean.slice(0, 75)}…` : clean;
 }
 
+function truncate(value: string, limit: number) {
+  if (!value) return '';
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
+}
+
 export function TaskList({
   isMobileLike = false,
   filteredTasks,
@@ -80,6 +85,8 @@ export function TaskList({
         const urgentLabel = signal.isOverdue ? 'Overdue' : task.status === 'Blocked' ? 'Blocked' : signal.needsReview ? 'Review' : null;
 
         if (isMobileLike) {
+          const compactWhyNow = truncate(signal.whyNow, 72);
+          const compactNextMove = truncate(signal.nextMove, 78);
           return (
             <article key={task.id} className={`tracker-mobile-card task-mobile-queue-card ${isSelected ? 'tracker-mobile-card-active' : ''}`}>
               <button type="button" className="tracker-mobile-main" onClick={() => onSelectTask(task.id)}>
@@ -90,27 +97,15 @@ export function TaskList({
                     <Badge kind="meta" variant="neutral">{task.priority}</Badge>
                   </div>
                 </div>
-                <p className="tracker-mobile-mainline">{signal.whyNow}</p>
-                <p className="tracker-mobile-next-move"><strong>Next:</strong> {signal.nextMove}</p>
+                <p className="tracker-mobile-next-move"><strong>Next:</strong> {compactNextMove}</p>
+                <p className="tracker-mobile-mainline">{compactWhyNow}</p>
                 <div className="scan-row-badge-cluster task-row-meta-chips">
-                  <Badge kind="meta" variant="neutral">{task.project}</Badge>
                   <Badge kind="meta" variant="neutral">{dueLabel}</Badge>
-                  <Badge kind="meta" variant="neutral">{linkedLabel}</Badge>
+                  {(task.status === 'Blocked' || signal.isOverdue || signal.needsReview) ? null : <Badge kind="meta" variant="neutral">{task.project}</Badge>}
+                  {linkedLabel === 'Unlinked' ? <Badge kind="meta" variant="neutral">Needs linkage</Badge> : null}
                 </div>
                 {metaSummary ? <p className="tracker-mobile-support">{metaSummary}</p> : null}
               </button>
-              <div className="tracker-mobile-actions-row">
-                {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="primary-btn tracker-mobile-primary-action">Complete</button> : <span className="tracker-mobile-support">Completed</span>}
-                <details className="tracker-mobile-more-actions task-mobile-more-actions">
-                  <summary><span className="action-btn tracker-mobile-more-trigger">More</span></summary>
-                  <div className="tracker-mobile-more-menu">
-                    <button onClick={() => onSetDueToday(task)} className="tracker-mobile-more-menu-item">Today</button>
-                    <button onClick={() => onSetDueTomorrow(task)} className="tracker-mobile-more-menu-item"><CalendarClock className="h-3.5 w-3.5" />Tomorrow</button>
-                    {task.linkedFollowUpId ? <button onClick={() => onOpenLinkedFollowUp(task)} className="tracker-mobile-more-menu-item"><ArrowRightCircle className="h-3.5 w-3.5" />Linked</button> : null}
-                    <button onClick={() => onRequestDeleteTask(task)} className="tracker-mobile-more-menu-item tracker-mobile-more-menu-item-danger">Delete</button>
-                  </div>
-                </details>
-              </div>
             </article>
           );
         }

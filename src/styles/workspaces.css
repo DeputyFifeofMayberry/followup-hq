@@ -509,6 +509,12 @@
   .execution-lane-toolbar-scaffold { grid-template-columns: 1fr; }
   .execution-lane-toolbar-zone-right { justify-content: flex-start; }
   .task-queue-summary-strip { padding: 0.52rem 0.55rem; }
+  .task-mobile-queue-card { padding: 0.52rem; }
+  .task-mobile-queue-card .tracker-mobile-title-row h3 { font-size: 0.82rem; }
+  .task-mobile-queue-card .tracker-mobile-next-move { font-size: 0.72rem; }
+  .task-mobile-queue-card .tracker-mobile-mainline { font-size: 0.68rem; }
+  .task-mobile-queue-card .task-row-meta-chips { gap: 0.3rem; }
+  .task-mobile-queue-card .tracker-mobile-support { display: none; }
 }
 .task-workspace-header-metrics {
   display: flex;
@@ -639,6 +645,27 @@
 .task-quick-edit-actions { display: flex; justify-content: flex-end; gap: 0.35rem; }
 .task-link-context-panel { opacity: 0.94; }
 .task-maintenance-body { margin-top: 0.45rem; display: grid; gap: 0.45rem; }
+.task-mobile-inspector-flow { display: grid; gap: 0.65rem; }
+.task-mobile-signal-stack { margin-top: 0.56rem; display: grid; gap: 0.2rem; }
+.task-mobile-signal-title { margin: 0; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4b637a; }
+.task-mobile-signal-line { margin: 0; font-size: 0.78rem; line-height: 1.35; color: #163047; }
+.task-mobile-primary-actions { margin-top: 0.45rem; display: grid; gap: 0.42rem; }
+.task-mobile-recommended-action { width: 100%; justify-content: center; min-height: 2.1rem; }
+.task-mobile-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.38rem; }
+.task-mobile-action-grid .action-btn { min-height: 2rem; justify-content: center; }
+.task-mobile-action-grid-secondary .action-btn { border-style: dashed; }
+.task-mobile-edit-grid { display: grid; gap: 0.44rem; }
+.task-mobile-secondary-details summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+.task-mobile-secondary-details summary::-webkit-details-marker { display: none; }
+.task-mobile-secondary-panel { margin-top: 0.6rem; display: grid; gap: 0.42rem; }
 
 /* Fix 2: Inline quick-add row */
 .task-quick-add-row { padding: 0.3rem 0.6rem 0.18rem; border-bottom: 1px solid var(--border-subtle); }

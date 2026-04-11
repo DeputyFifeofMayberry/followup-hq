@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-11
+
+### Tasks + Follow Ups inspection model reset: side inspectors replaced with modal workspaces
+- Replaced the Tasks lane split master-detail dependency with a modal-first inspection flow: selecting a task now opens Task detail in a large overlay dialog, while the queue layout stays single-column/full-width with no reserved right inspector column or selection-driven page reflow (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskInspectorModal.tsx`).
+- Replaced the Follow Ups lane desktop side inspector with a large modal inspection surface and explicit open/close state management decoupled from row selection; selecting from the table now opens a follow-up detail modal while preserving queue density and keeping the list as the primary surface (`src/components/app/TrackerWorkspace.tsx`, `src/components/followups/FollowUpInspectorModal.tsx`).
+- Preserved inspection workflows/actions in modal context (status updates, waiting/snooze/escalate/close/delete actions, edit-context access, linked navigation) by reusing the existing detail components inside the new modal container rather than introducing a separate reduced detail implementation (`src/components/ItemDetailPanel.tsx`, `src/components/actions/FollowUpActionModal.tsx`).
+- Removed obsolete task panel-only styling tied to the prior side-inspector presentation so the new modal path is the single maintained inspection pattern for Tasks (`src/styles/workspaces.css`).
+
 ## 2026-04-10
 
 ### Tasks queue trust fix: existing tasks no longer disappear from queue visibility

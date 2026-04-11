@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { addDaysIso, fromDateInputValue, todayIso } from '../lib/utils';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneInspectorCard, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -178,8 +178,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
     <WorkspacePage>
       <WorkspaceContentFrame>
         <WorkspacePrimaryLayout
-          inspectorWidth="330px"
-          className={`task-workspace-layout ${!isMobileLike && taskDetailOpen && vm.selectedTask ? '' : 'workspace-primary-layout-collapsed'}`.trim()}
+          className="task-workspace-layout workspace-primary-layout-collapsed"
         >
           <ExecutionLaneQueueCard className="task-workspace-main-card">
             <section className="task-queue-summary-strip" aria-label="Task queue summary">
@@ -281,57 +280,29 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           />
 
           </ExecutionLaneQueueCard>
-
-          {!isMobileLike && taskDetailOpen && vm.selectedTask ? (
-            <ExecutionLaneInspectorCard>
-              <TaskInspectorModal
-                open={taskDetailOpen}
-                presentation="panel"
-                selectedTask={vm.selectedTask}
-                linkedFollowUp={vm.linkedFollowUpForSelected}
-                linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
-                linkedParentRollup={vm.linkedParentRollup}
-                linkedParentCloseout={vm.linkedParentCloseout}
-                recommendedAction={vm.recommendedAction}
-                ownerOptions={vm.ownerOptions}
-                assigneeOptions={vm.assigneeOptions}
-                renderNowSignal={vm.getTaskSignal}
-                onClose={() => setTaskDetailOpen(false)}
-                onRunRecommendedTaskAction={runRecommendedTaskAction}
-                onOpenTaskFlow={openTaskFlow}
-                onUpdateTask={vm.updateTask}
-                onRequestDeleteTask={requestDeleteTask}
-                onOpenLinkedFollowUp={onOpenLinkedFollowUp}
-                onOpenRecordDrawer={openRecordDrawer}
-                onOpenRecordEditor={openRecordEditor}
-              />
-            </ExecutionLaneInspectorCard>
-          ) : null}
         </WorkspacePrimaryLayout>
       </WorkspaceContentFrame>
 
-      {isMobileLike ? (
-        <TaskInspectorModal
-          open={taskDetailOpen}
-          selectedTask={vm.selectedTask}
-          linkedFollowUp={vm.linkedFollowUpForSelected}
-          linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
-          linkedParentRollup={vm.linkedParentRollup}
-          linkedParentCloseout={vm.linkedParentCloseout}
-          recommendedAction={vm.recommendedAction}
-          ownerOptions={vm.ownerOptions}
-          assigneeOptions={vm.assigneeOptions}
-          renderNowSignal={vm.getTaskSignal}
-          onClose={() => setTaskDetailOpen(false)}
-          onRunRecommendedTaskAction={runRecommendedTaskAction}
-          onOpenTaskFlow={openTaskFlow}
-          onUpdateTask={vm.updateTask}
-          onRequestDeleteTask={requestDeleteTask}
-          onOpenLinkedFollowUp={onOpenLinkedFollowUp}
-          onOpenRecordDrawer={openRecordDrawer}
-          onOpenRecordEditor={openRecordEditor}
-        />
-      ) : null}
+      <TaskInspectorModal
+        open={taskDetailOpen}
+        selectedTask={vm.selectedTask}
+        linkedFollowUp={vm.linkedFollowUpForSelected}
+        linkedTaskOpenCount={vm.linkedTasksForSelectedParent.filter((task) => task.status !== 'Done').length}
+        linkedParentRollup={vm.linkedParentRollup}
+        linkedParentCloseout={vm.linkedParentCloseout}
+        recommendedAction={vm.recommendedAction}
+        ownerOptions={vm.ownerOptions}
+        assigneeOptions={vm.assigneeOptions}
+        renderNowSignal={vm.getTaskSignal}
+        onClose={() => setTaskDetailOpen(false)}
+        onRunRecommendedTaskAction={runRecommendedTaskAction}
+        onOpenTaskFlow={openTaskFlow}
+        onUpdateTask={vm.updateTask}
+        onRequestDeleteTask={requestDeleteTask}
+        onOpenLinkedFollowUp={onOpenLinkedFollowUp}
+        onOpenRecordDrawer={openRecordDrawer}
+        onOpenRecordEditor={openRecordEditor}
+      />
 
       <TaskActionFlow
         flowState={flowState}

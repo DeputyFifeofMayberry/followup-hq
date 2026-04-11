@@ -10,7 +10,6 @@ import { AppBadge, AppModal, AppModalBody, AppModalFooter, AppModalHeader, Secti
 
 type TaskInspectorModalProps = {
   open: boolean;
-  presentation?: 'modal' | 'panel';
   selectedTask: TaskItem | null;
   linkedFollowUp: FollowUpItem | null;
   linkedTaskOpenCount: number;
@@ -58,7 +57,6 @@ function buildDraft(task: TaskItem): EditDraft {
 
 export const TaskInspectorModal = memo(function TaskInspectorModal({
   open,
-  presentation = 'modal',
   selectedTask,
   linkedFollowUp,
   linkedTaskOpenCount,
@@ -201,26 +199,8 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
     </div>
   );
 
-  if (presentation === 'panel') {
-    return (
-      <section className="task-inspector-panel">
-        <div className="task-inspector-panel-head">
-          <div>
-            <div className="workspace-inspector-section-title">Task detail</div>
-            <div className="task-inspector-panel-title">{selectedTask.title}</div>
-            <div className="workspace-inspector-section-subtitle">{selectedTask.project} • {selectedTask.assigneeDisplayName || selectedTask.owner}</div>
-          </div>
-          <button onClick={onClose} className="action-btn !px-2 !py-1 text-xs">Close</button>
-        </div>
-        <div className="task-inspector-panel-body">
-          {inspectorContent}
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <AppModal size="inspector" onBackdropClick={onClose} onClose={onClose}>
+    <AppModal size="wide" onBackdropClick={onClose} onClose={onClose} ariaLabel="Task detail">
       <AppModalHeader
         title={selectedTask.title}
         subtitle={`${selectedTask.project} • ${selectedTask.assigneeDisplayName || selectedTask.owner}`}

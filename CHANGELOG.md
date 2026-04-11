@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Tasks Prompt 3: execution-first inspector hierarchy redesign
+- Refactored `TaskInspectorModal` into a stricter execution hierarchy so the inspector now reads as: **Why now → What to do next → Quick edit essentials → Linked context → Maintenance/full edit**, reducing mixed-priority scanning and making the next operational move obvious at open. (`src/components/tasks/TaskInspectorModal.tsx`)
+- Reduced quick-edit sprawl to live queue fields only (`nextStep`, `dueDate`, `priority`) and removed maintenance-grade edits (status, block reason, deferred date, owner/assignee/context payload edits) from the in-lane inspector to preserve structured action-flow transitions as the primary path for workflow state moves. (`src/components/tasks/TaskInspectorModal.tsx`)
+- Demoted non-primary shortcuts (`Due today`, `Due tomorrow`) into a quieter secondary action cluster and removed duplicate linked-follow-up/edit affordances from primary action weight so structured transition actions remain the dominant execution controls on both desktop and mobile. (`src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`)
+- Updated Task workspace wiring to match the tighter inspector contract and removed no-longer-needed quick-edit option props from modal integration points. (`src/components/TaskWorkspace.tsx`)
+- Added focused regression coverage that locks the quick-edit scope contract to execution-only fields, preventing future drift back into mini full-editor behavior inside the inspector. (`src/components/tasks/TaskInspectorModal.test.ts`)
+
 ### Tasks Prompt 2: unified workspace-session state ownership + persistence cleanup
 - Replaced fragmented Tasks workspace state ownership (hook-local `useState`, ad hoc `localStorage`, and split UI store fields) with a single authoritative `taskWorkspaceSession` model in app state, covering lane/view, search, sort, and all queue-level filters (project, assignee, owner, status, linkage, timing, operational state, priority). (`src/types.ts`, `src/domains/tasks/types.ts`, `src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/slices/uiSlice.ts`)
 - Refactored `useTasksViewModel` to consume/update one session object and removed direct localStorage preference writes for lane/sort from the hook, so session behavior is now predictable and centrally owned with explicit store actions (`setTaskWorkspaceSession`, `resetTaskWorkspaceSession`). (`src/domains/tasks/hooks/useTasksViewModel.ts`)

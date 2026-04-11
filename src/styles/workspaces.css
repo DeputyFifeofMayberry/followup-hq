@@ -644,6 +644,8 @@
 }
 .task-inspector-actions { display: flex; flex-wrap: wrap; gap: 0.48rem; }
 .task-inspector-actions .primary-btn { box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14); }
+.task-inspector-action-maintenance { display: flex; flex-wrap: wrap; gap: 0.4rem; opacity: 0.9; }
+.task-inspector-action-maintenance .action-btn { border-style: dashed; }
 .task-quick-edit-grid { display: grid; gap: 0.42rem; }
 .task-quick-edit-actions { display: flex; justify-content: flex-end; gap: 0.35rem; }
 .task-link-context-panel { opacity: 0.94; }

@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Follow Ups mobile card/action cleanup: triage-first hierarchy with safer action density
+- Simplified `TrackerMobileList` follow-up cards into a mobile triage hierarchy (title, single urgency zone, explicit next move, compact support line), removing repeated urgency phrasing and excess row-level metadata so cards scan faster and show more queue items per screen. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
+- Kept `Next move` as primary decision content with a clear missing-state treatment (`No next move set yet`) so users can quickly distinguish direction-ready follow-ups from records that still need plan clarity. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
+- Tightened mobile action hierarchy and touch safety by preserving card-tap as primary open behavior, limiting visible quick actions to `Log touch` for active records, and keeping lower-frequency/destructive operations (`Mark nudged`, `Snooze 2d`, `Delete`) inside overflow to reduce accidental taps and action noise. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
+
 ### Tasks mobile execution workspace redesign: queue-first controls, filter sheet, and touch-first detail flow
 - Rebuilt the Tasks mobile control model into a queue-first layout: mobile now surfaces quick queue switching (`Now`, `Overdue`, `Upcoming`, `All open`) as primary chips, keeps search inline, and moves advanced filtering into a dedicated modal sheet so the task queue is immediately usable without scrolling through a desktop-style filter wall. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
 - Reworked mobile task list rendering into purpose-built execution cards with clearer hierarchy (`why now`, `next move`, compact metadata) and action-weighted controls (`Complete` as primary with secondary actions in overflow), while preserving existing desktop row behavior. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)

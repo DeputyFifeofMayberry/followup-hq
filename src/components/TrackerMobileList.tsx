@@ -18,21 +18,44 @@ type TrackerMobileListProps = {
   onResetFilters?: () => void;
 };
 
-function getPrimarySignal(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success' } {
+function getUrgencySignal(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success'; context?: string } {
   const dueDelta = daysUntil(item.dueDate);
   const touchDelta = daysUntil(item.nextTouchDate);
 
-  if (item.status === 'Closed') return { label: 'Closed', tone: 'success' };
-  if (isOverdue(item)) return { label: `Overdue ${Math.abs(dueDelta)}d`, tone: 'danger' };
-  if (needsNudge(item)) return { label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today', tone: 'warn' };
-  if (item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn) return { label: 'Waiting', tone: 'info' };
-  return { label: 'On track', tone: 'success' };
+  if (item.status === 'Closed') {
+    return { label: 'Closed', tone: 'success', context: 'No action needed unless reopened.' };
+  }
+
+  if (isOverdue(item)) {
+    return {
+      label: `Overdue ${Math.abs(dueDelta)}d`,
+      tone: 'danger',
+      context: `Due ${formatDate(item.dueDate)}`,
+    };
+  }
+
+  if (needsNudge(item)) {
+    return {
+      label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today',
+      tone: 'warn',
+      context: touchDelta < 0 ? `Last touch slipped by ${Math.abs(touchDelta)}d` : 'Run the next touch update today.',
+    };
+  }
+
+  if (item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn) {
+    return {
+      label: 'Waiting',
+      tone: 'info',
+      context: item.waitingOn ? `Waiting on ${item.waitingOn}` : 'Waiting for response',
+    };
+  }
+
+  return { label: 'On track', tone: 'success', context: `Due ${formatDate(item.dueDate)}` };
 }
 
 function getSupportLine(item: FollowUpItem, personalMode: boolean) {
   const assignee = personalMode ? item.owner : (item.assigneeDisplayName || item.owner);
-  const waitingOn = item.waitingOn ? `Waiting: ${item.waitingOn}` : null;
-  return [item.project, assignee, waitingOn].filter(Boolean).join(' • ');
+  return [item.project, assignee].filter(Boolean).join(' • ');
 }
 
 export function TrackerMobileList({
@@ -59,9 +82,8 @@ export function TrackerMobileList({
         ) : (
           items.map((item) => {
             const active = selectedId === item.id;
-            const primarySignal = getPrimarySignal(item);
-            const touchDelta = daysUntil(item.nextTouchDate);
-            const dueDelta = daysUntil(item.dueDate);
+            const urgency = getUrgencySignal(item);
+            const hasNextMove = Boolean(item.nextAction?.trim());
 
             return (
               <article key={item.id} className={active ? 'tracker-mobile-card tracker-mobile-card-active' : 'tracker-mobile-card'}>
@@ -70,34 +92,30 @@ export function TrackerMobileList({
                     <h3>{item.title}</h3>
                     <div className="tracker-mobile-badges">
                       <Badge variant={statusTone(item.status)}>{item.status}</Badge>
-                      {(item.priority === 'High' || item.priority === 'Critical') ? <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge> : null}
                     </div>
                   </div>
 
-                  <div className="tracker-mobile-signals">
-                    <AppBadge tone={primarySignal.tone}>{primarySignal.label}</AppBadge>
-                    {isOverdue(item) ? <AppBadge tone="danger">Due {formatDate(item.dueDate)}</AppBadge> : null}
-                    {!isOverdue(item) && needsNudge(item) ? <AppBadge tone={touchDelta < 0 ? 'warn' : 'info'}>{touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today'}</AppBadge> : null}
+                  <div className="tracker-mobile-urgency">
+                    <AppBadge tone={urgency.tone}>{urgency.label}</AppBadge>
+                    {(item.priority === 'High' || item.priority === 'Critical') ? <Badge variant={priorityTone(item.priority)}>{item.priority}</Badge> : null}
+                    {urgency.context ? <p className="tracker-mobile-urgency-context">{urgency.context}</p> : null}
                   </div>
 
-                  <p className="tracker-mobile-mainline">
-                    {isOverdue(item)
-                      ? `Needs attention now • Due ${formatDate(item.dueDate)} (${Math.abs(dueDelta)}d ${dueDelta < 0 ? 'late' : 'remaining'})`
-                      : needsNudge(item)
-                        ? `Needs touch • ${touchDelta < 0 ? `${Math.abs(touchDelta)}d overdue` : 'touch due today'}`
-                        : item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn
-                          ? `Waiting state • ${item.waitingOn || 'Awaiting response'}`
-                          : `Next checkpoint • Due ${formatDate(item.dueDate)}`}
+                  <p className={hasNextMove ? 'tracker-mobile-next-move' : 'tracker-mobile-next-move tracker-mobile-next-move-missing'}>
+                    <strong>Next move:</strong> {hasNextMove ? item.nextAction : 'No next move set yet'}
                   </p>
 
-                  <p className="tracker-mobile-next-move">Next move: <strong>{item.nextAction || 'Set the next move in the editor'}</strong></p>
                   <p className="tracker-mobile-support">{getSupportLine(item, personalMode)}</p>
                 </button>
 
                 <div className="tracker-mobile-actions-row">
-                  <button type="button" className="action-btn tracker-mobile-primary-action" onClick={() => onLogTouch(item.id)}>
-                    <Hand className="h-4 w-4" />Log touch
-                  </button>
+                  {item.status !== 'Closed' ? (
+                    <button type="button" className="action-btn tracker-mobile-primary-action" onClick={() => onLogTouch(item.id)}>
+                      <Hand className="h-4 w-4" />Log touch
+                    </button>
+                  ) : (
+                    <span className="tracker-mobile-secondary-label">Closed</span>
+                  )}
 
                   <details className="tracker-mobile-more-actions" onClick={(event) => event.stopPropagation()}>
                     <summary className="action-btn tracker-mobile-more-trigger">

@@ -35,7 +35,7 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
       <div className="support-workspace-shell">
         <div>
           {vm.tab === 'projects' ? <DirectoryProjectsPane vm={vm} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
-          {vm.tab === 'people' ? <PeopleDirectoryPane vm={vm} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
+          {vm.tab === 'people' ? <PeopleDirectoryPane vm={vm} onOpenDirectoryRecord={onOpenDirectoryRecord} onOpenFollowUp={onOpenFollowUp} onOpenTask={onOpenTask} /> : null}
           {vm.tab === 'companies' ? <CompaniesDirectoryPane vm={vm} onOpenDirectoryRecord={onOpenDirectoryRecord} /> : null}
         </div>
         <aside className="support-layout-card support-layout-card-quiet">

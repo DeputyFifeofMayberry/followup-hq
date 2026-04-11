@@ -40,19 +40,25 @@ let persistenceQueue: PersistenceQueueController | null = null;
 let pendingAutomaticVerificationKey: string | null = null;
 let automaticVerificationInFlightKey: string | null = null;
 let automaticVerificationTimer: ReturnType<typeof setTimeout> | null = null;
+let completedAutomaticVerificationKey: string | null = null;
+let verificationLifecyclePromise: Promise<void> | null = null;
 
-function canRunAutomaticVerification(state: AppStore): boolean {
+export function canRunAutomaticVerification(state: AppStore): boolean {
   return state.persistenceMode === 'supabase'
     && state.lastReceiptStatus === 'committed'
     && Boolean(state.lastConfirmedBatchId)
+    && state.saveProof.cloudProofState === 'confirmed'
     && !state.hasLocalUnsavedChanges
     && state.pendingBatchCount === 0
     && state.unresolvedOutboxCount === 0
     && state.syncState !== 'saving'
-    && state.verificationState !== 'running';
+    && state.outboxState !== 'flushing'
+    && state.cloudSyncState !== 'sending'
+    && state.verificationState !== 'running'
+    && !verificationLifecyclePromise;
 }
 
-function buildAutomaticVerificationKey(
+export function buildAutomaticVerificationKey(
   state: Pick<AppStore, 'lastConfirmedBatchId' | 'lastConfirmedBatchCommittedAt' | 'localRevision'>,
   mode: VerificationMode,
 ): string {
@@ -66,6 +72,8 @@ export function resetPersistenceQueueController(): void {
   persistenceQueue = null;
   pendingAutomaticVerificationKey = null;
   automaticVerificationInFlightKey = null;
+  completedAutomaticVerificationKey = null;
+  verificationLifecyclePromise = null;
   if (automaticVerificationTimer) {
     clearTimeout(automaticVerificationTimer);
     automaticVerificationTimer = null;
@@ -74,90 +82,104 @@ export function resetPersistenceQueueController(): void {
 
 export const useAppStore = create<AppStore>()((set, get) => {
   const runVerificationLifecycle = async (mode: VerificationMode): Promise<void> => {
-    const startedAt = new Date().toISOString();
-    set(() => ({
-      verificationState: 'running',
-      lastVerificationStartedAt: startedAt,
-      lastVerificationFailureMessage: undefined,
-    }));
+    if (verificationLifecyclePromise) return verificationLifecyclePromise;
 
-    try {
-      const current = get();
-      const cachedPersistedPayload = await readLocalPersistedPayloadSnapshot();
-      const verificationTarget = selectVerificationTargetPayload(
-        { current, cachedPersistedPayload },
-        mode === 'manual' ? undefined : { requireStablePersistedPayload: true },
-      );
-      if (!verificationTarget) {
+    const lifecycle = (async () => {
+      const startedAt = new Date().toISOString();
+      set((state) => ({
+        verificationState: 'running',
+        lastVerificationStartedAt: startedAt,
+        lastVerificationFailureMessage: undefined,
+        persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+          kind: 'saving',
+          summary: mode === 'manual' ? 'Manual cloud verification started.' : 'Automatic cloud verification started.',
+          detail: 'FollowUp HQ is reading cloud state and comparing it with the latest persisted payload.',
+        })),
+      }));
+
+      try {
+        const current = get();
+        const cachedPersistedPayload = await readLocalPersistedPayloadSnapshot();
+        const verificationTarget = selectVerificationTargetPayload(
+          { current, cachedPersistedPayload },
+          mode === 'manual' ? undefined : { requireStablePersistedPayload: true },
+        );
+        if (!verificationTarget) {
+          throw new Error('Stable persisted payload unavailable for verification. Cloud read verification was skipped until saved state stabilizes.');
+        }
+
+        const result = await verifyPersistedState({
+          target: {
+            payload: verificationTarget.payload,
+            schemaVersionClient: current.lastReceiptSchemaVersion,
+            lastLocalWriteAt: current.lastLocalWriteAt,
+            localPayloadSource: verificationTarget.source,
+          },
+          context: {
+            mode,
+            basedOnBatchId: current.lastConfirmedBatchId,
+            basedOnCommittedAt: current.lastConfirmedBatchCommittedAt,
+            includePreviews: true,
+            maxMismatchPreviewCount: 50,
+          },
+        });
+
+        const derived = deriveVerificationMetaFromResult(result);
+
         set((state) => ({
-          verificationState: 'pending',
+          verificationState: derived.verificationState,
+          lastVerificationRunId: result.summary.runId,
+          lastVerificationStartedAt: result.summary.startedAt,
+          lastVerificationCompletedAt: result.summary.completedAt,
+          lastVerificationMatched: result.summary.verified,
+          lastVerificationMismatchCount: result.summary.mismatchCount,
+          lastVerificationBasedOnBatchId: result.summary.basedOnBatchId,
+          lastVerificationFailureMessage: derived.failureMessage,
+          verificationSummary: result.summary,
+          latestVerificationResult: result,
+          recoveryReviewNeeded: derived.recoveryReviewNeeded,
+          reviewedMismatchIds: derived.recoveryReviewNeeded ? state.reviewedMismatchIds : [],
           persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
             kind: 'saved',
-            summary: 'Skipped automatic verification until saved state stabilizes.',
-            detail: 'Cloud verification will run automatically after pending local/outbox changes clear.',
+            summary: derived.activitySummary,
+            detail: derived.activityDetail,
           })),
         }));
-        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Verification failed.';
+        set((state) => ({
+          verificationState: 'failed',
+          lastVerificationCompletedAt: new Date().toISOString(),
+          lastVerificationMatched: false,
+          lastVerificationFailureMessage: message,
+          recoveryReviewNeeded: state.recoveryReviewNeeded,
+          persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
+            kind: 'failed',
+            summary: 'Could not verify current cloud match.',
+            detail: message,
+          })),
+        }));
       }
-      const result = await verifyPersistedState({
-        target: {
-          payload: verificationTarget.payload,
-          schemaVersionClient: current.lastReceiptSchemaVersion,
-          lastLocalWriteAt: current.lastLocalWriteAt,
-          localPayloadSource: verificationTarget.source,
-        },
-        context: {
-          mode,
-          basedOnBatchId: current.lastConfirmedBatchId,
-          basedOnCommittedAt: current.lastConfirmedBatchCommittedAt,
-          includePreviews: true,
-          maxMismatchPreviewCount: 50,
-        },
-      });
+    })();
 
-      const derived = deriveVerificationMetaFromResult(result);
-
-      set((state) => ({
-        verificationState: derived.verificationState,
-        lastVerificationRunId: result.summary.runId,
-        lastVerificationStartedAt: result.summary.startedAt,
-        lastVerificationCompletedAt: result.summary.completedAt,
-        lastVerificationMatched: result.summary.verified,
-        lastVerificationMismatchCount: result.summary.mismatchCount,
-        lastVerificationBasedOnBatchId: result.summary.basedOnBatchId,
-        lastVerificationFailureMessage: derived.failureMessage,
-        verificationSummary: result.summary,
-        latestVerificationResult: result,
-        recoveryReviewNeeded: derived.recoveryReviewNeeded,
-        reviewedMismatchIds: derived.recoveryReviewNeeded ? state.reviewedMismatchIds : [],
-        persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
-          kind: 'saved',
-          summary: derived.activitySummary,
-          detail: derived.activityDetail,
-        })),
-      }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Verification failed.';
-      set((state) => ({
-        verificationState: 'failed',
-        lastVerificationCompletedAt: new Date().toISOString(),
-        lastVerificationMatched: false,
-        lastVerificationFailureMessage: message,
-        recoveryReviewNeeded: state.recoveryReviewNeeded,
-        persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
-          kind: 'failed',
-          summary: 'Could not verify current cloud match.',
-          detail: message,
-        })),
-      }));
-    }
+    verificationLifecyclePromise = lifecycle;
+    return lifecycle.finally(() => {
+      if (verificationLifecyclePromise === lifecycle) verificationLifecyclePromise = null;
+    });
   };
 
   const scheduleAutomaticVerification = (mode: VerificationMode, summary: string, detail: string) => {
     const current = get();
     if (!canRunAutomaticVerification(current)) return;
     const key = buildAutomaticVerificationKey(current, mode);
-    if (key === pendingAutomaticVerificationKey || key === automaticVerificationInFlightKey) return;
+    if (
+      key === pendingAutomaticVerificationKey
+      || key === automaticVerificationInFlightKey
+      || key === completedAutomaticVerificationKey
+    ) {
+      return;
+    }
+
     pendingAutomaticVerificationKey = key;
     set((state) => ({
       verificationState: state.verificationState === 'running' ? state.verificationState : 'pending',
@@ -168,17 +190,33 @@ export const useAppStore = create<AppStore>()((set, get) => {
         detail,
       })),
     }));
+
     if (automaticVerificationTimer) clearTimeout(automaticVerificationTimer);
     automaticVerificationTimer = setTimeout(() => {
       automaticVerificationTimer = null;
       const latest = get();
-      if (!canRunAutomaticVerification(latest)) return;
       const latestKey = buildAutomaticVerificationKey(latest, mode);
-      if (pendingAutomaticVerificationKey !== latestKey) return;
+
+      if (pendingAutomaticVerificationKey !== latestKey) {
+        if (pendingAutomaticVerificationKey === key) pendingAutomaticVerificationKey = null;
+        return;
+      }
+
+      if (!canRunAutomaticVerification(latest)) {
+        pendingAutomaticVerificationKey = null;
+        set((state) => ({
+          verificationState: state.verificationState === 'pending' ? 'idle' : state.verificationState,
+        }));
+        return;
+      }
+
       pendingAutomaticVerificationKey = null;
       automaticVerificationInFlightKey = latestKey;
       void runVerificationLifecycle(mode).finally(() => {
-        if (automaticVerificationInFlightKey === latestKey) automaticVerificationInFlightKey = null;
+        if (automaticVerificationInFlightKey === latestKey) {
+          automaticVerificationInFlightKey = null;
+        }
+        completedAutomaticVerificationKey = latestKey;
       });
     }, 0);
   };
@@ -270,7 +308,6 @@ export const useAppStore = create<AppStore>()((set, get) => {
           }),
           onSaved: (mode, timestamp, reason, didPersist, diagnostics) => {
             let shouldSchedulePostSaveVerification = false;
-            let shouldSetVerificationPending = false;
             set((state) => {
               const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
               const saveKind = getSaveResultKind(mode, didPersist);
@@ -281,10 +318,17 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const hasConfirmedCloudReceipt = mode === 'supabase'
                 && postSave.saveProof.latestReceiptStatus === 'committed'
                 && Boolean(postSave.saveProof.latestConfirmedBatchId);
-              shouldSetVerificationPending = hasConfirmedCloudReceipt;
+              const autoVerificationKey = buildAutomaticVerificationKey({
+                lastConfirmedBatchId: postSave.lastConfirmedBatchId,
+                lastConfirmedBatchCommittedAt: postSave.lastConfirmedBatchCommittedAt,
+                localRevision: nextLocalRevision,
+              }, 'post-save');
               shouldSchedulePostSaveVerification = hasConfirmedCloudReceipt
                 && !hasOutstandingCloudWork
-                && !state.hasLocalUnsavedChanges;
+                && !state.hasLocalUnsavedChanges
+                && state.outboxState !== 'flushing'
+                && state.cloudSyncState !== 'sending'
+                && autoVerificationKey !== completedAutomaticVerificationKey;
               const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
                 ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`
                 : '';
@@ -403,11 +447,6 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 ),
               };
             });
-            if (shouldSetVerificationPending) {
-              set((state) => ({
-                verificationState: state.verificationState === 'running' ? state.verificationState : 'pending',
-              }));
-            }
             if (shouldSchedulePostSaveVerification) {
               scheduleAutomaticVerification(
                 'post-save',

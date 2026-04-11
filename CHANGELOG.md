@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Verification lifecycle stuck-state fix: deterministic auto-verification scheduling and terminal settlement
+- Fixed the root verification lifecycle gap that could leave trust UI stuck on “Verifying cloud state”: automatic post-save verification now runs behind a strict single-run scheduler with commit-proof gating, replay/send/unsaved guards, and duplicate-key suppression that persists after completion so repeated no-op/replay saves cannot re-enter endless pending loops. (`src/store/useAppStore.ts`)
+- Hardened verification settlement semantics so every started verification now resolves to a terminal state (`verified-match`, `mismatch-found`, `read-failed`, or `failed`) and missing stable verification targets no longer park the store in non-terminal `pending`; failures now log explicit activity traces for start/fail/complete visibility. (`src/store/useAppStore.ts`)
+- Updated sync status precedence to ignore stale `pending` signals once a verification completion timestamp/result exists, ensuring header/panel state exits “Verifying current cloud state” immediately when underlying store has already settled. (`src/lib/syncStatus.ts`)
+- Expanded trust regression coverage for safe automatic verification gating/keying and stale-verifying UI precedence so post-save verification can’t get trapped in perpetual transitional state. (`src/store/__tests__/useAppStore.persistenceMeta.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Save/trust integration hardening: remove false cloud-confirmed projection in local-only modes
 - Fixed a high-risk trust-model contradiction in sync-status derivation where local-only persistence modes could project the internal `cloud-confirmed` stage despite only local durability, which could trigger misleading confidence transitions and cloud-confirmation cues. Local-only flows now consistently resolve to `saved-local` with device-accurate wording, while Supabase pending-cloud messaging remains explicit about cloud catch-up. (`src/lib/syncStatus.ts`)
 - Expanded sync trust regression coverage to lock local-only semantics across browser and desktop local modes, including an assertion that local-only states never map to the cloud-confirmed stage. (`src/lib/__tests__/syncStatusTrustModel.test.ts`)

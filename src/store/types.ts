@@ -58,6 +58,7 @@ export interface AppStoreActions {
   initializeApp: () => Promise<void>;
   flushPersistenceNow: () => Promise<void>;
   retryPersistenceNow: () => Promise<void>;
+  replayPendingPersistenceNow: () => Promise<void>;
   setConnectivityState: (state: 'online' | 'offline' | 'degraded') => void;
   resetForLogout: () => void;
 

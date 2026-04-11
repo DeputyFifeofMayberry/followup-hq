@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Save orchestration hardening: durable-first queue + deterministic reconnect replay
+- Refactored persistence queue orchestration so auto/manual/retry/replay saves now share one serialized in-flight pipeline (with deterministic rerun intent) instead of loosely overlapping flush attempts; this prevents duplicate concurrent sends while still guaranteeing replay runs after current flush completes. (`src/store/persistenceQueue.ts`)
+- Hardened save diagnostics and post-save orchestration state by carrying unresolved outbox + pending-operation evidence through `savePersistedPayload` and into store transitions, so no-op/partial paths no longer clear pending/degraded trust state prematurely while meaningful cloud work remains. (`src/lib/persistence.ts`, `src/store/useAppStore.ts`)
+- Tightened reconnect behavior to use explicit replay intent (`replayPendingPersistenceNow`) with backoff, in-flight/timer guards, and reconnect activity messaging that reflects actual pending outbox conditions instead of silently retrying generic save paths. (`src/hooks/useConnectivitySync.ts`, `src/store/types.ts`, `src/store/useAppStore.ts`)
+- Expanded queue regression coverage to assert replay intent is preserved and executed exactly once after an in-flight save, preventing duplicate replay loops during rapid reconnect/save overlap. (`src/store/__tests__/persistenceQueue.reset.test.ts`)
+
 ### Startup trust restoration hardening: canonical save proof now drives hydration state
 - Fixed startup trust drift by making `initializeApp` hydrate meta trust/receipt state directly from canonical `saveProof` evidence (batch id, receipt status/hash/schema/tables/operation counts, failure class/message, cloud commit time) instead of rebuilding confidence from scattered legacy fields. (`src/store/slices/metaSlice.ts`)
 - Refactored startup sync derivation so canonical proof is now primary when available; fallback inference remains for older cache shapes only, and fallback timestamps are restored from persisted proof/cache times instead of “now,” preventing misleading degraded-session timing on reopen. (`src/store/slices/syncMetaDerivation.ts`)

@@ -202,6 +202,11 @@ export interface SaveDiagnostics {
   sanitizedEntityTypes?: string[];
   payloadIssuePaths?: string[];
   payloadIssueRecordIds?: string[];
+  unresolvedOutboxCountBeforeSave?: number;
+  unresolvedOutboxCountAfterSave?: number;
+  pendingOperationCount?: number;
+  skippedCloudSend?: boolean;
+  replayAttempted?: boolean;
 }
 
 export interface SaveResult {
@@ -1334,6 +1339,7 @@ export async function savePersistedPayload(
     sanitizedFieldCount: sanitization.report.fieldCount,
     sanitizedEntityTypes: sanitization.report.touchedEntityTypes,
     payloadIssuePaths: sanitization.report.issues.slice(0, 25).map((issue) => issue.path),
+    unresolvedOutboxCountBeforeSave: unresolvedOutbox.length,
   };
 
   diagnostics.payloadIssueRecordIds = sanitization.report.issues
@@ -1405,15 +1411,31 @@ export async function savePersistedPayload(
         cloudProofState: 'local-only',
       },
     }, currentUserId);
-    return { mode: 'browser', diagnostics };
+    return { mode: 'browser', diagnostics: { ...diagnostics, unresolvedOutboxCountAfterSave: 0, pendingOperationCount: 0 } };
   }
 
   if (pendingOperations.length === 0 && unresolvedOutbox.length === 0 && (existingCache?.lastCloudConfirmedRevision ?? 0) >= nextLocalRevision) {
-    return { mode: 'supabase', diagnostics };
+    return {
+      mode: 'supabase',
+      diagnostics: {
+        ...diagnostics,
+        unresolvedOutboxCountAfterSave: 0,
+        pendingOperationCount: 0,
+        skippedCloudSend: true,
+      },
+    };
   }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return { mode: 'supabase', diagnostics };
+    return {
+      mode: 'supabase',
+      diagnostics: {
+        ...diagnostics,
+        unresolvedOutboxCountAfterSave: unresolvedOutbox.length,
+        pendingOperationCount: pendingOperations.length,
+        skippedCloudSend: true,
+      },
+    };
   }
 
   const schemaHealth = await runPersistenceSchemaHealthCheck(currentUserId, {
@@ -1478,7 +1500,17 @@ export async function savePersistedPayload(
       retryCount: 0,
     }, currentUserId);
   }
-  if (!batchEntry) return { mode: 'supabase', diagnostics };
+  if (!batchEntry) {
+    return {
+      mode: 'supabase',
+      diagnostics: {
+        ...diagnostics,
+        unresolvedOutboxCountAfterSave: unresolvedOutbox.length,
+        pendingOperationCount: pendingOperations.length,
+      },
+    };
+  }
+  diagnostics.replayAttempted = unresolvedOutbox.length > 0;
 
   const excessiveDeletes = pendingOperations.filter((operation) => operation.operation === 'delete').length;
   if (excessiveDeletes > STALE_DELETE_ABORT_THRESHOLD) {
@@ -1571,7 +1603,15 @@ export async function savePersistedPayload(
       },
     }, currentUserId);
 
-    return { mode: 'supabase', diagnostics };
+    const unresolvedAfterCommit = await listUnresolvedOutboxEntries(await loadOutboxState(currentUserId));
+    return {
+      mode: 'supabase',
+      diagnostics: {
+        ...diagnostics,
+        unresolvedOutboxCountAfterSave: unresolvedAfterCommit.length,
+        pendingOperationCount: unresolvedAfterCommit.reduce((total, entry) => total + entry.operationCount, 0),
+      },
+    };
   } catch (error) {
     const normalized = normalizePersistenceError(error, { operation: 'save' });
     const rawMessage = formatPersistenceErrorMessage(normalized);

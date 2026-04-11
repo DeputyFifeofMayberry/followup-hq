@@ -104,8 +104,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 : state.sessionDegradedReason === 'backend-missing-hashing-support'
                   ? 'Cloud sync blocked by backend hashing failure.'
                 : 'Cloud sync blocked by schema mismatch.'
-              : reason === 'retry'
-                ? 'Retry in progress.'
+              : reason === 'replay'
+                ? 'Reconnect detected — replaying pending changes.'
+                : reason === 'retry'
+                  ? 'Retry in progress.'
                 : reason === 'manual'
                   ? 'Saving latest changes.'
                   : 'Saving latest changes.';
@@ -120,6 +122,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   : state.connectivityState === 'offline'
                     ? 'offline-pending'
                     : 'sending',
+              pendingBatchCount: Math.max(
+                state.pendingBatchCount,
+                state.unsavedChangeCount,
+                state.unresolvedOutboxCount,
+              ),
               saveError: '',
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
@@ -128,6 +135,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
             set((state) => {
               const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
               const saveKind = getSaveResultKind(mode, didPersist);
+              const unresolvedAfterSave = diagnostics?.unresolvedOutboxCountAfterSave ?? state.unresolvedOutboxCount;
+              const pendingOperationCount = diagnostics?.pendingOperationCount ?? state.pendingBatchCount;
+              const hasOutstandingCloudWork = unresolvedAfterSave > 0 || pendingOperationCount > 0;
               const nextLocalRevision = didPersist ? state.localRevision + 1 : state.localRevision;
               const hasConfirmedCloudReceipt = mode === 'supabase'
                 && postSave.saveProof.latestReceiptStatus === 'committed'
@@ -143,7 +153,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 || diagnostics?.failureKind === 'backend_hashing_failure'
                 || diagnostics?.failureKind === 'backend_rpc_exposure_cache'
                 || diagnostics?.failureKind === 'backend_schema_mismatch';
-              const saveSummary = reason === 'retry'
+              const saveSummary = reason === 'replay'
+                ? hasOutstandingCloudWork
+                  ? 'Reconnect replay attempted; pending cloud work remains.'
+                  : 'Reconnect replay completed.'
+                : reason === 'retry'
                 ? recoveredByCloudSave
                   ? 'Retry completed and trust restored.'
                   : 'Retry completed.'
@@ -156,6 +170,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 : 'No new changes to save.';
               const saveDetail = saveKind === 'cloud-confirmed'
                 ? `Your latest updates are confirmed in cloud storage.${diagnostics?.batchId ? ` Batch ${diagnostics.batchId}.` : ''}${staleDeleteDetail}`
+                : hasOutstandingCloudWork
+                  ? state.connectivityState === 'offline' || diagnostics?.skippedCloudSend
+                    ? 'Local durable copy updated. Cloud replay is pending until connectivity is restored.'
+                    : `Local durable copy updated. ${unresolvedAfterSave} unresolved batch${unresolvedAfterSave === 1 ? '' : 'es'} still pending cloud confirmation.`
                 : saveKind === 'local-only'
                   ? `Your latest updates are saved on this device.${staleDeleteDetail}`
                   : backendBlocked
@@ -201,25 +219,29 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 lastCloudConfirmedRevision: hasConfirmedCloudReceipt
                   ? Math.max(nextLocalRevision, state.lastCloudConfirmedRevision)
                   : state.lastCloudConfirmedRevision,
-                pendingBatchCount: 0,
                 localSaveState: 'saved',
                 cloudSyncState: mode !== 'supabase'
                   ? 'confirmed'
                   : hasConfirmedCloudReceipt
                     ? 'confirmed'
+                    : hasOutstandingCloudWork
+                      ? state.connectivityState === 'offline' || diagnostics?.skippedCloudSend
+                        ? 'offline-pending'
+                        : 'queued'
                     : state.connectivityState === 'offline'
                       ? 'offline-pending'
                       : (nextLocalRevision > state.lastCloudConfirmedRevision ? 'queued' : 'confirmed'),
                 trustState: postSave.sessionDegraded ? 'degraded' : (postSave.sessionTrustState === 'recovered' ? 'recovered' : 'healthy'),
-                outboxState: 'idle',
-                unresolvedOutboxCount: 0,
+                outboxState: hasOutstandingCloudWork ? 'queued' : 'idle',
+                unresolvedOutboxCount: unresolvedAfterSave,
                 lastOutboxFlushAt: timestamp,
                 lastFallbackRestoreAt: state.lastFallbackRestoreAt,
                 unsavedChangeCount: 0,
                 hasLocalUnsavedChanges: false,
                 dirtyRecordRefs: [],
-                pendingOfflineChangeCount: 0,
-                cloudSyncStatus: postSave.cloudSyncStatus,
+                pendingOfflineChangeCount: state.connectivityState === 'offline' || diagnostics?.skippedCloudSend ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
+                cloudSyncStatus: hasOutstandingCloudWork ? 'pending-cloud' : postSave.cloudSyncStatus,
+                pendingBatchCount: hasOutstandingCloudWork ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
                 loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
                 sessionTrustState: postSave.sessionTrustState,
                 sessionDegraded: postSave.sessionDegraded,
@@ -336,7 +358,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
                     ? 'Cloud sync waiting on REST schema cache.'
                     : diagnostics?.failureKind === 'backend_schema_mismatch'
                       ? 'Cloud setup required: schema mismatch.'
-                      : reason === 'retry'
+                      : reason === 'replay'
+                        ? 'Replay failed. Local copy preserved; attention needed.'
+                        : reason === 'retry'
                         ? 'Retry failed. Protected local copy retained.'
                         : 'Save failed. Protected local copy retained.',
               detail: diagnostics?.failureKind === 'payload_invalid'
@@ -427,12 +451,21 @@ export const useAppStore = create<AppStore>()((set, get) => {
       if (!persistenceQueue) return;
       await persistenceQueue.retryNow();
     },
+    replayPendingPersistenceNow: async () => {
+      if (!persistenceQueue) return;
+      await persistenceQueue.replayPendingBatchesNow();
+    },
     setConnectivityState: (connectivityState) => set((state) => ({
       connectivityState,
       lastConnectivityChangeAt: new Date().toISOString(),
+      lastReconnectAttemptAt: connectivityState === 'online' ? new Date().toISOString() : state.lastReconnectAttemptAt,
       persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
         kind: 'queued',
-        summary: connectivityState === 'offline' ? 'Offline — changes stay local.' : 'Back online — sync resumes.',
+        summary: connectivityState === 'offline'
+          ? 'Offline — changes stay local.'
+          : state.unresolvedOutboxCount > 0
+            ? 'Reconnect detected, replaying pending changes.'
+            : 'Back online — sync resumes.',
       })),
     })),
     resetForLogout: () => {

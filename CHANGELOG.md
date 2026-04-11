@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Follow Ups Prompt 5: workflow hardening + stale path cleanup + state consistency pass
+- Hardened end-to-end follow-up queue behavior by adding explicit inspector validity checks in `TrackerWorkspace`: the inspector now closes intentionally when its record is deleted or filtered out of the active queue, and transient lane notices are reset when queue-shaping options change to avoid stale/misleading feedback. (`src/components/app/TrackerWorkspace.tsx`)
+- Removed stale mobile row-level execution shortcuts (`Log touch`, `Mark nudged`, `Snooze 2d`) that bypassed the new inspector-first architecture; mobile cards now consistently route execution through the inspector, with delete retained as a secondary maintenance action. (`src/components/TrackerMobileList.tsx`, `src/components/TrackerTable.tsx`)
+- Simplified delete-state ownership in the follow-up slice so deleting a record now also clears stale selected IDs from bulk-selection state and tears down any active follow-up surfaces bound to that record (inspector/full-editor/context tracking), reducing ghost selection/surface regressions after deletes. (`src/store/slices/followUpsSlice.ts`)
+- Expanded workflow-level regression coverage for post-action progression (including queue-empty progression) to strengthen trust checks around the integrated queue → inspector → action progression path. (`src/domains/followups/helpers/__tests__/executionActions.test.ts`)
+
 ### Follow Ups Prompt 4: execution workspace hierarchy reset (summary → controls → worklist)
 - Rebuilt the Follow Ups workspace hierarchy into a clear execution stack: a new lane summary strip now leads the page with canonical lane meaning, queue-specific intent, expected action guidance, and scan-friendly pressure chips before controls and worklist. (`src/components/app/TrackerWorkspace.tsx`, `src/domains/followups/hooks/useFollowUpsViewModel.ts`, `src/lib/followUpSelectors.ts`, `src/styles/workspaces.css`)
 - Refactored the Follow Ups control bar into clearer responsibility zones (queue shaping, filter chips/reset, optional advanced filters/layout, and separate maintenance tray) so queue controls stay primary while lower-frequency maintenance/config controls are demoted. (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`)

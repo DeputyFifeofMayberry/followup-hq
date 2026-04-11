@@ -204,12 +204,6 @@ export function TrackerTable({
         vm.setSelectedId(id);
         onRowOpen?.(id);
       }}
-      onLogTouch={(id) => {
-        vm.setSelectedId(id);
-        vm.openTouchModal();
-      }}
-      onNudge={vm.markNudged}
-      onSnooze={(id) => vm.snoozeItem(id, 2)}
       onDelete={(id) => {
         const item = rows.find((entry) => entry.id === id);
         if (item) onRequestDelete?.(item);

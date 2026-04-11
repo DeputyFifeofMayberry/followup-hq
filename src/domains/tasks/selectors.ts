@@ -1,63 +1,29 @@
-import { isTaskDeferred } from '../../lib/utils';
 import type { TaskItem } from '../../types';
-import { getTaskDueBucket } from './timing';
+import { classifyTaskIntoLanes, normalizeTaskStatus, type TaskQueueView } from './lanes';
 
-type TaskLike = Pick<TaskItem, 'status' | 'dueDate' | 'deferredUntil' | 'linkedFollowUpId'>;
-export type TaskQueueView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
+type TaskLike = Pick<TaskItem, 'status' | 'dueDate' | 'deferredUntil' | 'linkedFollowUpId' | 'completedAt'>;
 
-function normalizeStatusValue(status: string | undefined | null): string {
-  return (status || '').trim().toLowerCase().replace(/[^a-z]/g, '');
-}
-
-export function normalizeTaskStatus(status: TaskItem['status'] | string | undefined): TaskItem['status'] {
-  const normalized = normalizeStatusValue(status);
-  if (normalized === 'done' || normalized === 'completed' || normalized === 'complete' || normalized === 'closed') return 'Done';
-  if (normalized === 'inprogress' || normalized === 'progress' || normalized === 'doing') return 'In progress';
-  if (normalized === 'blocked' || normalized === 'onhold') return 'Blocked';
-  return 'To do';
-}
+export type { TaskQueueView };
+export { normalizeTaskStatus };
 
 export function isTaskOpen(task: Pick<TaskItem, 'status'>): boolean {
   return normalizeTaskStatus(task.status) !== 'Done';
 }
 
-export function isTaskEligibleForQueue<T extends TaskLike & Pick<TaskItem, 'completedAt'>>(task: T, view: TaskQueueView, options: { now?: Date } = {}): boolean {
-  const now = options.now ?? new Date();
-  const dueTs = task.dueDate ? new Date(task.dueDate).getTime() : null;
-  const endWeekTs = now.getTime() + 7 * 86400000;
-  const todayStartTs = new Date(now).setHours(0, 0, 0, 0);
-  const status = normalizeTaskStatus(task.status);
-
-  if (view === 'recent') {
-    return status === 'Done' && Boolean(task.completedAt && new Date(task.completedAt).getTime() >= todayStartTs);
-  }
-  if (status === 'Done') return false;
-
-  const dueBucket = getTaskDueBucket({ ...task, status }, now);
-  if (view === 'today') {
-    const dueToday = dueBucket === 'overdue' || dueBucket === 'today';
-    const actionableUnscheduled = dueTs === null && status !== 'Blocked' && !isTaskDeferred(task);
-    const deferredReady = Boolean(task.deferredUntil && !isTaskDeferred(task));
-    return dueToday || actionableUnscheduled || deferredReady;
-  }
-  if (view === 'overdue') return dueBucket === 'overdue';
-  if (view === 'upcoming') return (dueBucket === 'tomorrow' || dueBucket === 'upcoming') && dueTs !== null && dueTs <= endWeekTs;
-  if (view === 'blocked') return status === 'Blocked';
-  if (view === 'deferred') return Boolean(task.deferredUntil) && isTaskDeferred(task);
-  if (view === 'unlinked') return !task.linkedFollowUpId;
-  return true;
+export function isTaskEligibleForQueue<T extends TaskLike>(
+  task: T,
+  view: TaskQueueView,
+  options: { now?: Date; isReviewNeeded?: (task: T) => boolean; isExecutionReady?: (task: T) => boolean } = {},
+): boolean {
+  return classifyTaskIntoLanes(task, options).inLane[view];
 }
 
-export function selectVisibleTasksForQueue<T extends TaskLike & Pick<TaskItem, 'completedAt'>>(
+export function selectVisibleTasksForQueue<T extends TaskLike>(
   tasks: T[],
   view: TaskQueueView,
-  options: { now?: Date; isReviewNeeded?: (task: T) => boolean } = {},
+  options: { now?: Date; isReviewNeeded?: (task: T) => boolean; isExecutionReady?: (task: T) => boolean } = {},
 ): T[] {
-  return tasks.filter((task) => {
-    if (view !== 'review') return isTaskEligibleForQueue(task, view, options);
-    if (!isTaskOpen(task)) return false;
-    return options.isReviewNeeded ? options.isReviewNeeded(task) : false;
-  });
+  return tasks.filter((task) => isTaskEligibleForQueue(task, view, options));
 }
 
 export function selectOpenTasks<T extends Pick<TaskItem, 'status'>>(tasks: T[]): T[] {
@@ -73,25 +39,23 @@ export function selectTaskCounts<T extends TaskLike>(
   options: {
     now?: Date;
     isReviewNeeded?: (task: T) => boolean;
+    isExecutionReady?: (task: T) => boolean;
   } = {},
 ) {
-  const now = options.now ?? new Date();
-  const open = tasks.filter(isTaskOpen);
-  const reviewRequired = options.isReviewNeeded
-    ? open.filter((task) => options.isReviewNeeded?.(task))
-    : [];
+  const classifications = tasks.map((task) => ({ task, lane: classifyTaskIntoLanes(task, options) }));
+
+  const open = classifications.filter((entry) => entry.lane.isOpen);
 
   return {
     open: open.length,
-    blocked: open.filter((task) => normalizeTaskStatus(task.status) === 'Blocked').length,
-    overdue: open.filter((task) => getTaskDueBucket({ ...task, status: normalizeTaskStatus(task.status) }, now) === 'overdue').length,
-    dueSoon: open.filter((task) => {
-      const bucket = getTaskDueBucket({ ...task, status: normalizeTaskStatus(task.status) }, now);
-      return bucket === 'today' || bucket === 'tomorrow';
-    }).length,
-    deferred: open.filter((task) => Boolean(task.deferredUntil) && isTaskDeferred(task)).length,
-    reviewRequired: reviewRequired.length,
-    reviewNotReady: reviewRequired.length,
-    unlinked: open.filter((task) => !task.linkedFollowUpId).length,
+    now: open.filter((entry) => entry.lane.inLane.today).length,
+    blocked: open.filter((entry) => entry.lane.inLane.blocked).length,
+    overdue: open.filter((entry) => entry.lane.inLane.overdue).length,
+    dueSoon: open.filter((entry) => entry.lane.isDueToday || entry.lane.dueBucket === 'tomorrow').length,
+    deferred: open.filter((entry) => entry.lane.inLane.deferred).length,
+    reviewRequired: open.filter((entry) => entry.lane.inLane.review).length,
+    reviewNotReady: open.filter((entry) => entry.lane.inLane.review && !entry.lane.isExecutionReady).length,
+    unlinked: open.filter((entry) => entry.lane.inLane.unlinked).length,
+    doneToday: classifications.filter((entry) => entry.lane.inLane.recent).length,
   };
 }

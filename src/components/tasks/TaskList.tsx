@@ -3,6 +3,7 @@ import { Badge } from '../Badge';
 import { EmptyState } from '../ui/AppPrimitives';
 import { formatDate } from '../../lib/utils';
 import type { TaskItem } from '../../types';
+import type { TaskQueueView } from '../../domains/tasks/lanes';
 
 type TaskSignal = {
   whyNow: string;
@@ -16,7 +17,7 @@ type TaskListProps = {
   isMobileLike?: boolean;
   filteredTasks: TaskItem[];
   completedToday: TaskItem[];
-  view: 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
+  view: TaskQueueView;
   selectedTaskId: string | null;
   laneFeedback: { tone: 'success' | 'warn'; message: string } | null;
   onSelectTask: (taskId: string) => void;

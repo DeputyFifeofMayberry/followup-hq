@@ -1,8 +1,9 @@
 import { ChevronDown, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from '../ui/AppPrimitives';
+import type { TaskQueueView } from '../../domains/tasks/lanes';
 
-type TaskView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
+type TaskView = TaskQueueView;
 type TaskSort = 'due' | 'priority' | 'updated';
 type TimingFilter = 'all' | 'overdue' | 'today' | 'this_week' | 'no_due_date';
 type StateFilter = 'all' | 'deferred_only' | 'review_needed_only' | 'blocked_without_unblock';

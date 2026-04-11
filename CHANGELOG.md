@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Tasks Prompt 1: canonical lane system + queue truth unification
+- Added a canonical Tasks lane model and per-task classification engine as a single source of truth for queue semantics (`Now`, `Overdue`, `Upcoming`, `Blocked`, `Review needed`, `Deferred`, `Unlinked`, `Done today`, `All open`), including explicit lane intent/operational meaning contracts and normalized status/readiness/defer/due-bucket classification outputs for every task. (`src/domains/tasks/lanes.ts`)
+- Refactored task selectors to consume canonical lane classification for queue membership and queue counts, so visible queue membership and count summaries are derived from the same source instead of scattered queue-specific checks; this also tightened `Now` semantics so overdue, blocked, review-needed, and actively deferred tasks no longer silently mix into immediate execution scope. (`src/domains/tasks/selectors.ts`)
+- Updated Tasks workspace/view-model queue surfaces to consume lane definitions/intents and canonical lane-driven summaries, and removed the silent empty-`Now` auto-fallback to `All open` so lane context remains stable/trustworthy with explicit empty states instead of behind-the-scenes queue switching. (`src/components/TaskWorkspace.tsx`, `src/domains/tasks/hooks/useTasksViewModel.ts`)
+- Added focused selector-level regression coverage for canonical lane behavior: overdue vs now separation, due-today handling, blocked/deferred/deferred-reentry/review/unlinked/done-today membership, strict `Now` lane contract, and lane-count consistency from the same membership model. (`src/domains/tasks/selectors.test.ts`)
+
 ### Follow Ups Prompt 5: workflow hardening + stale path cleanup + state consistency pass
 - Hardened end-to-end follow-up queue behavior by adding explicit inspector validity checks in `TrackerWorkspace`: the inspector now closes intentionally when its record is deleted or filtered out of the active queue, and transient lane notices are reset when queue-shaping options change to avoid stale/misleading feedback. (`src/components/app/TrackerWorkspace.tsx`)
 - Removed stale mobile row-level execution shortcuts (`Log touch`, `Mark nudged`, `Snooze 2d`) that bypassed the new inspector-first architecture; mobile cards now consistently route execution through the inspector, with delete retained as a secondary maintenance action. (`src/components/TrackerMobileList.tsx`, `src/components/TrackerTable.tsx`)

@@ -31,6 +31,7 @@ import {
   DEFAULT_REMINDER_PREFERENCES,
   DEFAULT_WORKSPACE_ATTENTION_COUNTS,
 } from '../../lib/reminders';
+import type { SaveProofState } from '../state/types';
 
 interface MetaSliceDependencies {
   loadPersistedPayload: typeof loadPersistedPayload;
@@ -55,13 +56,22 @@ export function createMetaSlice(
   };
   return {
     initializeApp: async () => {
-      const startupReceiptState: {
-        lastCommittedBatchId?: string;
-        lastReceiptStatus?: 'committed' | 'received' | 'rejected' | 'conflict';
-        lastReceiptCommittedTime?: string;
-        lastFailureMessage?: string;
-        lastFailedBatchId?: string;
-      } = {};
+      const startupSaveProof: SaveProofState = {
+        latestLocalSaveAttemptAt: undefined,
+        latestDurableLocalWriteAt: undefined,
+        latestCloudConfirmedCommitAt: undefined,
+        latestConfirmedBatchId: undefined,
+        latestReceiptStatus: undefined,
+        latestReceiptHashMatch: undefined,
+        latestReceiptSchemaVersion: undefined,
+        latestReceiptTouchedTables: undefined,
+        latestReceiptOperationCount: undefined,
+        latestReceiptOperationCountsByEntity: undefined,
+        latestFailedBatchId: undefined,
+        latestFailureMessage: undefined,
+        latestFailureClass: undefined,
+        cloudProofState: 'pending',
+      };
       let unresolvedOutbox: Array<{ status: string }> = [];
       try {
         const {
@@ -86,12 +96,24 @@ export function createMetaSlice(
           lastReceiptStatus: loadedLastReceiptStatus,
           lastReceiptCommittedTime: loadedLastReceiptCommittedTime,
           lastFailureMessage: loadedLastFailureMessage,
+          saveProof: loadedSaveProof,
         } = await deps.loadPersistedPayload();
-        startupReceiptState.lastCommittedBatchId = loadedLastCommittedBatchId;
-        startupReceiptState.lastReceiptStatus = loadedLastReceiptStatus;
-        startupReceiptState.lastReceiptCommittedTime = loadedLastReceiptCommittedTime;
-        startupReceiptState.lastFailureMessage = loadedLastFailureMessage;
-        startupReceiptState.lastFailedBatchId = loadedLastFailedBatchId;
+        const canonicalSaveProof: SaveProofState = loadedSaveProof ?? {
+          ...startupSaveProof,
+          latestDurableLocalWriteAt: localCacheUpdatedAt,
+          latestCloudConfirmedCommitAt: cloudUpdatedAt ?? localCacheLastCloudConfirmedAt,
+          latestConfirmedBatchId: loadedLastCommittedBatchId,
+          latestReceiptStatus: loadedLastReceiptStatus,
+          latestFailedBatchId: loadedLastFailedBatchId,
+          latestFailureMessage: loadedLastFailureMessage,
+          cloudProofState: mode === 'browser'
+            ? 'local-only'
+            : cacheStatus === 'confirmed'
+              ? 'confirmed'
+              : loadedLastFailedBatchId || loadedLastFailureMessage
+                ? 'degraded'
+                : 'pending',
+        };
         const syncMeta = deriveSyncMetaFromLoadResult({
           mode,
           source,
@@ -106,6 +128,7 @@ export function createMetaSlice(
           loadFailureMessage,
           loadFailureRecoveredWithLocalCache,
           backendFailureKind,
+          saveProof: canonicalSaveProof,
         });
         const fallbackFailure = loadedFromFallback
           ? describeLoadFallbackFailure(loadFailureStage, loadFailureMessage, backendFailureKind)
@@ -227,18 +250,20 @@ export function createMetaSlice(
           sessionTrustRecoveredAt: syncMeta.sessionTrustRecoveredAt,
           lastSuccessfulPersistAt: syncMeta.lastSuccessfulPersistAt,
           lastSuccessfulCloudPersistAt: syncMeta.lastSuccessfulCloudPersistAt,
-          lastConfirmedBatchId: startupReceiptState.lastCommittedBatchId,
-          lastConfirmedBatchCommittedAt: undefined,
-          lastReceiptStatus: startupReceiptState.lastReceiptStatus,
-          lastReceiptHashMatch: undefined,
-          lastReceiptSchemaVersion: undefined,
-          lastReceiptTouchedTables: undefined,
-          lastReceiptOperationCount: undefined,
-          lastReceiptOperationCountsByEntity: undefined,
-          lastReceiptCommittedAt: startupReceiptState.lastReceiptCommittedTime,
-          lastFailureMessage: startupReceiptState.lastFailureMessage,
+          lastConfirmedBatchId: canonicalSaveProof.latestConfirmedBatchId,
+          lastConfirmedBatchCommittedAt: canonicalSaveProof.latestCloudConfirmedCommitAt,
+          lastReceiptStatus: canonicalSaveProof.latestReceiptStatus,
+          lastReceiptHashMatch: canonicalSaveProof.latestReceiptHashMatch,
+          lastReceiptSchemaVersion: canonicalSaveProof.latestReceiptSchemaVersion,
+          lastReceiptTouchedTables: canonicalSaveProof.latestReceiptTouchedTables,
+          lastReceiptOperationCount: canonicalSaveProof.latestReceiptOperationCount,
+          lastReceiptOperationCountsByEntity: canonicalSaveProof.latestReceiptOperationCountsByEntity,
+          lastReceiptCommittedAt: canonicalSaveProof.latestCloudConfirmedCommitAt ?? loadedLastReceiptCommittedTime,
+          lastFailureMessage: canonicalSaveProof.latestFailureMessage,
+          lastFailureClass: canonicalSaveProof.latestFailureClass,
+          saveProof: canonicalSaveProof,
           unresolvedConflictCount: unresolvedOutbox.filter((e) => e.status === 'conflict').length,
-          lastFailedBatchId: startupReceiptState.lastFailedBatchId,
+          lastFailedBatchId: canonicalSaveProof.latestFailedBatchId,
           verificationState: 'idle',
           lastVerificationRunId: undefined,
           lastVerificationStartedAt: undefined,
@@ -269,6 +294,10 @@ export function createMetaSlice(
                 ? fallbackFailure.summary
                 : localNewerThanCloud && loadedFromFallback
                   ? 'Opened using protected local data.'
+                  : syncMeta.cloudSyncStatus === 'cloud-save-failed-local-preserved'
+                    ? 'Opened with protected local save proof.'
+                    : syncMeta.cloudSyncStatus === 'payload-invalid'
+                      ? 'Opened with cloud-save protection enabled.'
                   : mode === 'browser'
                     ? 'Opened using local device data.'
                     : 'Workspace opened.',
@@ -276,6 +305,10 @@ export function createMetaSlice(
                 ? fallbackFailure.detail
                 : localNewerThanCloud && loadedFromFallback
                   ? 'SetPoint restored the newer local copy to avoid data loss.'
+                  : syncMeta.cloudSyncStatus === 'cloud-save-failed-local-preserved'
+                    ? 'The previous cloud save failed, but your local protected copy and save receipt details were restored.'
+                    : syncMeta.cloudSyncStatus === 'payload-invalid'
+                      ? 'The last known save proof indicates payload validation blocked cloud confirmation. Local proof details were restored exactly.'
                   : mode === 'browser'
                     ? 'Your latest updates are saved on this device.'
                     : mode === 'supabase'
@@ -336,18 +369,18 @@ export function createMetaSlice(
           sessionTrustRecoveredAt: undefined,
           lastSuccessfulPersistAt: undefined,
           lastSuccessfulCloudPersistAt: undefined,
-          lastConfirmedBatchId: startupReceiptState.lastCommittedBatchId,
+          lastConfirmedBatchId: startupSaveProof.latestConfirmedBatchId,
           lastConfirmedBatchCommittedAt: undefined,
-          lastReceiptStatus: startupReceiptState.lastReceiptStatus,
+          lastReceiptStatus: startupSaveProof.latestReceiptStatus,
           lastReceiptHashMatch: undefined,
           lastReceiptSchemaVersion: undefined,
           lastReceiptTouchedTables: undefined,
           lastReceiptOperationCount: undefined,
           lastReceiptOperationCountsByEntity: undefined,
-          lastReceiptCommittedAt: startupReceiptState.lastReceiptCommittedTime,
-          lastFailureMessage: startupReceiptState.lastFailureMessage,
+          lastReceiptCommittedAt: undefined,
+          lastFailureMessage: startupSaveProof.latestFailureMessage,
           unresolvedConflictCount: unresolvedOutbox.filter((e) => e.status === 'conflict').length,
-          lastFailedBatchId: startupReceiptState.lastFailedBatchId,
+          lastFailedBatchId: startupSaveProof.latestFailedBatchId,
           verificationState: 'idle',
           lastVerificationRunId: undefined,
           lastVerificationStartedAt: undefined,

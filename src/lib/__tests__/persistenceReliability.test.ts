@@ -266,6 +266,24 @@ async function run() {
   assert((loaded.loadFailureMessage ?? '').includes('JWT expired'), 'auth session failure should include source message');
   assert(loaded.loadFailureRecoveredWithLocalCache === true, 'auth session failure should report cache recovery');
   assert(loaded.saveProof?.cloudProofState === 'pending', 'legacy cache should normalize into canonical pending save proof');
+  reset();
+  storage.setItem('followup_hq_entities_cache_v2', JSON.stringify({
+    entities: payloadFixture,
+    updatedAt: '2026-04-05T10:00:00.000Z',
+    cloudStatus: 'confirmed',
+    saveProof: {
+      cloudProofState: 'optimistic',
+      latestCloudConfirmedCommitAt: 42,
+      latestReceiptTouchedTables: [123, 'tasks'],
+      latestFailureClass: 'definitely-not-real',
+    },
+  }));
+  mock.failSessionLookup = true;
+  mock.sessionFailure = new Error('JWT expired');
+  loaded = await loadPersistedPayload();
+  assert(loaded.saveProof?.cloudProofState === 'confirmed', 'invalid cache proof state should conservatively normalize from legacy shape');
+  assert(loaded.saveProof?.latestCloudConfirmedCommitAt === undefined, 'invalid cache proof timestamps should not be trusted');
+  assert((loaded.saveProof?.latestReceiptTouchedTables ?? []).every((table) => typeof table === 'string'), 'invalid touched table values should be dropped during normalization');
 
   // A. missing follow_up_items table with local cache available
   reset();

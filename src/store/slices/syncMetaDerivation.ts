@@ -1,5 +1,4 @@
-import { todayIso } from '../../lib/utils';
-import type { CloudSyncStatus } from '../state/types';
+import type { CloudSyncStatus, SaveProofState, SessionDegradedReason } from '../state/types';
 import type { LoadResult } from '../../lib/persistence';
 
 export interface DerivedSyncMeta {
@@ -15,7 +14,7 @@ export interface DerivedSyncMeta {
   lastLoadRecoveredWithLocalCache?: boolean;
   sessionTrustState: 'healthy' | 'degraded';
   sessionDegraded: boolean;
-  sessionDegradedReason: 'none' | 'backend-schema-mismatch' | 'backend-rpc-missing' | 'backend-missing-hashing-support' | 'cloud-read-failed-fallback' | 'local-newer-than-cloud' | 'local-recovery-fallback';
+  sessionDegradedReason: SessionDegradedReason;
   sessionDegradedAt?: string;
   sessionDegradedClearedByCloudSave: boolean;
   sessionTrustRecoveredAt?: string;
@@ -23,47 +22,79 @@ export interface DerivedSyncMeta {
   lastSuccessfulCloudPersistAt?: string;
 }
 
-export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt' | 'loadFailureStage' | 'loadFailureMessage' | 'loadFailureRecoveredWithLocalCache' | 'backendFailureKind'>): DerivedSyncMeta {
+function deriveCloudSyncStatusFromProof(
+  load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'backendFailureKind'>,
+  saveProof: SaveProofState,
+): CloudSyncStatus {
   const loadedFromLocalCache = load.source === 'local-cache';
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
-  const backendSchemaMismatch = didRestoreFallback && load.backendFailureKind === 'schema-mismatch';
-  const backendRpcMissing = didRestoreFallback && load.backendFailureKind === 'missing-rpc';
-  const backendMissingHashingSupport = didRestoreFallback
-    && (load.backendFailureKind === 'hashing-failure' || load.backendFailureKind === 'missing-hashing-dependency');
-  const usedCloudReadFailureFallback = Boolean(load.cloudReadFailed && didRestoreFallback && !backendSchemaMismatch && !backendRpcMissing && !backendMissingHashingSupport);
-  const usedLocalNewerFallback = Boolean(load.localNewerThanCloud && didRestoreFallback);
-  const usedGeneralRecovery = Boolean(didRestoreFallback && !usedCloudReadFailureFallback && !usedLocalNewerFallback);
+  const backendFailure = load.backendFailureKind === 'schema-mismatch'
+    || load.backendFailureKind === 'missing-rpc'
+    || load.backendFailureKind === 'hashing-failure'
+    || load.backendFailureKind === 'missing-hashing-dependency';
+  if (didRestoreFallback && load.localNewerThanCloud) return 'local-newer-than-cloud';
+  if (didRestoreFallback && load.cloudReadFailed) return 'cloud-read-failed-local-fallback';
+  if (didRestoreFallback) return 'local-recovery';
+  if (saveProof.cloudProofState === 'degraded') {
+    if (saveProof.latestFailureClass === 'payload-invalid') return 'payload-invalid';
+    if (backendFailure) return 'local-recovery';
+    return 'cloud-save-failed-local-preserved';
+  }
+  if (saveProof.cloudProofState === 'local-only' || load.mode === 'browser') return 'local-only-confirmed';
+  if (saveProof.cloudProofState === 'pending') return load.mode === 'supabase' ? 'pending-cloud' : 'local-only-confirmed';
+  return load.mode === 'supabase' ? 'cloud-confirmed' : 'local-only-confirmed';
+}
 
-  const cloudStatus: CloudSyncStatus = usedCloudReadFailureFallback
-    ? 'cloud-read-failed-local-fallback'
-    : usedLocalNewerFallback
-      ? 'local-newer-than-cloud'
-      : load.mode === 'browser'
-        ? 'local-only-confirmed'
-        : load.cacheStatus === 'pending'
-          ? 'pending-cloud'
-          : usedGeneralRecovery
-            ? 'local-recovery'
-            : 'cloud-confirmed';
-  const usingRecoveryCache = usedCloudReadFailureFallback || usedLocalNewerFallback || usedGeneralRecovery;
-  const lastCloudConfirmedAt = load.mode === 'supabase'
-    ? load.cloudUpdatedAt ?? load.localCacheLastCloudConfirmedAt
-    : undefined;
-  const degradedReason = usedCloudReadFailureFallback
-    ? 'cloud-read-failed-fallback'
-    : backendSchemaMismatch
-      ? 'backend-schema-mismatch'
-      : backendRpcMissing
-        ? 'backend-rpc-missing'
-        : backendMissingHashingSupport
-          ? 'backend-missing-hashing-support'
-        : usedLocalNewerFallback
-      ? 'local-newer-than-cloud'
-      : usedGeneralRecovery
-        ? 'local-recovery-fallback'
-        : 'none';
+function deriveSessionDegradedReason(
+  load: Pick<LoadResult, 'source' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'backendFailureKind'>,
+  cloudSyncStatus: CloudSyncStatus,
+  saveProof: SaveProofState,
+): SessionDegradedReason {
+  const loadedFromLocalCache = load.source === 'local-cache';
+  const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
+  if (didRestoreFallback && load.backendFailureKind === 'schema-mismatch') return 'backend-schema-mismatch';
+  if (didRestoreFallback && load.backendFailureKind === 'missing-rpc') return 'backend-rpc-missing';
+  if (didRestoreFallback && (load.backendFailureKind === 'hashing-failure' || load.backendFailureKind === 'missing-hashing-dependency')) return 'backend-missing-hashing-support';
+  if (didRestoreFallback && load.localNewerThanCloud) return 'local-newer-than-cloud';
+  if (didRestoreFallback && load.cloudReadFailed) return 'cloud-read-failed-fallback';
+  if (didRestoreFallback) return 'local-recovery-fallback';
+  if (cloudSyncStatus === 'payload-invalid' || saveProof.latestFailureClass === 'payload-invalid') return 'payload-invalid';
+  if (cloudSyncStatus === 'cloud-save-failed-local-preserved') return 'cloud-save-failed';
+  return 'none';
+}
+
+export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'source' | 'cacheStatus' | 'loadedFromFallback' | 'cloudReadFailed' | 'localNewerThanCloud' | 'cloudUpdatedAt' | 'localCacheUpdatedAt' | 'localCacheLastCloudConfirmedAt' | 'loadFailureStage' | 'loadFailureMessage' | 'loadFailureRecoveredWithLocalCache' | 'backendFailureKind' | 'saveProof'>): DerivedSyncMeta {
+  const loadedFromLocalCache = load.source === 'local-cache';
+  const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
+  const saveProof: SaveProofState = load.saveProof ?? {
+    latestLocalSaveAttemptAt: load.localCacheUpdatedAt,
+    latestDurableLocalWriteAt: load.localCacheUpdatedAt,
+    latestCloudConfirmedCommitAt: load.cloudUpdatedAt ?? load.localCacheLastCloudConfirmedAt,
+    latestConfirmedBatchId: undefined,
+    latestReceiptStatus: undefined,
+    latestReceiptHashMatch: undefined,
+    latestReceiptSchemaVersion: undefined,
+    latestReceiptTouchedTables: undefined,
+    latestReceiptOperationCount: undefined,
+    latestReceiptOperationCountsByEntity: undefined,
+    latestFailedBatchId: undefined,
+    latestFailureMessage: undefined,
+    latestFailureClass: undefined,
+    cloudProofState: load.mode === 'browser'
+      ? 'local-only'
+      : load.cacheStatus === 'confirmed'
+        ? 'confirmed'
+        : 'pending',
+  };
+  const cloudStatus = deriveCloudSyncStatusFromProof(load, saveProof);
+  const usingRecoveryCache = didRestoreFallback;
+  const lastCloudConfirmedAt = saveProof.latestCloudConfirmedCommitAt
+    ?? (load.mode === 'supabase' ? load.cloudUpdatedAt ?? load.localCacheLastCloudConfirmedAt : undefined);
+  const degradedReason = deriveSessionDegradedReason(load, cloudStatus, saveProof);
   const degraded = degradedReason !== 'none';
-  const fallbackAt = usingRecoveryCache ? todayIso() : undefined;
+  const fallbackAt = usingRecoveryCache
+    ? saveProof.latestDurableLocalWriteAt ?? load.localCacheUpdatedAt
+    : undefined;
 
   return {
     syncState: 'saved',

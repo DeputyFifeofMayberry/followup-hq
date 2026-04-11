@@ -12,6 +12,10 @@ function testCloudConfirmedLoad(): void {
     source: 'supabase',
     cacheStatus: 'confirmed',
     cloudUpdatedAt: '2026-04-05T09:00:00.000Z',
+    saveProof: {
+      cloudProofState: 'confirmed',
+      latestCloudConfirmedCommitAt: '2026-04-05T09:00:00.000Z',
+    } as any,
   });
 
   assert(meta.cloudSyncStatus === 'cloud-confirmed', 'cloud load should be cloud-confirmed');
@@ -24,6 +28,10 @@ function testBrowserLoadNotRecovery(): void {
     source: 'local-cache',
     cacheStatus: 'confirmed',
     localCacheUpdatedAt: '2026-04-05T09:00:00.000Z',
+    saveProof: {
+      cloudProofState: 'local-only',
+      latestDurableLocalWriteAt: '2026-04-05T09:00:00.000Z',
+    } as any,
   });
 
   assert(meta.cloudSyncStatus === 'local-only-confirmed', 'browser local-only load should be local-only-confirmed');
@@ -41,6 +49,11 @@ function testCloudReadFailureFallback(): void {
     loadFailureStage: 'auth_session',
     loadFailureMessage: 'JWT expired',
     loadFailureRecoveredWithLocalCache: true,
+    saveProof: {
+      cloudProofState: 'confirmed',
+      latestCloudConfirmedCommitAt: '2026-04-04T09:00:00.000Z',
+      latestDurableLocalWriteAt: '2026-04-05T09:00:00.000Z',
+    } as any,
   });
 
   assert(meta.cloudSyncStatus === 'cloud-read-failed-local-fallback', 'cloud read fallback should use explicit read-failure status');
@@ -75,6 +88,11 @@ function testLocalNewerThanCloud(): void {
     cloudUpdatedAt: '2026-04-05T08:00:00.000Z',
     localCacheUpdatedAt: '2026-04-05T09:00:00.000Z',
     localCacheLastCloudConfirmedAt: '2026-04-05T08:00:00.000Z',
+    saveProof: {
+      cloudProofState: 'pending',
+      latestCloudConfirmedCommitAt: '2026-04-05T08:00:00.000Z',
+      latestDurableLocalWriteAt: '2026-04-05T09:00:00.000Z',
+    } as any,
   });
 
   assert(meta.cloudSyncStatus === 'local-newer-than-cloud', 'local newer than cloud should use explicit status');
@@ -100,6 +118,7 @@ function testBackendSchemaMismatchMapsToExplicitDegradedReason(): void {
     backendFailureKind: 'schema-mismatch',
     loadFailureStage: 'follow_up_items',
     loadFailureMessage: 'column public.follow_up_items.deleted_at does not exist',
+    saveProof: { cloudProofState: 'pending' } as any,
   });
   assert(meta.sessionDegradedReason === 'backend-schema-mismatch', `expected backend-schema-mismatch, got ${meta.sessionDegradedReason}`);
 }
@@ -114,6 +133,7 @@ function testBackendMissingRpcMapsToExplicitDegradedReason(): void {
     backendFailureKind: 'missing-rpc',
     loadFailureStage: 'schema_preflight',
     loadFailureMessage: 'Could not find the function public.apply_save_batch(batch)',
+    saveProof: { cloudProofState: 'pending' } as any,
   });
   assert(meta.sessionDegradedReason === 'backend-rpc-missing', `expected backend-rpc-missing, got ${meta.sessionDegradedReason}`);
 }
@@ -128,6 +148,7 @@ function testBackendMissingHashingSupportMapsToExplicitDegradedReason(): void {
     backendFailureKind: 'hashing-failure',
     loadFailureStage: 'schema_preflight',
     loadFailureMessage: 'function digest(text, unknown) does not exist',
+    saveProof: { cloudProofState: 'pending' } as any,
   });
   assert(meta.sessionDegradedReason === 'backend-missing-hashing-support', `expected backend-missing-hashing-support, got ${meta.sessionDegradedReason}`);
 }
@@ -157,9 +178,45 @@ function testFallbackPreservesRevisionMetadataHints(): void {
     backendFailureKind: 'schema-mismatch',
     localCacheUpdatedAt: '2026-04-06T00:00:00.000Z',
     localCacheLastCloudConfirmedAt: '2026-04-05T00:00:00.000Z',
+    saveProof: {
+      cloudProofState: 'pending',
+      latestDurableLocalWriteAt: '2026-04-06T00:00:00.000Z',
+      latestCloudConfirmedCommitAt: '2026-04-05T00:00:00.000Z',
+    } as any,
   });
   assert(meta.lastLocalWriteAt === '2026-04-06T00:00:00.000Z', `expected preserved local write timestamp, got ${meta.lastLocalWriteAt}`);
   assert(meta.lastCloudConfirmedAt === '2026-04-05T00:00:00.000Z', `expected preserved cloud confirmed timestamp, got ${meta.lastCloudConfirmedAt}`);
+}
+
+function testPendingProofRemainsPendingOnHydration(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'local-cache',
+    cacheStatus: 'confirmed',
+    saveProof: {
+      cloudProofState: 'pending',
+      latestDurableLocalWriteAt: '2026-04-06T00:00:00.000Z',
+      latestReceiptStatus: 'received',
+    } as any,
+  });
+  assert(meta.cloudSyncStatus === 'pending-cloud', `expected pending-cloud status, got ${meta.cloudSyncStatus}`);
+}
+
+function testDegradedPayloadInvalidProofDoesNotPromoteFromTimestamps(): void {
+  const meta = deriveSyncMetaFromLoadResult({
+    mode: 'supabase',
+    source: 'supabase',
+    cacheStatus: 'confirmed',
+    cloudUpdatedAt: '2026-04-08T00:00:00.000Z',
+    saveProof: {
+      cloudProofState: 'degraded',
+      latestCloudConfirmedCommitAt: '2026-04-08T00:00:00.000Z',
+      latestFailureClass: 'payload-invalid',
+      latestFailureMessage: 'invalid UTF-8',
+    } as any,
+  });
+  assert(meta.cloudSyncStatus === 'payload-invalid', `expected payload-invalid status, got ${meta.cloudSyncStatus}`);
+  assert(meta.sessionDegradedReason === 'payload-invalid', `expected payload-invalid degraded reason, got ${meta.sessionDegradedReason}`);
 }
 
 async function testInitializeAppCatchDoesNotReferenceTryScopedValues(): Promise<void> {
@@ -198,5 +255,7 @@ async function testInitializeAppCatchDoesNotReferenceTryScopedValues(): Promise<
   testBackendMissingHashingSupportMapsToExplicitDegradedReason();
   testContractFailureActivityIsDeduplicated();
   testFallbackPreservesRevisionMetadataHints();
+  testPendingProofRemainsPendingOnHydration();
+  testDegradedPayloadInvalidProofDoesNotPromoteFromTimestamps();
   await testInitializeAppCatchDoesNotReferenceTryScopedValues();
 })();

@@ -354,6 +354,44 @@ function normalizePendingOperation(parsed: unknown): PendingEntityOperation | nu
   };
 }
 
+function normalizeSaveProofCandidate(parsed: unknown, legacy: SaveProofState): SaveProofState {
+  if (!parsed || typeof parsed !== 'object') return legacy;
+  const candidate = parsed as Partial<SaveProofState>;
+  const cloudProofState = candidate.cloudProofState === 'confirmed'
+    || candidate.cloudProofState === 'pending'
+    || candidate.cloudProofState === 'degraded'
+    || candidate.cloudProofState === 'local-only'
+    ? candidate.cloudProofState
+    : legacy.cloudProofState;
+  return {
+    ...legacy,
+    latestLocalSaveAttemptAt: typeof candidate.latestLocalSaveAttemptAt === 'string' ? candidate.latestLocalSaveAttemptAt : legacy.latestLocalSaveAttemptAt,
+    latestDurableLocalWriteAt: typeof candidate.latestDurableLocalWriteAt === 'string' ? candidate.latestDurableLocalWriteAt : legacy.latestDurableLocalWriteAt,
+    latestCloudConfirmedCommitAt: typeof candidate.latestCloudConfirmedCommitAt === 'string' ? candidate.latestCloudConfirmedCommitAt : legacy.latestCloudConfirmedCommitAt,
+    latestConfirmedBatchId: typeof candidate.latestConfirmedBatchId === 'string' ? candidate.latestConfirmedBatchId : legacy.latestConfirmedBatchId,
+    latestReceiptStatus: candidate.latestReceiptStatus === 'committed' || candidate.latestReceiptStatus === 'received' || candidate.latestReceiptStatus === 'rejected' || candidate.latestReceiptStatus === 'conflict'
+      ? candidate.latestReceiptStatus
+      : legacy.latestReceiptStatus,
+    latestReceiptHashMatch: typeof candidate.latestReceiptHashMatch === 'boolean' ? candidate.latestReceiptHashMatch : legacy.latestReceiptHashMatch,
+    latestReceiptSchemaVersion: typeof candidate.latestReceiptSchemaVersion === 'number' ? candidate.latestReceiptSchemaVersion : legacy.latestReceiptSchemaVersion,
+    latestReceiptTouchedTables: Array.isArray(candidate.latestReceiptTouchedTables) ? candidate.latestReceiptTouchedTables.filter((table): table is string => typeof table === 'string') : legacy.latestReceiptTouchedTables,
+    latestReceiptOperationCount: typeof candidate.latestReceiptOperationCount === 'number' ? candidate.latestReceiptOperationCount : legacy.latestReceiptOperationCount,
+    latestReceiptOperationCountsByEntity: candidate.latestReceiptOperationCountsByEntity ?? legacy.latestReceiptOperationCountsByEntity,
+    latestFailedBatchId: typeof candidate.latestFailedBatchId === 'string' ? candidate.latestFailedBatchId : legacy.latestFailedBatchId,
+    latestFailureMessage: typeof candidate.latestFailureMessage === 'string' ? candidate.latestFailureMessage : legacy.latestFailureMessage,
+    latestFailureClass: candidate.latestFailureClass === 'payload-invalid'
+      || candidate.latestFailureClass === 'backend-setup'
+      || candidate.latestFailureClass === 'network-transient'
+      || candidate.latestFailureClass === 'rpc-receipt'
+      || candidate.latestFailureClass === 'conflict-revision'
+      || candidate.latestFailureClass === 'cloud-read-fallback'
+      || candidate.latestFailureClass === 'unknown'
+      ? candidate.latestFailureClass
+      : legacy.latestFailureClass,
+    cloudProofState,
+  };
+}
+
 function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const asRecord = parsed as Record<string, unknown>;
@@ -396,14 +434,7 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
         ? 'degraded'
         : 'pending',
   };
-  const saveProofRaw = asRecord.saveProof;
-  const saveProof: SaveProofState = saveProofRaw && typeof saveProofRaw === 'object'
-    ? {
-      ...legacySaveProof,
-      ...(saveProofRaw as Partial<SaveProofState>),
-      cloudProofState: (saveProofRaw as Partial<SaveProofState>).cloudProofState ?? legacySaveProof.cloudProofState,
-    }
-    : legacySaveProof;
+  const saveProof = normalizeSaveProofCandidate(asRecord.saveProof, legacySaveProof);
 
   const toNonNegativeInt = (value: unknown): number => {
     const next = Number(value);

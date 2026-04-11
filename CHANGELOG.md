@@ -2,6 +2,12 @@
 
 ## 2026-04-11
 
+### Startup trust restoration hardening: canonical save proof now drives hydration state
+- Fixed startup trust drift by making `initializeApp` hydrate meta trust/receipt state directly from canonical `saveProof` evidence (batch id, receipt status/hash/schema/tables/operation counts, failure class/message, cloud commit time) instead of rebuilding confidence from scattered legacy fields. (`src/store/slices/metaSlice.ts`)
+- Refactored startup sync derivation so canonical proof is now primary when available; fallback inference remains for older cache shapes only, and fallback timestamps are restored from persisted proof/cache times instead of “now,” preventing misleading degraded-session timing on reopen. (`src/store/slices/syncMetaDerivation.ts`)
+- Hardened local-cache save-proof normalization for backward compatibility by validating/normalizing every proof field (including enum guards for proof state/failure class and typed touched-table arrays), so malformed or legacy cache shapes hydrate conservatively without optimistic trust promotion. (`src/lib/persistence.ts`)
+- Expanded trust hydration regression coverage to assert pending-proof persistence, payload-invalid degraded persistence, and malformed legacy proof normalization behavior during startup load paths. (`src/store/slices/__tests__/metaSlice.syncMeta.test.ts`, `src/lib/__tests__/persistenceReliability.test.ts`)
+
 ### Persistence trust contract hardening: canonical save-proof state across store + cache write paths
 - Replaced fragmented post-save evidence fields with a canonical `saveProof` contract in meta state (`SaveProofState`) that explicitly records latest local attempt/write, cloud commit evidence, receipt metadata, failure details, and proof classification (`confirmed` / `pending` / `degraded` / `local-only`) so persistence confidence now has one authoritative shape. (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/persistenceMeta.ts`, `src/store/useAppStore.ts`)
 - Refactored post-save meta resolution to build/return canonical save proof first and derive compatibility legacy fields from it, reducing independent field updates and preventing accidental trust promotion when saves are noop, pending, or degraded. (`src/store/persistenceMeta.ts`)

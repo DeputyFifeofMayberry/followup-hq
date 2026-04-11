@@ -1,7 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { useAppStore } from '../../store/useAppStore';
-import type { CompanyType } from '../../types';
+import { useState } from 'react';
+import { buildCompanyDraft, useCompaniesDirectoryViewModel } from '../../domains/directory/hooks/useCompaniesDirectoryViewModel';
 import { CompanyCreateModal } from './CompanyCreateModal';
 import { CompanyProfilePanel } from './CompanyProfilePanel';
 
@@ -12,66 +10,87 @@ interface CompaniesDirectoryPaneProps {
     setSelectedRecord: (recordType: 'project' | 'contact' | 'company', recordId: string | null) => void;
   };
   onOpenDirectoryRecord: (recordType: 'project' | 'contact' | 'company', recordId: string) => void;
+  onOpenFollowUp: (recordId: string) => void;
+  onOpenTask: (recordId: string) => void;
 }
 
-export function CompaniesDirectoryPane({ vm, onOpenDirectoryRecord }: CompaniesDirectoryPaneProps) {
-  const { companies, addCompany, updateCompany } = useAppStore(useShallow((s) => ({ companies: s.companies, addCompany: s.addCompany, updateCompany: s.updateCompany })));
-  const [query, setQuery] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState<CompanyType>('Other');
-
-  const rows = useMemo(() => companies.filter((company) => company.name.toLowerCase().includes(query.trim().toLowerCase())), [companies, query]);
-  const selectedId = vm.selectedRecordType === 'company' ? vm.selectedRecordId : null;
-  const selectedCompany = selectedId ? companies.find((company) => company.id === selectedId) ?? null : null;
-  const selectedVisible = selectedId ? rows.some((row) => row.id === selectedId) : false;
-  const selected = selectedVisible ? selectedCompany : (rows[0] ?? null);
+export function CompaniesDirectoryPane({ vm, onOpenDirectoryRecord, onOpenFollowUp, onOpenTask }: CompaniesDirectoryPaneProps) {
+  const companiesVm = useCompaniesDirectoryViewModel(vm);
+  const [createDraft, setCreateDraft] = useState(buildCompanyDraft(null));
+  const [createError, setCreateError] = useState<string | null>(null);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.2fr,1fr]">
+    <div className="grid gap-4 xl:grid-cols-[1.1fr,1.25fr]">
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <input className="field-input max-w-64" placeholder="Search companies" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <button className="primary-btn" onClick={() => setShowCreate(true)}>New company</button>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <input className="field-input min-w-[240px] flex-1" placeholder="Search by company, owner, status, aliases, or tags" value={companiesVm.query} onChange={(event) => companiesVm.setQuery(event.target.value)} />
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 text-xs text-slate-600"><input type="checkbox" checked={companiesVm.showArchived} onChange={(event) => companiesVm.setShowArchived(event.target.checked)} />Show archived</label>
+            <button className="primary-btn" onClick={() => companiesVm.setShowCreate(true)}>New company</button>
+          </div>
         </div>
-        {selectedCompany && !selectedVisible ? (
+
+        {companiesVm.selectedCompany && !companiesVm.selectedVisible ? (
           <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            Selected company <span className="font-semibold">{selectedCompany.name}</span> is hidden by the current search filter.
-            <button className="ml-2 font-semibold underline" onClick={() => setQuery('')}>Clear search</button>
+            Selected company <span className="font-semibold">{companiesVm.selectedCompany.name}</span> is hidden by current filters.
+            <button className="ml-2 font-semibold underline" onClick={() => { companiesVm.setQuery(''); companiesVm.setShowArchived(true); }}>Clear filters</button>
           </div>
         ) : null}
+
+        {companiesVm.companies.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">No company records yet. Create your first company to anchor relationship context.</div> : null}
+        {companiesVm.companies.length > 0 && companiesVm.rows.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">No companies match this search/filter. Adjust filters to continue.</div> : null}
+
         <div className="space-y-2">
-          {rows.map((company) => (
-            <button key={company.id} className={selected?.id === company.id ? 'w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-left' : 'w-full rounded border border-slate-200 px-3 py-2 text-left'} onClick={() => vm.setSelectedRecord('company', company.id)}>
-              <div className="font-medium">{company.name}</div>
-              <div className="text-xs text-slate-600">{company.type}</div>
+          {companiesVm.rows.map((company) => (
+            <button key={company.id} className={companiesVm.selectedCompany?.id === company.id ? 'w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-left' : 'w-full rounded border border-slate-200 px-3 py-2 text-left'} onClick={() => companiesVm.setSelectedRecord('company', company.id)}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">{company.name}</div>
+                {company.active === false ? <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">Archived</span> : null}
+              </div>
+              <div className="text-xs text-slate-600">{company.type} • {company.internalOwner || 'Unassigned owner'}</div>
+              <div className="text-[11px] text-slate-500">{company.relationshipStatus || 'Active'} • Risk {company.riskTier || 'Low'} • {company.activeProjectCountCache ?? 0} active projects</div>
             </button>
           ))}
         </div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
-        <CompanyProfilePanel company={selected} onOpenProject={(id) => onOpenDirectoryRecord('project', id)} />
-        {selected ? (
-          <div className="mt-3 flex gap-2">
-            <button className="action-btn" onClick={() => updateCompany(selected.id, { active: selected.active === false ? true : false })}>{selected.active === false ? 'Mark active' : 'Archive'}</button>
-          </div>
-        ) : null}
+        <CompanyProfilePanel
+          company={companiesVm.selectedCompany ?? companiesVm.fallbackCompany}
+          contacts={companiesVm.contacts.map((contact) => ({ id: contact.id, name: contact.name }))}
+          editing={companiesVm.editing}
+          draft={companiesVm.draft}
+          saveError={companiesVm.saveError}
+          onDraftChange={companiesVm.setDraft}
+          onBeginEdit={companiesVm.beginEdit}
+          onCancelEdit={companiesVm.cancelEdit}
+          onSaveEdit={companiesVm.saveEdit}
+          onArchiveToggle={companiesVm.archiveToggle}
+          onDelete={companiesVm.removeSelectedCompany}
+          onOpenProject={(id) => onOpenDirectoryRecord('project', id)}
+          onOpenFollowUp={onOpenFollowUp}
+          onOpenTask={onOpenTask}
+          onOpenContact={(id) => onOpenDirectoryRecord('contact', id)}
+        />
       </section>
       <CompanyCreateModal
-        open={showCreate}
-        name={newName}
-        type={newType}
-        onNameChange={setNewName}
-        onTypeChange={setNewType}
-        onClose={() => setShowCreate(false)}
+        open={companiesVm.showCreate}
+        draft={createDraft}
+        contacts={companiesVm.contacts.map((contact) => ({ id: contact.id, name: contact.name }))}
+        error={createError}
+        onDraftChange={setCreateDraft}
+        onClose={() => {
+          companiesVm.setShowCreate(false);
+          setCreateDraft(buildCompanyDraft(null));
+          setCreateError(null);
+        }}
         onCreate={() => {
-          const name = newName.trim();
-          if (!name) return;
-          const id = addCompany({ name, type: newType, notes: '', tags: [], active: true });
-          vm.setSelectedRecord('company', id);
-          setShowCreate(false);
-          setNewName('');
-          setNewType('Other');
+          const result = companiesVm.createCompany(createDraft);
+          if (!result.ok) {
+            setCreateError(result.error);
+            return;
+          }
+          setCreateDraft(buildCompanyDraft(null));
+          setCreateError(null);
         }}
       />
     </div>

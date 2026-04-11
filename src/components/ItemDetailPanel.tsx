@@ -217,7 +217,7 @@ export function ItemDetailPanel({ personalMode = false, inModal = false, onReque
             <button className="action-btn" onClick={() => openRecordDrawer({ type: 'followup', id: item.id })}><Link2 className="h-4 w-4" />Open context drawer</button>
             <button className="action-btn" onClick={() => openRecordEditor({ type: 'followup', id: item.id }, 'edit', 'workspace')}><FileEdit className="h-4 w-4" />{editSurfaceCtas.fullEditFollowUp}</button>
             <button className="action-btn action-btn-danger" onClick={() => setActiveAction('delete')}><Trash2 className="h-4 w-4" />Delete</button>
-            {inModal ? <button className="action-btn" onClick={onRequestClose}>Close panel</button> : null}
+            {inModal ? <button className="action-btn" onClick={onRequestClose}>Close detail</button> : null}
           </div>
         </details>
       </div> : null}

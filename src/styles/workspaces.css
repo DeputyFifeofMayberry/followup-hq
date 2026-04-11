@@ -985,11 +985,6 @@
 .task-inspector-actions { align-items: center; }
 .task-quick-edit-grid-two-up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .task-quick-edit-grid-full { grid-column: 1 / -1; }
-.task-inspector-panel { display: grid; gap: 0.5rem; }
-.task-inspector-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.35rem; }
-.task-inspector-panel-title { margin-top: 0.08rem; font-size: 0.96rem; font-weight: 700; color: var(--text-primary); }
-.task-inspector-panel-body { max-height: min(78vh, 920px); overflow: auto; padding-right: 0.1rem; }
-
 @media (max-width: 960px) {
   .task-quick-capture-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .task-quick-capture-next-step { grid-column: 1 / -1; }

@@ -14,13 +14,13 @@ import { ControlBar } from '../ControlBar';
 import { TrackerTable } from '../TrackerTable';
 import { DuplicateReviewPanel } from '../DuplicateReviewPanel';
 import type { FollowUpItem } from '../../types';
-import { FollowUpInspectorModal } from '../followups/FollowUpInspectorModal';
+import { useAppStore } from '../../store/useAppStore';
 
 export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
   const vm = useFollowUpsViewModel();
+  const openRecordEditor = useAppStore((s) => s.openRecordEditor);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [revealNotice, setRevealNotice] = useState<string | null>(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [pendingDeleteFollowUp, setPendingDeleteFollowUp] = useState<FollowUpItem | null>(null);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
     if (intent.recordType === 'followup' && intent.recordId) {
       const visibleInCurrentLane = vm.filteredRows.some((row) => row.id === intent.recordId);
       vm.setSelectedId(intent.recordId);
-      setDetailModalOpen(true);
+      openRecordEditor({ type: 'followup', id: intent.recordId }, 'edit', 'workspace');
       if (visibleInCurrentLane) {
         setRevealNotice(null);
       } else {
@@ -38,14 +38,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
       }
     }
     vm.clearExecutionIntent();
-  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord]);
-
-  useEffect(() => {
-    if (!detailModalOpen) return;
-    if (!vm.selectedFollowUp) {
-      setDetailModalOpen(false);
-    }
-  }, [detailModalOpen, vm.selectedFollowUp]);
+  }, [vm.executionIntent, vm.clearExecutionIntent, vm.filteredRows, vm.setSelectedId, vm.revealFollowUpRecord, openRecordEditor]);
 
   return (
     <WorkspacePage>
@@ -61,7 +54,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
                 rows={vm.filteredRows}
                 onRowOpen={(id) => {
                   vm.setSelectedId(id);
-                  setDetailModalOpen(true);
+                  openRecordEditor({ type: 'followup', id }, 'edit', 'workspace');
                 }}
                 onRequestDelete={setPendingDeleteFollowUp}
               />
@@ -69,14 +62,6 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
           </div>
         </WorkspacePrimaryLayout>
       </WorkspaceContentFrame>
-
-      <FollowUpInspectorModal
-        open={detailModalOpen}
-        selectedFollowUp={vm.selectedFollowUp}
-        personalMode={personalMode}
-        onClose={() => setDetailModalOpen(false)}
-      />
-
 
       {duplicateModalOpen ? (
         <AppModal size="wide" onClose={() => setDuplicateModalOpen(false)} onBackdropClick={() => setDuplicateModalOpen(false)}>

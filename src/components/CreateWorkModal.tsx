@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Send, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildSmartFollowUpDefaults, buildSmartTaskDefaults, getRecentWorkMode, rememberFollowUpDefaults, rememberTaskDefaults } from '../lib/dataEntryDefaults';
@@ -8,6 +8,8 @@ import type { ActionLifecycleState, FollowUpFormInput, FollowUpItem, TaskFormInp
 import { EntityCombobox } from './EntityCombobox';
 import { createRecordEditorSession, followUpEditorAdapter, taskEditorAdapter, updateRecordEditorDraft, type FollowUpSavePayload, type RecordEditorSession, type TaskSavePayload } from '../domains/editor';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFooter, SegmentedControl } from './ui/AppPrimitives';
+import { FollowUpActionModal } from './actions/FollowUpActionModal';
+import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 
 type WorkMode = 'followup' | 'task';
 type EditorMode = 'quick' | 'full';
@@ -104,6 +106,9 @@ export function CreateWorkModal() {
     updateItem,
     addTask,
     updateTask,
+    deleteItem,
+    attemptFollowUpTransition,
+    openDraftModal,
     addProject,
     addContact,
     addCompany,
@@ -124,6 +129,9 @@ export function CreateWorkModal() {
     updateItem: s.updateItem,
     addTask: s.addTask,
     updateTask: s.updateTask,
+    deleteItem: s.deleteItem,
+    attemptFollowUpTransition: s.attemptFollowUpTransition,
+    openDraftModal: s.openDraftModal,
     addProject: s.addProject,
     addContact: s.addContact,
     addCompany: s.addCompany,
@@ -147,6 +155,8 @@ export function CreateWorkModal() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [expandedAdvanced, setExpandedAdvanced] = useState<Record<SectionKey, boolean>>({ core: true, schedule: true, relationships: true, notes: true, advanced: true });
   const [activeSection, setActiveSection] = useState<SectionKey>('core');
+  const [activeFollowUpAction, setActiveFollowUpAction] = useState<FollowUpActionType | null>(null);
+  const [followUpActionFeedback, setFollowUpActionFeedback] = useState<FollowUpActionFeedback | null>(null);
 
   const scrollRegionRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({ core: null, schedule: null, relationships: null, notes: null, advanced: null });
@@ -292,6 +302,13 @@ export function CreateWorkModal() {
     setExpandedAdvanced({ core: true, schedule: true, relationships: shouldOpenRelationships, notes: shouldOpenNotes, advanced: shouldOpenAdvanced });
   }, [open, mode, followUpSession?.recordRef.id, taskSession?.recordRef.id]);
 
+  useEffect(() => {
+    if (!open || !followUpEditing) {
+      setActiveFollowUpAction(null);
+      setFollowUpActionFeedback(null);
+    }
+  }, [open, followUpEditing, currentItem?.id]);
+
   if (!open) return null;
 
   const close = () => {
@@ -394,6 +411,20 @@ export function CreateWorkModal() {
           onClose={close}
         />
         <AppModalBody scrollable={false} className="create-work-modal-body">
+          {followUpEditing && currentItem ? (
+            <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Follow-up actions</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => openDraftModal(currentItem.id)} className="action-btn"><Send className="h-4 w-4" />Draft</button>
+                <button type="button" onClick={() => setActiveFollowUpAction('waiting_on_response')} className="action-btn">Waiting</button>
+                <button type="button" onClick={() => setActiveFollowUpAction('snooze')} className="action-btn">Snooze</button>
+                <button type="button" onClick={() => setActiveFollowUpAction('escalate')} className="action-btn">Escalate</button>
+                <button type="button" onClick={() => setActiveFollowUpAction('close')} className="action-btn"><CheckCircle2 className="h-4 w-4" />Close</button>
+                <button type="button" onClick={() => setActiveFollowUpAction('delete')} className="action-btn action-btn-danger"><Trash2 className="h-4 w-4" />Delete</button>
+              </div>
+              {followUpActionFeedback ? <div className={`mt-2 rounded-lg border px-3 py-2 text-xs ${followUpActionFeedback.tone === 'danger' ? 'border-rose-200 bg-rose-50 text-rose-900' : followUpActionFeedback.tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{followUpActionFeedback.message}</div> : null}
+            </div>
+          ) : null}
           <div className={quickMode ? 'create-work-topbar create-work-topbar-quick' : 'create-work-topbar'}>
             <div className="create-work-controls-group">
               <label className="create-work-controls-label">Work type</label>
@@ -726,6 +757,20 @@ export function CreateWorkModal() {
           </RecordEditorFooter>
         </AppModalFooter>
       </div>
+      {followUpEditing && currentItem ? (
+        <FollowUpActionModal
+          item={currentItem}
+          action={activeFollowUpAction}
+          onClose={() => setActiveFollowUpAction(null)}
+          followUpActions={{ attemptFollowUpTransition, deleteItem, updateItem }}
+          onCommitted={(feedback) => {
+            const committedAction = activeFollowUpAction;
+            setFollowUpActionFeedback(feedback);
+            setActiveFollowUpAction(null);
+            if (committedAction === 'delete') close();
+          }}
+        />
+      ) : null}
     </AppModal>
   );
 }

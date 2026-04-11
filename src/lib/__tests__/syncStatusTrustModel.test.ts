@@ -395,9 +395,24 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   const verificationPendingModel = getSyncStatusModel({
     ...baseMeta(),
     verificationState: 'pending',
+    lastVerificationStartedAt: '2026-04-11T12:00:00.000Z',
   } as any);
   assert(verificationPendingModel.stateLabel === 'Verifying current cloud state', `pending verification should present explicit verifying label, got ${verificationPendingModel.stateLabel}`);
   assert(verificationPendingModel.showSpinner === true, 'pending verification should show background verification spinner');
+
+  const stalePendingWithCompletedVerification = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'pending',
+    lastVerificationStartedAt: '2026-04-11T11:00:00.000Z',
+    lastVerificationCompletedAt: '2026-04-11T11:02:00.000Z',
+    verificationSummary: {
+      verified: true,
+      mismatchCount: 0,
+      mismatchCountsByCategory: {},
+      mismatchCountsByEntity: {},
+    },
+  } as any);
+  assert(stalePendingWithCompletedVerification.stateLabel === 'Verified', `stale pending status should defer to terminal verification result, got ${stalePendingWithCompletedVerification.stateLabel}`);
 
   const conflictModel = getSyncStatusModel({
     ...baseMeta(),

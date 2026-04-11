@@ -534,7 +534,10 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
-  if (meta.verificationState === 'pending' || meta.verificationState === 'running') {
+  const verificationRunAppearsActive = meta.verificationState === 'running'
+    || (meta.verificationState === 'pending' && (!meta.lastVerificationCompletedAt || (meta.lastVerificationStartedAt ?? '') > meta.lastVerificationCompletedAt));
+
+  if (verificationRunAppearsActive) {
     return {
       stage: 'verifying',
       primaryState: 'saved',

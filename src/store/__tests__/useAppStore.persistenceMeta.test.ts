@@ -2,6 +2,7 @@ import { resolvePostSaveMetaState } from '../persistenceMeta';
 import { deriveVerificationMetaFromResult } from '../verificationState';
 import { selectVerificationTargetPayload } from '../verificationTarget';
 import { initialBusinessState, initialMetaState, initialUiState } from '../state/initialState';
+import { buildAutomaticVerificationKey, canRunAutomaticVerification } from '../useAppStore';
 import { buildPersistedPayload } from '../state/persistence';
 import { verifyPersistedState, stableHashRecord } from '../../lib/persistenceVerification';
 import { canonicalizeEntityRecordForVerification } from '../../lib/persistenceCanonicalization';
@@ -291,6 +292,41 @@ function testAutomaticVerificationRequiresStableTarget(): void {
   assert(selectedClean?.source === 'cached-persisted-payload', 'automatic verification should require cached persisted payload source');
 }
 
+
+function testAutomaticVerificationGuardRequiresSafeTerminalSaveState(): void {
+  const safe = buildStoreLikeForVerificationTarget({
+    persistenceMode: 'supabase',
+    lastReceiptStatus: 'committed',
+    lastConfirmedBatchId: 'batch-1',
+    saveProof: { ...initialMetaState.saveProof, cloudProofState: 'confirmed' },
+    hasLocalUnsavedChanges: false,
+    pendingBatchCount: 0,
+    unresolvedOutboxCount: 0,
+    syncState: 'saved',
+    outboxState: 'idle',
+    cloudSyncState: 'confirmed',
+    verificationState: 'idle',
+  });
+  assert(canRunAutomaticVerification(safe), 'automatic verification should run when cloud receipt is confirmed and queue is stable');
+
+  const replaying = { ...safe, outboxState: 'flushing' };
+  assert(!canRunAutomaticVerification(replaying as any), 'automatic verification should not run while replay/send is still active');
+
+  const unsaved = { ...safe, hasLocalUnsavedChanges: true };
+  assert(!canRunAutomaticVerification(unsaved as any), 'automatic verification should not run with unsaved local edits');
+}
+
+function testAutomaticVerificationKeyTracksCommitProofAndRevision(): void {
+  const base = {
+    lastConfirmedBatchId: 'batch-1',
+    lastConfirmedBatchCommittedAt: '2026-04-11T10:00:00.000Z',
+    localRevision: 12,
+  } as any;
+  const keyA = buildAutomaticVerificationKey(base, 'post-save');
+  const keyB = buildAutomaticVerificationKey({ ...base, localRevision: 13 }, 'post-save');
+  assert(keyA !== keyB, 'automatic verification key should change when local revision changes to prevent stale dedupe');
+}
+
 async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> {
   const clean = buildStoreLikeForVerificationTarget({
     hasLocalUnsavedChanges: false,
@@ -336,5 +372,7 @@ async function testCleanStartupVerifyNowResultsInVerifiedMatch(): Promise<void> 
   testVerifyNowUsesCachedPersistedPayloadWhenStateIsClean();
   testVerifyNowFallsBackToLiveStateWhenUnsavedChangesExist();
   testAutomaticVerificationRequiresStableTarget();
+  testAutomaticVerificationGuardRequiresSafeTerminalSaveState();
+  testAutomaticVerificationKeyTracksCommitProofAndRevision();
   await testCleanStartupVerifyNowResultsInVerifiedMatch();
 })();

@@ -4,7 +4,6 @@ import { applyProjectFilters, applyProjectSort, buildProjectDerivedRecords, defa
 import { useAppStore } from '../../../store/useAppStore';
 import type { DirectoryRecordType, DirectoryTab, ProjectRecord, ProjectSortKey, ProjectStatus } from '../../../types';
 import { normalizeProjectInput, validateProjectIdentity } from '../../projects/validation';
-import { directoryRecordTypeByTab, directoryTabByRecordType } from '../session';
 
 export type ProjectDetailTab = 'profile' | 'operational';
 export type ProjectWorkspaceMode = 'directory' | 'operational';
@@ -80,23 +79,13 @@ export function useDirectoryViewModel() {
   const selectedProjectId = directorySession.selectedByType.project ?? '';
 
   const setTab = (nextTab: DirectoryTab) => {
-    const nextType = directoryRecordTypeByTab[nextTab];
-    setDirectoryWorkspaceSession({
-      activeTab: nextTab,
-      selectedRecordType: nextType,
-      selectedRecordId: directorySession.selectedByType[nextType],
-    });
+    setDirectoryWorkspaceSession({ activeTab: nextTab });
   };
 
   const setSelectedRecord = (recordType: DirectoryRecordType, recordId: string | null) => {
     setDirectoryWorkspaceSession({
-      activeTab: directoryTabByRecordType[recordType],
       selectedRecordType: recordType,
       selectedRecordId: recordId,
-      selectedByType: {
-        ...directorySession.selectedByType,
-        [recordType]: recordId,
-      },
     });
   };
 

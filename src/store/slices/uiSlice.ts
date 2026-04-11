@@ -2,6 +2,7 @@ import { createId, todayIso } from '../../lib/utils';
 import { getRecentWorkMode } from '../../lib/dataEntryDefaults';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { defaultTaskWorkspaceSession } from '../../domains/tasks';
+import { mergeDirectoryWorkspaceSession } from '../../domains/directory/session';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceGet, SliceSet } from './types';
 import type { QueueRequestMeta } from '../persistenceQueue';
@@ -168,10 +169,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
       },
     })),
     setDirectoryWorkspaceSession: (patch) => set((state: AppStore) => ({
-      directoryWorkspaceSession: {
-        ...state.directoryWorkspaceSession,
-        ...patch,
-      },
+      directoryWorkspaceSession: mergeDirectoryWorkspaceSession(state.directoryWorkspaceSession, patch),
     })),
     resetTaskWorkspaceSession: (options) => set((state: AppStore) => ({
       taskWorkspaceSession: {

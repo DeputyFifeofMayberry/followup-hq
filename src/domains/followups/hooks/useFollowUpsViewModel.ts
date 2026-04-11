@@ -244,6 +244,7 @@ export function useFollowUpsViewModel() {
     const shown = filteredRows.length;
     const itemLabel = shown === 1 ? 'follow-up' : 'follow-ups';
     if (store.activeView === 'All') return `Showing ${shown} open ${itemLabel}.`;
+    if (store.activeView === 'Today') return `Showing ${shown} due-today ${itemLabel}.`;
     if (store.activeView === 'Needs nudge') return `Showing ${shown} ${store.activeView.toLowerCase()} ${itemLabel}; ${queueStats.overdueTouches} touch${queueStats.overdueTouches === 1 ? '' : 'es'} are overdue.`;
     if (store.activeView === 'At risk') return `Showing ${shown} at-risk ${itemLabel}.`;
     if (store.activeView === 'Waiting') return `Showing ${shown} waiting ${itemLabel}.`;

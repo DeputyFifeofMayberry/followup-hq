@@ -3,12 +3,13 @@ import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type Col
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Badge } from './Badge';
-import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
+import { formatDate, priorityTone, statusTone } from '../lib/utils';
 import type { FollowUpColumnKey, FollowUpItem } from '../types';
 import { AppShellCard, EmptyState } from './ui/AppPrimitives';
 import { TrackerMobileList } from './TrackerMobileList';
 import { useViewportBand } from '../hooks/useViewport';
 import { useFollowUpsViewModel } from '../domains/followups';
+import { classifyFollowUpItem } from '../domains/followups/helpers/followUpLanes';
 
 const columnOrder: FollowUpColumnKey[] = ['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary', 'nextAction', 'project', 'owner', 'assignee', 'promisedDate', 'waitingOn', 'escalation', 'actionState'];
 const SUPPORT_COLUMNS = new Set(['project', 'owner', 'assigneeDisplayName', 'waitingOn', 'escalation', 'actionState', 'promisedDate']);
@@ -17,16 +18,9 @@ const SORTABLE_COLUMNS = new Set(['dueDate', 'nextTouchDate']);
 const COLUMN_CENTERED_COLUMNS = new Set(['priority', 'project', 'assigneeDisplayName']);
 
 function getWhatMattersNow(item: FollowUpItem): { label: string; tone: 'danger' | 'warn' | 'info' | 'success' } {
-  const dueDelta = daysUntil(item.dueDate);
-  const touchDelta = daysUntil(item.nextTouchDate);
-  if (item.status === 'Closed') return { label: 'Closed record', tone: 'success' };
-  if (isOverdue(item)) return { label: `Overdue by ${Math.abs(dueDelta)}d`, tone: 'danger' };
-  if ((item.blockedLinkedTaskCount ?? 0) > 0) return { label: 'Blocked by linked work', tone: 'danger' };
-  if (needsNudge(item)) return { label: touchDelta < 0 ? `Touch overdue ${Math.abs(touchDelta)}d` : 'Touch due today', tone: 'warn' };
-  if (item.status === 'Waiting on external' || item.status === 'Waiting internal' || item.waitingOn) return { label: 'Waiting on response', tone: 'info' };
-  if (item.status === 'At risk' || item.escalationLevel === 'Critical') return { label: 'At risk', tone: 'warn' };
-  if (item.nextAction) return { label: 'Next move set', tone: 'info' };
-  return { label: 'Needs direction', tone: 'info' };
+  const classification = classifyFollowUpItem(item);
+  if ((item.blockedLinkedTaskCount ?? 0) > 0 && classification.isOpen) return { label: 'Blocked by linked work', tone: 'danger' };
+  return { label: classification.primaryExecutionSignal, tone: classification.urgencyTone };
 }
 
 export function TrackerTable({

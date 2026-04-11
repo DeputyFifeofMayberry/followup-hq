@@ -27,6 +27,7 @@ import type {
   TaskItem,
   TaskStatus,
   TaskWorkspaceSession,
+  DirectoryWorkspaceSession,
   UnifiedQueueItem,
   UnifiedQueueFilter,
   UnifiedQueuePreset,
@@ -116,6 +117,7 @@ export interface AppStoreActions {
   closeDraftModal: () => void;
   setSelectedTaskId: (id: string | null) => void;
   setTaskWorkspaceSession: (patch: Partial<TaskWorkspaceSession>) => void;
+  setDirectoryWorkspaceSession: (patch: Partial<DirectoryWorkspaceSession>) => void;
   resetTaskWorkspaceSession: (options?: { preserveView?: boolean; preserveSearch?: boolean }) => void;
   openCreateTaskModal: () => void;
   openCreateWorkModal: () => void;

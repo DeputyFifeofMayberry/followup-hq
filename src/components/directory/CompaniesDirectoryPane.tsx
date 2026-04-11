@@ -6,19 +6,26 @@ import { CompanyCreateModal } from './CompanyCreateModal';
 import { CompanyProfilePanel } from './CompanyProfilePanel';
 
 interface CompaniesDirectoryPaneProps {
+  vm: {
+    selectedRecordType: 'project' | 'contact' | 'company';
+    selectedRecordId: string | null;
+    setSelectedRecord: (recordType: 'project' | 'contact' | 'company', recordId: string | null) => void;
+  };
   onOpenDirectoryRecord: (recordType: 'project' | 'contact' | 'company', recordId: string) => void;
 }
 
-export function CompaniesDirectoryPane({ onOpenDirectoryRecord }: CompaniesDirectoryPaneProps) {
+export function CompaniesDirectoryPane({ vm, onOpenDirectoryRecord }: CompaniesDirectoryPaneProps) {
   const { companies, addCompany, updateCompany } = useAppStore(useShallow((s) => ({ companies: s.companies, addCompany: s.addCompany, updateCompany: s.updateCompany })));
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<CompanyType>('Other');
 
   const rows = useMemo(() => companies.filter((company) => company.name.toLowerCase().includes(query.trim().toLowerCase())), [companies, query]);
-  const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
+  const selectedId = vm.selectedRecordType === 'company' ? vm.selectedRecordId : null;
+  const selectedCompany = selectedId ? companies.find((company) => company.id === selectedId) ?? null : null;
+  const selectedVisible = selectedId ? rows.some((row) => row.id === selectedId) : false;
+  const selected = selectedVisible ? selectedCompany : (rows[0] ?? null);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.2fr,1fr]">
@@ -27,9 +34,15 @@ export function CompaniesDirectoryPane({ onOpenDirectoryRecord }: CompaniesDirec
           <input className="field-input max-w-64" placeholder="Search companies" value={query} onChange={(event) => setQuery(event.target.value)} />
           <button className="primary-btn" onClick={() => setShowCreate(true)}>New company</button>
         </div>
+        {selectedCompany && !selectedVisible ? (
+          <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Selected company <span className="font-semibold">{selectedCompany.name}</span> is hidden by the current search filter.
+            <button className="ml-2 font-semibold underline" onClick={() => setQuery('')}>Clear search</button>
+          </div>
+        ) : null}
         <div className="space-y-2">
           {rows.map((company) => (
-            <button key={company.id} className={selected?.id === company.id ? 'w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-left' : 'w-full rounded border border-slate-200 px-3 py-2 text-left'} onClick={() => setSelectedId(company.id)}>
+            <button key={company.id} className={selected?.id === company.id ? 'w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-left' : 'w-full rounded border border-slate-200 px-3 py-2 text-left'} onClick={() => vm.setSelectedRecord('company', company.id)}>
               <div className="font-medium">{company.name}</div>
               <div className="text-xs text-slate-600">{company.type}</div>
             </button>
@@ -55,7 +68,7 @@ export function CompaniesDirectoryPane({ onOpenDirectoryRecord }: CompaniesDirec
           const name = newName.trim();
           if (!name) return;
           const id = addCompany({ name, type: newType, notes: '', tags: [], active: true });
-          setSelectedId(id);
+          vm.setSelectedRecord('company', id);
           setShowCreate(false);
           setNewName('');
           setNewType('Other');

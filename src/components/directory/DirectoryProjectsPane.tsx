@@ -28,6 +28,17 @@ export function DirectoryProjectsPane({ vm, onOpenFollowUp, onOpenTask, onOpenDi
           <select className="field-input max-w-44" value={vm.sortKey} onChange={(event) => vm.setSortKey(event.target.value as ProjectSortKey)}><option value="name">Sort: name</option><option value="updated">Sort: last activity</option><option value="targetDate">Sort: target completion</option><option value="overdueWork">Sort: overdue work</option><option value="health">Sort: health</option></select>
           <button className="action-btn" onClick={() => vm.setSortDirection((prev: 'asc' | 'desc') => prev === 'asc' ? 'desc' : 'asc')}>Order: {vm.sortDirection === 'asc' ? 'Ascending' : 'Descending'}</button>
         </div>
+        {vm.selectedProject && !vm.selectedProjectVisible ? (
+          <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Selected project <span className="font-semibold">{vm.selectedProject.name}</span> is hidden by current filters.
+            <button
+              className="ml-2 font-semibold underline"
+              onClick={() => vm.setProjectFilters((prev: ProjectFilterState) => ({ ...prev, query: '', owner: 'All', status: 'All' }))}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : null}
         {sortedRows.length === 0 ? <StatePanel tone="empty" title={vm.projects.length === 0 ? 'No projects yet' : 'No matching projects'} message={vm.projects.length === 0 ? 'Create your first project to start building the directory.' : 'Try adjusting search, status, owner, or archive filters.'} /> : vm.projectViewMode === 'directory' ? <ProjectDirectoryTable rows={sortedRows} selectedProjectId={vm.selectedProjectId} onSelectProject={vm.setSelectedProjectId} /> : <ProjectOperationalCards rows={sortedRows} onSelectProject={vm.setSelectedProjectId} />}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-4">

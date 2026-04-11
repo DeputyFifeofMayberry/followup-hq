@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { applyProjectFilters, applyProjectSort, buildProjectDerivedRecords, defaultProjectFilters, type ProjectFilterState } from '../../../lib/projectSelectors';
 import { useAppStore } from '../../../store/useAppStore';
-import type { ProjectRecord, ProjectSortKey, ProjectStatus } from '../../../types';
+import type { DirectoryRecordType, DirectoryTab, ProjectRecord, ProjectSortKey, ProjectStatus } from '../../../types';
 import { normalizeProjectInput, validateProjectIdentity } from '../../projects/validation';
+import { directoryRecordTypeByTab, directoryTabByRecordType } from '../session';
 
-export type DirectoryTab = 'projects' | 'people' | 'companies';
 export type ProjectDetailTab = 'profile' | 'operational';
 export type ProjectViewMode = 'directory' | 'operational';
 export type ProjectDraft = Omit<ProjectRecord, 'id' | 'createdAt' | 'updatedAt'>;
@@ -35,6 +35,8 @@ export function useDirectoryViewModel() {
   const {
     projects, items, tasks, contacts, companies, intakeDocuments,
     addProject, updateProject, deleteProject,
+    directorySession,
+    setDirectoryWorkspaceSession,
   } = useAppStore(useShallow((s) => ({
     projects: s.projects,
     items: s.items,
@@ -45,15 +47,15 @@ export function useDirectoryViewModel() {
     addProject: s.addProject,
     updateProject: s.updateProject,
     deleteProject: s.deleteProject,
+    directorySession: s.directoryWorkspaceSession,
+    setDirectoryWorkspaceSession: s.setDirectoryWorkspaceSession,
   })));
 
-  const [tab, setTab] = useState<DirectoryTab>('projects');
   const [projectViewMode, setProjectViewMode] = useState<ProjectViewMode>('directory');
   const [projectFilters, setProjectFilters] = useState<ProjectFilterState>(defaultProjectFilters);
   const [archivedFilter, setArchivedFilter] = useState<'active' | 'archived' | 'all'>('active');
   const [sortKey, setSortKey] = useState<ProjectSortKey>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createDraft, setCreateDraft] = useState<ProjectDraft>(blankProjectDraft);
   const [createErrors, setCreateErrors] = useState<string[]>([]);
@@ -64,6 +66,32 @@ export function useDirectoryViewModel() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const tab = directorySession.activeTab;
+  const selectedProjectId = directorySession.selectedByType.project ?? '';
+
+  const setTab = (nextTab: DirectoryTab) => {
+    const nextType = directoryRecordTypeByTab[nextTab];
+    setDirectoryWorkspaceSession({
+      activeTab: nextTab,
+      selectedRecordType: nextType,
+      selectedRecordId: directorySession.selectedByType[nextType],
+    });
+  };
+
+  const setSelectedRecord = (recordType: DirectoryRecordType, recordId: string | null) => {
+    setDirectoryWorkspaceSession({
+      activeTab: directoryTabByRecordType[recordType],
+      selectedRecordType: recordType,
+      selectedRecordId: recordId,
+      selectedByType: {
+        ...directorySession.selectedByType,
+        [recordType]: recordId,
+      },
+    });
+  };
+
+  const setSelectedProjectId = (projectId: string) => setSelectedRecord('project', projectId);
 
   const rows = useMemo(() => buildProjectDerivedRecords(projects, items, tasks, intakeDocuments, contacts, companies), [projects, items, tasks, intakeDocuments, contacts, companies]);
   const filteredRows = useMemo(() => applyProjectFilters(rows, projectFilters), [rows, projectFilters]);
@@ -76,15 +104,18 @@ export function useDirectoryViewModel() {
   }, [archivedFilter, filteredRows]);
   const sortedRows = useMemo(() => applyProjectSort(displayRows, sortKey, sortDirection), [displayRows, sortKey, sortDirection]);
 
+  const selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
+  const selectedProjectVisible = selectedProjectId ? sortedRows.some((row) => row.project.id === selectedProjectId) : false;
+
   useEffect(() => {
     if (!sortedRows.length) {
-      setSelectedProjectId('');
+      if (selectedProjectId) setSelectedRecord('project', null);
       return;
     }
-    if (!selectedProjectId || !sortedRows.some((row) => row.project.id === selectedProjectId)) {
+    if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
       setSelectedProjectId(sortedRows[0].project.id);
     }
-  }, [selectedProjectId, sortedRows]);
+  }, [projects, selectedProjectId, setDirectoryWorkspaceSession, sortedRows]);
 
   const selectedRow = sortedRows.find((row) => row.project.id === selectedProjectId) ?? null;
 
@@ -165,6 +196,11 @@ export function useDirectoryViewModel() {
     setSortDirection,
     selectedProjectId,
     setSelectedProjectId,
+    selectedProject,
+    selectedProjectVisible,
+    selectedRecordType: directorySession.selectedRecordType,
+    selectedRecordId: directorySession.selectedRecordId,
+    setSelectedRecord,
     showCreateModal,
     setShowCreateModal,
     createDraft,

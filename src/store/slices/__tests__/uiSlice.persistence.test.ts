@@ -1,6 +1,7 @@
 import { createUiSlice } from '../uiSlice';
 import { defaultFollowUpFilters } from '../../../lib/followUpSelectors';
 import { defaultTaskWorkspaceSession } from '../../../domains/tasks';
+import { defaultDirectoryWorkspaceSession } from '../../../domains/directory/session';
 import type { AppStore } from '../../types';
 
 let state = {
@@ -22,6 +23,7 @@ let state = {
   recordSurfaceSource: null,
   createWorkDraft: null,
   taskWorkspaceSession: defaultTaskWorkspaceSession,
+  directoryWorkspaceSession: defaultDirectoryWorkspaceSession,
   executionLaneSessions: {
     followups: { lane: 'followups', lastSelectedRecordId: null, lastProjectScope: null, lastSection: null, lastIntentLabel: null, lastSourceWorkspace: null, updatedAt: new Date(0).toISOString() },
     tasks: { lane: 'tasks', lastSelectedRecordId: null, lastProjectScope: null, lastSection: null, lastIntentLabel: null, lastSourceWorkspace: null, updatedAt: new Date(0).toISOString() },
@@ -43,11 +45,13 @@ slice.setFollowUpColumns(['title', 'status']);
 slice.saveFollowUpCustomView('My view', 'abc');
 slice.applySavedFollowUpCustomView('view-1');
 slice.setTaskWorkspaceSession({ searchQuery: 'concrete pour', statusFilter: 'Blocked' });
+slice.setDirectoryWorkspaceSession({ selectedRecordType: 'company', selectedRecordId: 'CO-9' });
 slice.resetTaskWorkspaceSession({ preserveView: true });
 
 if (queueCount !== 4) throw new Error('persisted follow-up actions should queue persistence');
 if (state.taskWorkspaceSession.searchQuery !== '') throw new Error('resetTaskWorkspaceSession should clear search query by default');
 if (state.taskWorkspaceSession.statusFilter !== 'All') throw new Error('resetTaskWorkspaceSession should clear status filter');
+if (state.directoryWorkspaceSession.selectedRecordType !== 'company' || state.directoryWorkspaceSession.selectedRecordId !== 'CO-9') throw new Error('setDirectoryWorkspaceSession should patch canonical directory selection state');
 
 slice.openEditModal('FUP-1');
 if (!state.itemModal.open || state.taskModal.open || state.recordDrawerRef !== null) throw new Error('openEditModal should focus canonical full-editor modal');

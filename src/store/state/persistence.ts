@@ -6,6 +6,7 @@ export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 
   savedExecutionViews: SavedExecutionView[];
   followUpFilters: FollowUpAdvancedFilters;
   taskWorkspaceSession: PersistedPayload['auxiliary']['taskWorkspaceSession'];
+  directoryWorkspaceSession: PersistedPayload['auxiliary']['directoryWorkspaceSession'];
   followUpColumns: FollowUpColumnKey[];
   savedFollowUpViews: SavedFollowUpCustomView[];
   followUpTableDensity: FollowUpTableDensity;
@@ -43,6 +44,7 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       savedExecutionViews: state.savedExecutionViews,
       followUpFilters: state.followUpFilters,
       taskWorkspaceSession: state.taskWorkspaceSession,
+      directoryWorkspaceSession: state.directoryWorkspaceSession,
       followUpColumns: state.followUpColumns,
       savedFollowUpViews: state.savedFollowUpViews,
       followUpTableDensity: state.followUpTableDensity,

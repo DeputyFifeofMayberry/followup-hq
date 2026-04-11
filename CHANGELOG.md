@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Follow-up inspector execution flows: structured action transitions + queue progression
+- Turned the Prompt 2 follow-up inspector into an execution surface by adding structured action flows for confirm outreach, mark waiting on response, snooze/defer, reply received, close, reopen, and escalate-at-risk; each flow now supports targeted inputs, transition validation feedback (warnings/blockers), and close override when allowed. (`src/components/app/TrackerWorkspace.tsx`, `src/components/followups/FollowUpInspectorModal.tsx`, `src/components/followups/FollowUpActionFlow.tsx`)
+- Added reusable follow-up execution helpers (`buildExecutionPatch`, draft defaults, and inspector progression resolution) so status/lifecycle/action-state updates are coherent and shared rather than scattered UI field patches. (`src/domains/followups/helpers/executionActions.ts`, `src/domains/followups/helpers/executionProgression.ts`)
+- Updated execution receipts and lifecycle bundling so operational actions (draft/sent/reply/complete) leave explicit action receipt traces in addition to timeline updates, improving auditability/trust for inspector-initiated moves. (`src/lib/utils.ts`)
+- Simplified legacy table-row action menu to reduce competing execution entry points (`Open inspector`, `Delete` only), making inspector the normal place to perform routine follow-up operations. (`src/components/TrackerTable.tsx`)
+- Added focused helper-level regression coverage for close/snooze/waiting/escalate execution patch behavior and queue progression decisions after actions remove a record from the current lane. (`src/domains/followups/helpers/__tests__/executionActions.test.ts`)
+
 ### Follow Ups execution architecture reset: queue now opens dedicated inspector by default
 - Reintroduced a dedicated execution-first Follow-up inspector modal and rebuilt it around action hierarchy rather than full-schema editing: primary execution actions (log touch, nudge, snooze), explicit recommended-next-move signal, lifecycle/trust warnings, linked-task summary, and recent timeline are now available in one lane-native workspace surface. (`src/components/followups/FollowUpInspectorModal.tsx`)
 - Refactored Follow Ups lane row-open behavior and execution-intent routing so the canonical queue-open path is now **row → follow-up inspector** instead of immediate full editor, including reveal/handoff behavior when routing to off-filter follow-ups. (`src/components/app/TrackerWorkspace.tsx`)

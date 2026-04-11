@@ -13,6 +13,7 @@ import type {
   SavedViewKey,
   SourceType,
   TimelineEvent,
+  ActionReceipt,
 } from '../types';
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
@@ -537,7 +538,14 @@ export type FollowUpLifecycleAction =
 
 export function applyLifecycleBundle(item: FollowUpItem, action: FollowUpLifecycleAction, actor = 'Current user'): Partial<FollowUpItem> {
   const at = todayIso();
-  const base = { lastActionAt: at, actionReceipts: [{ id: createId('ACT'), at, actor, action: 'completed' as const, confirmed: true }, ...(item.actionReceipts || [])] };
+  const receiptAction: ActionReceipt['action'] = action === 'draft_follow_up'
+    ? 'draft_created'
+    : action === 'sent_follow_up'
+      ? 'send_confirmed'
+      : action === 'reply_received'
+        ? 'reply_received'
+        : 'completed';
+  const base = { lastActionAt: at, actionReceipts: [{ id: createId('ACT'), at, actor, action: receiptAction, confirmed: true }, ...(item.actionReceipts || [])] };
   switch (action) {
     case 'draft_follow_up':
       return { ...base, actionState: 'Ready to send', lastCompletedAction: 'Draft follow-up', timeline: [buildTouchEvent('Draft follow-up prepared.', 'bundle_action'), ...item.timeline] };

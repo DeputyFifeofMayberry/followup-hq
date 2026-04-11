@@ -1,5 +1,5 @@
-import type { TaskItem } from '../../types';
-import { classifyTaskIntoLanes, normalizeTaskStatus, type TaskQueueView } from './lanes';
+import type { TaskItem, TaskQueueView } from '../../types';
+import { classifyTaskIntoLanes, normalizeTaskStatus } from './lanes';
 
 type TaskLike = Pick<TaskItem, 'status' | 'dueDate' | 'deferredUntil' | 'linkedFollowUpId' | 'completedAt'>;
 

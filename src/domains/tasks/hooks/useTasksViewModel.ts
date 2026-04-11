@@ -14,13 +14,13 @@ import {
   defaultTaskWorkspaceSession,
   type TaskLinkageFilter,
   type TaskPriorityFilter,
+  type TaskQueueView,
   type TaskSort,
   type TaskStateFilter,
   type TaskTimingFilter,
-  type TaskView,
 } from '../types';
 
-export type { TaskView, TaskSort };
+export type { TaskQueueView, TaskSort };
 
 const priorityRank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
 
@@ -322,7 +322,7 @@ export function useTasksViewModel({ personalMode = false }: { personalMode?: boo
     sortBy,
     setSortBy: (value: TaskSort) => store.setTaskWorkspaceSession({ sortBy: value }),
     view,
-    setView: (value: TaskView) => store.setTaskWorkspaceSession({ view: value }),
+    setView: (value: TaskQueueView) => store.setTaskWorkspaceSession({ view: value }),
     projectFilter,
     setProjectFilter: (value: string) => store.setTaskWorkspaceSession({ projectFilter: value }),
     assigneeFilter,

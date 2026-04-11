@@ -2,6 +2,9 @@
 
 ## 2026-04-11
 
+### Tasks Prompt 5: canonical queue-view type unification
+- Fixed a root typing split between `TaskView` and `TaskQueueView` by making `TaskQueueView` the canonical shared queue-view union in `src/types.ts` (with `TaskView` as a direct alias for compatibility), then wiring Tasks workspace, toolbar, selectors, lane model, and view-model setters/options to consume the same canonical queue-view type so `blocked`/`unlinked` lane support no longer conflicts across component props and queue option arrays. (`src/types.ts`, `src/domains/tasks/lanes.ts`, `src/domains/tasks/selectors.ts`, `src/domains/tasks/hooks/useTasksViewModel.ts`, `src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskToolbar.tsx`, `src/domains/tasks/types.ts`)
+
 ### Tasks Prompt 4: workflow hardening + stale-path cleanup + queue/selection trust fixes
 - Hardened task queue/inspector selection consistency in `TaskWorkspace`: when the current selection leaves the visible queue (after transitions, deletes, queue changes, or filter narrowing), selection now advances/clears intentionally via execution-lane progression rules instead of leaving stale hidden-task inspector state. (`src/components/TaskWorkspace.tsx`)
 - Removed conflicting row-level desktop maintenance shortcuts from `TaskList` (`Today`, `Tomorrow`, linked follow-up jump, delete) so queue rows remain scan/select surfaces and workflow transitions stay centered in the inspector/action-flow hierarchy. (`src/components/tasks/TaskList.tsx`)

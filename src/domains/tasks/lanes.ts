@@ -1,8 +1,6 @@
 import { isTaskDeferred, localDayDelta } from '../../lib/utils';
-import type { TaskItem } from '../../types';
+import type { TaskItem, TaskQueueView } from '../../types';
 import { getTaskDueBucket, type TaskDueBucket } from './timing';
-
-export type TaskQueueView = 'today' | 'overdue' | 'upcoming' | 'blocked' | 'review' | 'deferred' | 'unlinked' | 'recent' | 'all';
 
 export type TaskLaneDefinition = {
   key: TaskQueueView;

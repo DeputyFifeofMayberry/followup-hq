@@ -234,25 +234,26 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onPriorityFilterChange={vm.setPriorityFilter}
             sortBy={vm.sortBy}
             onSortByChange={vm.setSortBy}
+            activeFilterChips={vm.activeFilterChips}
+            sortSummary={vm.sortSummary || 'Sorted by due date.'}
             onResetFilters={vm.resetPanelFilters}
           />
 
-            <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'} ${isMobileLike ? 'task-filter-chip-row-mobile' : ''}`.trim()}>
+            {!isMobileLike ? <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'}`.trim()}>
               {vm.activeFilterChips.length > 0 ? (
                 <>
-                  {(isMobileLike ? vm.activeFilterChips.slice(0, 2) : vm.activeFilterChips).map((chip) => (
+                  {vm.activeFilterChips.map((chip) => (
                     <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
                       {chip.label}
                       <span aria-hidden>×</span>
                     </button>
                   ))}
-                  {isMobileLike && vm.activeFilterChips.length > 2 ? <span className="task-sort-summary">+{vm.activeFilterChips.length - 2} more</span> : null}
                   <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={vm.resetPanelFilters}>Clear all filters</button>
                 </>
               ) : (
                 <span className="task-sort-summary">No active filters. {vm.sortSummary || 'Sorted by due date.'}</span>
               )}
-            </div>
+            </div> : null}
 
             <TaskList
             isMobileLike={isMobileLike}

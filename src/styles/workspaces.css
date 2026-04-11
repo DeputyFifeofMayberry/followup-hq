@@ -406,8 +406,57 @@
   align-items: end;
 }
 .task-mobile-filter-btn { min-width: 6.5rem; justify-content: center; }
+
+.task-mobile-filter-summary {
+  border: 1px solid #d8e3ef;
+  border-radius: 0.72rem;
+  background: #f8fbff;
+  padding: 0.34rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2rem;
+}
+.task-mobile-filter-summary-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #51677e;
+  flex: 0 0 auto;
+}
+.task-mobile-filter-summary-values {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #334155;
+  font-size: 0.68rem;
+  font-weight: 620;
+  overflow: hidden;
+}
+.task-mobile-filter-summary-values span {
+  max-width: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-mobile-filter-summary-clear {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: 0.68rem;
+  font-weight: 670;
+  padding: 0.16rem 0.18rem;
+}
+.task-mobile-active-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding-bottom: 0.45rem;
+}
 .task-filters-panel-mobile { border: 0; background: transparent; padding: 0; }
-.task-filter-chip-row-mobile { padding-top: 0.12rem; }
 .task-queue-summary-strip-mobile .task-queue-summary-text { font-size: 0.72rem; }
 .task-mobile-queue-card { padding: 0.64rem; gap: 0.5rem; }
 .task-mobile-queue-card .tracker-mobile-main { gap: 0.4rem; }

@@ -42,6 +42,12 @@ export function actionIsPrimary(decision: 'approve_followup' | 'approve_task' | 
   return decision === 'reject';
 }
 
+export function createActionBlockReason(input: { createBlocked: boolean; safeToCreateNew: boolean; confirmUnsafeCreate: boolean }) {
+  if (input.createBlocked) return 'Create-new actions are disabled until blockers are corrected.';
+  if (!input.safeToCreateNew && !input.confirmUnsafeCreate) return 'Create-new actions are disabled until duplicate-risk override is acknowledged.';
+  return null;
+}
+
 export function candidateTypeLabel(type: string) {
   if (type === 'followup') return 'Follow-up';
   if (type === 'task') return 'Task';

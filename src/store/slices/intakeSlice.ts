@@ -205,27 +205,33 @@ export function createIntakeSlice(set: SliceSet, get: SliceGet, { queuePersist }
     retryIntakeAssetParse: async (assetId) => {
       const state = get();
       const asset = state.intakeAssets.find((entry) => entry.id === assetId);
-      if (!asset) return;
+      if (!asset) return { status: 'failed' as const, message: 'Asset not found.' };
       if (!asset.retrySource) {
+        const message = asset.retryUnavailableReason || 'Retry source not available for this legacy asset.';
         set((inner: AppStore) => ({ intakeAssets: inner.intakeAssets.map((entry) => entry.id === assetId ? { ...entry, lastRetryAt: todayIso(), lastRetryStatus: 'failed', lastRetryMessage: asset.retryUnavailableReason || 'Retry source not available for this legacy asset.' } : entry) }));
         queuePersist();
-        return;
+        return { status: 'failed' as const, message };
       }
       const retryFile = fileFromIntakeRetrySource(asset.retrySource);
       const reparsed = await parseIntakeFile(retryFile, asset.batchId);
       const reparsedAsset = reparsed.find((entry) => !entry.parentAssetId);
       if (!reparsedAsset) {
+        const message = 'Retry parse returned no root asset.';
         set((inner: AppStore) => ({ intakeAssets: inner.intakeAssets.map((entry) => entry.id === assetId ? { ...entry, lastRetryAt: todayIso(), lastRetryStatus: 'failed', lastRetryMessage: 'Retry parse returned no root asset.' } : entry) }));
         queuePersist();
-        return;
+        return { status: 'failed' as const, message };
       }
       const candidates = buildCandidatesFromAsset(reparsedAsset, state.items, state.tasks);
+      const message = reparsedAsset.parseStatus === 'failed'
+        ? (reparsedAsset.errors[0] || 'Retry parse failed.')
+        : 'Retry parse completed from original upload bytes.';
       set((inner: AppStore) => ({
         intakeAssets: [{ ...reparsedAsset, id: assetId, lastRetryAt: todayIso(), lastRetryStatus: reparsedAsset.parseStatus === 'failed' ? 'failed' : 'success', lastRetryMessage: reparsedAsset.parseStatus === 'failed' ? (reparsedAsset.errors[0] || 'Retry parse failed.') : 'Retry parse completed from original upload bytes.' }, ...inner.intakeAssets.filter((entry) => entry.id !== assetId && entry.parentAssetId !== assetId && entry.rootAssetId !== assetId)],
         intakeWorkCandidates: [...candidates.map((candidate) => ({ ...candidate, assetId })), ...inner.intakeWorkCandidates.filter((entry) => entry.assetId !== assetId)],
       }));
       set((latest: AppStore) => recomputeAllBatchStats(latest));
       queuePersist();
+      return { status: reparsedAsset.parseStatus === 'failed' ? 'failed' as const : 'success' as const, message };
     },
     deleteIntakeBatchIfEmpty: (batchId) => {
       set((state: AppStore) => {

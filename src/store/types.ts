@@ -198,7 +198,7 @@ export interface AppStoreActions {
   archiveIntakeBatch: (batchId: string) => void;
   clearFinalizedIntakeCandidates: (batchId?: string) => void;
   removeIntakeAsset: (assetId: string) => void;
-  retryIntakeAssetParse: (assetId: string) => Promise<void>;
+  retryIntakeAssetParse: (assetId: string) => Promise<{ status: 'success' | 'failed'; message: string }>;
   deleteIntakeBatchIfEmpty: (batchId: string) => void;
   confirmFollowUpSent: (id: string, notes?: string) => void;
   updateOutlookSettings: (patch: Partial<OutlookConnectionSettings>) => void;

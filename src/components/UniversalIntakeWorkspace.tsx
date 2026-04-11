@@ -65,6 +65,12 @@ export function UniversalIntakeWorkspace() {
     if (!visibleCandidates.length) { setSelectedCandidateId(null); return; }
     if (!selectedCandidateId || !visibleCandidates.some((entry) => entry.id === selectedCandidateId)) setSelectedCandidateId(visibleCandidates[0].id);
   }, [visibleCandidates, selectedCandidateId]);
+  useEffect(() => {
+    setSelectedMatchId(null);
+    setSelectedEvidenceLocator(null);
+    setSelectedSourceTab('overview');
+    setConfirmUnsafeCreate(false);
+  }, [selectedCandidateId]);
 
   const selectedCandidate = pendingCandidates.find((entry) => entry.id === selectedCandidateId) ?? null;
   const selectedAsset = selectedCandidate ? intakeAssets.find((entry) => entry.id === selectedCandidate.assetId) ?? null : null;
@@ -185,7 +191,7 @@ export function UniversalIntakeWorkspace() {
       }} />
 
       <section className="intake-core-grid intake-core-grid-staged">
-        <IntakeQueuePanel activeLane={activeLane} byLane={byLane} queue={queue} selectedCandidateId={selectedCandidateId} onSelectCandidate={(id) => { setSelectedCandidateId(id); setSelectedMatchId(null); }} onSetLane={setActiveLane} />
+        <IntakeQueuePanel activeLane={activeLane} byLane={byLane} queue={queue} selectedCandidateId={selectedCandidateId} onSelectCandidate={(id) => setSelectedCandidateId(id)} onSetLane={setActiveLane} />
 
         <IntakeCandidateWorkbench
           selectedCandidate={selectedCandidate}

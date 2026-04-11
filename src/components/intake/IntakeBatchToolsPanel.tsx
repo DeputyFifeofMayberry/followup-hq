@@ -8,7 +8,7 @@ interface Props {
   archiveIntakeBatch: (batchId: string) => void;
   clearFinalizedIntakeCandidates: (batchId?: string) => void;
   removeIntakeAsset: (assetId: string) => void;
-  retryIntakeAssetParse: (assetId: string) => Promise<void>;
+  retryIntakeAssetParse: (assetId: string) => Promise<{ status: 'success' | 'failed'; message: string }>;
   deleteIntakeBatchIfEmpty: (batchId: string) => void;
   onFeedback: (tone: 'success' | 'error', message: string) => void;
 }
@@ -40,8 +40,8 @@ export function IntakeBatchToolsPanel(props: Props) {
                 </div>
                 {failures.map((asset) => <div key={asset.id} className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">{asset.fileName}: {asset.errors[0] || asset.warnings[0]}
                   <div className="mt-1 flex gap-1">{asset.retrySource ? <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={async () => {
-                    await props.retryIntakeAssetParse(asset.id);
-                    props.onFeedback('success', 'Retry parse completed.');
+                    const result = await props.retryIntakeAssetParse(asset.id);
+                    props.onFeedback(result.status === 'success' ? 'success' : 'error', result.message);
                   }}>Retry parse</button> : null}
                   <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={() => props.removeIntakeAsset(asset.id)}>Remove failed asset</button></div>
                 </div>)}

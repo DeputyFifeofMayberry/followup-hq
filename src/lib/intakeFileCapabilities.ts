@@ -18,9 +18,9 @@ export const INTAKE_FILE_CAPABILITIES: IntakeFileCapability[] = [
   { extension: '.csv', label: 'CSV', state: 'parse_supported', acceptMime: ['text/csv'] },
   { extension: '.xls', label: 'Excel workbook', state: 'parse_supported', acceptMime: ['application/vnd.ms-excel'] },
   { extension: '.xlsx', label: 'Excel workbook', state: 'parse_supported', acceptMime: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] },
-  { extension: '.msg', label: 'Outlook .msg email', state: 'blocked', reason: 'Client-side .msg parsing is not reliable yet. Save/export as .eml first.' },
-  { extension: '.doc', label: 'Legacy Word .doc', state: 'blocked', reason: 'Legacy .doc parsing is not reliable in the browser. Convert to .docx first.' },
-  { extension: '.pptx', label: 'PowerPoint', state: 'blocked', reason: 'PowerPoint (.pptx) intake is temporarily disabled until slide-level extraction is reliable.' },
+  { extension: '.msg', label: 'Outlook .msg email', state: 'manual_review_only', reason: 'Best-effort Outlook extraction can recover sender/subject/body hints but still requires manual review.' },
+  { extension: '.doc', label: 'Legacy Word .doc', state: 'manual_review_only', reason: 'Legacy Word binary extraction is best-effort only; verify before creating work.' },
+  { extension: '.pptx', label: 'PowerPoint', state: 'manual_review_only', reason: 'Slide text extraction is partial and routed to manual review by default.' },
 ];
 
 const byExt = new Map(INTAKE_FILE_CAPABILITIES.map((cap) => [cap.extension, cap]));

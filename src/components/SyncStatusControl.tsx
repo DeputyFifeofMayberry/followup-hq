@@ -25,6 +25,7 @@ export function SyncStatusControl() {
     flushPersistenceNow: s.flushPersistenceNow,
     retryPersistenceNow: s.retryPersistenceNow,
     verifyNow: s.verifyNow,
+    pushToast: s.pushToast,
     markVerificationMismatchReviewed: s.markVerificationMismatchReviewed,
     clearReviewedVerificationMismatches: s.clearReviewedVerificationMismatches,
     markConflictReviewed: s.markConflictReviewed,
@@ -37,6 +38,7 @@ export function SyncStatusControl() {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const previousStageRef = useRef<string | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
   const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch'
@@ -83,6 +85,33 @@ export function SyncStatusControl() {
       : 'No save timestamp recorded yet.';
 
   useEffect(() => {
+    const previousStage = previousStageRef.current;
+    if (previousStage === statusModel.stage) return;
+    previousStageRef.current = statusModel.stage;
+
+    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'verified') {
+      syncMeta.pushToast({
+        tone: 'success',
+        title: 'Cloud save confirmed',
+        message: 'Your latest changes are now confirmed in cloud storage.',
+        durationMs: 1800,
+        source: 'sync.status.cloud_confirmed',
+      });
+      return;
+    }
+
+    if (statusModel.stage === 'verified') {
+      syncMeta.pushToast({
+        tone: 'success',
+        title: 'Save verified',
+        message: 'Current local state matches the latest cloud read.',
+        durationMs: 2000,
+        source: 'sync.status.verified',
+      });
+    }
+  }, [statusModel.stage, syncMeta]);
+
+  useEffect(() => {
     const onDown = (event: MouseEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) {
         setOpen(false);
@@ -97,12 +126,15 @@ export function SyncStatusControl() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`sync-status-trigger sync-status-trigger-${statusModel.tone}`}
+        className={`sync-status-trigger sync-status-trigger-${statusModel.tone} sync-status-trigger-stage-${statusModel.stage}`}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
         <SyncStateIcon tone={statusModel.stateTone} spinning={statusModel.showSpinner} />
-        <span>{statusModel.stateLabel}</span>
+        <span className="sync-status-trigger-text">
+          <strong>{statusModel.stateLabel}</strong>
+          <span>{statusModel.stateDescription}</span>
+        </span>
       </button>
 
       {open ? (

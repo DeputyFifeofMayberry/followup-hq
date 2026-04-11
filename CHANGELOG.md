@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Save-trust shell UX redesign: explicit real-time confidence stages in header + calm confirmation cues
+- Rebuilt the primary save indicator model around explicit trust stages (`Unsaved changes`, `Saving changes`, `Saved locally, awaiting cloud`, `Cloud confirmed`, `Verifying current cloud state`, `Verified`, `Offline — queued locally`, `Needs attention`) so day-to-day confidence is visible directly in the shell without opening diagnostics. (`src/lib/syncStatus.ts`)
+- Refactored status precedence to follow the actual persistence lifecycle (dirty/saving/local durable/pending cloud/confirmed/verification/offline/degraded) and removed ambiguous generic “Saved” projections when confidence is still transitional. (`src/lib/syncStatus.ts`)
+- Upgraded the header trigger UI from a tiny label-only pill to a two-line, scan-first trust card with stage-specific tone differentiation (safe vs pending vs offline vs attention), while preserving the Trust Center panel as a secondary deep-diagnostics surface. (`src/components/SyncStatusControl.tsx`, `src/styles/primitives.css`)
+- Added low-noise trust confirmation toasts on meaningful transitions (`Cloud confirmed`, `Verified`) so users get point-of-action reassurance without repeated typing-time notification spam. (`src/components/SyncStatusControl.tsx`)
+- Expanded sync trust regression assertions to verify explicit stage labels and distinct projections for unsaved/saving/offline/pending-cloud/cloud-confirmed/verified/attention cases. (`src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Automatic post-save verification lifecycle: committed cloud receipts now auto-verify current cloud truth
 - Wired committed Supabase saves into a guarded automatic verification scheduler so normal cloud-confirmed saves now transition to an explicit verification-pending lifecycle and trigger a background post-save re-read/compare when state is safe (clean local state, no unresolved/pending outbox work), with duplicate-run suppression for rapid successive state updates. (`src/store/useAppStore.ts`, `src/store/state/types.ts`)
 - Hardened verification target selection for automatic runs by adding a strict stable-target mode that requires the canonical cached persisted payload and refuses runtime-state fallback when local/outbox drift is present, preventing false mismatch comparisons from volatile in-memory state. (`src/store/verificationTarget.ts`, `src/store/useAppStore.ts`)

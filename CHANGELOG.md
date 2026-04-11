@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Tasks mobile execution workspace redesign: queue-first controls, filter sheet, and touch-first detail flow
+- Rebuilt the Tasks mobile control model into a queue-first layout: mobile now surfaces quick queue switching (`Now`, `Overdue`, `Upcoming`, `All open`) as primary chips, keeps search inline, and moves advanced filtering into a dedicated modal sheet so the task queue is immediately usable without scrolling through a desktop-style filter wall. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
+- Reworked mobile task list rendering into purpose-built execution cards with clearer hierarchy (`why now`, `next move`, compact metadata) and action-weighted controls (`Complete` as primary with secondary actions in overflow), while preserving existing desktop row behavior. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)
+- Tightened mobile task detail ergonomics by passing viewport intent through the inspector modal and applying touch-friendly action sizing/layout in the detail workspace, keeping edit/action depth available without cramped controls. (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`)
+
 ### Follow Ups mobile queue redesign: triage-first cards, focused actions, and cleaner mobile editor handoff
 - Reworked the mobile-only Follow Ups lane surface (`TrackerMobileList`) from dense record cards into a triage-first queue model with a clearer hierarchy: title + strongest status signals, one urgency line, one explicit next-move line, and one compact support line (project/owner/waiting), reducing per-card noise while keeping daily action context obvious. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
 - Simplified mobile card action hierarchy so tap-on-card remains the primary “open full editor” workflow, one high-frequency quick action (`Log touch`) stays visible, and lower-frequency actions (`Mark nudged`, `Snooze 2d`, `Delete`) move into a compact overflow menu; delete remains available but no longer has equal visual weight with routine actions. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)

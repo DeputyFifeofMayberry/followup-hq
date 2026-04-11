@@ -20,6 +20,9 @@ type TaskToolbarProps = {
   viewOptionsOpen: boolean;
   onToggleViewOptions: () => void;
   activeFilterCount: number;
+  activeFilterChips: Array<{ key: string; label: string; clear: () => void }>;
+  sortSummary: string;
+  onResetFilters: () => void;
   personalMode: boolean;
   projectFilter: string;
   projectOptions: string[];
@@ -42,7 +45,6 @@ type TaskToolbarProps = {
   onPriorityFilterChange: (value: PriorityFilter) => void;
   sortBy: TaskSort;
   onSortByChange: (value: TaskSort) => void;
-  onResetFilters: () => void;
 };
 
 function TaskFilterContent({
@@ -69,7 +71,7 @@ function TaskFilterContent({
   sortBy,
   onSortByChange,
   onResetFilters,
-}: Omit<TaskToolbarProps, 'isMobileLike' | 'searchQuery' | 'onSearchQueryChange' | 'onClearSearch' | 'view' | 'onViewChange' | 'taskViewOptions' | 'viewOptionsOpen' | 'onToggleViewOptions' | 'activeFilterCount'>) {
+}: Omit<TaskToolbarProps, 'isMobileLike' | 'searchQuery' | 'onSearchQueryChange' | 'onClearSearch' | 'view' | 'onViewChange' | 'taskViewOptions' | 'viewOptionsOpen' | 'onToggleViewOptions' | 'activeFilterCount' | 'activeFilterChips' | 'sortSummary'>) {
   return (
     <>
       <section className="task-view-options-section">
@@ -124,14 +126,20 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
     viewOptionsOpen,
     onToggleViewOptions,
     activeFilterCount,
+    activeFilterChips,
+    sortSummary,
+    onResetFilters,
     ...filterProps
   } = props;
 
   if (isMobileLike) {
+    const visibleQueueViews = taskViewOptions.filter((option) => ['today', 'overdue', 'upcoming', 'all'].includes(option.value));
+    const activeFilterPreview = activeFilterChips.slice(0, 2);
+
     return (
       <div className="workspace-control-stack task-control-stack-calm task-mobile-control-stack">
         <div className="task-mobile-view-rail" aria-label="Task queue view">
-          {taskViewOptions.filter((option) => ['today', 'overdue', 'upcoming', 'all'].includes(option.value)).map((option) => (
+          {visibleQueueViews.map((option) => (
             <button
               key={option.value}
               type="button"
@@ -157,12 +165,38 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
           </button>
         </div>
 
+        <div className="task-mobile-filter-summary" aria-live="polite">
+          {activeFilterCount > 0 ? (
+            <>
+              <div className="task-mobile-filter-summary-label">Active</div>
+              <div className="task-mobile-filter-summary-values">
+                {activeFilterPreview.map((chip) => <span key={chip.key}>{chip.label}</span>)}
+                {activeFilterChips.length > 2 ? <span>+{activeFilterChips.length - 2} more</span> : null}
+              </div>
+              <button type="button" className="task-mobile-filter-summary-clear" onClick={onResetFilters}>Reset</button>
+            </>
+          ) : (
+            <div className="task-sort-summary">No active filters. {sortSummary || 'Sorted by due date.'}</div>
+          )}
+        </div>
+
         {viewOptionsOpen ? (
           <AppModal size="standard" onClose={onToggleViewOptions} onBackdropClick={onToggleViewOptions} ariaLabel="Task filters">
-            <AppModalHeader title="Task filters" subtitle="Tune queue scope without crowding the main list." onClose={onToggleViewOptions} />
+            <AppModalHeader title="Task filters" subtitle="Apply filters, then jump straight back to your queue." onClose={onToggleViewOptions} />
             <AppModalBody>
+              {activeFilterChips.length > 0 ? (
+                <div className="task-mobile-active-filter-chips">
+                  {activeFilterChips.map((chip) => (
+                    <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
+                      {chip.label}
+                      <span aria-hidden>×</span>
+                    </button>
+                  ))}
+                  <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={onResetFilters}>Clear all filters</button>
+                </div>
+              ) : null}
               <div className="task-filters-panel-slim task-filters-panel-mobile">
-                <TaskFilterContent {...filterProps} />
+                <TaskFilterContent {...filterProps} onResetFilters={onResetFilters} />
               </div>
             </AppModalBody>
             <AppModalFooter>
@@ -203,7 +237,7 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
       {viewOptionsOpen ? (
         <div className="task-filters-panel-slim">
           <div className="task-view-options-title">More filters</div>
-          <TaskFilterContent {...filterProps} />
+          <TaskFilterContent {...filterProps} onResetFilters={onResetFilters} />
         </div>
       ) : null}
     </div>

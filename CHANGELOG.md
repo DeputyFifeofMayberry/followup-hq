@@ -2,6 +2,11 @@
 
 ## 2026-04-11
 
+### Tasks mobile controls/filter redesign: queue-first compact toolbar with on-demand filter sheet
+- Reworked `TaskToolbar` mobile behavior into a compact queue-first control model: fast queue chips (`Now`, `Overdue`, `Upcoming`, `All open`) stay always visible, search remains inline, and active filter state is summarized in a small strip instead of expanding dense controls above the queue. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
+- Moved mobile advanced filtering into a dedicated modal workflow with in-sheet active filter chips and one-tap clear/reset actions, preserving full filtering capability while removing the desktop-style “wall of selects” from initial mobile view. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
+- Kept desktop toolbar/filter behavior intact while shifting mobile active-filter chip rendering out of `TaskWorkspace` and into the toolbar-specific mobile summary/sheet flow to reduce top-of-page clutter and keep queue content visible sooner. (`src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskToolbar.tsx`)
+
 ### Follow Ups mobile card/action cleanup: triage-first hierarchy with safer action density
 - Simplified `TrackerMobileList` follow-up cards into a mobile triage hierarchy (title, single urgency zone, explicit next move, compact support line), removing repeated urgency phrasing and excess row-level metadata so cards scan faster and show more queue items per screen. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)
 - Kept `Next move` as primary decision content with a clear missing-state treatment (`No next move set yet`) so users can quickly distinguish direction-ready follow-ups from records that still need plan clarity. (`src/components/TrackerMobileList.tsx`, `src/styles/workspaces.css`)

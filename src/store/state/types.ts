@@ -244,7 +244,7 @@ export type SessionDegradedReason =
   | 'load-failed-no-local-copy'
   | 'payload-invalid';
 
-export type VerificationLifecycleState = 'idle' | 'running' | 'verified-match' | 'mismatch-found' | 'read-failed' | 'failed';
+export type VerificationLifecycleState = 'idle' | 'pending' | 'running' | 'verified-match' | 'mismatch-found' | 'read-failed' | 'failed';
 export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | 'conflict';
 export type OperationCountsByEntity = SaveBatchEntityCounts;
 export type ReceiptStatus = SaveBatchStatus;

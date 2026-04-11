@@ -448,6 +448,19 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
+  if (meta.verificationState === 'pending' || meta.verificationState === 'running') {
+    return {
+      primaryState: 'saved',
+      stateLabel: 'Saved, verifying…',
+      stateDescription: 'Cloud save is committed; re-reading cloud data to verify current match.',
+      reassurance: 'Saved state is committed. Verification is running in the background.',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: true,
+      ...modeDetails,
+    };
+  }
+
   if (meta.verificationState === 'verified-match' || meta.verificationSummary?.verified) {
     return {
       primaryState: 'saved',

@@ -371,6 +371,12 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   } as any);
   assert(verificationReadFailedModel.primaryState === 'saved', `verification read failure should not map to needs-attention, got ${verificationReadFailedModel.primaryState}`);
   assert(verificationReadFailedModel.stateLabel === 'Could not verify', `verification read failure should surface could-not-verify label, got ${verificationReadFailedModel.stateLabel}`);
+  const verificationPendingModel = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'pending',
+  } as any);
+  assert(verificationPendingModel.stateLabel === 'Saved, verifying…', `pending verification should present saved-verifying lifecycle label, got ${verificationPendingModel.stateLabel}`);
+  assert(verificationPendingModel.showSpinner === true, 'pending verification should show background verification spinner');
 
   const conflictModel = getSyncStatusModel({
     ...baseMeta(),

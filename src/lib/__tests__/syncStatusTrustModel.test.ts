@@ -14,6 +14,7 @@ function baseMeta() {
     unsavedChangeCount: 0,
     hasLocalUnsavedChanges: false,
     cloudSyncStatus: 'cloud-confirmed',
+    pendingBatchCount: 0,
     localRevision: 1,
     lastCloudConfirmedRevision: 1,
     localSaveState: 'saved',
@@ -74,8 +75,8 @@ function baseMeta() {
 function testCloudConfirmedPrimaryState(): void {
   const model = getSyncStatusModel(baseMeta());
   assert(model.primaryState === 'saved', `expected saved primary state, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saved', `expected Saved label, got ${model.stateLabel}`);
-  assert(model.stateDescription === 'All changes saved', `expected simplified saved description, got ${model.stateDescription}`);
+  assert(model.stateLabel === 'Cloud confirmed', `expected Cloud confirmed label, got ${model.stateLabel}`);
+  assert(model.stateDescription === 'Latest save is confirmed by cloud receipt.', `expected cloud receipt description, got ${model.stateDescription}`);
 }
 
 function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
@@ -87,7 +88,7 @@ function testBrowserLocalOnlyMapsToSavedWithoutWarningTone(): void {
     lastCloudConfirmedAt: undefined,
   });
   assert(model.primaryState === 'saved', `expected saved primary state in browser mode, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saved', `expected Saved label in browser mode, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Saved locally', `expected Saved locally label in browser mode, got ${model.stateLabel}`);
   assert(model.stateTone === 'success', `expected success tone for local-only saved state, got ${model.stateTone}`);
   assert(model.stateDescription === 'Changes saved on this device; cloud sync will resume automatically', `expected local-only saved description, got ${model.stateDescription}`);
 }
@@ -96,13 +97,14 @@ function testPendingCloudFeelsTransitionalNotDangerous(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
     cloudSyncStatus: 'pending-cloud',
+    pendingBatchCount: 0,
     localRevision: 2,
     lastCloudConfirmedRevision: 1,
     localSaveState: 'saved',
     cloudSyncState: 'queued',
   });
   assert(model.primaryState === 'saved', `expected pending-cloud local protection state, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saved locally', `expected Saved locally label for pending-cloud, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Saved locally, awaiting cloud', `expected awaiting-cloud label for pending-cloud, got ${model.stateLabel}`);
   assert(model.stateTone === 'info', `expected info tone for pending-cloud transition, got ${model.stateTone}`);
 }
 
@@ -119,7 +121,7 @@ function testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving(): void {
     cloudSyncState: 'queued',
   });
   assert(model.primaryState === 'saved', `queued lifecycle without unsaved work should not show saving, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saved', `queued lifecycle without unsaved work should settle to Saved, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Saved locally, awaiting cloud', `queued lifecycle without unsaved work should stay in awaiting-cloud state, got ${model.stateLabel}`);
 }
 
 function testFallbackCasesMapToNeedsAttention(): void {
@@ -142,7 +144,7 @@ function testFallbackCasesMapToNeedsAttention(): void {
   });
 }
 
-function testBackendSetupIssueMapsToSavedLocally(): void {
+function testBackendSetupIssueMapsToNeedsAttention(): void {
   const backendSchemaModel = getSyncStatusModel({
     ...baseMeta(),
     syncState: 'error',
@@ -150,8 +152,8 @@ function testBackendSetupIssueMapsToSavedLocally(): void {
     sessionDegradedReason: 'backend-schema-mismatch',
     cloudSyncStatus: 'cloud-save-failed-local-preserved',
   } as any);
-  assert(backendSchemaModel.stateLabel === 'Saved locally', `expected Saved locally for backend schema mismatch, got ${backendSchemaModel.stateLabel}`);
-  assert(backendSchemaModel.stateDescription === 'Cloud setup required', `expected cloud setup required description, got ${backendSchemaModel.stateDescription}`);
+  assert(backendSchemaModel.stateLabel === 'Needs attention', `expected Needs attention for backend schema mismatch, got ${backendSchemaModel.stateLabel}`);
+  assert(backendSchemaModel.stateDescription === 'Cloud setup is blocked; local protection remains active.', `expected setup-blocked description, got ${backendSchemaModel.stateDescription}`);
 
   const backendRpcModel = getSyncStatusModel({
     ...baseMeta(),
@@ -160,7 +162,7 @@ function testBackendSetupIssueMapsToSavedLocally(): void {
     sessionDegradedReason: 'backend-rpc-missing',
     cloudSyncStatus: 'cloud-save-failed-local-preserved',
   } as any);
-  assert(backendRpcModel.stateLabel === 'Saved locally', `expected Saved locally for backend rpc mismatch, got ${backendRpcModel.stateLabel}`);
+  assert(backendRpcModel.stateLabel === 'Needs attention', `expected Needs attention for backend rpc mismatch, got ${backendRpcModel.stateLabel}`);
   assert(backendRpcModel.modeLabel === 'Protected local fallback', `expected protected local fallback mode, got ${backendRpcModel.modeLabel}`);
   assert(backendRpcModel.trustLabel === 'Cloud trust blocked by missing RPC', `expected missing RPC trust label, got ${backendRpcModel.trustLabel}`);
 }
@@ -201,7 +203,7 @@ function testDirtyMapsToSavingState(): void {
     cloudSyncState: 'queued',
   });
   assert(model.primaryState === 'saving', `expected dirty to map to saving, got ${model.primaryState}`);
-  assert(model.stateLabel === 'Saving…', `expected Saving label, got ${model.stateLabel}`);
+  assert(model.stateLabel === 'Saving changes', `expected dirty queued state to show saving label, got ${model.stateLabel}`);
 }
 
 
@@ -239,12 +241,18 @@ function testVerificationMismatchDoesNotForceSaving(): void {
     ...baseMeta(),
     verificationState: 'mismatch-found',
     recoveryReviewNeeded: true,
+    verificationSummary: {
+      verified: false,
+      mismatchCount: 1,
+      mismatchCountsByCategory: { content_mismatch: 1 },
+      mismatchCountsByEntity: { tasks: 1 },
+    },
     syncState: 'saved',
     localSaveState: 'saved',
     cloudSyncState: 'confirmed',
     cloudSyncStatus: 'cloud-confirmed',
-  });
-  assert(model.primaryState === 'saved', `verification mismatch should remain secondary and not force saving, got ${model.primaryState}`);
+  } as any);
+  assert(model.primaryState === 'needs-attention', `verification mismatch should require attention, got ${model.primaryState}`);
 }
 
 function testSharedSnapshotSelectorConsistency(): void {
@@ -369,13 +377,13 @@ function testVerifiedMatchAndRecoveryProjection(): void {
       verificationReadFailed: true,
     },
   } as any);
-  assert(verificationReadFailedModel.primaryState === 'saved', `verification read failure should not map to needs-attention, got ${verificationReadFailedModel.primaryState}`);
-  assert(verificationReadFailedModel.stateLabel === 'Could not verify', `verification read failure should surface could-not-verify label, got ${verificationReadFailedModel.stateLabel}`);
+  assert(verificationReadFailedModel.primaryState === 'needs-attention', `verification read failure should map to attention state, got ${verificationReadFailedModel.primaryState}`);
+  assert(verificationReadFailedModel.stateLabel === 'Needs attention', `verification read failure should surface attention label, got ${verificationReadFailedModel.stateLabel}`);
   const verificationPendingModel = getSyncStatusModel({
     ...baseMeta(),
     verificationState: 'pending',
   } as any);
-  assert(verificationPendingModel.stateLabel === 'Saved, verifying…', `pending verification should present saved-verifying lifecycle label, got ${verificationPendingModel.stateLabel}`);
+  assert(verificationPendingModel.stateLabel === 'Verifying current cloud state', `pending verification should present explicit verifying label, got ${verificationPendingModel.stateLabel}`);
   assert(verificationPendingModel.showSpinner === true, 'pending verification should show background verification spinner');
 
   const conflictModel = getSyncStatusModel({
@@ -401,18 +409,62 @@ function testVerifiedMatchAndRecoveryProjection(): void {
   assert(timestampDriftOnlyModel.stateLabel !== 'Needs attention', `timestamp-only drift should not show needs-attention state, got ${timestampDriftOnlyModel.stateLabel}`);
 }
 
+function testExplicitPipelineStateLabels(): void {
+  const unsaved = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'dirty',
+    hasLocalUnsavedChanges: true,
+    unsavedChangeCount: 1,
+    localSaveState: 'idle',
+    cloudSyncState: 'idle',
+  });
+  assert(unsaved.stateLabel === 'Unsaved changes', `expected explicit unsaved label, got ${unsaved.stateLabel}`);
+
+  const saving = getSyncStatusModel({
+    ...baseMeta(),
+    syncState: 'saving',
+    hasLocalUnsavedChanges: true,
+    unsavedChangeCount: 1,
+    localSaveState: 'saving',
+    cloudSyncState: 'sending',
+  });
+  assert(saving.stateLabel === 'Saving changes', `expected explicit saving label, got ${saving.stateLabel}`);
+
+  const offline = getSyncStatusModel({
+    ...baseMeta(),
+    cloudSyncStatus: 'pending-cloud',
+    cloudSyncState: 'offline-pending',
+    connectivityState: 'offline',
+    localRevision: 2,
+    lastCloudConfirmedRevision: 1,
+    pendingOfflineChangeCount: 2,
+  });
+  assert(offline.stateLabel === 'Offline — queued locally', `expected explicit offline queue label, got ${offline.stateLabel}`);
+
+  const confirmed = getSyncStatusModel(baseMeta());
+  assert(confirmed.stateLabel === 'Cloud confirmed', `expected cloud confirmed label, got ${confirmed.stateLabel}`);
+
+  const verified = getSyncStatusModel({
+    ...baseMeta(),
+    verificationState: 'verified-match',
+    verificationSummary: { verified: true, mismatchCount: 0, mismatchCountsByCategory: {}, mismatchCountsByEntity: {} },
+  } as any);
+  assert(verified.stateLabel === 'Verified', `expected explicit verified label, got ${verified.stateLabel}`);
+}
+
 (function run() {
   testCloudConfirmedPrimaryState();
   testBrowserLocalOnlyMapsToSavedWithoutWarningTone();
   testPendingCloudFeelsTransitionalNotDangerous();
   testQueuedWithoutUnsavedWorkDoesNotAppearAsSaving();
   testFallbackCasesMapToNeedsAttention();
-  testBackendSetupIssueMapsToSavedLocally();
+  testBackendSetupIssueMapsToNeedsAttention();
   testFailureNarrativesAreCalmAndSpecific();
   testDirtyMapsToSavingState();
   testFailedOutboxDoesNotShowSavingForever();
   testBackendRpcExposureFailureDoesNotShowSavingForever();
   testVerificationMismatchDoesNotForceSaving();
   testVerifiedMatchAndRecoveryProjection();
+  testExplicitPipelineStateLabels();
   testSharedSnapshotSelectorConsistency();
 })();

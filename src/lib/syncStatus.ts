@@ -14,6 +14,16 @@ import type {
 
 export type SyncState = 'idle' | 'checking' | 'dirty' | 'saving' | 'saved' | 'error';
 export type SyncPrimaryState = 'checking' | 'saving' | 'saved' | 'needs-attention';
+export type SyncTrustStage =
+  | 'checking'
+  | 'unsaved'
+  | 'saving'
+  | 'saved-local'
+  | 'offline-pending'
+  | 'cloud-confirmed'
+  | 'verifying'
+  | 'verified'
+  | 'needs-attention';
 
 export interface SyncMetaSnapshot {
   hydrated: boolean;
@@ -23,6 +33,7 @@ export interface SyncMetaSnapshot {
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
   cloudSyncStatus: CloudSyncStatus;
+  pendingBatchCount: number;
   localRevision: number;
   lastCloudConfirmedRevision: number;
   localSaveState: 'idle' | 'saving' | 'saved' | 'error';
@@ -85,6 +96,7 @@ export interface SyncMetaSnapshot {
 }
 
 export interface SyncStatusModel {
+  stage: SyncTrustStage;
   primaryState: SyncPrimaryState;
   stateLabel: string;
   stateDescription: string;
@@ -131,6 +143,7 @@ export function selectSyncMetaSnapshot(state: AppStore): SyncMetaSnapshot {
     unsavedChangeCount: state.unsavedChangeCount,
     hasLocalUnsavedChanges: state.hasLocalUnsavedChanges,
     cloudSyncStatus: state.cloudSyncStatus,
+    pendingBatchCount: state.pendingBatchCount,
     localRevision: state.localRevision,
     lastCloudConfirmedRevision: state.lastCloudConfirmedRevision,
     localSaveState: state.localSaveState,
@@ -371,8 +384,9 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (!meta.hydrated || meta.syncState === 'checking' || meta.persistenceMode === 'loading') {
     return {
+      stage: 'checking',
       primaryState: 'checking',
-      stateLabel: 'Saving…',
+      stateLabel: 'Checking save status',
       stateDescription: 'Loading your workspace and save status.',
       reassurance: 'Checking save status…',
       tone: 'info',
@@ -399,15 +413,16 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       || meta.sessionDegradedReason === 'backend-missing-hashing-support';
     const narrative = getAttentionNarrative(meta);
     return {
+      stage: 'needs-attention',
       primaryState: isBackendSetupIssue ? 'saved' : 'needs-attention',
       stateLabel: isBackendSetupIssue
-        ? 'Saved locally'
+        ? 'Needs attention'
         : meta.sessionDegradedReason === 'payload-invalid'
           ? 'Repair needed'
           : fallbackAttention
             ? 'Needs attention'
             : 'Retry needed',
-      stateDescription: isBackendSetupIssue ? 'Cloud setup required' : narrative.stateDescription,
+      stateDescription: isBackendSetupIssue ? 'Cloud setup is blocked; local protection remains active.' : narrative.stateDescription,
       reassurance: isBackendSetupIssue
         ? 'Changes are saved locally. Cloud setup is required to resume sync.'
         : narrative.reassurance,
@@ -437,6 +452,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (hasVerifiedMismatchSummary || meta.conflictReviewNeeded || meta.outboxState === 'conflict') {
     return {
+      stage: 'needs-attention',
       primaryState: 'needs-attention',
       stateLabel: 'Needs attention',
       stateDescription: 'Review recovery or conflict details to confirm trusted sync state.',
@@ -448,10 +464,81 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     };
   }
 
+  const hasUnsavedWork = meta.hasLocalUnsavedChanges || meta.unsavedChangeCount > 0 || meta.syncState === 'dirty';
+
+  if (hasUnsavedWork && !isSaving) {
+    return {
+      stage: 'unsaved',
+      primaryState: 'saving',
+      stateLabel: 'Unsaved changes',
+      stateDescription: 'Recent edits have not been written to local durable storage yet.',
+      reassurance: 'Keep editing — FollowUp HQ is preparing your changes to save.',
+      tone: 'info',
+      stateTone: 'warn',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  if (isSaving) {
+    return {
+      stage: 'saving',
+      primaryState: 'saving',
+      stateLabel: 'Saving changes',
+      stateDescription: 'Writing your latest edits to local storage and sync queue.',
+      reassurance: 'Saving in progress…',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: true,
+      ...modeDetails,
+    };
+  }
+
+  const hasPendingCloudReplay = meta.persistenceMode === 'supabase'
+    && (
+      meta.cloudSyncStatus === 'pending-cloud'
+      || meta.localRevision > meta.lastCloudConfirmedRevision
+      || meta.cloudSyncState === 'queued'
+      || meta.cloudSyncState === 'sending'
+      || meta.outboxState === 'queued'
+      || meta.outboxState === 'flushing'
+      || meta.unresolvedOutboxCount > 0
+      || meta.pendingBatchCount > 0
+    );
+
+  if (meta.cloudSyncState === 'offline-pending' || (meta.connectivityState === 'offline' && (meta.pendingOfflineChangeCount > 0 || hasPendingCloudReplay))) {
+    return {
+      stage: 'offline-pending',
+      primaryState: 'saved',
+      stateLabel: 'Offline — queued locally',
+      stateDescription: 'Changes are protected locally and queued for cloud replay when online.',
+      reassurance: 'Your local copy is safe. Cloud confirmation resumes after reconnect.',
+      tone: 'info',
+      stateTone: 'warn',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
+  if (hasPendingCloudReplay) {
+    return {
+      stage: 'saved-local',
+      primaryState: 'saved',
+      stateLabel: 'Saved locally, awaiting cloud',
+      stateDescription: 'Local save is complete. Waiting for cloud confirmation.',
+      reassurance: 'Local protection is complete while cloud confirmation finishes.',
+      tone: 'info',
+      stateTone: 'info',
+      showSpinner: false,
+      ...modeDetails,
+    };
+  }
+
   if (meta.verificationState === 'pending' || meta.verificationState === 'running') {
     return {
+      stage: 'verifying',
       primaryState: 'saved',
-      stateLabel: 'Saved, verifying…',
+      stateLabel: 'Verifying current cloud state',
       stateDescription: 'Cloud save is committed; re-reading cloud data to verify current match.',
       reassurance: 'Saved state is committed. Verification is running in the background.',
       tone: 'info',
@@ -463,8 +550,9 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (meta.verificationState === 'verified-match' || meta.verificationSummary?.verified) {
     return {
+      stage: 'verified',
       primaryState: 'saved',
-      stateLabel: 'Saved',
+      stateLabel: 'Verified',
       stateDescription: 'Verified match with current cloud data.',
       reassurance: 'Verified match with current cloud data.',
       tone: 'default',
@@ -476,34 +564,23 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (meta.verificationState === 'read-failed' || meta.verificationSummary?.verificationReadFailed) {
     return {
-      primaryState: 'saved',
-      stateLabel: 'Could not verify',
+      stage: 'needs-attention',
+      primaryState: 'needs-attention',
+      stateLabel: 'Needs attention',
       stateDescription: 'Cloud verification could not complete right now. Saved state is unchanged.',
       reassurance: 'Your current saved state remains intact. Retry verification.',
-      tone: 'info',
-      stateTone: 'info',
+      tone: 'warn',
+      stateTone: 'warn',
       showSpinner: false,
-      ...modeDetails,
-    };
-  }
-
-  if (isSaving) {
-    return {
-      primaryState: 'saving',
-      stateLabel: 'Saving…',
-      stateDescription: 'Saving latest changes in the background.',
-      reassurance: 'Saving…',
-      tone: 'info',
-      stateTone: 'info',
-      showSpinner: true,
       ...modeDetails,
     };
   }
 
   if (meta.persistenceMode === 'browser' && !meta.sessionDegraded) {
     return {
+      stage: 'saved-local',
       primaryState: 'saved',
-      stateLabel: 'Saved',
+      stateLabel: 'Saved locally',
       stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
       reassurance: 'Changes saved on this device; cloud sync will resume automatically',
       tone: 'default',
@@ -515,8 +592,9 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
 
   if (hasLocalOnly) {
     return {
+      stage: meta.persistenceMode === 'supabase' ? 'saved-local' : 'cloud-confirmed',
       primaryState: 'saved',
-      stateLabel: 'Saved locally',
+      stateLabel: meta.persistenceMode === 'supabase' ? 'Saved locally, awaiting cloud' : 'Saved locally',
       stateDescription: 'Changes saved on this device; cloud sync will resume automatically',
       reassurance: 'Changes saved on this device; cloud sync will resume automatically',
       tone: 'info',
@@ -527,10 +605,11 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
   }
 
   return {
+    stage: 'cloud-confirmed',
     primaryState: 'saved',
-    stateLabel: 'Saved',
-    stateDescription: 'All changes saved',
-    reassurance: 'All changes saved',
+    stateLabel: 'Cloud confirmed',
+    stateDescription: 'Latest save is confirmed by cloud receipt.',
+    reassurance: 'Cloud confirmation complete.',
     tone: 'default',
     stateTone: 'success',
     showSpinner: false,

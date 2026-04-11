@@ -94,7 +94,14 @@ export function UniversalIntakeWorkspace() {
     const all = Array.from(list);
     const blocked = all.filter((file) => getIntakeFileCapability(file.name).state === 'blocked');
     const allowed = all.filter((file) => getIntakeFileCapability(file.name).state !== 'blocked');
-    if (blocked.length) setFeedback({ tone: 'error', message: `Rejected ${blocked.length} unsupported file(s).` });
+    if (blocked.length) {
+      const guidance = blocked
+        .map((file) => getIntakeFileCapability(file.name).reason)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(' ');
+      setFeedback({ tone: 'error', message: `Rejected ${blocked.length} blocked file(s). ${guidance || 'Use a supported format or paste key text.'}` });
+    }
     if (!allowed.length) return;
     setLoading(true);
     try {

@@ -31,7 +31,7 @@ export function IntakeCapturePanel(props: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Upload className="h-4 w-4" />Drop intake sources</div>
-            <div className="text-xs text-slate-600">Unsupported formats are blocked automatically.</div>
+            <div className="text-xs text-slate-600">Supported files parse normally; best-effort formats are accepted and routed to manual review.</div>
           </div>
           <div className="flex items-center gap-2">
             <button className="primary-btn" onClick={() => fileInputRef.current?.click()}><FileUp className="h-4 w-4" />Select files</button>

@@ -2,6 +2,13 @@
 
 ## 2026-04-11
 
+### Intake file coverage expansion: Outlook `.msg` support + safer degraded routing
+- Reclassified high-friction real-world intake formats (`.msg`, `.doc`, `.pptx`) from hard-blocked to `manual_review_only`, added clearer capability reasons, and included them in the file-picker accept list so users can ingest common workflow files instead of hitting dead-end rejection at capture time. (`src/lib/intakeFileCapabilities.ts`)
+- Extended universal intake extraction with a dedicated best-effort `.msg` path (subject/from/date/body signal recovery + attachment-hint warnings), plus degraded extractors for legacy `.doc` string recovery and `.pptx` slide-text recovery, with explicit warnings and confidence limits to avoid overstating parse trust. (`src/lib/universalIntake.ts`)
+- Hardened capability-tier behavior in `parseIntakeFile`: manual-review formats now always route to `review_needed` with weak parse quality and explicit reviewer warnings, while truly blocked files now carry clearer actionable fallback guidance in warnings/metadata. (`src/lib/universalIntake.ts`)
+- Improved intake upload feedback/copy so blocked-file rejection surfaces actionable reasons, and capture guidance now explicitly distinguishes full parse support from best-effort manual-review formats. (`src/components/UniversalIntakeWorkspace.tsx`, `src/components/intake/IntakeCapturePanel.tsx`)
+- Added focused regression coverage for updated capability tiers and degraded parsing workflows, including `.msg` review routing, `.doc`/`.pptx` degraded handling, blocked-format failure guidance, and weak-parse candidate warning behavior. (`src/lib/__tests__/intakeFileCapabilities.test.ts`, `src/lib/__tests__/universalIntakeFileSupport.test.ts`)
+
 ### Intake trust model hardening: evidence-first create-new gating and safer decision lanes
 - Hardened intake import safety to classify critical fields (`title`, `type`, `project`, `owner`, `dueDate`, and existing-link overlap) by evidence strength (`strong`, `medium`, `weak`, `missing`, `conflicting`) instead of relying on broad confidence alone, and now block create-new when core fields are weak/conflicting or execution-critical fields remain unresolved. (`src/lib/intakeImportSafety.ts`)
 - Tightened fast-approve/batch-safe criteria so only strong-evidence candidates (across all critical execution fields) qualify, reducing the chance of weak inferred project/owner/due-date values slipping through automated approvals. (`src/lib/intakeImportSafety.ts`, `src/lib/intakeReviewPlan.ts`, `src/lib/intakeReviewQueue.ts`)

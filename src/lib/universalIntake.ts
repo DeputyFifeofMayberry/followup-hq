@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { createId, todayIso } from './utils';
 import { resolveCandidateMatches } from './intake/reviewPipeline';
-import { getIntakeFileCapability } from './intakeFileCapabilities';
+import { getIntakeFileCapability, getIntakeFileExtension } from './intakeFileCapabilities';
 import { buildDateSignalSet } from './intakeDates';
 import { buildIntakeRetrySource } from './intakeRetryCache';
 
@@ -126,12 +126,51 @@ function arrayBufferToText(buffer: ArrayBuffer): string {
   return new TextDecoder('utf-8', { fatal: false }).decode(buffer);
 }
 
+function extractUtf16LeStrings(bytes: Uint8Array): string[] {
+  const strings: string[] = [];
+  let current = '';
+  for (let index = 0; index + 1 < bytes.length; index += 2) {
+    const code = bytes[index] | (bytes[index + 1] << 8);
+    const printable = (code >= 32 && code <= 126) || (code >= 160 && code <= 65533) || code === 10 || code === 13 || code === 9;
+    if (printable) {
+      current += String.fromCharCode(code);
+      continue;
+    }
+    if (current.trim().length >= 4) strings.push(sanitizeIntakeText(current));
+    current = '';
+  }
+  if (current.trim().length >= 4) strings.push(sanitizeIntakeText(current));
+  return strings;
+}
+
+function extractAsciiStrings(bytes: Uint8Array): string[] {
+  const strings: string[] = [];
+  let current = '';
+  for (const byte of bytes) {
+    const printable = (byte >= 32 && byte <= 126) || byte === 9 || byte === 10 || byte === 13;
+    if (printable) {
+      current += String.fromCharCode(byte);
+      continue;
+    }
+    if (current.trim().length >= 6) strings.push(sanitizeIntakeText(current));
+    current = '';
+  }
+  if (current.trim().length >= 6) strings.push(sanitizeIntakeText(current));
+  return strings;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
 export function detectAssetKind(fileName: string, fileType: string): IntakeAssetKind {
   const lower = fileName.toLowerCase();
   if (lower.endsWith('.eml')) return 'email';
+  if (lower.endsWith('.msg')) return 'email';
   if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) return 'spreadsheet';
   if (lower.endsWith('.csv')) return 'csv';
   if (lower.endsWith('.pdf')) return 'pdf';
+  if (lower.endsWith('.doc')) return 'document';
   if (lower.endsWith('.docx')) return 'document';
   if (lower.endsWith('.pptx')) return 'presentation';
   if (lower.endsWith('.txt')) return 'text';
@@ -141,6 +180,147 @@ export function detectAssetKind(fileName: string, fileType: string): IntakeAsset
   if (fileType.includes('word')) return 'document';
   if (fileType.includes('pdf')) return 'pdf';
   return 'unknown';
+}
+
+function findLabeledValue(strings: string[], labels: string[]): string | undefined {
+  for (const entry of strings) {
+    const lower = entry.toLowerCase();
+    for (const label of labels) {
+      const marker = `${label.toLowerCase()}:`;
+      const index = lower.indexOf(marker);
+      if (index !== -1) return entry.slice(index + marker.length).trim();
+    }
+  }
+  return undefined;
+}
+
+function scoreMsgSubjectCandidate(value: string): number {
+  if (!value || value.length < 5 || value.length > 180) return -100;
+  if (/__substg1\.0|IPM\.|message class|content-type|smtp|transport/i.test(value)) return -50;
+  if (/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) return -20;
+  let score = 0;
+  if (/\s/.test(value)) score += 4;
+  if (/[A-Za-z]/.test(value)) score += 4;
+  if (!/[\\/]/.test(value)) score += 2;
+  if (value.length >= 12 && value.length <= 120) score += 3;
+  if (/re:|fw:|fwd:|navfac|shop|weld|chiller|rfi|quote|follow up|action|project/i.test(value)) score += 4;
+  return score;
+}
+
+function extractMsg(buffer: ArrayBuffer): Stage2Extraction {
+  const warnings: string[] = ['Outlook .msg parsing is best-effort; verify fields before approval.'];
+  const bytes = new Uint8Array(buffer);
+  const strings = uniqueStrings([...extractUtf16LeStrings(bytes), ...extractAsciiStrings(bytes)]);
+  const refs: string[] = [];
+  const chunks: ExtractionChunk[] = [];
+  const subject = findLabeledValue(strings, ['subject', 'conversation topic'])
+    || [...strings].sort((left, right) => scoreMsgSubjectCandidate(right) - scoreMsgSubjectCandidate(left))[0];
+  const from = findLabeledValue(strings, ['from', 'sender', 'sender email address', 'sent representing email address']);
+  const sentDate = findLabeledValue(strings, ['date', 'delivery time', 'sent']);
+  const joined = strings.join('\n');
+  const emailMatches = uniqueStrings((joined.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []).slice(0, 16));
+  const to = emailMatches.filter((entry) => entry.toLowerCase() !== (from || '').toLowerCase()).slice(0, 8);
+  const body = strings
+    .filter((value) => value.length >= 40)
+    .filter((value) => !/__substg1\.0|IPM\.|Content-Type|SMTP|X-MS|MAPI|transport|\\x00/i.test(value))
+    .filter((value) => /[A-Za-z]{4,}/.test(value))
+    .sort((left, right) => right.length - left.length)[0];
+
+  if (subject) {
+    refs.push('msg:subject');
+    chunks.push({ text: subject, sourceRef: 'msg:subject', kind: 'email_header', fields: { title: subject }, quality: 0.74 });
+  }
+  if (from || emailMatches[0]) {
+    refs.push('msg:from');
+    chunks.push({ text: from || emailMatches[0], sourceRef: 'msg:from', kind: 'email_header', fields: { owner: from || emailMatches[0] }, quality: 0.66 });
+  }
+  if (sentDate) {
+    refs.push('msg:date');
+    chunks.push({ text: sentDate, sourceRef: 'msg:date', kind: 'email_header', quality: 0.56 });
+  }
+  if (body) {
+    refs.push('msg:body');
+    chunks.push({ text: normalizeText(body, 'text'), sourceRef: 'msg:body', kind: 'email_body', quality: 0.54 });
+  }
+  if (!body) warnings.push('Could not recover a reliable message body from .msg file.');
+  const attachmentMentions = strings.filter((value) => /attachment|\.pdf\b|\.docx?\b|\.xlsx?\b|\.pptx?\b/i.test(value)).slice(0, 8);
+  if (attachmentMentions.length) warnings.push('Attachment references were detected but embedded attachment extraction is not guaranteed for .msg.');
+
+  return {
+    text: chunks.map((chunk) => `[${chunk.sourceRef}] ${chunk.text}`).join('\n'),
+    chunks,
+    refs,
+    metadata: {
+      subject: subject ?? null,
+      from: from ?? emailMatches[0] ?? null,
+      sentDate: sentDate ?? null,
+      recipients: to.join(', ') || null,
+      attachmentHintCount: attachmentMentions.length,
+      extractionMode: 'msg_best_effort',
+    },
+    warnings,
+    attachments: [],
+    confidence: body ? 0.52 : 0.36,
+  };
+}
+
+function extractLegacyDoc(buffer: ArrayBuffer): Stage2Extraction {
+  const warnings: string[] = ['Legacy .doc extraction is best-effort and always requires manual review.'];
+  const bytes = new Uint8Array(buffer);
+  const strings = uniqueStrings([...extractUtf16LeStrings(bytes), ...extractAsciiStrings(bytes)])
+    .filter((entry) => entry.length >= 16)
+    .filter((entry) => !/^(timesnewroman|calibri|arial|normal|microsoft office|worddocument|msword)$/i.test(entry))
+    .slice(0, 180);
+  const chunks = strings.map((text, index) => ({ text, sourceRef: `doc:string${index + 1}`, kind: 'text' as const, quality: Math.min(0.55, text.length / 260) }));
+  if (!chunks.length) warnings.push('No readable text recovered from legacy .doc binary.');
+  return {
+    text: chunks.map((chunk) => `[${chunk.sourceRef}] ${chunk.text}`).join('\n'),
+    chunks,
+    refs: chunks.map((chunk) => chunk.sourceRef),
+    metadata: { extractionMode: 'legacy_doc_string_scan', recoveredStrings: chunks.length },
+    warnings,
+    attachments: [],
+    confidence: chunks.length ? 0.44 : 0.22,
+  };
+}
+
+function extractPresentation(buffer: ArrayBuffer): Stage2Extraction {
+  const warnings: string[] = ['PowerPoint extraction is slide-text only; verify context in manual review.'];
+  try {
+    const workbook = XLSX.read(buffer, { type: 'array' }) as XLSX.WorkBook & { files?: Record<string, { content?: string }> };
+    const xmlEntries = Object.entries(workbook.files ?? {})
+      .filter(([name]) => name.startsWith('ppt/slides/') && name.endsWith('.xml'))
+      .map(([name, payload]) => ({ name, content: payload?.content ?? '' }));
+    const chunks: ExtractionChunk[] = [];
+    xmlEntries.forEach((entry) => {
+      const textRuns = [...entry.content.matchAll(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g)].map((match) => sanitizeIntakeText(match[1]));
+      const notes = [...entry.content.matchAll(/<p:ph[^>]*type=\"body\"[\s\S]*?<a:t[^>]*>([\s\S]*?)<\/a:t>/g)].map((match) => sanitizeIntakeText(match[1]));
+      const merged = [...textRuns, ...notes].filter(Boolean).slice(0, 80);
+      merged.forEach((text, index) => {
+        chunks.push({ text, sourceRef: `${entry.name} text ${index + 1}`, kind: 'text', quality: Math.min(0.58, text.length / 250) });
+      });
+    });
+    if (!chunks.length) warnings.push('No readable slide text recovered from .pptx.');
+    return {
+      text: chunks.map((chunk) => `[${chunk.sourceRef}] ${chunk.text}`).join('\n'),
+      chunks,
+      refs: chunks.map((chunk) => chunk.sourceRef),
+      metadata: { extractionMode: 'pptx_slide_text', slideParts: xmlEntries.length, recoveredBlocks: chunks.length },
+      warnings,
+      attachments: [],
+      confidence: chunks.length ? 0.49 : 0.24,
+    };
+  } catch (error) {
+    return {
+      text: '',
+      chunks: [],
+      refs: [],
+      metadata: {},
+      warnings: [...warnings, `PowerPoint extractor failed: ${error instanceof Error ? error.message : 'unknown error'}`],
+      attachments: [],
+      confidence: 0.15,
+    };
+  }
 }
 
 function normalizeHeaderMap(rawHeaders: string): Record<string, string> {
@@ -491,11 +671,13 @@ function extractEmail(buffer: ArrayBuffer): Stage2Extraction {
   };
 }
 
-async function runStage2(kind: IntakeAssetKind, buffer: ArrayBuffer): Promise<Stage2Extraction> {
+async function runStage2(kind: IntakeAssetKind, buffer: ArrayBuffer, fileName: string): Promise<Stage2Extraction> {
+  const extension = getIntakeFileExtension(fileName);
   if (kind === 'pdf') return extractPdf(buffer);
-  if (kind === 'document') return extractDocx(buffer);
+  if (kind === 'document') return extension === '.doc' ? extractLegacyDoc(buffer) : extractDocx(buffer);
+  if (kind === 'presentation') return extractPresentation(buffer);
   if (kind === 'spreadsheet' || kind === 'csv') return extractSpreadsheet(buffer);
-  if (kind === 'email') return extractEmail(buffer);
+  if (kind === 'email') return extension === '.msg' ? extractMsg(buffer) : extractEmail(buffer);
 
   const text = normalizeText(arrayBufferToText(buffer), kind);
   const sourceRef = 'text:body';
@@ -774,6 +956,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
 export async function parseIntakeFile(file: File, batchId: string, options: ParseOptions = {}): Promise<IntakeAssetRecord[]> {
   const uploadedAt = todayIso();
   const capability = getIntakeFileCapability(file.name);
+  const extension = getIntakeFileExtension(file.name);
   const kind = detectAssetKind(file.name, file.type);
   const retryInfo = await buildIntakeRetrySource(file);
   const buffer = await file.arrayBuffer();
@@ -815,25 +998,32 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
       parseStatus: 'failed',
       parseQuality: 'failed',
       errors: [capability.reason || 'Unsupported file type for intake.'],
-      warnings: [capability.reason || 'Unsupported file type for intake.'],
+      warnings: [capability.reason || 'Unsupported file type for intake.', 'Use a supported format or paste the key text manually.'],
+      metadata: { ...base.metadata, capabilityState: 'blocked', fileExtension: extension || null },
       parserStages: [...(base.parserStages ?? []), 'stage1-blocked'],
     }];
   }
 
   try {
-    const extracted = await runStage2(kind, buffer);
+    const extracted = await runStage2(kind, buffer, file.name);
     const quality = extracted.confidence >= 0.82 ? 'strong' : extracted.confidence >= 0.55 ? 'partial' : 'weak';
-    const parseStatus = extracted.text ? (quality === 'strong' ? 'parsed' : 'review_needed') : 'failed';
+    const baseStatus = extracted.text ? (quality === 'strong' ? 'parsed' : 'review_needed') : 'failed';
+    const parseStatus = capability.state === 'manual_review_only' && baseStatus !== 'failed' ? 'review_needed' : baseStatus;
+    const parseQuality = parseStatus === 'failed' ? 'failed' : capability.state === 'manual_review_only' ? 'weak' : quality;
+    const warnings = [
+      ...(capability.state === 'manual_review_only' ? [capability.reason || 'This format is accepted only with manual review.'] : []),
+      ...extracted.warnings,
+    ];
 
     const asset: IntakeAssetRecord = {
       ...base,
-      metadata: { ...extracted.metadata, lastModified: file.lastModified },
+      metadata: { ...extracted.metadata, lastModified: file.lastModified, capabilityState: capability.state, fileExtension: extension || null },
       parseStatus,
-      parseQuality: parseStatus === 'failed' ? 'failed' : quality,
+      parseQuality,
       extractedText: extracted.text.slice(0, 160000),
       extractedPreview: extracted.text.slice(0, 700),
       sourceRefs: extracted.refs,
-      warnings: extracted.warnings,
+      warnings,
       extractionConfidence: Number(extracted.confidence.toFixed(2)),
       extractionChunks: extracted.chunks.map((chunk, index) => ({
         id: createId(`CHK${index}`),

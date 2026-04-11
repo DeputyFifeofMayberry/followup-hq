@@ -1,4 +1,3 @@
-import { ArrowRightCircle, CalendarClock } from 'lucide-react';
 import { Badge } from '../Badge';
 import { EmptyState } from '../ui/AppPrimitives';
 import { formatDate } from '../../lib/utils';
@@ -22,10 +21,6 @@ type TaskListProps = {
   laneFeedback: { tone: 'success' | 'warn'; message: string } | null;
   onSelectTask: (taskId: string) => void;
   onDoneTask: (task: TaskItem) => void;
-  onSetDueToday: (task: TaskItem) => void;
-  onSetDueTomorrow: (task: TaskItem) => void;
-  onOpenLinkedFollowUp: (task: TaskItem) => void;
-  onRequestDeleteTask: (task: TaskItem) => void;
   getParentLinkedFollowUpId: (linkedFollowUpId?: string | null) => boolean;
   renderNowSignal: (task: TaskItem) => TaskSignal;
   hasActiveNarrowing?: boolean;
@@ -54,10 +49,6 @@ export function TaskList({
   laneFeedback,
   onSelectTask,
   onDoneTask,
-  onSetDueToday,
-  onSetDueTomorrow,
-  onOpenLinkedFollowUp,
-  onRequestDeleteTask,
   getParentLinkedFollowUpId,
   renderNowSignal,
   hasActiveNarrowing = false,
@@ -138,15 +129,6 @@ export function TaskList({
                 <div className="scan-row-action-cluster">
                   {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
                 </div>
-                <details className="task-row-more-actions">
-                  <summary>More</summary>
-                  <div className="scan-row-action-cluster">
-                    <button onClick={() => onSetDueToday(task)} className="action-btn !px-2.5 !py-1 text-xs" aria-label="Set due today">Today</button>
-                    <button onClick={() => onSetDueTomorrow(task)} className="action-btn !px-2.5 !py-1 text-xs"><CalendarClock className="h-3.5 w-3.5" />Tomorrow</button>
-                    {task.linkedFollowUpId ? <button onClick={() => onOpenLinkedFollowUp(task)} className="action-btn !px-2.5 !py-1 text-xs"><ArrowRightCircle className="h-3.5 w-3.5" />Linked</button> : null}
-                    <button onClick={() => onRequestDeleteTask(task)} className="action-btn action-btn-danger !px-2.5 !py-1 text-xs">Delete</button>
-                  </div>
-                </details>
               </div>
             </div>
           </button>

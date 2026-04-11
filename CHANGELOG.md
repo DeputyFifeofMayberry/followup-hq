@@ -2,6 +2,14 @@
 
 ## 2026-04-11
 
+### Tasks Prompt 4: workflow hardening + stale-path cleanup + queue/selection trust fixes
+- Hardened task queue/inspector selection consistency in `TaskWorkspace`: when the current selection leaves the visible queue (after transitions, deletes, queue changes, or filter narrowing), selection now advances/clears intentionally via execution-lane progression rules instead of leaving stale hidden-task inspector state. (`src/components/TaskWorkspace.tsx`)
+- Removed conflicting row-level desktop maintenance shortcuts from `TaskList` (`Today`, `Tomorrow`, linked follow-up jump, delete) so queue rows remain scan/select surfaces and workflow transitions stay centered in the inspector/action-flow hierarchy. (`src/components/tasks/TaskList.tsx`)
+- Fixed stale reset/narrowing behavior in Tasks empty states by separating filter narrowing from queue view scope: empty queues no longer misreport as filter mismatch purely because a non-`all` lane is selected, and queue reset now clears panel filters without force-switching lane context. (`src/components/TaskWorkspace.tsx`)
+- Cleared stale lane feedback on queue-shaping changes (view/search/filter/sort updates) so success/warn banners do not persist into unrelated queue states. (`src/components/TaskWorkspace.tsx`)
+- Reconciled queue summary terminology to use consistent “queue” language across lanes and operational summary copy. (`src/domains/tasks/hooks/useTasksViewModel.ts`)
+- Expanded progression helper regression coverage for queue-narrowing and queue-empty selection behavior to lock post-action/filter selection outcomes. (`src/domains/shared/executionLane/helpers.test.ts`)
+
 ### Tasks Prompt 3: execution-first inspector hierarchy redesign
 - Refactored `TaskInspectorModal` into a stricter execution hierarchy so the inspector now reads as: **Why now → What to do next → Quick edit essentials → Linked context → Maintenance/full edit**, reducing mixed-priority scanning and making the next operational move obvious at open. (`src/components/tasks/TaskInspectorModal.tsx`)
 - Reduced quick-edit sprawl to live queue fields only (`nextStep`, `dueDate`, `priority`) and removed maintenance-grade edits (status, block reason, deferred date, owner/assignee/context payload edits) from the in-lane inspector to preserve structured action-flow transitions as the primary path for workflow state moves. (`src/components/tasks/TaskInspectorModal.tsx`)

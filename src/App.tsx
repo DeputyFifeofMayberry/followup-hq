@@ -32,6 +32,7 @@ import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 import { selectOpenTaskCount } from './domains/tasks/selectors';
+import { directoryTabByRecordType } from './domains/directory/session';
 
 type WorkspaceKey = ModeWorkspaceKey;
 const LAST_WORKSPACE_STORAGE_KEY = 'followup-hq:last-workspace';
@@ -188,11 +189,12 @@ function LoginScreen() {
 
 function MainApp({ session }: { session: Session }) {
   const initializeApp = useAppStore((s) => s.initializeApp);
-  const { setActiveView, setProjectFilter, setSelectedId } = useAppStore(
+  const { setActiveView, setProjectFilter, setSelectedId, setDirectoryWorkspaceSession } = useAppStore(
     useShallow((s) => ({
       setActiveView: s.setActiveView,
       setProjectFilter: s.setProjectFilter,
       setSelectedId: s.setSelectedId,
+      setDirectoryWorkspaceSession: s.setDirectoryWorkspaceSession,
     })),
   );
   const { openCreateModal, openCreateTaskModal, openCreateWorkModal, openRecordDrawer, openExecutionLane, items, tasks, projects, contacts, companies, selectedId, selectedTaskId, hasLocalUnsavedChanges, unsavedChangeCount, outboxState, unresolvedOutboxCount, syncState, flushPersistenceNow, workspaceAttentionCounts, hydrated, reminderPreferences, reminderCenterSummary, pendingReminders, updateReminderPreferences, requestReminderPermission, runReminderEvaluation, testReminderNotification } = useAppStore(
@@ -361,6 +363,20 @@ function MainApp({ session }: { session: Session }) {
     setWorkspace('tasks');
   }, [openExecutionLane, workspace]);
 
+  const openDirectoryRecord = useCallback((recordType: 'project' | 'contact' | 'company', recordId: string) => {
+    const current = useAppStore.getState().directoryWorkspaceSession;
+    setDirectoryWorkspaceSession({
+      activeTab: directoryTabByRecordType[recordType],
+      selectedRecordType: recordType,
+      selectedRecordId: recordId,
+      selectedByType: {
+        ...current.selectedByType,
+        [recordType]: recordId,
+      },
+    });
+    setWorkspace('directory');
+  }, [setDirectoryWorkspaceSession, setWorkspace]);
+
   const cleanupFollowUps = items.filter((item) => item.needsCleanup && item.status !== 'Closed').length;
   const cleanupTasks = tasks.filter((task) => task.needsCleanup && task.status !== 'Done').length;
   const combinedCleanup = cleanupFollowUps + cleanupTasks;
@@ -380,8 +396,9 @@ function MainApp({ session }: { session: Session }) {
       openFollowUp={openTrackerItem}
       openTask={openTaskItem}
       setWorkspace={setWorkspace}
+      openDirectoryRecord={openDirectoryRecord}
     />
-  ), [workspace, appMode, openTrackerItem, openTaskItem, openTrackerView]);
+  ), [workspace, appMode, openTrackerItem, openTaskItem, openTrackerView, openDirectoryRecord]);
 
   const navSections = useMemo(() => {
     const workspaceEntries = orderedWorkspaces.map((key) => ({ key, meta: modeConfig.workspaceMeta[key] }));

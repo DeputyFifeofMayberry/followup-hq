@@ -34,6 +34,16 @@ export interface TaskWorkspaceSession {
   stateFilter: TaskStateFilter;
   priorityFilter: TaskPriorityFilter;
 }
+
+export type DirectoryTab = 'projects' | 'people' | 'companies';
+export type DirectoryRecordType = 'project' | 'contact' | 'company';
+
+export interface DirectoryWorkspaceSession {
+  activeTab: DirectoryTab;
+  selectedRecordType: DirectoryRecordType;
+  selectedRecordId: string | null;
+  selectedByType: Record<DirectoryRecordType, string | null>;
+}
 export type ReminderKind =
   | 'followup_overdue'
   | 'followup_due_today'
@@ -1508,6 +1518,7 @@ export interface AppSnapshot {
   savedExecutionViews?: SavedExecutionView[];
   followUpFilters?: FollowUpAdvancedFilters;
   taskWorkspaceSession?: TaskWorkspaceSession;
+  directoryWorkspaceSession?: DirectoryWorkspaceSession;
   followUpColumns?: FollowUpColumnKey[];
   savedFollowUpViews?: SavedFollowUpCustomView[];
   followUpTableDensity?: FollowUpTableDensity;

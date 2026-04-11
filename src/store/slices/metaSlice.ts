@@ -3,6 +3,7 @@ import { defaultExecutionViews } from '../../lib/unifiedQueue';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { defaultTaskWorkspaceSession } from '../../domains/tasks';
+import { defaultDirectoryWorkspaceSession } from '../../domains/directory/session';
 import { resolveProjectName, todayIso } from '../../lib/utils';
 import { normalizeContact, normalizeCompany } from '../../domains/relationships/helpers';
 import { deriveProjects, normalizeProjectRecord, projectCanonicalKey } from '../../domains/projects/helpers';
@@ -162,6 +163,14 @@ export function createMetaSlice(
           taskWorkspaceSession: {
             ...defaultTaskWorkspaceSession,
             ...(payload.auxiliary.taskWorkspaceSession ?? {}),
+          },
+          directoryWorkspaceSession: {
+            ...defaultDirectoryWorkspaceSession,
+            ...(payload.auxiliary.directoryWorkspaceSession ?? {}),
+            selectedByType: {
+              ...defaultDirectoryWorkspaceSession.selectedByType,
+              ...(payload.auxiliary.directoryWorkspaceSession?.selectedByType ?? {}),
+            },
           },
           followUpColumns: payload.auxiliary.followUpColumns?.length ? payload.auxiliary.followUpColumns : (['title', 'status', 'dueDate', 'nextTouchDate', 'priority', 'linkedTaskSummary'] as FollowUpColumnKey[]),
           savedFollowUpViews: payload.auxiliary.savedFollowUpViews ?? [],

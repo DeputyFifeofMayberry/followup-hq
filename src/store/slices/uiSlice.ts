@@ -13,7 +13,7 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
   'setFollowUpColumns' | 'setFollowUpTableDensity' | 'setFollowUpDuplicateModule' | 'openCreateModal' | 'openEditModal' | 'closeItemModal' | 'openTouchModal' | 'closeTouchModal' | 'openImportModal' |
   'closeImportModal' | 'openMergeModal' | 'closeMergeModal' | 'openDraftModal' | 'closeDraftModal' | 'setSelectedTaskId' | 'setTaskWorkspaceSession' |
   'resetTaskWorkspaceSession' | 'openCreateTaskModal' | 'openCreateWorkModal' | 'openCreateFromCapture' | 'openEditTaskModal' | 'closeTaskModal' |
-  'openRecordEditor' | 'openFollowUpInspector' | 'closeFollowUpInspector' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession'
+  'openRecordEditor' | 'openFollowUpInspector' | 'closeFollowUpInspector' | 'openRecordDrawer' | 'closeRecordDrawer' | 'setSupportWorkspaceSession' | 'setDirectoryWorkspaceSession'
 > {
   return {
     setSelectedId: (id) => set((state: AppStore) => ({
@@ -164,6 +164,12 @@ export function createUiSlice(set: SliceSet, get: SliceGet, queuePersist: (meta?
     setTaskWorkspaceSession: (patch) => set((state: AppStore) => ({
       taskWorkspaceSession: {
         ...state.taskWorkspaceSession,
+        ...patch,
+      },
+    })),
+    setDirectoryWorkspaceSession: (patch) => set((state: AppStore) => ({
+      directoryWorkspaceSession: {
+        ...state.directoryWorkspaceSession,
         ...patch,
       },
     })),

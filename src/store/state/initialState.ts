@@ -3,6 +3,7 @@ import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { getDefaultOutlookSettings } from '../../lib/outlookGraph';
 import { defaultTaskWorkspaceSession } from '../../domains/tasks';
+import { defaultDirectoryWorkspaceSession } from '../../domains/directory/session';
 import {
   DEFAULT_REMINDER_CENTER_SUMMARY,
   DEFAULT_REMINDER_PREFERENCES,
@@ -62,6 +63,7 @@ export const initialUiState: AppUiState = {
   createWorkDraft: null,
   selectedTaskId: null,
   taskWorkspaceSession: defaultTaskWorkspaceSession,
+  directoryWorkspaceSession: defaultDirectoryWorkspaceSession,
   queuePreset: 'Today',
   executionFilter: {},
   executionSort: 'queue_score',

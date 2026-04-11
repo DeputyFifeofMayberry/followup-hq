@@ -103,6 +103,7 @@ export interface AppAuxiliaryState {
   savedExecutionViews: AppSnapshot['savedExecutionViews'];
   followUpFilters?: AppSnapshot['followUpFilters'];
   taskWorkspaceSession?: AppSnapshot['taskWorkspaceSession'];
+  directoryWorkspaceSession?: AppSnapshot['directoryWorkspaceSession'];
   followUpColumns?: AppSnapshot['followUpColumns'];
   savedFollowUpViews?: AppSnapshot['savedFollowUpViews'];
   followUpTableDensity?: AppSnapshot['followUpTableDensity'];
@@ -254,6 +255,7 @@ function buildFallbackSnapshot(): AppSnapshot {
     savedExecutionViews: [],
     followUpFilters: undefined,
     taskWorkspaceSession: undefined,
+    directoryWorkspaceSession: undefined,
     followUpColumns: undefined,
     savedFollowUpViews: [],
     followUpTableDensity: 'compact',

@@ -35,6 +35,7 @@ import type {
   SavedViewKey,
   TaskItem,
   TaskWorkspaceSession,
+  DirectoryWorkspaceSession,
   UnifiedQueueDensity,
   UnifiedQueueFilter,
   UnifiedQueuePreset,
@@ -190,6 +191,7 @@ export interface AppUiState {
   createWorkDraft: UniversalCaptureDraft | null;
   selectedTaskId: string | null;
   taskWorkspaceSession: TaskWorkspaceSession;
+  directoryWorkspaceSession: DirectoryWorkspaceSession;
   queuePreset: UnifiedQueuePreset;
   executionFilter: UnifiedQueueFilter;
   executionSort: UnifiedQueueSort;

@@ -15,9 +15,10 @@ interface WorkspaceRendererProps {
   openFollowUp: (itemId: string, view?: SavedViewKey, project?: string) => void;
   openTask: (taskId: string, project?: string) => void;
   setWorkspace: (workspace: WorkspaceKey) => void;
+  openDirectoryRecord: (recordType: 'project' | 'contact' | 'company', recordId: string) => void;
 }
 
-export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFollowUp, openTask, setWorkspace }: WorkspaceRendererProps) {
+export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFollowUp, openTask, setWorkspace, openDirectoryRecord }: WorkspaceRendererProps) {
   void openTrackerView;
   switch (workspace) {
     case 'followups':
@@ -29,7 +30,7 @@ export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFol
     case 'intake':
       return <IntakeWorkspacePanel />;
     case 'directory':
-      return <DirectoryWorkspace onOpenFollowUp={(id) => openFollowUp(id)} onOpenTask={(id) => openTask(id)} onOpenDirectoryRecord={() => setWorkspace('directory')} />;
+      return <DirectoryWorkspace onOpenFollowUp={(id) => openFollowUp(id)} onOpenTask={(id) => openTask(id)} onOpenDirectoryRecord={openDirectoryRecord} />;
     default:
       return (
         <OverviewPage

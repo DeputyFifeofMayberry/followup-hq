@@ -14,6 +14,7 @@ import { IntakeBatchToolsPanel } from './intake/IntakeBatchToolsPanel';
 import { IntakeCandidateWorkbench } from './intake/IntakeCandidateWorkbench';
 import { IntakeCapturePanel } from './intake/IntakeCapturePanel';
 import { IntakeQueuePanel } from './intake/IntakeQueuePanel';
+import { IntakeWeakSourcesPanel } from './intake/IntakeWeakSourcesPanel';
 import { type ActionFeedback, type QueueLane, type SourceTab } from './intake/intakeWorkspaceTypes';
 
 export function UniversalIntakeWorkspace() {
@@ -269,6 +270,11 @@ export function UniversalIntakeWorkspace() {
           setPasteLoading(false);
         }
       }} />
+
+      <IntakeWeakSourcesPanel
+        intakeAssets={intakeAssets}
+        intakeWorkCandidates={intakeWorkCandidates}
+      />
 
       <section className="intake-core-grid intake-core-grid-staged">
         <IntakeQueuePanel

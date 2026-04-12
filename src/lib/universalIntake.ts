@@ -15,6 +15,7 @@ import { getIntakeFileCapability, getIntakeFileExtension } from './intakeFileCap
 import { buildDateSignalSet } from './intakeDates';
 import { buildIntakeRetrySource } from './intakeRetryCache';
 import { assessIntakeAssetAdmission, assessIntakeCandidateAdmission } from './intakeAdmission';
+import { buildParserReceipt } from './intakeParserReceipts';
 
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
@@ -1004,7 +1005,7 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
   };
 
   if (capability.state === 'blocked') {
-    return [{
+    const blockedAsset: IntakeAssetRecord = {
       ...base,
       parseStatus: 'failed',
       parseQuality: 'failed',
@@ -1012,7 +1013,11 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
       warnings: [capability.reason || 'Unsupported file type for intake.', 'Use a supported format or paste the key text manually.'],
       metadata: { ...base.metadata, capabilityState: 'blocked', fileExtension: extension || null },
       parserStages: [...(base.parserStages ?? []), 'stage1-blocked'],
-    }];
+      admissionState: 'extracted_only',
+      admissionReasons: ['Blocked source cannot be parsed for actionable intake.'],
+    };
+    blockedAsset.parserReceipt = buildParserReceipt({ asset: blockedAsset, capabilityClass: capability.state });
+    return [blockedAsset];
   }
 
   try {
@@ -1054,6 +1059,7 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
     const admission = assessIntakeAssetAdmission({ asset, capabilityState: capability.state });
     asset.admissionState = admission.state;
     asset.admissionReasons = admission.reasons;
+    asset.parserReceipt = buildParserReceipt({ asset, capabilityClass: capability.state });
 
     const assets: IntakeAssetRecord[] = [asset];
     for (const attachment of extracted.attachments.slice(0, 15)) {
@@ -1073,13 +1079,17 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
 
     return assets;
   } catch (error) {
-    return [{
+    const failedAsset: IntakeAssetRecord = {
       ...base,
       parseStatus: 'failed',
       parseQuality: 'failed',
       errors: [error instanceof Error ? error.message : 'Unknown parse error'],
       parserStages: [...(base.parserStages ?? []), 'stage2-failed'],
-    }];
+      admissionState: 'extracted_only',
+      admissionReasons: ['Source extraction failed or recovered no useful text.'],
+    };
+    failedAsset.parserReceipt = buildParserReceipt({ asset: failedAsset, capabilityClass: capability.state });
+    return [failedAsset];
   }
 }
 

@@ -469,6 +469,7 @@ export interface IntakeAssetRecord {
   admissionState?: 'extracted_only' | 'reviewable' | 'action_ready';
   admissionReasons?: string[];
   parserStages?: string[];
+  parserReceipt?: IntakeParserReceipt;
   retrySource?: {
     encoding: 'base64';
     payload: string;
@@ -481,6 +482,31 @@ export interface IntakeAssetRecord {
   lastRetryAt?: string;
   lastRetryStatus?: 'success' | 'failed';
   lastRetryMessage?: string;
+}
+
+export type IntakeRecoveredContentStatus = 'none' | 'partial' | 'substantial';
+export type IntakeWeakSourceRoute = 'actionable_queue' | 'weak_source_review' | 'blocked_source';
+export type IntakeReceiptNextStep =
+  | 'create_action_after_review'
+  | 'review_extracted_source'
+  | 'interpret_manually'
+  | 'retry_parse'
+  | 'remove_failed_asset'
+  | 'save_as_reference'
+  | 'none';
+
+export interface IntakeParserReceipt {
+  sourceFileName: string;
+  sourceFileType: string;
+  capabilityClass: 'parse_supported' | 'manual_review_only' | 'blocked';
+  parserPath: string;
+  parseQuality: IntakeAssetRecord['parseQuality'];
+  admissionState: 'extracted_only' | 'reviewable' | 'action_ready';
+  weakSourceRoute: IntakeWeakSourceRoute;
+  recoveredContentStatus: IntakeRecoveredContentStatus;
+  warningSummary: string[];
+  downgradeReasons: string[];
+  userNextSteps: IntakeReceiptNextStep[];
 }
 
 export interface IntakeBatchRecord {

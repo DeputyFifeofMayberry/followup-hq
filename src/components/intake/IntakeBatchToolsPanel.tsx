@@ -1,4 +1,5 @@
 import { CheckCircle2 } from 'lucide-react';
+import { isWeakSourceReceipt } from '../../lib/intakeParserReceipts';
 import type { IntakeAssetRecord, IntakeBatchRecord, IntakeWorkCandidate } from '../../types';
 
 interface Props {
@@ -30,20 +31,24 @@ export function IntakeBatchToolsPanel(props: Props) {
               const batchAssets = props.intakeAssets.filter((asset) => asset.batchId === batch.id && !asset.parentAssetId);
               const batchCandidates = props.intakeWorkCandidates.filter((candidate) => candidate.batchId === batch.id);
               const failures = batchAssets.filter((asset) => asset.parseStatus === 'failed');
+              const weakSources = batchAssets.filter((asset) => isWeakSourceReceipt(asset.parserReceipt));
               return <div key={batch.id} className="rounded-lg border border-slate-200 p-2 text-xs">
                 <div className="font-semibold text-slate-900">{batch.id} • {batch.createdAt}</div>
-                <div className="text-slate-600">Files {batch.stats.filesProcessed} • Candidates {batch.stats.candidatesCreated} • Pending {batch.stats.activeCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus === 'pending').length} • Failures {batch.stats.failedParses}</div>
+                <div className="text-slate-600">Files {batch.stats.filesProcessed} • Candidates {batch.stats.candidatesCreated} • Pending {batch.stats.activeCandidates ?? batchCandidates.filter((entry) => entry.approvalStatus === 'pending').length} • Failures {batch.stats.failedParses} • Weak/degraded {weakSources.length}</div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   <button className="action-btn !px-2 !py-1 text-xs" onClick={() => props.clearFinalizedIntakeCandidates(batch.id)}>Clear finalized</button>
                   <button className="action-btn !px-2 !py-1 text-xs" onClick={() => props.archiveIntakeBatch(batch.id)}>Archive batch</button>
                   <button className="action-btn !px-2 !py-1 text-xs" onClick={() => props.deleteIntakeBatchIfEmpty(batch.id)}>Delete if empty</button>
                 </div>
-                {failures.map((asset) => <div key={asset.id} className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">{asset.fileName}: {asset.errors[0] || asset.warnings[0]}
+                {weakSources.map((asset) => <div key={asset.id} className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1">
+                  <div className="font-semibold text-slate-900">{asset.fileName}</div>
+                  <div className="text-slate-700">{asset.parserReceipt?.downgradeReasons.slice(0, 2).join(' · ') || asset.errors[0] || asset.warnings[0]}</div>
+                  <div className="text-[11px] text-slate-600">Parser path {asset.parserReceipt?.parserPath || asset.metadata.extractionMode || 'standard_parse'} • Next steps {asset.parserReceipt?.userNextSteps.join(' → ') || 'review_extracted_source'}</div>
                   <div className="mt-1 flex gap-1">{asset.retrySource ? <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={async () => {
                     const result = await props.retryIntakeAssetParse(asset.id);
                     props.onFeedback(result.status === 'success' ? 'success' : 'error', result.message);
-                  }}>Retry parse</button> : null}
-                  <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={() => props.removeIntakeAsset(asset.id)}>Remove failed asset</button></div>
+                  }}>Retry parse</button> : <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{asset.retryUnavailableReason || 'Retry unavailable for this legacy source.'}</span>}
+                  {(asset.parseStatus === 'failed' || failures.some((entry) => entry.id === asset.id)) ? <button className="action-btn !px-2 !py-0.5 text-[11px]" onClick={() => props.removeIntakeAsset(asset.id)}>Remove failed asset</button> : null}</div>
                 </div>)}
               </div>;
             })}

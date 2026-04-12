@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDaysIso, todayIso } from '../lib/utils';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneQueueCard, WorkspaceContentFrame, WorkspacePage, WorkspacePrimaryLayout } from './ui/AppPrimitives';
+import {
+  AppModal,
+  AppModalBody,
+  AppModalFooter,
+  AppModalHeader,
+  ExecutionFilterChip,
+  ExecutionFilterChipRow,
+  ExecutionLaneQueueCard,
+  ExecutionSummaryBand,
+  ExecutionSummaryStatChip,
+  WorkspaceContentFrame,
+  WorkspacePage,
+  WorkspacePrimaryLayout,
+} from './ui/AppPrimitives';
 import { getTaskFlowDefaults, TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView, useTasksViewModel } from '../domains/tasks';
 import type { AppMode, TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -156,7 +169,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
   const queueIntent = TASK_LANE_DEFINITIONS[vm.view].intent;
-  const queueStats = [
+  const queueStats: Array<{ label: string; value: number; tone: 'default' | 'warn' | 'danger' }> = [
     { label: 'Open', value: vm.taskSummary.open, tone: 'default' },
     { label: 'Overdue', value: vm.taskSummary.overdue, tone: vm.taskSummary.overdue > 0 ? 'danger' : 'default' },
     { label: 'Blocked', value: vm.taskSummary.blocked, tone: vm.taskSummary.blocked > 0 ? 'warn' : 'default' },
@@ -170,25 +183,20 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
           className="task-workspace-layout workspace-primary-layout-collapsed"
         >
           <ExecutionLaneQueueCard className="task-workspace-main-card">
-            <section className={`task-queue-summary-strip ${isMobileLike ? 'task-queue-summary-strip-mobile' : ''}`.trim()} aria-label="Task queue summary">
-              <div className="task-queue-summary-head">
-                <div className="task-queue-summary-kicker">{activeQueueLabel}</div>
-                <p className="task-queue-summary-text">{isMobileLike ? vm.queueSummary : queueIntent}</p>
-                {!isMobileLike ? <p className="task-queue-summary-subtext">{vm.queueSummary}</p> : null}
-              </div>
-              <div className="task-queue-summary-stats">
-                {queueStats.map((stat) => (
-                  <div key={stat.label} className={`task-queue-summary-chip ${stat.tone !== 'default' ? `task-queue-summary-chip-${stat.tone}` : ''}`.trim()}>
-                    <span>{stat.label}</span>
-                    <strong>{stat.value}</strong>
-                  </div>
-                ))}
-                <div className="task-queue-summary-chip task-queue-summary-chip-muted">
-                  <span>Done today</span>
-                  <strong>{vm.completedToday.length}</strong>
-                </div>
-              </div>
-            </section>
+            <ExecutionSummaryBand
+              className={`task-queue-summary-strip ${isMobileLike ? 'task-queue-summary-strip-mobile' : ''}`.trim()}
+              kicker={activeQueueLabel}
+              title={isMobileLike ? vm.queueSummary : queueIntent}
+              supporting={!isMobileLike ? vm.queueSummary : undefined}
+              stats={(
+                <>
+                  {queueStats.map((stat) => (
+                    <ExecutionSummaryStatChip key={stat.label} label={stat.label} value={stat.value} tone={stat.tone === 'default' ? 'default' : stat.tone} />
+                  ))}
+                  <ExecutionSummaryStatChip label="Done today" value={vm.completedToday.length} tone="muted" />
+                </>
+              )}
+            />
 
             <TaskToolbar
             isMobileLike={isMobileLike}
@@ -228,21 +236,18 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onResetFilters={vm.resetPanelFilters}
           />
 
-            {!isMobileLike ? <div className={`task-filter-chip-row ${vm.activeFilterChips.length > 0 ? '' : 'task-filter-chip-row-muted'}`.trim()}>
+            {!isMobileLike ? <ExecutionFilterChipRow muted={vm.activeFilterChips.length === 0} className="task-filter-chip-row">
               {vm.activeFilterChips.length > 0 ? (
                 <>
                   {vm.activeFilterChips.map((chip) => (
-                    <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
-                      {chip.label}
-                      <span aria-hidden>×</span>
-                    </button>
+                    <ExecutionFilterChip key={chip.key} label={chip.label} onClear={chip.clear} />
                   ))}
-                  <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={vm.resetPanelFilters}>Clear all filters</button>
+                  <button type="button" className="execution-filter-chip execution-filter-chip-quiet" onClick={vm.resetPanelFilters}>Clear all filters</button>
                 </>
               ) : (
                 <span className="task-sort-summary">No active filters. {vm.sortSummary || 'Sorted by due date.'}</span>
               )}
-            </div> : null}
+            </ExecutionFilterChipRow> : null}
 
             <TaskList
             isMobileLike={isMobileLike}

@@ -88,6 +88,55 @@ export function ExecutionLaneSummary({ children, className = '' }: PropsWithChil
   return <WorkspaceSummaryStrip className={`execution-lane-summary ${className}`.trim()}>{children}</WorkspaceSummaryStrip>;
 }
 
+export function ExecutionSummaryBand({
+  kicker,
+  title,
+  supporting,
+  stats,
+  actions,
+  className = '',
+  tone = 'default',
+}: {
+  kicker: string;
+  title: string;
+  supporting?: string;
+  stats?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  tone?: 'default' | 'warn' | 'calm';
+}) {
+  return (
+    <ExecutionLaneSummary className={`execution-summary-band execution-summary-band-${tone} ${className}`.trim()}>
+      <div className="execution-summary-band-head">
+        <div className="execution-summary-band-copy">
+          <div className="execution-summary-band-kicker">{kicker}</div>
+          <p className="execution-summary-band-title">{title}</p>
+          {supporting ? <p className="execution-summary-band-supporting">{supporting}</p> : null}
+        </div>
+        {actions ? <div className="execution-summary-band-actions">{actions}</div> : null}
+      </div>
+      {stats ? <div className="execution-summary-band-stats">{stats}</div> : null}
+    </ExecutionLaneSummary>
+  );
+}
+
+export function ExecutionSummaryStatChip({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: number | string;
+  tone?: 'default' | 'warn' | 'danger' | 'info' | 'muted';
+}) {
+  return (
+    <div className={`execution-summary-stat-chip execution-summary-stat-chip-${tone}`.trim()}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export function WorkspacePrimaryLayout({
   children,
   inspectorWidth = '380px',
@@ -218,6 +267,53 @@ export function SupportWorkspaceMaintenanceTray({
 
 export function ExecutionLaneToolbar({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
   return <WorkspaceToolbarRow className={`execution-lane-toolbar ${className}`.trim()}>{children}</WorkspaceToolbarRow>;
+}
+
+export function ExecutionToolbarSurface({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`workspace-control-stack execution-toolbar-surface ${className}`.trim()}>{children}</div>;
+}
+
+export function ExecutionFilterChip({
+  label,
+  onClear,
+  quiet = false,
+}: {
+  label: string;
+  onClear: () => void;
+  quiet?: boolean;
+}) {
+  return (
+    <button type="button" className={`execution-filter-chip ${quiet ? 'execution-filter-chip-quiet' : ''}`.trim()} onClick={onClear} aria-label={`Remove filter ${label}`}>
+      {label}
+      <span aria-hidden>×</span>
+    </button>
+  );
+}
+
+export function ExecutionFilterChipRow({
+  children,
+  muted = false,
+  className = '',
+}: PropsWithChildren<{ muted?: boolean; className?: string }>) {
+  return <div className={`execution-filter-chip-row ${muted ? 'execution-filter-chip-row-muted' : ''} ${className}`.trim()}>{children}</div>;
+}
+
+export function ExecutionLaneFeedbackStrip({
+  message,
+  tone = 'info',
+}: {
+  message: string;
+  tone?: 'info' | 'success' | 'warn';
+}) {
+  return <div className={`execution-lane-feedback execution-lane-feedback-${tone}`.trim()} role="status">{message}</div>;
+}
+
+export function ExecutionMobileCardShell({
+  children,
+  active = false,
+  className = '',
+}: PropsWithChildren<{ active?: boolean; className?: string }>) {
+  return <article className={`tracker-mobile-card execution-mobile-card-shell ${active ? 'tracker-mobile-card-active execution-mobile-card-shell-active' : ''} ${className}`.trim()}>{children}</article>;
 }
 
 

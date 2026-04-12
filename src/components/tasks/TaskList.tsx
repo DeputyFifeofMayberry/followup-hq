@@ -1,5 +1,5 @@
 import { Badge } from '../Badge';
-import { EmptyState } from '../ui/AppPrimitives';
+import { EmptyState, ExecutionLaneFeedbackStrip, ExecutionMobileCardShell } from '../ui/AppPrimitives';
 import { formatDate } from '../../lib/utils';
 import type { TaskItem } from '../../types';
 import type { TaskQueueView } from '../../domains/tasks';
@@ -57,7 +57,7 @@ export function TaskList({
 }: TaskListProps) {
   return (
     <div className="workspace-list-content task-list-content">
-      {laneFeedback ? <div className={`task-lane-feedback ${laneFeedback.tone === 'warn' ? 'task-lane-feedback-warn' : 'task-lane-feedback-success'}`}>{laneFeedback.message}</div> : null}
+      {laneFeedback ? <ExecutionLaneFeedbackStrip tone={laneFeedback.tone} message={laneFeedback.message} /> : null}
 
       {filteredTasks.length === 0 ? (
         <div className="tracker-empty-state-wrap">
@@ -80,7 +80,7 @@ export function TaskList({
           const compactWhyNow = truncate(signal.whyNow, 72);
           const compactNextMove = truncate(signal.nextMove, 78);
           return (
-            <article key={task.id} className={`tracker-mobile-card task-mobile-queue-card ${isSelected ? 'tracker-mobile-card-active' : ''}`}>
+            <ExecutionMobileCardShell key={task.id} className="task-mobile-queue-card" active={isSelected}>
               <button type="button" className="tracker-mobile-main" onClick={() => onSelectTask(task.id)}>
                 <div className="tracker-mobile-title-row">
                   <h3>{task.title}</h3>
@@ -98,7 +98,7 @@ export function TaskList({
                 </div>
                 {metaSummary ? <p className="tracker-mobile-support">{metaSummary}</p> : null}
               </button>
-            </article>
+            </ExecutionMobileCardShell>
           );
         }
 
@@ -106,14 +106,14 @@ export function TaskList({
           <button
             key={task.id}
             onClick={() => onSelectTask(task.id)}
-            className={`workspace-data-row task-work-row ${isSelected ? 'workspace-data-row-active list-row-family-active' : ''}`}
+            className={`workspace-data-row task-work-row execution-row-shell ${isSelected ? 'workspace-data-row-active list-row-family-active execution-row-shell-active' : ''}`}
             aria-current={isSelected ? 'true' : undefined}
           >
-            <div className="scan-row-layout scan-row-layout-quiet">
-              <div className="scan-row-content">
-                <div className="scan-row-primary">{task.title}</div>
-                <div className="task-row-why-now">{signal.whyNow}</div>
-                <div className="task-row-next-move">Next move: {signal.nextMove}</div>
+            <div className="scan-row-layout scan-row-layout-quiet execution-row-layout">
+              <div className="scan-row-content execution-row-content">
+                <div className="scan-row-primary execution-row-title">{task.title}</div>
+                <div className="task-row-why-now execution-row-why-now">{signal.whyNow}</div>
+                <div className="task-row-next-move execution-row-next-move">Next move: {signal.nextMove}</div>
                 <div className="scan-row-badge-cluster task-row-meta-chips">
                   <Badge kind="meta" variant="neutral">{task.project}</Badge>
                   <Badge kind="meta" variant="neutral">{linkedLabel}</Badge>
@@ -122,7 +122,7 @@ export function TaskList({
                 </div>
                 {metaSummary ? <div className="scan-row-meta">{metaSummary}</div> : null}
               </div>
-              <div className="scan-row-sidecar scan-row-sidecar-quiet" onClick={(event) => event.stopPropagation()}>
+              <div className="scan-row-sidecar scan-row-sidecar-quiet execution-row-sidecar" onClick={(event) => event.stopPropagation()}>
                 <div className="scan-row-badge-cluster">
                   {urgentLabel ? <Badge variant={signal.isOverdue ? 'danger' : 'warn'}>{urgentLabel}</Badge> : null}
                 </div>

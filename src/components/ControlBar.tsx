@@ -1,7 +1,7 @@
 import { ChevronDown, Search, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FollowUpColumnKey, SavedViewKey } from '../types';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionLaneToolbarScaffold } from './ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionFilterChip, ExecutionFilterChipRow, ExecutionLaneToolbarScaffold, ExecutionToolbarSurface } from './ui/AppPrimitives';
 import { BatchSummarySection, CompletionNoteSection, DateSection, StructuredActionFlow } from './actions/StructuredActionFlow';
 import { useFollowUpsViewModel } from '../domains/followups';
 import { primaryFollowUpViews, secondaryFollowUpViews, type FollowUpQueuePressureCounts } from '../lib/followUpSelectors';
@@ -111,7 +111,7 @@ export function ControlBar({
   ];
 
   return (
-    <div className="workspace-control-stack followup-control-stack">
+    <ExecutionToolbarSurface className="followup-control-stack">
       {isMobileLike ? (
         <div className="followup-mobile-control-stack">
           <div className="task-mobile-view-rail" aria-label="Follow-up queue pressure">
@@ -219,22 +219,19 @@ export function ControlBar({
       )}
 
       {!isMobileLike ? (
-        <div className={`followup-filter-chip-row ${vm.activeRowAffectingOptions.length > 0 ? '' : 'followup-filter-chip-row-muted'}`.trim()}>
+        <ExecutionFilterChipRow muted={vm.activeRowAffectingOptions.length === 0} className="followup-filter-chip-row">
           {vm.activeRowAffectingOptions.length > 0 ? (
             <>
               <span className="task-sort-summary">Narrowing rows by:</span>
               {vm.activeRowAffectingOptions.map((entry) => (
-                <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
-                  {entry.label}
-                  <span aria-hidden>×</span>
-                </button>
+                <ExecutionFilterChip key={entry.key} label={entry.label} onClear={() => vm.clearFollowUpRowAffectingOption(entry.key)} />
               ))}
-              <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all row filters</button>
+              <button type="button" className="execution-filter-chip execution-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Reset all row filters</button>
             </>
           ) : (
             <span className="task-sort-summary">{vm.queueSummary}</span>
           )}
-        </div>
+        </ExecutionFilterChipRow>
       ) : null}
 
       {showFilters && !isMobileLike ? (
@@ -325,12 +322,9 @@ export function ControlBar({
             {vm.activeRowAffectingOptions.length > 0 ? (
               <div className="task-mobile-active-filter-chips">
                 {vm.activeRowAffectingOptions.map((entry) => (
-                  <button key={entry.key} type="button" className="followup-filter-chip" onClick={() => vm.clearFollowUpRowAffectingOption(entry.key)} aria-label={`Remove filter ${entry.label}`}>
-                    {entry.label}
-                    <span aria-hidden>×</span>
-                  </button>
+                  <ExecutionFilterChip key={entry.key} label={entry.label} onClear={() => vm.clearFollowUpRowAffectingOption(entry.key)} />
                 ))}
-                <button type="button" className="followup-filter-chip followup-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Clear all filters</button>
+                <button type="button" className="execution-filter-chip execution-filter-chip-quiet" onClick={vm.resetAllRowAffectingOptions}>Clear all filters</button>
               </div>
             ) : null}
             <div className="followup-options-panel advanced-filter-surface">
@@ -413,6 +407,6 @@ export function ControlBar({
         {batchFlow === 'close' ? <CompletionNoteSection value={batchNote} onChange={setBatchNote} label="Batch completion note" /> : null}
         {batchFlow === 'snooze' ? <DateSection label="Snooze until" value={batchDate} onChange={setBatchDate} /> : null}
       </StructuredActionFlow>
-    </div>
+    </ExecutionToolbarSurface>
   );
 }

@@ -1,6 +1,6 @@
 import { ChevronDown, Search, SlidersHorizontal, Undo2, X } from 'lucide-react';
 import { memo } from 'react';
-import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from '../ui/AppPrimitives';
+import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, ExecutionFilterChip, ExecutionToolbarSurface } from '../ui/AppPrimitives';
 import type {
   TaskLinkageFilter as LinkageFilter,
   TaskPriorityFilter as PriorityFilter,
@@ -139,7 +139,7 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
     const activeFilterPreview = activeFilterChips.slice(0, 2);
 
     return (
-      <div className="workspace-control-stack task-control-stack-calm task-mobile-control-stack">
+      <ExecutionToolbarSurface className="task-control-stack-calm task-mobile-control-stack">
         <div className="task-mobile-view-rail" aria-label="Task queue view">
           {visibleQueueViews.map((option) => (
             <button
@@ -188,13 +188,8 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
             <AppModalBody>
               {activeFilterChips.length > 0 ? (
                 <div className="task-mobile-active-filter-chips">
-                  {activeFilterChips.map((chip) => (
-                    <button key={chip.key} type="button" className="task-filter-chip" onClick={chip.clear} aria-label={`Remove filter ${chip.label}`}>
-                      {chip.label}
-                      <span aria-hidden>×</span>
-                    </button>
-                  ))}
-                  <button type="button" className="task-filter-chip task-filter-chip-quiet" onClick={onResetFilters}>Clear all filters</button>
+                  {activeFilterChips.map((chip) => <ExecutionFilterChip key={chip.key} label={chip.label} onClear={chip.clear} />)}
+                  <button type="button" className="execution-filter-chip execution-filter-chip-quiet" onClick={onResetFilters}>Clear all filters</button>
                 </div>
               ) : null}
               <div className="task-filters-panel-slim task-filters-panel-mobile">
@@ -206,12 +201,12 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
             </AppModalFooter>
           </AppModal>
         ) : null}
-      </div>
+      </ExecutionToolbarSurface>
     );
   }
 
   return (
-    <div className="workspace-control-stack task-control-stack-calm">
+    <ExecutionToolbarSurface className="task-control-stack-calm">
       <div className="task-primary-toolbar-slim">
         <label className="field-block task-search-block">
           <div className="search-field-wrap">
@@ -242,6 +237,6 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
           <TaskFilterContent {...filterProps} onResetFilters={onResetFilters} />
         </div>
       ) : null}
-    </div>
+    </ExecutionToolbarSurface>
   );
 });

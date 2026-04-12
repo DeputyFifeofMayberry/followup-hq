@@ -78,18 +78,18 @@
 /* Surface roles: shell/base, hero/emphasis, command/action, data/readability, inspector/support, muted/context, warning/attention, modal/elevated, row/iterative lists. */
 .app-shell-card {
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
   background: var(--surface-primary);
 }
 
-.app-shell-card-shell { background: var(--surface-primary); }
-.app-shell-card-hero { background: var(--surface-hero); border-color: var(--sp-border-brand); box-shadow: var(--shadow-md); }
-.app-shell-card-command { background: var(--surface-command); border-color: color-mix(in srgb, var(--sp-border-brand) 45%, var(--border-default)); }
-.app-shell-card-data { background: var(--surface-primary); }
-.app-shell-card-row { background: var(--surface-row); }
-.app-shell-card-inspector { background: var(--surface-inspector); border-color: var(--border-strong); }
-.app-shell-card-muted { background: var(--surface-muted); border-color: var(--border-default); }
+.app-shell-card-shell { background: var(--surface-primary); border-color: var(--border-default); box-shadow: var(--shadow-xs); }
+.app-shell-card-hero { background: var(--surface-hero); border-color: var(--sp-border-brand); box-shadow: var(--shadow-sm); }
+.app-shell-card-command { background: var(--surface-command); border-color: color-mix(in srgb, var(--sp-border-brand) 30%, var(--border-subtle)); }
+.app-shell-card-data { background: var(--surface-primary); border-color: var(--border-subtle); }
+.app-shell-card-row { background: var(--surface-row); border-color: var(--border-default); }
+.app-shell-card-inspector { background: var(--surface-inspector); border-color: var(--border-default); box-shadow: var(--shadow-xs); }
+.app-shell-card-muted { background: var(--surface-muted); border-color: color-mix(in srgb, var(--border-subtle) 75%, transparent); }
 .app-shell-card-warning { background: var(--surface-warning); border-color: var(--border-accent); }
 .app-shell-card-modal { background: var(--surface-modal); border-color: var(--border-default); box-shadow: var(--shadow-lg); }
 
@@ -502,13 +502,24 @@
 .workspace-meta-pill-info { border-color: #bfdbfe; background: #eaf2ff; color: #1e3a8a; }
 .workspace-meta-pill-warn { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
 
-.advanced-filter-surface, .bulk-action-strip, .inspector-block, .form-section, .surface-block {
+.advanced-filter-surface, .bulk-action-strip, .form-section, .surface-block {
   border: 1px solid var(--border-default);
   border-radius: 1rem;
   background: var(--surface-secondary);
   padding: 0.7rem;
   display: grid;
   gap: 0.65rem;
+}
+.inspector-block {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.inspector-block-quiet {
+  gap: 0.4rem;
 }
 .surface-block-inspector { background: var(--surface-inspector); border-color: var(--border-strong); }
 .surface-block-row { background: var(--surface-row); }

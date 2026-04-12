@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Subtractive material hierarchy pass: fewer nested panels, clearer surface tiers, calmer operational density
+- Audited the shared material stack and tightened default surface roles so shell/data/command/muted/inspector cards no longer all render at similar intensity: base cards now use quieter borders/shadows while hero/modal/attention surfaces keep intentional emphasis, improving hierarchy selectivity across shell, workspace wrappers, summaries, and inspector contexts. (`src/styles/primitives.css`)
+- Reduced redundant border-inside-border patterns in execution workspaces by demoting inner toolbar/list wrappers and summary strips from full bordered panels to spacing-led groupings with typographic rhythm and separators, especially for queue-heavy Overview/Tasks flows. (`src/styles/workspaces.css`)
+- Simplified nested inspector/support grouping behavior at the primitive level by converting `inspector-block` from a full bordered/tinted card treatment into a quiet internal grouping style, while preserving explicit inspector panel framing at the outer surface where trust/orientation matters. (`src/styles/primitives.css`, `src/components/ui/AppPrimitives.tsx`)
+- Lightened dense work areas by removing decorative inner queue/list framing, softening embedded table containers, and rebalancing queue card border strength so high-traffic list/toolbar/row transitions scan faster without losing operational structure. (`src/styles/workspaces.css`)
+- Kept stronger emphasis intentionally reserved for major shells, hero summaries, inspectors, modal/elevated surfaces, and trust/attention blocks, establishing a cleaner shared material contract that later prompts can apply page-by-page without global flattening. (`src/styles/primitives.css`, `src/styles/workspaces.css`)
+
 ### Shared control-language refinement: stronger action hierarchy, clearer chip roles, and premium segmented controls
 - Audited and rebalanced the shared control primitives used across shell/workspace/modals: updated baseline button material and spacing so primary actions now carry clear visual authority, secondary actions stay supportive, and a new quiet-action treatment is available for low-priority dismiss/utility controls. (`src/styles/primitives.css`, `src/components/ui/AppPrimitives.tsx`)
 - Refined primary action styling into a more intentional SetPoint signature (deeper accent gradient, stronger weight, clearer elevation) while keeping secondary/destructive controls calmer and easier to scan in dense toolbars and modal action rows. (`src/styles/primitives.css`)

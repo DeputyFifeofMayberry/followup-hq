@@ -1,3 +1,4 @@
+import { buildReportTrustSummary } from './reportTrust';
 import type { OwnerWorkloadReportResult, OwnerWorkloadRow, RankedReason, ReportSeverity, ReportingContext } from './contracts';
 
 function severityFromScore(score: number): ReportSeverity {
@@ -48,6 +49,7 @@ export function buildOwnerWorkloadReport(context: ReportingContext): OwnerWorklo
       title: 'Owner workload',
       subtitle: 'Owner-level workload ranking balancing total volume, due-now pressure, blocked work, and waiting dependencies.',
       scope: context.scope,
+      trust: buildReportTrustSummary(context),
       highlights: [
         { id: 'owner-count', label: 'Owners in queue', value: rankedOwners.length, tone: 'default' },
         { id: 'owner-due', label: 'Due now', value: context.executionStats.due, tone: 'danger' },

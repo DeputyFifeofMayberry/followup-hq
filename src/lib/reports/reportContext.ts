@@ -3,6 +3,7 @@ import { isReviewRecord } from '../../domains/records/integrity';
 import { buildUnifiedQueue } from '../unifiedQueue';
 import type { FollowUpItem, ProjectRecord, RecordIntegrityReason, ReportDraftState, TaskItem, UnifiedQueueItem } from '../../types';
 import type { ReportingContext } from './contracts';
+import { resolveReportScope } from './reportScope';
 
 function groupRows(rows: UnifiedQueueItem[], keySelector: (row: UnifiedQueueItem) => string): Record<string, UnifiedQueueItem[]> {
   return rows.reduce<Record<string, UnifiedQueueItem[]>>((acc, row) => {
@@ -35,32 +36,23 @@ export function buildReportingContext({
   draft?: ReportDraftState;
 }): ReportingContext {
   const generatedAt = new Date().toISOString();
-  const scopedItems = items.filter((item) => {
-    if (!draft?.scope.includeClosed && item.status === 'Closed') return false;
-    if (draft?.scope.mode === 'project' && draft.scope.project && item.project !== draft.scope.project) return false;
-    if (draft?.scope.mode === 'owner' && draft.scope.owner && item.owner !== draft.scope.owner) return false;
-    return true;
-  });
-  const scopedTasks = tasks.filter((task) => {
-    if (!draft?.scope.includeClosed && task.status === 'Done') return false;
-    if (draft?.scope.mode === 'project' && draft.scope.project && task.project !== draft.scope.project) return false;
-    if (draft?.scope.mode === 'owner' && draft.scope.owner && task.owner !== draft.scope.owner) return false;
-    return true;
-  });
-  const queue = buildUnifiedQueue(scopedItems, scopedTasks).slice(0, Math.max(5, draft?.display.rowLimit ?? 8) * 4);
+  const scope = draft?.scope ?? { mode: 'trusted_live_only', includeClosed: false };
+  const resolution = resolveReportScope({ items, tasks, scope });
+
+  const queue = buildUnifiedQueue(resolution.includedItems, resolution.includedTasks).slice(0, Math.max(5, draft?.display.rowLimit ?? 8) * 4);
   const executionStats = buildExecutionQueueStats(queue);
-  const openFollowUps = scopedItems.filter((item) => item.status !== 'Closed');
-  const openTasks = scopedTasks.filter((task) => task.status !== 'Done');
+  const openFollowUps = resolution.includedItems.filter((item) => item.status !== 'Closed');
+  const openTasks = resolution.includedTasks.filter((task) => task.status !== 'Done');
   const queueFollowUps = queue.filter((row) => row.recordType === 'followup');
   const queueTasks = queue.filter((row) => row.recordType === 'task');
-  const followUpsNeedingReview = scopedItems.filter((item) => isReviewRecord(item));
-  const tasksNeedingReview = scopedTasks.filter((task) => isReviewRecord(task));
-  const drafts = [...scopedItems, ...scopedTasks].filter((record) => record.lifecycleState === 'draft');
+  const followUpsNeedingReview = resolution.includedItems.filter((item) => isReviewRecord(item));
+  const tasksNeedingReview = resolution.includedTasks.filter((task) => isReviewRecord(task));
+  const drafts = [...resolution.includedItems, ...resolution.includedTasks].filter((record) => record.lifecycleState === 'draft');
 
   return {
     generatedAt,
-    items: scopedItems,
-    tasks: scopedTasks,
+    items: resolution.includedItems,
+    tasks: resolution.includedTasks,
     projects,
     openFollowUps,
     openTasks,
@@ -68,6 +60,8 @@ export function buildReportingContext({
     queueFollowUps,
     queueTasks,
     executionStats,
+    scopeReceipt: resolution.receipt,
+    confidence: resolution.confidence,
     scope: {
       openFollowUps: openFollowUps.length,
       openTasks: openTasks.length,
@@ -80,7 +74,7 @@ export function buildReportingContext({
       followUpsNeedingReview,
       tasksNeedingReview,
       drafts,
-      byReason: collectIntegrityReasonCounts(items, tasks),
+      byReason: collectIntegrityReasonCounts(resolution.includedItems, resolution.includedTasks),
     },
   };
 }

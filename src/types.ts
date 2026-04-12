@@ -140,7 +140,7 @@ export type ReportTemplateKind =
   | 'followup_risk_review'
   | 'data_quality_cleanup_audit'
   | 'custom';
-export type ReportScopeMode = 'all_open' | 'project' | 'owner';
+export type ReportScopeMode = 'trusted_live_only' | 'trusted_live_plus_review' | 'all_records' | 'cleanup_audit';
 
 export interface ReportDefinitionScope {
   mode: ReportScopeMode;

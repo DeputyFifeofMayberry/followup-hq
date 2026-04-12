@@ -1,3 +1,4 @@
+import { buildReportTrustSummary } from './reportTrust';
 import { getIntegrityReasonLabel } from '../../domains/records/integrity';
 import type { DataQualityReasonRow, DataQualityReportResult, ReportingContext } from './contracts';
 
@@ -36,6 +37,7 @@ export function buildDataQualityReport(context: ReportingContext): DataQualityRe
       title: 'Data quality / cleanup',
       subtitle: 'Integrity and cleanup pressure grouped by concrete review reasons to support remediation planning.',
       scope: context.scope,
+      trust: buildReportTrustSummary(context),
       highlights: [
         { id: 'quality-cleanup', label: 'Queue cleanup pressure', value: cleanupCount, tone: 'warn' },
         { id: 'quality-review', label: 'Needs review', value: context.integrity.followUpsNeedingReview.length + context.integrity.tasksNeedingReview.length, tone: 'info' },

@@ -18,6 +18,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
 import { AppShellCard, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
+import type { ReportTrustSummary } from '../lib/reports';
 
 const savedViewOptions: SavedViewKey[] = ['All', 'Closed', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Overdue', 'By project'];
 
@@ -133,7 +134,7 @@ function ToggleRow({
   );
 }
 
-export function ExportWorkspace({ embedded = false }: { embedded?: boolean }) {
+export function ExportWorkspace({ embedded = false, reportTrustSummary }: { embedded?: boolean; reportTrustSummary?: ReportTrustSummary }) {
   const { items, tasks } = useAppStore(useShallow((s) => ({ items: s.items, tasks: s.tasks })));
   const [options, setOptions] = useState<ExportOptions>(defaultOptions);
   const [lastExportMessage, setLastExportMessage] = useState('');
@@ -218,6 +219,21 @@ export function ExportWorkspace({ embedded = false }: { embedded?: boolean }) {
             subtitle="Exports stay available as a downstream action from reporting."
             compact
           />
+          {reportTrustSummary ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Export scope receipt</div>
+              <div className="mt-1"><strong>Mode:</strong> {reportTrustSummary.scopeReceipt.modeLabel}</div>
+              <div><strong>Included / excluded:</strong> {reportTrustSummary.scopeReceipt.includedCount} / {reportTrustSummary.scopeReceipt.excludedCount}</div>
+              <div><strong>Confidence:</strong> {reportTrustSummary.confidence.label}</div>
+              {reportTrustSummary.topExclusions.length ? (
+                <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                  {reportTrustSummary.topExclusions.slice(0, 3).map((bucket) => (
+                    <li key={bucket.reasonKey}>• {bucket.label} ({bucket.count})</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="text-sm text-slate-500">Follow-ups in export</div>

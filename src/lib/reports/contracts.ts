@@ -1,4 +1,5 @@
 import type { FollowUpItem, ProjectHealthIndicators, ProjectHealthTier, ProjectRecord, RecordIntegrityReason, ReportType, TaskItem, UnifiedQueueItem } from '../../types';
+import type { ReportConfidenceSummary, ReportExclusionBucket, ReportScopeReceipt } from './reportScope';
 import type { ExecutionQueueStats } from '../../domains/shared/selectors/executionQueueSelectors';
 
 export type ReportTone = 'default' | 'warn' | 'danger' | 'info';
@@ -9,6 +10,12 @@ export interface ReportScopeSummary {
   openTasks: number;
   openExecutionRecords: number;
   generatedAt: string;
+}
+
+export interface ReportTrustSummary {
+  scopeReceipt: ReportScopeReceipt;
+  confidence: ReportConfidenceSummary;
+  topExclusions: ReportExclusionBucket[];
 }
 
 export interface ReportSummaryCard {
@@ -23,6 +30,7 @@ export interface ReportHeaderSummary {
   title: string;
   subtitle: string;
   scope: ReportScopeSummary;
+  trust: ReportTrustSummary;
   highlights: ReportSummaryCard[];
 }
 
@@ -51,6 +59,8 @@ export interface ReportingContext {
   queueTasks: UnifiedQueueItem[];
   executionStats: ExecutionQueueStats;
   scope: ReportScopeSummary;
+  scopeReceipt: ReportScopeReceipt;
+  confidence: ReportConfidenceSummary;
   queueByProject: Record<string, UnifiedQueueItem[]>;
   queueByOwner: Record<string, UnifiedQueueItem[]>;
   integrity: {

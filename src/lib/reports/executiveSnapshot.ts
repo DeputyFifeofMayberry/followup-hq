@@ -1,3 +1,4 @@
+import { buildReportTrustSummary } from './reportTrust';
 import type { ExecutiveSnapshotReportResult, ReportingContext } from './contracts';
 
 export function buildExecutiveSnapshotReport(context: ReportingContext): ExecutiveSnapshotReportResult {
@@ -17,6 +18,7 @@ export function buildExecutiveSnapshotReport(context: ReportingContext): Executi
       title: 'Executive snapshot',
       subtitle: 'Current execution pressure, risk posture, and closeout opportunity from live queue truth.',
       scope: context.scope,
+      trust: buildReportTrustSummary(context),
       highlights: [
         { id: 'due', label: 'Due now', value: context.executionStats.due, helper: 'Needs same-day movement.', tone: 'danger' },
         { id: 'blocked', label: 'Blocked', value: context.executionStats.blocked, helper: 'Stalled work requiring intervention.', tone: 'warn' },

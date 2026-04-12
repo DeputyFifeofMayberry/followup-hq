@@ -1,3 +1,4 @@
+import { buildReportTrustSummary } from './reportTrust';
 import type { FollowUpRiskReportResult, FollowUpRiskRow, RankedReason, ReportSeverity, ReportingContext } from './contracts';
 
 function severityFromScore(score: number): ReportSeverity {
@@ -61,6 +62,7 @@ export function buildFollowUpRiskReport(context: ReportingContext): FollowUpRisk
       title: 'Follow-up risk',
       subtitle: 'Risk-ranked follow-up commitments based on due-now pressure, waiting dependencies, and child-task blockage signals.',
       scope: context.scope,
+      trust: buildReportTrustSummary(context),
       highlights: [
         { id: 'risk-due', label: 'Due now', value: context.executionStats.due, tone: 'danger' },
         { id: 'risk-blocked', label: 'Blocked', value: context.executionStats.blocked, tone: 'warn' },

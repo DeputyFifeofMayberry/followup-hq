@@ -401,10 +401,10 @@ fn start_outlook_loopback_listener(loopback_state: State<Arc<Mutex<OutlookLoopba
 
             let html = r#"<!doctype html>
 <html>
-  <head><meta charset=\"utf-8\"><title>FollowUp HQ</title></head>
+  <head><meta charset=\"utf-8\"><title>SetPoint</title></head>
   <body style=\"font-family:Segoe UI, Arial, sans-serif; padding:32px; background:#f8fafc; color:#0f172a;\">
     <h2 style=\"margin:0 0 12px 0;\">Outlook sign-in complete</h2>
-    <p style=\"margin:0;\">You can close this browser window and return to FollowUp HQ.</p>
+    <p style=\"margin:0;\">You can close this browser window and return to SetPoint.</p>
   </body>
 </html>"#;
             let response = format!(
@@ -793,5 +793,5 @@ fn main() {
             clear_outlook_loopback_callback
         ])
         .run(tauri::generate_context!())
-        .expect("error while running FollowUp HQ");
+        .expect("error while running SetPoint");
 }

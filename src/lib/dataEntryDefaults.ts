@@ -1,7 +1,8 @@
 import type { FollowUpFormInput, SourceType, TaskItem, TaskStatus } from '../types';
 import { addDaysIso, todayIso } from './utils';
+import { readBrandStorageValue, writeBrandStorageValue } from '../config/brand';
 
-const STORAGE_KEY = 'followup-hq:data-entry-defaults:v1';
+const STORAGE_SUFFIX = 'data-entry-defaults:v1';
 
 type DefaultsState = {
   followUpOwner?: string;
@@ -26,7 +27,7 @@ export type RecentEntryContext = {
 function readDefaults(): DefaultsState {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = readBrandStorageValue(STORAGE_SUFFIX);
     if (!raw) return {};
     return JSON.parse(raw) as DefaultsState;
   } catch {
@@ -36,7 +37,7 @@ function readDefaults(): DefaultsState {
 
 function writeDefaults(next: DefaultsState) {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  writeBrandStorageValue(STORAGE_SUFFIX, JSON.stringify(next));
 }
 
 export function getRecentEntryContext(): RecentEntryContext {

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { StatePanel } from './components/ui/AppPrimitives';
 import './index.css';
+import { brand } from './config/brand';
 
 interface RootErrorBoundaryState {
   error: Error | null;
@@ -27,7 +28,7 @@ class RootErrorBoundary extends React.Component<React.PropsWithChildren, RootErr
             <div className="w-full rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
               <StatePanel
                 tone="error"
-                title="FollowUp HQ hit a runtime error"
+                title={brand.runtimeError.title}
                 message="The app stopped rendering. Use the details below to fix the crash instead of getting a blank white page."
               />
               <pre className="mt-4 max-h-60 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-rose-100">

@@ -85,3 +85,29 @@ export function getRunsForDefinition(runs: ReportRunRecord[], definitionId: stri
 export function getPreviousRunForDefinition(runs: ReportRunRecord[], definitionId: string): ReportRunRecord | undefined {
   return getRunsForDefinition(runs, definitionId)[1];
 }
+
+export interface DraftRunSelection {
+  latestRunAny?: ReportRunRecord;
+  latestCompatibleRun?: ReportRunRecord;
+  previousCompatibleRun?: ReportRunRecord;
+  snapshotState: 'none' | 'fresh' | 'stale';
+}
+
+export function selectDraftRunSelection(runs: ReportRunRecord[], draftSignature: string): DraftRunSelection {
+  const sortedRuns = sortReportRunsNewestFirst(runs);
+  const compatibleRuns = sortedRuns.filter((run) => run.draftSignature === draftSignature);
+  const latestRunAny = sortedRuns[0];
+  const latestCompatibleRun = compatibleRuns[0];
+  const previousCompatibleRun = compatibleRuns[1];
+
+  let snapshotState: DraftRunSelection['snapshotState'] = 'none';
+  if (latestCompatibleRun) snapshotState = 'fresh';
+  else if (latestRunAny) snapshotState = 'stale';
+
+  return {
+    latestRunAny,
+    latestCompatibleRun,
+    previousCompatibleRun,
+    snapshotState,
+  };
+}

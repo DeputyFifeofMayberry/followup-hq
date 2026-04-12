@@ -240,7 +240,9 @@ export function ExportWorkspace({
               <div className="mt-1"><strong>Mode:</strong> {reportTrustSummary.scopeReceipt.modeLabel}</div>
               <div><strong>Included / excluded:</strong> {reportTrustSummary.scopeReceipt.includedCount} / {reportTrustSummary.scopeReceipt.excludedCount}</div>
               <div><strong>Confidence:</strong> {reportTrustSummary.confidence.label}</div>
-              {reportProvenance ? <div><strong>Snapshot run:</strong> {new Date(reportProvenance.ranAt).toLocaleString()}</div> : null}
+              {reportProvenance
+                ? <div><strong>Snapshot run:</strong> {new Date(reportProvenance.ranAt).toLocaleString()}</div>
+                : <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">No compatible snapshot linked yet. Refresh snapshot in Reports before exporting for full provenance.</div>}
               {reportTrustSummary.topExclusions.length ? (
                 <ul className="mt-2 space-y-1 text-xs text-slate-600">
                   {reportTrustSummary.topExclusions.slice(0, 3).map((bucket) => (

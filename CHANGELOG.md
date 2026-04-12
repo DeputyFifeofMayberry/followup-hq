@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Reports acceptance polish pass: snapshot clarity, empty-state finish, and provenance guardrails
+- Tightened Reports snapshot lifecycle messaging so draft-incompatible snapshots are explicitly marked stale (instead of being treated as latest for compare/export), no-snapshot states get intentional guidance, and compare messaging only references compatible run history. (`src/components/reports/ReportsWorkspace.tsx`, `src/lib/reports/reportRuns.ts`)
+- Finished key empty/low-data states in saved-report rails by adding explicit pinned/other empty-state guidance so users understand how to organize reusable report definitions instead of seeing blank columns. (`src/components/reports/ReportsWorkspace.tsx`)
+- Improved embedded export provenance clarity by surfacing an explicit warning when no compatible snapshot is linked, reinforcing refresh-before-export behavior for trustworthy audit trails. (`src/components/ExportWorkspace.tsx`)
+- Added targeted reliability coverage for draft run-selection semantics to prevent regressions where mismatched snapshots could be treated as compatible compare baselines. (`src/lib/__tests__/reportsReliability.test.ts`)
+
 ### Reports hardening pass: lifecycle integrity, hydration safety, and run/export coherence
 - Hardened report definition lifecycle integrity so create/update/delete/duplicate/save-as flows now sanitize and normalize drafts/definitions (legacy scope migration, row-limit bounds, trimmed filters), keep active draft state synchronized when active definitions are edited, and prune deleted-definition run history to avoid stale compare/export references. (`src/lib/reports/savedDefinitions.ts`, `src/store/slices/reportDefinitionsSlice.ts`)
 - Hardened report hydration behavior by sanitizing saved definition payloads, validating `lastOpenedReportDefinitionId` against hydrated definitions, normalizing active draft defaults from active saved state, and filtering run history to valid definition references with cleaned export records. (`src/store/slices/metaSlice.ts`, `src/lib/reports/reportRuns.ts`, `src/store/state/initialState.ts`)

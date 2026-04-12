@@ -16,7 +16,7 @@ import { DataQualityReport } from './DataQualityReport';
 import { useAppStore } from '../../store/useAppStore';
 import type { ReportDraftState } from '../../types';
 import { ReportTrustPanel } from './ReportTrustPanel';
-import { buildReportRunSummaryFromHeader, createReportRunSignature } from '../../lib/reports/reportRuns';
+import { buildReportRunSummaryFromHeader, createReportRunSignature, selectDraftRunSelection } from '../../lib/reports/reportRuns';
 import type { ReportHeaderSummary } from '../../lib/reports/contracts';
 
 const SCOPE_MODE_OPTIONS: Array<{ value: ReportDraftState['scope']['mode']; label: string; helper: string }> = [
@@ -179,10 +179,16 @@ export function ReportsWorkspace({
     [activeDefinition, reportRuns],
   );
   const activeDraftSignature = createReportRunSignature(reportDraft);
-  const compatibleRuns = activeDefinitionRuns.filter((run) => run.draftSignature === activeDraftSignature);
-  const latestCompatibleRun = compatibleRuns[0] ?? activeDefinitionRuns[0];
-  const hasFreshSnapshotForDraft = Boolean(latestCompatibleRun && latestCompatibleRun.draftSignature === activeDraftSignature);
-  const previousRun = compatibleRuns[1] ?? activeDefinitionRuns[1];
+  const {
+    latestRunAny,
+    latestCompatibleRun,
+    previousCompatibleRun,
+    snapshotState,
+  } = useMemo(
+    () => selectDraftRunSelection(activeDefinitionRuns, activeDraftSignature),
+    [activeDefinitionRuns, activeDraftSignature],
+  );
+  const hasFreshSnapshotForDraft = snapshotState === 'fresh';
   const handleRecordRun = () => {
     if (!activeDefinition) return;
     recordReportRun({
@@ -243,9 +249,14 @@ export function ReportsWorkspace({
             <div className="mt-2 inline-flex items-center gap-1 text-lg font-semibold text-slate-950"><ShieldCheck className="h-4 w-4" />{reportContext.confidence.label}</div>
           </div>
         </div>
-        {!hasFreshSnapshotForDraft ? (
+        {snapshotState === 'stale' ? (
           <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             Snapshot is stale for this draft configuration. Refresh snapshot to align compare/export provenance with the current draft.
+          </div>
+        ) : null}
+        {snapshotState === 'none' ? (
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+            No snapshot captured yet for this report. Refresh snapshot to establish compare/export provenance.
           </div>
         ) : null}
       </AppShellCard>
@@ -255,6 +266,11 @@ export function ReportsWorkspace({
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="space-y-2">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Pinned</div>
+            {!pinnedReports.length ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                No pinned reports yet. Pin frequently used reports so they stay at the top.
+              </div>
+            ) : null}
             {pinnedReports.map((report) => (
               <div key={report.id} className={`rounded-2xl border p-3 ${report.id === activeReportDefinitionId ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white'}`}>
                 <button type="button" className="w-full text-left" onClick={() => openSavedReportDefinition(report.id)}>
@@ -271,6 +287,11 @@ export function ReportsWorkspace({
           </div>
           <div className="space-y-2">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Other saved</div>
+            {!otherReports.length ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                No additional saved reports yet. Duplicate a template or save this draft as a new report.
+              </div>
+            ) : null}
             {otherReports.map((report) => (
               <div key={report.id} className={`rounded-2xl border p-3 ${report.id === activeReportDefinitionId ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white'}`}>
                 <button type="button" className="w-full text-left" onClick={() => openSavedReportDefinition(report.id)}>
@@ -341,6 +362,7 @@ export function ReportsWorkspace({
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Latest run</div>
               <div className="mt-2 text-sm font-semibold text-slate-950">{latestCompatibleRun ? new Date(latestCompatibleRun.ranAt).toLocaleString() : 'No run yet for this draft'}</div>
+              {snapshotState === 'stale' && latestRunAny ? <div className="mt-1 text-xs text-amber-700">Latest saved snapshot ({new Date(latestRunAny.ranAt).toLocaleString()}) is from a different draft.</div> : null}
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Included delta</div>
@@ -377,7 +399,7 @@ export function ReportsWorkspace({
               ))}
             </ul>
           ) : <div className="text-sm text-slate-500">No run history yet. Use “Refresh snapshot” to capture this report state.</div>}
-          {previousRun ? <div className="mt-2 text-xs text-slate-500">Comparing against run from {new Date(previousRun.ranAt).toLocaleString()}.</div> : null}
+          {previousCompatibleRun ? <div className="mt-2 text-xs text-slate-500">Comparing against run from {new Date(previousCompatibleRun.ranAt).toLocaleString()}.</div> : null}
         </div>
       </AppShellCard>
 

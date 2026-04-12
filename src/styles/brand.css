@@ -130,10 +130,10 @@
   position: relative;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--brand-steel-soft) 46%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sp-border-brand) 62%, transparent);
   border-radius: 1.2rem;
   background:
-    linear-gradient(140deg, rgba(9, 17, 31, 0.94), rgba(15, 23, 42, 0.86)),
+    linear-gradient(140deg, color-mix(in srgb, var(--sp-brand-night-950) 92%, black), color-mix(in srgb, var(--sp-brand-night-900) 86%, #15263d)),
     repeating-linear-gradient(90deg, transparent 0 40px, rgba(148, 163, 184, 0.06) 40px 41px);
   min-height: clamp(220px, 26vw, 300px);
   padding: clamp(1rem, 2vw, 1.5rem);
@@ -148,7 +148,7 @@
   bottom: 16%;
   height: 0.2rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--brand-accent), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-accent) 78%, var(--sp-accent-emphasis)), transparent);
   opacity: 0.9;
 }
 
@@ -172,8 +172,8 @@
   width: 1.58rem;
   aspect-ratio: 1;
   border-radius: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--brand-steel-soft) 46%, transparent);
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.45), rgba(15, 23, 42, 0.6));
+  border: 1px solid color-mix(in srgb, var(--sp-border-brand) 58%, transparent);
+  background: linear-gradient(180deg, rgba(24, 37, 55, 0.52), rgba(12, 22, 37, 0.62));
   display: grid;
   place-content: center;
   padding: 0.16rem;

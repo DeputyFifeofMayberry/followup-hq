@@ -7,58 +7,119 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Core semantic surfaces: app chrome -> elevated content -> supportive layers. */
-  --color-bg-app: #0c1422;
-  --color-bg-nav: #0b1220;
-  --surface-primary: #fbfdff;
-  --surface-secondary: #f3f7fc;
-  --surface-muted: #edf3f9;
-  --surface-inspector: #eef4fb;
-  --surface-shell-elevated: rgba(14, 25, 41, 0.88);
-  --surface-shell-rail: rgba(11, 20, 34, 0.94);
-  --surface-shell-pane: rgba(243, 249, 255, 0.94);
-  --surface-shell-hero: linear-gradient(180deg, rgba(250, 253, 255, 0.97), rgba(238, 246, 253, 0.96));
-  --surface-hero: linear-gradient(180deg, #fbfdff 0%, #f2f7fc 100%);
-  --surface-command: #f7fbff;
-  --surface-row: #f8fbff;
-  --surface-row-hover: #fbfdff;
-  --surface-row-active: #e7f0fa;
-  --surface-warning: #fff7ec;
-  --surface-modal: #f9fcff;
+  /* SetPoint identity tones (structural brand and signal accent). */
+  --sp-brand-night-950: #070d19;
+  --sp-brand-night-900: #0d1728;
+  --sp-brand-night-800: #16263d;
+  --sp-brand-steel-100: #dbe6f5;
+  --sp-brand-steel-300: #9eb1c9;
+  --sp-brand-teal-300: #58d4c7;
+  --sp-brand-teal-500: #1d9a8d;
+  --sp-brand-teal-600: #167c72;
+  --sp-brand-gold-400: #d7a763;
 
-  --border-default: #d2dce8;
-  --border-strong: #bdccdd;
-  --border-subtle: #e4ebf3;
-  --border-accent: #f4c48a;
+  /* Operational neutrals (daily work surfaces stay calm and readable). */
+  --sp-neutral-0: #ffffff;
+  --sp-neutral-25: #fcfeff;
+  --sp-neutral-50: #f5f9fd;
+  --sp-neutral-75: #edf3f9;
+  --sp-neutral-100: #e3ebf4;
+  --sp-neutral-200: #c6d3e2;
+  --sp-neutral-300: #9aacc0;
+  --sp-neutral-500: #4b6078;
+  --sp-neutral-700: #25384f;
+  --sp-neutral-900: #0f172a;
 
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  --text-inverse: #f8fbff;
+  /* Accent usage: action-forward, not decorative. */
+  --sp-accent-action: var(--sp-brand-teal-600);
+  --sp-accent-action-hover: #11685f;
+  --sp-accent-action-soft: color-mix(in srgb, var(--sp-brand-teal-500) 24%, transparent);
+  --sp-accent-emphasis: var(--sp-brand-gold-400);
 
-  --accent: #0f766e;
-  --accent-soft: rgba(15, 118, 110, 0.18);
-  --accent-strong: #0b5f59;
-  --accent-hover: #115e59;
-  --brand-steel: #d9e5f4;
-  --brand-steel-soft: #8ea3bf;
-  --brand-crane: #54d2c4;
-  --brand-crane-soft: rgba(84, 210, 196, 0.35);
-  --brand-accent: #37cdbd;
-  --brand-wordmark-light: #f7fbff;
-  --brand-wordmark-dark: #0f172a;
+  /* Surface tiers: branded moments -> operational work -> support/trust. */
+  --sp-surface-brand-canvas:
+    radial-gradient(circle at 10% -12%, color-mix(in srgb, var(--sp-brand-teal-300) 34%, transparent), transparent 34%),
+    radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--sp-brand-teal-500) 22%, transparent), transparent 32%),
+    linear-gradient(165deg, var(--sp-brand-night-950) 0%, var(--sp-brand-night-900) 46%, var(--sp-brand-night-800) 100%);
+  --sp-surface-brand-rail: linear-gradient(180deg, rgba(8, 15, 28, 0.95), rgba(12, 22, 37, 0.88));
+  --sp-surface-brand-elevated: rgba(12, 22, 37, 0.88);
+  --sp-surface-brand-soft: linear-gradient(180deg, color-mix(in srgb, var(--sp-neutral-0) 94%, #e8f1fb 6%), color-mix(in srgb, var(--sp-neutral-50) 88%, #e0ecf9 12%));
+  --sp-surface-brand-command: linear-gradient(180deg, #fafdff 0%, #f1f7ff 100%);
+  --sp-surface-operational-base: var(--sp-neutral-25);
+  --sp-surface-operational-raised: var(--sp-neutral-50);
+  --sp-surface-operational-row: #f7fbff;
+  --sp-surface-operational-row-hover: #fcfeff;
+  --sp-surface-operational-row-active: #e7f1fb;
+  --sp-surface-support: var(--sp-neutral-75);
+  --sp-surface-elevated: #f9fcff;
+  --sp-surface-trust-success: #edfdf5;
+  --sp-surface-trust-warn: #fff6ea;
+  --sp-surface-trust-danger: #fff2f5;
+  --sp-surface-trust-info: #eff6ff;
+
+  --sp-border-subtle: var(--sp-neutral-100);
+  --sp-border-default: var(--sp-neutral-200);
+  --sp-border-strong: #b2c2d5;
+  --sp-border-brand: color-mix(in srgb, var(--sp-brand-steel-300) 65%, #6e819a);
+  --sp-border-emphasis: #efc791;
+  --sp-border-action: color-mix(in srgb, var(--sp-brand-teal-500) 64%, #0f766e);
+
+  --sp-text-primary: var(--sp-neutral-900);
+  --sp-text-secondary: #2f445d;
+  --sp-text-muted: #61768e;
+  --sp-text-inverse: #f3f8ff;
+
+  --color-bg-app: var(--sp-brand-night-900);
+  --color-bg-nav: var(--sp-brand-night-950);
+  --surface-primary: var(--sp-surface-operational-base);
+  --surface-secondary: var(--sp-surface-operational-raised);
+  --surface-muted: var(--sp-surface-support);
+  --surface-inspector: linear-gradient(180deg, #f9fcff 0%, #eef5fc 100%);
+  --surface-shell-elevated: var(--sp-surface-brand-elevated);
+  --surface-shell-rail: var(--sp-surface-brand-rail);
+  --surface-shell-pane: color-mix(in srgb, var(--sp-neutral-50) 92%, #ecf4fd 8%);
+  --surface-shell-hero: var(--sp-surface-brand-soft);
+  --surface-hero: var(--sp-surface-brand-soft);
+  --surface-command: var(--sp-surface-brand-command);
+  --surface-row: var(--sp-surface-operational-row);
+  --surface-row-hover: var(--sp-surface-operational-row-hover);
+  --surface-row-active: var(--sp-surface-operational-row-active);
+  --surface-warning: var(--sp-surface-trust-warn);
+  --surface-modal: var(--sp-surface-elevated);
+
+  --border-default: var(--sp-border-default);
+  --border-strong: var(--sp-border-strong);
+  --border-subtle: var(--sp-border-subtle);
+  --border-accent: var(--sp-border-emphasis);
+
+  --text-primary: var(--sp-text-primary);
+  --text-secondary: var(--sp-text-secondary);
+  --text-muted: var(--sp-text-muted);
+  --text-inverse: var(--sp-text-inverse);
+
+  --accent: var(--sp-accent-action);
+  --accent-soft: var(--sp-accent-action-soft);
+  --accent-strong: #0f635b;
+  --accent-hover: var(--sp-accent-action-hover);
+  --brand-steel: var(--sp-brand-steel-100);
+  --brand-steel-soft: var(--sp-brand-steel-300);
+  --brand-crane: var(--sp-brand-teal-300);
+  --brand-crane-soft: color-mix(in srgb, var(--sp-brand-teal-300) 40%, transparent);
+  --brand-accent: color-mix(in srgb, var(--sp-brand-teal-500) 84%, #8be5dc);
+  --brand-wordmark-light: #f6faff;
+  --brand-wordmark-dark: var(--sp-brand-night-900);
   --success: #047857;
   --warning: #b45309;
   --danger: #be123c;
   --info: #1d4ed8;
 
-  --focus-ring-color: rgba(37, 99, 235, 0.3);
+  --focus-ring-color: color-mix(in srgb, var(--sp-accent-action) 35%, transparent);
   --focus-ring: 0 0 0 3px var(--focus-ring-color);
 
-  --shadow-xs: 0 1px 3px rgba(15, 23, 42, 0.08);
-  --shadow-sm: 0 6px 20px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 22px 56px rgba(2, 6, 23, 0.28);
+  --shadow-xs: 0 1px 3px rgba(7, 13, 25, 0.08);
+  --shadow-sm: 0 7px 20px rgba(7, 13, 25, 0.07);
+  --shadow-md: 0 14px 30px rgba(7, 13, 25, 0.1);
+  --shadow-lg: 0 24px 58px rgba(2, 6, 23, 0.3);
 
   --radius-sm: 0.65rem;
   --radius-md: 0.85rem;

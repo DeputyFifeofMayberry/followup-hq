@@ -1,41 +1,18 @@
 import { Badge } from '../Badge';
 import type {
-  OverviewDashboardLaneHealth,
+  OverviewDashboardAction,
   OverviewDashboardModel,
-  OverviewDashboardNextUpRow,
-  OverviewDashboardProjectHotspot,
 } from '../../domains/overview/hooks/useOverviewTriageViewModel';
-import type { ExecutionSectionKey } from '../../types';
 import { priorityTone } from '../../lib/utils';
 
 interface OverviewDashboardPanelsProps {
   dashboard: OverviewDashboardModel;
-  onRouteLane: (lane: 'tasks' | 'followups', section: ExecutionSectionKey, intentLabel: string) => void;
-  onFocusNextUp: (row: OverviewDashboardNextUpRow) => void;
-  onFocusLaneHealth: (lane: OverviewDashboardLaneHealth) => void;
-  onFocusHotspot: (hotspot: OverviewDashboardProjectHotspot) => void;
-  onFocusCommitment: (key: keyof OverviewDashboardModel['commitments']) => void;
-  onFocusOwnershipRisk: (key: keyof OverviewDashboardModel['ownershipRisk']) => void;
-  onResetFocus: () => void;
-}
-
-function laneLabel(row: OverviewDashboardNextUpRow) {
-  return row.lane === 'tasks' ? 'Open Tasks' : 'Open Follow Ups';
-}
-
-function routeLabel(lane: OverviewDashboardLaneHealth) {
-  return lane.lane === 'tasks' ? 'Open Tasks' : 'Open Follow Ups';
+  onAction: (action: OverviewDashboardAction) => void;
 }
 
 export function OverviewDashboardPanels({
   dashboard,
-  onRouteLane,
-  onFocusNextUp,
-  onFocusLaneHealth,
-  onFocusHotspot,
-  onFocusCommitment,
-  onFocusOwnershipRisk,
-  onResetFocus,
+  onAction,
 }: OverviewDashboardPanelsProps) {
   return (
     <div className="overview-dashboard-panel-stack">
@@ -65,13 +42,19 @@ export function OverviewDashboardPanels({
                   <Badge variant={priorityTone(row.priority)}>{row.priority}</Badge>
                 </div>
                 <div className="overview-dashboard-nextup-row-side">
-                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onFocusNextUp(row)}>Inspect in queue</button>
+                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onAction({ type: 'focus_next_up', rowId: row.id })}>Inspect in queue</button>
                   <button
                     type="button"
                     className="action-btn"
-                    onClick={() => onRouteLane(row.lane, row.section, `continue ${row.recordType === 'task' ? 'task' : 'follow-up'} execution`)}
+                    onClick={() => onAction({
+                      type: 'route_lane',
+                      lane: row.lane,
+                      section: row.section,
+                      intentLabel: `continue ${row.recordType === 'task' ? 'task' : 'follow-up'} execution`,
+                      recordId: row.id,
+                    })}
                   >
-                    {laneLabel(row)}
+                    {row.lane === 'tasks' ? 'Open Tasks' : 'Open Follow Ups'}
                   </button>
                 </div>
               </div>
@@ -91,8 +74,14 @@ export function OverviewDashboardPanels({
                 <strong>{lane.value}</strong>
                 <small>{lane.helper}</small>
                 <div className="overview-dashboard-lane-actions">
-                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onFocusLaneHealth(lane)}>Focus queue</button>
-                  <button type="button" className="action-btn" onClick={() => onRouteLane(lane.lane, lane.section, `review ${lane.label.toLowerCase()}`)}>{routeLabel(lane)}</button>
+                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onAction({ type: 'focus_lane_health', key: lane.key })}>Focus queue</button>
+                  <button
+                    type="button"
+                    className="action-btn"
+                    onClick={() => onAction({ type: 'route_lane', lane: lane.lane, section: lane.section, intentLabel: `review ${lane.label.toLowerCase()}` })}
+                  >
+                    {lane.lane === 'tasks' ? 'Open Tasks' : 'Open Follow Ups'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -112,8 +101,12 @@ export function OverviewDashboardPanels({
                 <strong>{hotspot.project}</strong>
                 <span>{hotspot.pressureCount} pressure · {hotspot.blockedCount} blocked · {hotspot.dueNowCount} due now · {hotspot.readyToCloseCount} closeout</span>
                 <div className="overview-dashboard-lane-actions">
-                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onFocusHotspot(hotspot)}>Show in queue</button>
-                  <button type="button" className="action-btn" onClick={() => onRouteLane(hotspot.lane, hotspot.section, `review ${hotspot.project} hotspot`)}>
+                  <button type="button" className="action-btn action-btn-quiet" onClick={() => onAction({ type: 'focus_hotspot', project: hotspot.project })}>Show in queue</button>
+                  <button
+                    type="button"
+                    className="action-btn"
+                    onClick={() => onAction({ type: 'route_lane', lane: hotspot.lane, section: hotspot.section, intentLabel: `review ${hotspot.project} hotspot` })}
+                  >
                     {hotspot.lane === 'tasks' ? 'Open Tasks' : 'Open Follow Ups'}
                   </button>
                 </div>
@@ -128,11 +121,11 @@ export function OverviewDashboardPanels({
             <h3>Commitment pressure timeline</h3>
           </header>
           <div className="overview-dashboard-trend-grid">
-            <button type="button" onClick={() => onFocusCommitment('overdue')}><span>Overdue</span><strong>{dashboard.commitments.overdue.count}</strong></button>
-            <button type="button" onClick={() => onFocusCommitment('dueToday')}><span>Due today</span><strong>{dashboard.commitments.dueToday.count}</strong></button>
-            <button type="button" onClick={() => onFocusCommitment('dueWithin7Days')}><span>Due in 7 days</span><strong>{dashboard.commitments.dueWithin7Days.count}</strong></button>
-            <button type="button" onClick={() => onFocusCommitment('waitingTooLong')}><span>Waiting too long</span><strong>{dashboard.commitments.waitingTooLong.count}</strong></button>
-            <button type="button" onClick={() => onFocusCommitment('readyToClose')}><span>Ready to close</span><strong>{dashboard.commitments.readyToClose.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'overdue' })}><span>Overdue</span><strong>{dashboard.commitments.overdue.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueToday' })}><span>Due today</span><strong>{dashboard.commitments.dueToday.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueWithin7Days' })}><span>Due in 7 days</span><strong>{dashboard.commitments.dueWithin7Days.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'waitingTooLong' })}><span>Waiting too long</span><strong>{dashboard.commitments.waitingTooLong.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'readyToClose' })}><span>Ready to close</span><strong>{dashboard.commitments.readyToClose.count}</strong></button>
           </div>
         </article>
 
@@ -142,10 +135,10 @@ export function OverviewDashboardPanels({
             <h3>Unassigned and no-date drag</h3>
           </header>
           <div className="overview-dashboard-trend-grid">
-            <button type="button" onClick={() => onFocusOwnershipRisk('unassigned')}><span>Unassigned</span><strong>{dashboard.ownershipRisk.unassigned.count}</strong></button>
-            <button type="button" onClick={() => onFocusOwnershipRisk('noDate')}><span>No date set</span><strong>{dashboard.ownershipRisk.noDate.count}</strong></button>
-            <button type="button" onClick={() => onFocusOwnershipRisk('cleanupRequired')}><span>Cleanup required</span><strong>{dashboard.ownershipRisk.cleanupRequired.count}</strong></button>
-            <button type="button" onClick={() => onFocusOwnershipRisk('orphanedTask')}><span>Orphaned tasks</span><strong>{dashboard.ownershipRisk.orphanedTask.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'unassigned' })}><span>Unassigned</span><strong>{dashboard.ownershipRisk.unassigned.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'noDate' })}><span>No date set</span><strong>{dashboard.ownershipRisk.noDate.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'cleanupRequired' })}><span>Cleanup required</span><strong>{dashboard.ownershipRisk.cleanupRequired.count}</strong></button>
+            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'orphanedTask' })}><span>Orphaned tasks</span><strong>{dashboard.ownershipRisk.orphanedTask.count}</strong></button>
           </div>
         </article>
       </section>
@@ -155,7 +148,7 @@ export function OverviewDashboardPanels({
           <p>Execution layer</p>
           <h3>Queue below is the operating surface for dashboard decisions</h3>
         </div>
-        <button type="button" className="action-btn action-btn-quiet" onClick={onResetFocus}>Reset to full queue</button>
+        <button type="button" className="action-btn action-btn-quiet" onClick={() => onAction({ type: 'reset_focus' })}>Reset to full queue</button>
       </section>
     </div>
   );

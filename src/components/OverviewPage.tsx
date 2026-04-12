@@ -20,10 +20,7 @@ import { OverviewTriageList } from './overview/OverviewTriageList';
 import { OverviewRouteInspector } from './overview/OverviewRouteInspector';
 import {
   useOverviewTriageViewModel,
-  type OverviewDashboardLaneHealth,
-  type OverviewDashboardModel,
-  type OverviewDashboardProjectHotspot,
-  type OverviewFilterKey,
+  type OverviewDashboardAction,
 } from '../domains/overview/hooks/useOverviewTriageViewModel';
 import { useViewportBand } from '../hooks/useViewport';
 
@@ -54,8 +51,8 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     showMoreRows,
     openCreateWorkModal,
     setSelectedId,
-    applyDashboardQueueFocus,
     clearDashboardQueueFocus,
+    runDashboardAction,
     routeToLane,
     openSelectedDetail,
   } = useOverviewTriageViewModel();
@@ -84,164 +81,37 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
   const inspectorTitle = selected ? `Route ${selected.recordType === 'task' ? 'task' : 'follow-up'}` : 'Route item';
 
-  const handleDashboardFilterFocus = (filterKey: OverviewFilterKey) => {
-    const filterLabel = filterKey === 'all' ? 'Full queue' : filterKey === 'due_now' ? 'Due now' : filterKey === 'blocked' ? 'Blocked' : filterKey === 'waiting' ? 'Waiting' : 'Ready to close';
-    applyDashboardQueueFocus({
-      source: 'Dashboard filter',
-      label: filterLabel,
-      description: filterKey === 'all' ? 'Showing the full overview queue.' : `Focused to ${filterLabel.toLowerCase()} work from dashboard controls.`,
-      filterKey,
-    });
-    setDetailOpen(true);
-    focusQueueSurface();
-  };
-
-  const handleKpiFocus = (kpi: OverviewDashboardModel['kpis'][number]) => {
-    if (kpi.key === 'needs_review') {
-      applyDashboardQueueFocus({
-        source: 'KPI',
-        label: 'Needs review',
-        description: 'Focused to cleanup-required or orphaned records from the KPI panel.',
-        predicate: (row) => row.queueFlags.cleanupRequired || row.queueFlags.orphanedTask,
-      });
-    } else {
-      applyDashboardQueueFocus({
-        source: 'KPI',
-        label: kpi.label,
-        description: `Focused from KPI: ${kpi.helper}`,
-        filterKey: kpi.filterKey ?? 'all',
-      });
+  const handleDashboardAction = (action: OverviewDashboardAction) => {
+    if (action.type === 'open_create_work') {
+      openCreateWorkModal();
+      return;
     }
-    setDetailOpen(true);
-    focusQueueSurface();
-  };
+    if (action.type === 'open_intake') {
+      setDetailOpen(false);
+      onOpenWorkspace('intake');
+      return;
+    }
+    if (action.type === 'route_lane') {
+      const routedRecord = action.recordId ? visibleRows.find((row) => row.id === action.recordId) ?? selected ?? null : selected;
+      routeToLane(action.lane, {
+        record: routedRecord,
+        section: action.section,
+        intentLabel: action.intentLabel,
+      });
+      setDetailOpen(false);
+      onOpenWorkspace(action.lane);
+      return;
+    }
 
-  const handleLaneHealthFocus = (lane: OverviewDashboardLaneHealth) => {
-    applyDashboardQueueFocus({
-      source: 'Lane health',
-      label: lane.label,
-      description: lane.helper,
-      filterKey: lane.filterKey ?? 'all',
-      predicate: lane.key === 'tasks'
-        ? (row) => row.recordType === 'task'
-        : lane.key === 'followups'
-          ? (row) => row.recordType === 'followup'
-          : lane.key === 'review'
-            ? (row) => row.queueFlags.cleanupRequired || row.queueFlags.orphanedTask
-            : undefined,
-    });
-    setDetailOpen(true);
-    focusQueueSurface();
-  };
-
-  const handleHotspotFocus = (hotspot: OverviewDashboardProjectHotspot) => {
-    applyDashboardQueueFocus({
-      source: 'Project hotspot',
-      label: hotspot.project,
-      description: `Focused to ${hotspot.project} pressure slice from hotspot panel.`,
-      filterKey: hotspot.filterKey,
-      preferredRowId: hotspot.sampleRowId,
-      predicate: (row) => (row.project?.trim() || 'No project') === hotspot.project,
-    });
-    setDetailOpen(true);
-    focusQueueSurface();
-  };
-
-  const handleCommitmentFocus = (key: keyof OverviewDashboardModel['commitments']) => {
-    const meta = {
-      overdue: {
-        label: 'Overdue commitments',
-        description: 'Items already overdue and needing immediate action.',
-        filterKey: 'due_now' as OverviewFilterKey,
-        sampleRowId: dashboard.commitments.overdue.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.overdue,
-      },
-      dueToday: {
-        label: 'Due today commitments',
-        description: 'Items due today or touch-due today.',
-        filterKey: 'due_now' as OverviewFilterKey,
-        sampleRowId: dashboard.commitments.dueToday.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.dueToday || row.queueFlags.needsTouchToday,
-      },
-      dueWithin7Days: {
-        label: 'Due in 7 days',
-        description: 'Upcoming commitments due in the next 7 days.',
-        filterKey: 'all' as OverviewFilterKey,
-        sampleRowId: dashboard.commitments.dueWithin7Days.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => {
-          const target = row.dueDate ?? row.promisedDate ?? row.nextTouchDate;
-          if (!target) return false;
-          const dueAt = Date.parse(target);
-          if (Number.isNaN(dueAt)) return false;
-          const now = Date.now();
-          return dueAt >= now && dueAt <= now + (7 * 24 * 60 * 60 * 1000);
-        },
-      },
-      waitingTooLong: {
-        label: 'Waiting too long',
-        description: 'Items stalled on dependency responses for too long.',
-        filterKey: 'waiting' as OverviewFilterKey,
-        sampleRowId: dashboard.commitments.waitingTooLong.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.waitingTooLong,
-      },
-      readyToClose: {
-        label: 'Ready to close',
-        description: 'Follow-ups and tasks with closeout opportunity now.',
-        filterKey: 'ready_close' as OverviewFilterKey,
-        sampleRowId: dashboard.commitments.readyToClose.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.readyToCloseParent,
-      },
-    }[key];
-
-    applyDashboardQueueFocus({
-      source: 'Commitment pressure',
-      label: meta.label,
-      description: meta.description,
-      filterKey: meta.filterKey,
-      preferredRowId: meta.sampleRowId,
-      predicate: meta.predicate,
-    });
-    setDetailOpen(true);
-    focusQueueSurface();
-  };
-
-  const handleOwnershipFocus = (key: keyof OverviewDashboardModel['ownershipRisk']) => {
-    const meta = {
-      unassigned: {
-        label: 'Unassigned',
-        description: 'Records without an owner or assignee.',
-        sampleRowId: dashboard.ownershipRisk.unassigned.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => !(row.assignee?.trim() || row.owner?.trim()),
-      },
-      noDate: {
-        label: 'No date set',
-        description: 'Records missing due, promised, and next-touch dates.',
-        sampleRowId: dashboard.ownershipRisk.noDate.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => !row.dueDate && !row.promisedDate && !row.nextTouchDate,
-      },
-      cleanupRequired: {
-        label: 'Cleanup required',
-        description: 'Records marked as cleanup-required.',
-        sampleRowId: dashboard.ownershipRisk.cleanupRequired.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.cleanupRequired,
-      },
-      orphanedTask: {
-        label: 'Orphaned tasks',
-        description: 'Tasks missing valid parent linkage.',
-        sampleRowId: dashboard.ownershipRisk.orphanedTask.sampleRowId,
-        predicate: (row: typeof visibleRows[number]) => row.queueFlags.orphanedTask,
-      },
-    }[key];
-
-    applyDashboardQueueFocus({
-      source: 'Ownership/data risk',
-      label: meta.label,
-      description: meta.description,
-      preferredRowId: meta.sampleRowId,
-      predicate: meta.predicate,
-    });
-    setDetailOpen(true);
-    focusQueueSurface();
+    const outcome = runDashboardAction(action);
+    if (outcome === 'focused') {
+      setDetailOpen(true);
+      focusQueueSurface();
+    }
+    if (outcome === 'reset') {
+      setDetailOpen(false);
+      focusQueueSurface();
+    }
   };
 
   const handleRouteDestination = (destination: 'tasks' | 'followups') => {
@@ -357,34 +227,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         <OverviewDashboard
           dashboard={dashboard}
           selectedFilter={selectedFilter}
-          onFocusFilter={handleDashboardFilterFocus}
-          onSelectKpi={handleKpiFocus}
-          onCreateWork={openCreateWorkModal}
-          onOpenIntake={() => onOpenWorkspace('intake')}
-          onRouteLane={(lane, section, intentLabel) => {
-            routeToLane(lane, { section, intentLabel });
-            onOpenWorkspace(lane);
-          }}
-          onFocusNextUp={(row) => {
-            applyDashboardQueueFocus({
-              source: 'Next up',
-              label: row.title,
-              description: `Inspecting prioritized ${row.recordType === 'task' ? 'task' : 'follow-up'} in queue.`,
-              filterKey: row.section === 'blocked' ? 'blocked' : row.section === 'now' ? 'due_now' : 'all',
-              preferredRowId: row.id,
-            });
-            setDetailOpen(true);
-            focusQueueSurface();
-          }}
-          onFocusLaneHealth={handleLaneHealthFocus}
-          onFocusHotspot={handleHotspotFocus}
-          onFocusCommitment={handleCommitmentFocus}
-          onFocusOwnershipRisk={handleOwnershipFocus}
-          onResetFocus={() => {
-            clearDashboardQueueFocus(true);
-            setDetailOpen(false);
-            focusQueueSurface();
-          }}
+          onAction={handleDashboardAction}
         />
 
         {isMobileLike ? (

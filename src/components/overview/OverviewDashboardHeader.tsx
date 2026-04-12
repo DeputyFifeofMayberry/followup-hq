@@ -1,14 +1,12 @@
-import type { OverviewFilterKey } from '../../domains/overview/hooks/useOverviewTriageViewModel';
+import type { OverviewDashboardAction, OverviewFilterKey } from '../../domains/overview/hooks/useOverviewTriageViewModel';
 
 interface OverviewDashboardHeaderProps {
   totalQueue: number;
   selectedFilter: OverviewFilterKey;
-  onFocusFilter: (filterKey: OverviewFilterKey) => void;
-  onCreateWork: () => void;
-  onOpenIntake: () => void;
+  onAction: (action: OverviewDashboardAction) => void;
 }
 
-export function OverviewDashboardHeader({ totalQueue, selectedFilter, onFocusFilter, onCreateWork, onOpenIntake }: OverviewDashboardHeaderProps) {
+export function OverviewDashboardHeader({ totalQueue, selectedFilter, onAction }: OverviewDashboardHeaderProps) {
   return (
     <section className="overview-dashboard-header" aria-label="Overview dashboard header">
       <div className="overview-dashboard-title-wrap">
@@ -21,28 +19,28 @@ export function OverviewDashboardHeader({ totalQueue, selectedFilter, onFocusFil
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'all' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onFocusFilter('all')}
+            onClick={() => onAction({ type: 'focus_filter', filterKey: 'all' })}
           >
             Full queue · {totalQueue}
           </button>
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'due_now' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onFocusFilter('due_now')}
+            onClick={() => onAction({ type: 'focus_filter', filterKey: 'due_now' })}
           >
             Due-now focus
           </button>
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'blocked' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onFocusFilter('blocked')}
+            onClick={() => onAction({ type: 'focus_filter', filterKey: 'blocked' })}
           >
             Blocked focus
           </button>
         </div>
         <div className="overview-dashboard-header-actions">
-          <button type="button" className="action-btn" onClick={onOpenIntake}>Open intake</button>
-          <button type="button" className="primary-btn" onClick={onCreateWork}>Create work item</button>
+          <button type="button" className="action-btn" onClick={() => onAction({ type: 'open_intake' })}>Open intake</button>
+          <button type="button" className="primary-btn" onClick={() => onAction({ type: 'open_create_work' })}>Create work item</button>
         </div>
       </div>
     </section>

@@ -71,20 +71,109 @@ export interface ReportingContext {
   };
 }
 
-export interface ExecutivePressureRow {
+export type ExecutivePressureCategory = 'urgent_pressure' | 'blocked_drag' | 'waiting_drag' | 'closeout_opportunity' | 'cleanup_distortion';
+
+export interface ExecutiveSnapshotBreakdown {
+  totalRecords: number;
+  followUpCount: number;
+  taskCount: number;
+  overdueCount: number;
+  dueNowCount: number;
+  blockedCount: number;
+  waitingCount: number;
+  waitingTooLongCount: number;
+  cleanupCount: number;
+  readyToCloseCount: number;
+  severeRiskCount: number;
+}
+
+export interface ExecutiveActionRecommendation {
+  label: string;
+  detail: string;
+}
+
+export interface ExecutiveSnapshotRouteContext {
+  primaryProject?: string;
+  primaryProjectId?: string;
+  primaryFollowUpId?: string;
+  primaryTaskId?: string;
+}
+
+export interface ExecutiveDrilldownRecord {
   id: string;
   recordType: 'task' | 'followup';
   title: string;
   project: string;
   owner: string;
-  dueDate?: string;
+  status: string;
   priority: string;
-  pressureReason: string;
+  dueDate?: string;
+  reason: string;
+  score: number;
+}
+
+export interface ExecutiveDrilldown {
+  id: string;
+  title: string;
+  pressureCategory: ExecutivePressureCategory;
+  severity: ReportSeverity;
+  whyPrioritized: string;
+  pressureStory: string;
+  recommendedNextMove: string;
+  contributingRecords: ExecutiveDrilldownRecord[];
+  routeContext: ExecutiveSnapshotRouteContext;
+  recommendations: ExecutiveActionRecommendation[];
+}
+
+export interface ExecutiveSnapshotSection {
+  id: string;
+  title: string;
+  subtitle: string;
+  pressureCategory: ExecutivePressureCategory;
+  tone: ReportTone;
+  severity: ReportSeverity;
+  score: number;
+  count: number;
+  topDriver: string;
+  summary: string;
+  breakdown: ExecutiveSnapshotBreakdown;
+  routeContext: ExecutiveSnapshotRouteContext;
+  recommendations: ExecutiveActionRecommendation[];
+}
+
+export interface ExecutivePriorityRow {
+  id: string;
+  recordId: string;
+  recordType: 'task' | 'followup';
+  title: string;
+  project: string;
+  owner: string;
+  status: string;
+  priority: string;
+  dueDate?: string;
+  pressureCategory: ExecutivePressureCategory;
+  urgencyLabel: string;
+  score: number;
+  reasonSummary: string;
+  routeContext: ExecutiveSnapshotRouteContext;
+}
+
+export interface ExecutiveNarrative {
+  biggestPressureDriver: string;
+  biggestDragFactor: string;
+  biggestQuickWinOpportunity: string;
+  biggestTrustDistortionWarning: string;
 }
 
 export interface ExecutiveSnapshotReportResult {
   header: ReportHeaderSummary;
-  pressurePreview: ExecutivePressureRow[];
+  narrative: ExecutiveNarrative;
+  sections: ExecutiveSnapshotSection[];
+  priorityRows: ExecutivePriorityRow[];
+  defaultSelectedSectionId?: string;
+  defaultSelectedPriorityId?: string;
+  drilldownsBySectionId: Record<string, ExecutiveDrilldown>;
+  drilldownsByPriorityId: Record<string, ExecutiveDrilldown>;
 }
 
 export type ProjectHealthReasonCategory = 'execution_pressure' | 'cleanup_distortion' | 'closeout_opportunity';

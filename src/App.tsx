@@ -567,7 +567,7 @@ function MainApp({ session }: { session: Session }) {
                 <SetPointWordmark decorative variant="compact" className="app-compact-shell-wordmark" />
               </div>
               <div className="app-compact-shell-current">
-                <span>Current workspace</span>
+                <span>Workspace</span>
                 <strong>{currentMeta.userLabel}</strong>
               </div>
             </div>

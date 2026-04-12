@@ -12,6 +12,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 type LaneTarget = Exclude<ExecutionRouteTarget, 'overview'>;
 type OverviewDashboardSection = Extract<ExecutionSectionKey, 'now' | 'triage' | 'blocked' | 'ready_to_close'>;
 
+type RowPredicate = (row: UnifiedQueueItem) => boolean;
+
 export type OverviewFilterKey = 'all' | 'due_now' | 'blocked' | 'waiting' | 'ready_close';
 
 export interface OverviewSignalCard {
@@ -69,19 +71,24 @@ export interface OverviewDashboardProjectHotspot {
   sampleRowId?: string;
 }
 
+export interface OverviewDashboardMetric {
+  count: number;
+  sampleRowId?: string;
+}
+
 export interface OverviewDashboardCommitments {
-  overdue: number;
-  dueToday: number;
-  dueWithin7Days: number;
-  waitingTooLong: number;
-  readyToClose: number;
+  overdue: OverviewDashboardMetric;
+  dueToday: OverviewDashboardMetric;
+  dueWithin7Days: OverviewDashboardMetric;
+  waitingTooLong: OverviewDashboardMetric;
+  readyToClose: OverviewDashboardMetric;
 }
 
 export interface OverviewDashboardOwnershipRisk {
-  unassigned: number;
-  noDate: number;
-  cleanupRequired: number;
-  orphanedTask: number;
+  unassigned: OverviewDashboardMetric;
+  noDate: OverviewDashboardMetric;
+  cleanupRequired: OverviewDashboardMetric;
+  orphanedTask: OverviewDashboardMetric;
 }
 
 export interface OverviewDashboardModel {
@@ -92,6 +99,22 @@ export interface OverviewDashboardModel {
   hotspots: OverviewDashboardProjectHotspot[];
   commitments: OverviewDashboardCommitments;
   ownershipRisk: OverviewDashboardOwnershipRisk;
+}
+
+export interface OverviewDashboardQueueContext {
+  source: string;
+  label: string;
+  description: string;
+}
+
+export interface OverviewDashboardQueueFocusRequest {
+  source: string;
+  label: string;
+  description: string;
+  filterKey?: OverviewFilterKey;
+  predicate?: RowPredicate;
+  preferredRowId?: string;
+  clearSearch?: boolean;
 }
 
 function pickLaneForRows(rows: UnifiedQueueItem[], fallback: LaneTarget): LaneTarget {
@@ -157,6 +180,10 @@ function formatDashboardDueLabel(row: UnifiedQueueItem): string {
   return 'No date';
 }
 
+function findSampleRowId(rows: UnifiedQueueItem[], predicate: RowPredicate): string | undefined {
+  return rows.find((row) => predicate(row))?.id;
+}
+
 export function useOverviewTriageViewModel() {
   const store = useAppStore(useShallow((s) => ({
     getUnifiedQueue: s.getUnifiedQueue,
@@ -171,19 +198,28 @@ export function useOverviewTriageViewModel() {
   const [selectedFilter, setSelectedFilter] = useState<OverviewFilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(BASE_TRIAGE_LIMIT);
+  const [dashboardQueueContext, setDashboardQueueContext] = useState<OverviewDashboardQueueContext | null>(null);
+  const [dashboardPredicate, setDashboardPredicate] = useState<RowPredicate | null>(null);
+
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
 
-  const signalPredicates: Record<Exclude<OverviewFilterKey, 'all'>, (row: UnifiedQueueItem) => boolean> = useMemo(() => ({
+  const signalPredicates: Record<Exclude<OverviewFilterKey, 'all'>, RowPredicate> = useMemo(() => ({
     due_now: (row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday,
     blocked: (row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk,
     waiting: (row) => row.queueFlags.waiting || row.queueFlags.waitingTooLong,
     ready_close: (row) => row.queueFlags.readyToCloseParent,
   }), []);
 
+  const matchesFilter = (row: UnifiedQueueItem, filterKey: OverviewFilterKey) => {
+    if (filterKey === 'all') return true;
+    return signalPredicates[filterKey](row);
+  };
+
   const filteredRows = useMemo(() => {
-    if (selectedFilter === 'all') return queue;
-    return queue.filter((row) => signalPredicates[selectedFilter]?.(row));
-  }, [queue, selectedFilter, signalPredicates]);
+    const baseRows = selectedFilter === 'all' ? queue : queue.filter((row) => signalPredicates[selectedFilter]?.(row));
+    if (!dashboardPredicate) return baseRows;
+    return baseRows.filter((row) => dashboardPredicate(row));
+  }, [queue, selectedFilter, signalPredicates, dashboardPredicate]);
 
   const normalizedQuery = useMemo(() => normalizeSearchValue(searchQuery), [searchQuery]);
   const searchedRows = useMemo(() => {
@@ -196,7 +232,7 @@ export function useOverviewTriageViewModel() {
 
   useEffect(() => {
     setVisibleLimit(BASE_TRIAGE_LIMIT);
-  }, [selectedFilter, normalizedQuery]);
+  }, [selectedFilter, normalizedQuery, dashboardQueueContext]);
 
   useEffect(() => {
     const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: searchedIds });
@@ -331,18 +367,45 @@ export function useOverviewTriageViewModel() {
       .slice(0, 5);
 
     const commitments: OverviewDashboardCommitments = {
-      overdue: queue.filter((row) => row.queueFlags.overdue).length,
-      dueToday: queue.filter((row) => row.queueFlags.dueToday || row.queueFlags.needsTouchToday).length,
-      dueWithin7Days: queue.filter((row) => isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, now)).length,
-      waitingTooLong: queue.filter((row) => row.queueFlags.waitingTooLong).length,
-      readyToClose: readyRows.length,
+      overdue: {
+        count: queue.filter((row) => row.queueFlags.overdue).length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.overdue),
+      },
+      dueToday: {
+        count: queue.filter((row) => row.queueFlags.dueToday || row.queueFlags.needsTouchToday).length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.dueToday || row.queueFlags.needsTouchToday),
+      },
+      dueWithin7Days: {
+        count: queue.filter((row) => isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, now)).length,
+        sampleRowId: findSampleRowId(queue, (row) => isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, now)),
+      },
+      waitingTooLong: {
+        count: queue.filter((row) => row.queueFlags.waitingTooLong).length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.waitingTooLong),
+      },
+      readyToClose: {
+        count: readyRows.length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.readyToCloseParent),
+      },
     };
 
     const ownershipRisk: OverviewDashboardOwnershipRisk = {
-      unassigned: queue.filter((row) => !(row.assignee?.trim() || row.owner?.trim())).length,
-      noDate: queue.filter((row) => !row.dueDate && !row.promisedDate && !row.nextTouchDate).length,
-      cleanupRequired: queue.filter((row) => row.queueFlags.cleanupRequired).length,
-      orphanedTask: queue.filter((row) => row.queueFlags.orphanedTask).length,
+      unassigned: {
+        count: queue.filter((row) => !(row.assignee?.trim() || row.owner?.trim())).length,
+        sampleRowId: findSampleRowId(queue, (row) => !(row.assignee?.trim() || row.owner?.trim())),
+      },
+      noDate: {
+        count: queue.filter((row) => !row.dueDate && !row.promisedDate && !row.nextTouchDate).length,
+        sampleRowId: findSampleRowId(queue, (row) => !row.dueDate && !row.promisedDate && !row.nextTouchDate),
+      },
+      cleanupRequired: {
+        count: queue.filter((row) => row.queueFlags.cleanupRequired).length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.cleanupRequired),
+      },
+      orphanedTask: {
+        count: queue.filter((row) => row.queueFlags.orphanedTask).length,
+        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.orphanedTask),
+      },
     };
 
     const kpis: OverviewDashboardKpi[] = [
@@ -372,6 +435,37 @@ export function useOverviewTriageViewModel() {
     };
   }, [queue]);
 
+  const applyDashboardQueueFocus = (request: OverviewDashboardQueueFocusRequest) => {
+    const filterKey = request.filterKey ?? 'all';
+    const predicate = request.predicate ?? (() => true);
+
+    if (request.clearSearch ?? true) {
+      setSearchQuery('');
+    }
+
+    setSelectedFilter(filterKey);
+    setDashboardPredicate(() => predicate);
+    setDashboardQueueContext({ source: request.source, label: request.label, description: request.description });
+
+    const focusedRows = queue.filter((row) => matchesFilter(row, filterKey) && predicate(row));
+    const nextSelectedId = focusedRows.find((row) => row.id === request.preferredRowId)?.id ?? focusedRows[0]?.id ?? null;
+    store.setExecutionSelectedId(nextSelectedId);
+  };
+
+  const clearDashboardQueueFocus = (resetToFull = false) => {
+    setDashboardPredicate(null);
+    setDashboardQueueContext(null);
+    if (resetToFull) {
+      setSelectedFilter('all');
+      setSearchQuery('');
+    }
+  };
+
+  const selectQueueFilter = (filterKey: OverviewFilterKey) => {
+    setSelectedFilter(filterKey);
+    clearDashboardQueueFocus(false);
+  };
+
   const routeToLane = (lane: LaneTarget, options?: { record?: UnifiedQueueItem | null; section?: ExecutionSectionKey; intentLabel?: string }) => {
     store.openExecutionLane(lane, {
       source: 'overview',
@@ -392,7 +486,7 @@ export function useOverviewTriageViewModel() {
     stats,
     dashboard,
     selectedFilter,
-    setSelectedFilter,
+    selectQueueFilter,
     searchQuery,
     setSearchQuery,
     filteredRows,
@@ -403,10 +497,13 @@ export function useOverviewTriageViewModel() {
     visibleCount: visibleRows.length,
     selected,
     signalCards,
+    dashboardQueueContext,
     hasMoreRows: searchedRows.length > visibleRows.length,
     showMoreRows: () => setVisibleLimit((current) => current + TRIAGE_INCREMENT),
     openCreateWorkModal: store.openCreateWorkModal,
     setSelectedId: store.setExecutionSelectedId,
+    applyDashboardQueueFocus,
+    clearDashboardQueueFocus,
     routeToLane,
     openSelectedDetail,
   };

@@ -3,12 +3,12 @@ import type { OverviewFilterKey } from '../../domains/overview/hooks/useOverview
 interface OverviewDashboardHeaderProps {
   totalQueue: number;
   selectedFilter: OverviewFilterKey;
-  onSelectFilter: (filterKey: OverviewFilterKey) => void;
+  onFocusFilter: (filterKey: OverviewFilterKey) => void;
   onCreateWork: () => void;
   onOpenIntake: () => void;
 }
 
-export function OverviewDashboardHeader({ totalQueue, selectedFilter, onSelectFilter, onCreateWork, onOpenIntake }: OverviewDashboardHeaderProps) {
+export function OverviewDashboardHeader({ totalQueue, selectedFilter, onFocusFilter, onCreateWork, onOpenIntake }: OverviewDashboardHeaderProps) {
   return (
     <section className="overview-dashboard-header" aria-label="Overview dashboard header">
       <div className="overview-dashboard-title-wrap">
@@ -21,21 +21,21 @@ export function OverviewDashboardHeader({ totalQueue, selectedFilter, onSelectFi
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'all' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onSelectFilter('all')}
+            onClick={() => onFocusFilter('all')}
           >
             Full queue · {totalQueue}
           </button>
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'due_now' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onSelectFilter('due_now')}
+            onClick={() => onFocusFilter('due_now')}
           >
             Due-now focus
           </button>
           <button
             type="button"
             className={`overview-dashboard-context-pill ${selectedFilter === 'blocked' ? 'overview-dashboard-context-pill-active' : ''}`}
-            onClick={() => onSelectFilter('blocked')}
+            onClick={() => onFocusFilter('blocked')}
           >
             Blocked focus
           </button>

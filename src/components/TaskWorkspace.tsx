@@ -15,7 +15,7 @@ import {
   WorkspacePrimaryLayout,
 } from './ui/AppPrimitives';
 import { getTaskFlowDefaults, TASK_LANE_DEFINITIONS, TASK_QUEUE_VIEWS, type TaskQueueView, useTasksViewModel } from '../domains/tasks';
-import type { AppMode, TaskItem } from '../types';
+import type { TaskItem } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { useViewportBand } from '../hooks/useViewport';
 import { TaskToolbar } from './tasks/TaskToolbar';
@@ -26,7 +26,7 @@ import { getExecutionLaneNextSelection } from '../domains/shared/executionLane/h
 
 const taskViewOptions: Array<{ value: TaskQueueView; label: string }> = TASK_QUEUE_VIEWS.map((view) => ({ value: view, label: TASK_LANE_DEFINITIONS[view].label }));
 
-export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean; appMode?: AppMode }) {
+export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { onOpenLinkedFollowUp: (followUpId: string) => void; personalMode?: boolean }) {
   const vm = useTasksViewModel({ personalMode });
   const { isMobileLike } = useViewportBand();
   const openRecordDrawer = useAppStore((s) => s.openRecordDrawer);

@@ -11,20 +11,18 @@ import type { WorkspaceKey } from '../../lib/appModeConfig';
 interface WorkspaceRendererProps {
   workspace: WorkspaceKey;
   appMode: AppMode;
-  openTrackerView: (view: SavedViewKey, project?: string) => void;
   openFollowUp: (itemId: string, view?: SavedViewKey, project?: string) => void;
   openTask: (taskId: string, project?: string) => void;
   setWorkspace: (workspace: WorkspaceKey) => void;
   openDirectoryRecord: (recordType: 'project' | 'contact' | 'company', recordId: string) => void;
 }
 
-export function WorkspaceRenderer({ workspace, appMode, openTrackerView, openFollowUp, openTask, setWorkspace, openDirectoryRecord }: WorkspaceRendererProps) {
-  void openTrackerView;
+export function WorkspaceRenderer({ workspace, appMode, openFollowUp, openTask, setWorkspace, openDirectoryRecord }: WorkspaceRendererProps) {
   switch (workspace) {
     case 'followups':
       return <TrackerWorkspace personalMode={appMode === 'personal'} />;
     case 'tasks':
-      return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} appMode={appMode} />;
+      return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} />;
     case 'exports':
       return <ExportWorkspace />;
     case 'intake':

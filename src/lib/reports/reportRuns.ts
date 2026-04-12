@@ -1,7 +1,8 @@
 import { createId } from '../utils';
 import type { ReportHeaderSummary } from './contracts';
-import type { ReportRunDelta, ReportRunRecord, SavedReportDefinition } from '../../types';
+import type { ReportDraftState, ReportRunDelta, ReportRunRecord, SavedReportDefinition } from '../../types';
 import { buildReportRunDelta } from './reportComparison';
+import { sanitizeReportDraftState } from './savedDefinitions';
 
 export function buildReportRunSummaryFromHeader(header: ReportHeaderSummary): ReportRunRecord['summary'] {
   return {
@@ -50,6 +51,31 @@ export function createReportRunRecord(input: {
 
 export function sortReportRunsNewestFirst(runs: ReportRunRecord[]): ReportRunRecord[] {
   return [...runs].sort((a, b) => new Date(b.ranAt).getTime() - new Date(a.ranAt).getTime());
+}
+
+export function createReportRunSignature(draft: Partial<ReportDraftState>): string {
+  const sanitized = sanitizeReportDraftState(draft);
+  return JSON.stringify({
+    reportType: sanitized.reportType,
+    scope: sanitized.scope,
+    display: sanitized.display,
+    export: sanitized.export,
+  });
+}
+
+export function sanitizeReportRuns(
+  runs: ReportRunRecord[] | undefined,
+  options?: { validDefinitionIds?: Set<string> },
+): ReportRunRecord[] {
+  const validDefinitionIds = options?.validDefinitionIds;
+  return sortReportRunsNewestFirst(runs ?? []).filter((run) => {
+    if (!run?.id || !run.ranAt) return false;
+    if (run.reportDefinitionId && validDefinitionIds && !validDefinitionIds.has(run.reportDefinitionId)) return false;
+    return true;
+  }).map((run) => ({
+    ...run,
+    exportRecords: (run.exportRecords ?? []).filter((record) => Boolean(record?.id && record.fileName)),
+  }));
 }
 
 export function getRunsForDefinition(runs: ReportRunRecord[], definitionId: string): ReportRunRecord[] {

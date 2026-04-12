@@ -4,7 +4,8 @@ import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { defaultTaskWorkspaceSession } from '../../domains/tasks';
 import { defaultDirectoryWorkspaceSession } from '../../domains/directory/session';
-import { defaultReportDraftState, mergeBuiltInReportTemplates, toReportDraftState } from '../../lib/reports/savedDefinitions';
+import { defaultReportDraftState, sanitizeReportDraftState, sanitizeSavedReportDefinitions, toReportDraftState } from '../../lib/reports/savedDefinitions';
+import { sanitizeReportRuns } from '../../lib/reports/reportRuns';
 import { resolveProjectName, todayIso } from '../../lib/utils';
 import { normalizeContact, normalizeCompany } from '../../domains/relationships/helpers';
 import { deriveProjects, normalizeProjectRecord, projectCanonicalKey } from '../../domains/projects/helpers';
@@ -160,12 +161,19 @@ export function createMetaSlice(
         const reviewItemCount = items.filter((item) => isReviewRecord(item)).length;
         const reviewTaskCount = tasks.filter((task) => isReviewRecord(task)).length;
         const dismissedDuplicatePairs = payload.auxiliary.dismissedDuplicatePairs ?? [];
-        const savedReportDefinitions = mergeBuiltInReportTemplates(payload.auxiliary.savedReportDefinitions);
+        const savedReportDefinitions = sanitizeSavedReportDefinitions(payload.auxiliary.savedReportDefinitions);
         const hydratedActiveReportId = payload.auxiliary.activeReportDefinitionId
           && savedReportDefinitions.some((entry) => entry.id === payload.auxiliary.activeReportDefinitionId)
           ? payload.auxiliary.activeReportDefinitionId
           : savedReportDefinitions[0]?.id ?? null;
+        const hydratedLastOpenedReportId = payload.auxiliary.lastOpenedReportDefinitionId
+          && savedReportDefinitions.some((entry) => entry.id === payload.auxiliary.lastOpenedReportDefinitionId)
+          ? payload.auxiliary.lastOpenedReportDefinitionId
+          : hydratedActiveReportId;
         const hydratedActiveReport = savedReportDefinitions.find((entry) => entry.id === hydratedActiveReportId);
+        const reportRuns = sanitizeReportRuns(payload.auxiliary.reportRuns, {
+          validDefinitionIds: new Set(savedReportDefinitions.map((entry) => entry.id)),
+        });
         set({
           items,
           contacts,
@@ -194,9 +202,9 @@ export function createMetaSlice(
           savedExecutionViews: payload.auxiliary.savedExecutionViews?.length ? payload.auxiliary.savedExecutionViews : defaultExecutionViews,
           savedReportDefinitions,
           activeReportDefinitionId: hydratedActiveReportId,
-          lastOpenedReportDefinitionId: payload.auxiliary.lastOpenedReportDefinitionId ?? hydratedActiveReportId,
-          reportDraft: hydratedActiveReport ? toReportDraftState(hydratedActiveReport) : defaultReportDraftState,
-          reportRuns: payload.auxiliary.reportRuns ?? [],
+          lastOpenedReportDefinitionId: hydratedLastOpenedReportId,
+          reportDraft: sanitizeReportDraftState(hydratedActiveReport ? toReportDraftState(hydratedActiveReport) : defaultReportDraftState),
+          reportRuns,
           followUpFilters: payload.auxiliary.followUpFilters ?? defaultFollowUpFilters,
           taskWorkspaceSession: {
             ...defaultTaskWorkspaceSession,

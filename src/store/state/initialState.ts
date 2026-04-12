@@ -73,7 +73,12 @@ export const initialUiState: AppUiState = {
   savedReportDefinitions: builtInReportTemplates,
   activeReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
   lastOpenedReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
-  reportDraft: defaultReportDraftState,
+  reportDraft: {
+    reportType: builtInReportTemplates[0]?.reportType ?? defaultReportDraftState.reportType,
+    scope: builtInReportTemplates[0]?.scope ?? defaultReportDraftState.scope,
+    display: builtInReportTemplates[0]?.display ?? defaultReportDraftState.display,
+    export: builtInReportTemplates[0]?.export ?? defaultReportDraftState.export,
+  },
   reportRuns: [],
   executionIntent: null,
   executionSelectedId: null,

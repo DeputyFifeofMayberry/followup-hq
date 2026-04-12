@@ -16,7 +16,7 @@ import { DataQualityReport } from './DataQualityReport';
 import { useAppStore } from '../../store/useAppStore';
 import type { ReportDraftState } from '../../types';
 import { ReportTrustPanel } from './ReportTrustPanel';
-import { buildReportRunSummaryFromHeader } from '../../lib/reports/reportRuns';
+import { buildReportRunSummaryFromHeader, createReportRunSignature } from '../../lib/reports/reportRuns';
 import type { ReportHeaderSummary } from '../../lib/reports/contracts';
 
 const SCOPE_MODE_OPTIONS: Array<{ value: ReportDraftState['scope']['mode']; label: string; helper: string }> = [
@@ -178,8 +178,11 @@ export function ReportsWorkspace({
       : []),
     [activeDefinition, reportRuns],
   );
-  const latestRun = activeDefinitionRuns[0];
-  const previousRun = activeDefinitionRuns[1];
+  const activeDraftSignature = createReportRunSignature(reportDraft);
+  const compatibleRuns = activeDefinitionRuns.filter((run) => run.draftSignature === activeDraftSignature);
+  const latestCompatibleRun = compatibleRuns[0] ?? activeDefinitionRuns[0];
+  const hasFreshSnapshotForDraft = Boolean(latestCompatibleRun && latestCompatibleRun.draftSignature === activeDraftSignature);
+  const previousRun = compatibleRuns[1] ?? activeDefinitionRuns[1];
   const handleRecordRun = () => {
     if (!activeDefinition) return;
     recordReportRun({
@@ -187,19 +190,20 @@ export function ReportsWorkspace({
       reportNameSnapshot: activeDefinition.name,
       reportType: reportDraft.reportType,
       scopeMode: reportDraft.scope.mode,
+      draftSignature: activeDraftSignature,
       summary: buildReportRunSummaryFromHeader(activeHeader),
     });
   };
 
-  const exportProvenance = latestRun ? {
-    reportName: latestRun.reportNameSnapshot,
+  const exportProvenance = latestCompatibleRun ? {
+    reportName: latestCompatibleRun.reportNameSnapshot,
     reportTypeLabel: reportMeta.label,
     scopeModeLabel: activeTrust.scopeReceipt.modeLabel,
-    ranAt: latestRun.ranAt,
-    includedCount: latestRun.summary.includedCount,
-    excludedCount: latestRun.summary.excludedCount,
-    confidenceLabel: latestRun.summary.confidenceLabel,
-    comparedToPreviousRun: Boolean(latestRun.deltaFromPrevious),
+    ranAt: latestCompatibleRun.ranAt,
+    includedCount: latestCompatibleRun.summary.includedCount,
+    excludedCount: latestCompatibleRun.summary.excludedCount,
+    confidenceLabel: latestCompatibleRun.summary.confidenceLabel,
+    comparedToPreviousRun: Boolean(latestCompatibleRun.deltaFromPrevious),
   } : undefined;
 
 
@@ -239,6 +243,11 @@ export function ReportsWorkspace({
             <div className="mt-2 inline-flex items-center gap-1 text-lg font-semibold text-slate-950"><ShieldCheck className="h-4 w-4" />{reportContext.confidence.label}</div>
           </div>
         </div>
+        {!hasFreshSnapshotForDraft ? (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            Snapshot is stale for this draft configuration. Refresh snapshot to align compare/export provenance with the current draft.
+          </div>
+        ) : null}
       </AppShellCard>
 
       <AppShellCard surface="command" className="space-y-3">
@@ -331,26 +340,26 @@ export function ReportsWorkspace({
         <div className="grid gap-3 md:grid-cols-4">
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Latest run</div>
-            <div className="mt-2 text-sm font-semibold text-slate-950">{latestRun ? new Date(latestRun.ranAt).toLocaleString() : 'No run yet'}</div>
+              <div className="mt-2 text-sm font-semibold text-slate-950">{latestCompatibleRun ? new Date(latestCompatibleRun.ranAt).toLocaleString() : 'No run yet for this draft'}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Included delta</div>
-            <div className="mt-2 text-lg font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.includedCountDelta >= 0 ? '+' : ''}${latestRun.deltaFromPrevious.includedCountDelta}` : '—'}</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{latestCompatibleRun?.deltaFromPrevious ? `${latestCompatibleRun.deltaFromPrevious.includedCountDelta >= 0 ? '+' : ''}${latestCompatibleRun.deltaFromPrevious.includedCountDelta}` : '—'}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Excluded delta</div>
-            <div className="mt-2 text-lg font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.excludedCountDelta >= 0 ? '+' : ''}${latestRun.deltaFromPrevious.excludedCountDelta}` : '—'}</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{latestCompatibleRun?.deltaFromPrevious ? `${latestCompatibleRun.deltaFromPrevious.excludedCountDelta >= 0 ? '+' : ''}${latestCompatibleRun.deltaFromPrevious.excludedCountDelta}` : '—'}</div>
           </div>
           <div className="rounded-2xl bg-amber-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-amber-700">Confidence change</div>
-            <div className="mt-2 text-sm font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.previousConfidenceTier} → ${latestRun.deltaFromPrevious.currentConfidenceTier}` : latestRun?.summary.confidenceLabel ?? '—'}</div>
+            <div className="mt-2 text-sm font-semibold text-slate-950">{latestCompatibleRun?.deltaFromPrevious ? `${latestCompatibleRun.deltaFromPrevious.previousConfidenceTier} → ${latestCompatibleRun.deltaFromPrevious.currentConfidenceTier}` : latestCompatibleRun?.summary.confidenceLabel ?? '—'}</div>
           </div>
         </div>
-        {latestRun?.deltaFromPrevious?.metricDeltas.length ? (
+        {latestCompatibleRun?.deltaFromPrevious?.metricDeltas.length ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
             <div className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"><Clock3 className="h-3.5 w-3.5" />Top metric changes since prior run</div>
             <ul className="space-y-1">
-              {latestRun.deltaFromPrevious.metricDeltas.slice(0, 5).map((metric) => (
+              {latestCompatibleRun.deltaFromPrevious.metricDeltas.slice(0, 5).map((metric) => (
                 <li key={metric.key}>• {metric.label}: {metric.currentValue} ({metric.delta >= 0 ? '+' : ''}{metric.delta})</li>
               ))}
             </ul>
@@ -380,9 +389,9 @@ export function ReportsWorkspace({
           reportTrustSummary={activeTrust}
           reportProvenance={exportProvenance}
           onExported={({ format, fileName }) => {
-            if (!latestRun) return;
+            if (!latestCompatibleRun || !hasFreshSnapshotForDraft) return;
             recordReportRunExport({
-              runId: latestRun.id,
+              runId: latestCompatibleRun.id,
               format,
               fileName,
               detailLevel: reportDraft.export.detailLevel,

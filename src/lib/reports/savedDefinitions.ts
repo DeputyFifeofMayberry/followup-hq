@@ -126,14 +126,69 @@ export function toReportDraftState(definition: SavedReportDefinition): ReportDra
   return {
     reportType: definition.reportType,
     scope: {
+      ...defaultReportDraftState.scope,
       ...definition.scope,
       mode: normalizeScopeMode(definition.scope.mode as ReportDraftState['scope']['mode'] | 'all_open' | 'project' | 'owner'),
     },
-    display: definition.display,
-    export: definition.export,
+    display: {
+      ...defaultReportDraftState.display,
+      ...definition.display,
+      rowLimit: clampRowLimit(definition.display?.rowLimit),
+    },
+    export: {
+      ...defaultReportDraftState.export,
+      ...definition.export,
+    },
   };
 }
 
 export function reportDraftEquals(a: ReportDraftState, b: ReportDraftState): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function clampRowLimit(limit: unknown): number {
+  if (typeof limit !== 'number' || !Number.isFinite(limit)) return defaultReportDraftState.display.rowLimit;
+  return Math.max(5, Math.min(50, Math.round(limit)));
+}
+
+export function sanitizeReportDraftState(draft: Partial<ReportDraftState> | undefined): ReportDraftState {
+  return {
+    reportType: draft?.reportType ?? defaultReportDraftState.reportType,
+    scope: {
+      ...defaultReportDraftState.scope,
+      ...draft?.scope,
+      mode: normalizeScopeMode((draft?.scope?.mode ?? defaultReportDraftState.scope.mode) as ReportDraftState['scope']['mode'] | 'all_open' | 'project' | 'owner'),
+      includeClosed: Boolean(draft?.scope?.includeClosed ?? defaultReportDraftState.scope.includeClosed),
+      project: draft?.scope?.project?.trim() || undefined,
+      owner: draft?.scope?.owner?.trim() || undefined,
+    },
+    display: {
+      ...defaultReportDraftState.display,
+      ...draft?.display,
+      rowLimit: clampRowLimit(draft?.display?.rowLimit),
+    },
+    export: {
+      ...defaultReportDraftState.export,
+      ...draft?.export,
+    },
+  };
+}
+
+export function sanitizeSavedReportDefinition(definition: SavedReportDefinition): SavedReportDefinition {
+  const sanitizedDraft = sanitizeReportDraftState(toReportDraftState(definition));
+  return {
+    ...definition,
+    name: definition.name?.trim() || 'Untitled report',
+    reportType: sanitizedDraft.reportType,
+    scope: sanitizedDraft.scope,
+    display: sanitizedDraft.display,
+    export: sanitizedDraft.export,
+    isPinned: Boolean(definition.isPinned),
+    isBuiltInTemplate: Boolean(definition.isBuiltInTemplate),
+    basedOnTemplate: definition.basedOnTemplate ?? 'custom',
+  };
+}
+
+export function sanitizeSavedReportDefinitions(definitions: SavedReportDefinition[] | undefined): SavedReportDefinition[] {
+  return mergeBuiltInReportTemplates(definitions).map(sanitizeSavedReportDefinition);
 }

@@ -1,5 +1,6 @@
 import { BarChart3, Download, FileSpreadsheet } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import type { WorkspaceKey } from '../../lib/appModeConfig';
 import { useShallow } from 'zustand/react/shallow';
 import { ExportWorkspace } from '../ExportWorkspace';
 import { AppShellCard, SectionHeader, WorkspacePage } from '../ui/AppPrimitives';
@@ -14,7 +15,13 @@ import { FollowUpRiskReport } from './FollowUpRiskReport';
 import { DataQualityReport } from './DataQualityReport';
 import { useAppStore } from '../../store/useAppStore';
 
-export function ReportsWorkspace() {
+export function ReportsWorkspace({
+  onOpenDirectoryRecord,
+  onSetWorkspace,
+}: {
+  onOpenDirectoryRecord: (recordType: 'project' | 'contact' | 'company', recordId: string) => void;
+  onSetWorkspace: (workspace: WorkspaceKey) => void;
+}) {
   const { items, tasks, projects } = useAppStore(useShallow((s) => ({ items: s.items, tasks: s.tasks, projects: s.projects })));
   const [selectedReport, setSelectedReport] = useState<ReportType>('executive_snapshot');
 
@@ -25,7 +32,13 @@ export function ReportsWorkspace() {
       case 'executive_snapshot':
         return <ExecutiveSnapshotReport result={runReport('executive_snapshot', reportContext)} />;
       case 'project_health':
-        return <ProjectHealthReport result={runReport('project_health', reportContext)} />;
+        return (
+          <ProjectHealthReport
+            result={runReport('project_health', reportContext)}
+            onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+            onSetWorkspace={onSetWorkspace}
+          />
+        );
       case 'owner_workload':
         return <OwnerWorkloadReport result={runReport('owner_workload', reportContext)} />;
       case 'followup_risk':
@@ -35,7 +48,7 @@ export function ReportsWorkspace() {
       default:
         return null;
     }
-  }, [reportContext, selectedReport]);
+  }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, selectedReport]);
 
   return (
     <WorkspacePage className="space-y-4">

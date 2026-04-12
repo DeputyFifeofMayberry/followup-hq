@@ -1,4 +1,4 @@
-import type { FollowUpItem, ProjectRecord, RecordIntegrityReason, ReportType, TaskItem, UnifiedQueueItem } from '../../types';
+import type { FollowUpItem, ProjectHealthIndicators, ProjectHealthTier, ProjectRecord, RecordIntegrityReason, ReportType, TaskItem, UnifiedQueueItem } from '../../types';
 import type { ExecutionQueueStats } from '../../domains/shared/selectors/executionQueueSelectors';
 
 export type ReportTone = 'default' | 'warn' | 'danger' | 'info';
@@ -77,18 +77,97 @@ export interface ExecutiveSnapshotReportResult {
   pressurePreview: ExecutivePressureRow[];
 }
 
-export interface ProjectHealthRow extends RankedReportRowBase {
+export type ProjectHealthReasonCategory = 'execution_pressure' | 'cleanup_distortion' | 'closeout_opportunity';
+
+export interface ProjectHealthReason {
+  key: string;
+  label: string;
+  category: ProjectHealthReasonCategory;
+  impact: number;
+  count?: number;
+}
+
+export interface ProjectHealthScore {
+  total: number;
+  executionPressure: number;
+  cleanupDistortion: number;
+  closeoutOpportunity: number;
+}
+
+export interface ProjectHealthBreakdown {
+  openWorkTotal: number;
+  openFollowUps: number;
+  openTasks: number;
+  dueNow: number;
+  overdue: number;
+  blocked: number;
+  waitingHeavy: number;
+  stalled: number;
+  parentChildRisk: number;
+  cleanupQueue: number;
+  integrityReview: number;
+  orphanedTasks: number;
+  readyToClose: number;
+  closeoutPhase: boolean;
+  staleActivityDays?: number;
+}
+
+export interface ProjectHealthRouteContext {
+  projectName: string;
+  projectId?: string;
+}
+
+export interface ProjectHealthDetailRow {
+  id: string;
+  recordType: 'task' | 'followup';
+  title: string;
+  status: string;
+  owner: string;
+  priority: string;
+  dueDate?: string;
+  reason: string;
+  score: number;
+}
+
+export interface ProjectHealthDrilldownSummary {
+  topDrivers: string[];
+  biggestRisk: string;
+  biggestCleanupDistortion: string;
+  bestCloseoutOpportunity: string;
+}
+
+export interface ProjectHealthDrilldown {
+  projectId: string;
   project: string;
-  openTotal: number;
-  blockedTotal: number;
-  cleanupTotal: number;
-  dueNowTotal: number;
-  readyToCloseTotal: number;
+  tier: ProjectHealthTier;
+  score: ProjectHealthScore;
+  breakdown: ProjectHealthBreakdown;
+  indicators: ProjectHealthIndicators;
+  reasons: ProjectHealthReason[];
+  summary: ProjectHealthDrilldownSummary;
+  highestPressureRows: ProjectHealthDetailRow[];
+  cleanupRows: ProjectHealthDetailRow[];
+  closeoutRows: ProjectHealthDetailRow[];
+  routeContext: ProjectHealthRouteContext;
+}
+
+export interface ProjectHealthRow {
+  id: string;
+  project: string;
+  tier: ProjectHealthTier;
+  score: ProjectHealthScore;
+  breakdown: ProjectHealthBreakdown;
+  indicators: ProjectHealthIndicators;
+  topReasonSummary: string;
+  reasons: ProjectHealthReason[];
+  routeContext: ProjectHealthRouteContext;
 }
 
 export interface ProjectHealthReportResult {
   header: ReportHeaderSummary;
   rankedProjects: ProjectHealthRow[];
+  defaultSelectedProjectId?: string;
+  drilldownsByProjectId: Record<string, ProjectHealthDrilldown>;
 }
 
 export interface OwnerWorkloadRow extends RankedReportRowBase {

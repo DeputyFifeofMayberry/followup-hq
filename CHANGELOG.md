@@ -2,6 +2,10 @@
 
 ## 2026-04-12
 
+### Executive Snapshot operational deepening: command sections, priority model, drilldown, and route-to-action
+- Expanded Executive Snapshot reporting contracts from a shallow preview row into a command-grade model with typed pressure categories, operational sections, structured breakdowns, ranked priority rows, drilldown payloads, actionable recommendations, and route context so the report result now explains why pressure is prioritized and how to act. (`src/lib/reports/contracts.ts`)
+- Rebuilt the Executive Snapshot builder around real queue/scope/trust truth to separate urgent pressure, blockers, dependency drag, closeout opportunity, and cleanup distortion; added narrative guidance for biggest pressure driver/drag/quick win/trust warning plus ranked top-pressure records and deterministic default drilldown selection. (`src/lib/reports/executiveSnapshot.ts`)
+- Reworked Executive Snapshot UI into a command-center surface with grouped operational sections, a ranked priority table, always-on narrative guidance, selected section/priority drilldown, contributor context, recommended next moves, and direct route-out actions into Follow Ups, Tasks, Directory Project context, and grounded deeper report jumps while preserving saved-definition and scope/trust workflow in `ReportsWorkspace`. (`src/components/reports/ExecutiveSnapshotReport.tsx`, `src/components/reports/ReportsWorkspace.tsx`)
 
 ### Data Quality / Cleanup operational deepening: remediation buckets, drilldown, and route-to-fix actions
 - Expanded reporting contracts for Data Quality into a remediation-grade model with typed severity tiers, issue-family categories, bucket breakdowns, structured drivers, representative affected-record rows, drilldown payloads, and route context so the report can explain why a bucket is prioritized and how to act on it. (`src/lib/reports/contracts.ts`)

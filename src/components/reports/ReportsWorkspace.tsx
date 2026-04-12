@@ -78,7 +78,17 @@ export function ReportsWorkspace({
     switch (reportDraft.reportType) {
       case 'executive_snapshot': {
         const result = runReport('executive_snapshot', reportContext);
-        return { content: <ExecutiveSnapshotReport result={result} />, activeTrust: result.header.trust };
+        return {
+          content: (
+            <ExecutiveSnapshotReport
+              result={result}
+              onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+              onSetWorkspace={onSetWorkspace}
+              onOpenReportType={(reportType) => setReportDraft({ reportType })}
+            />
+          ),
+          activeTrust: result.header.trust,
+        };
       }
       case 'project_health': {
         const result = runReport('project_health', reportContext);
@@ -135,7 +145,7 @@ export function ReportsWorkspace({
       default:
         return { content: null, activeTrust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) } };
     }
-  }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, reportDraft.reportType]);
+  }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, reportDraft.reportType, setReportDraft]);
 
 
 

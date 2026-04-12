@@ -1,9 +1,6 @@
 .app-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 10% -12%, var(--brand-crane-soft), transparent 34%),
-    radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--brand-accent) 34%, transparent), transparent 32%),
-    linear-gradient(165deg, #0a1220 0%, #0e1a2b 46%, #122238 100%);
+  background: var(--sp-surface-brand-canvas);
   padding: clamp(0.62rem, 1.2vw, 1.05rem);
 }
 
@@ -22,14 +19,14 @@
   display: grid;
   gap: clamp(0.62rem, 0.86vw, 0.88rem);
   border-radius: calc(var(--radius-xl) - 0.1rem);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid color-mix(in srgb, var(--sp-border-brand) 42%, transparent);
   background: var(--surface-shell-pane);
-  box-shadow: 0 24px 50px rgba(2, 6, 23, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 0 24px 50px rgba(2, 6, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.52);
   padding: clamp(0.62rem, 1vw, 0.94rem);
 }
 
 .app-nav-rail {
-  border: 1px solid rgba(100, 116, 139, 0.28);
+  border: 1px solid color-mix(in srgb, var(--sp-border-brand) 42%, transparent);
   background: linear-gradient(180deg, var(--surface-shell-rail), var(--surface-shell-elevated));
   border-radius: calc(var(--radius-xl) - 0.1rem);
   padding: 0.68rem 0.62rem 0.6rem;
@@ -59,7 +56,7 @@
 /* Nav card states mirror the row grammar: default -> hover -> active -> muted-support. */
 .nav-card { border: 1px solid rgba(71, 85, 105, 0.3); border-radius: 0.78rem; padding: 0.44rem 0.5rem; background: rgba(15, 23, 42, 0.12); transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 .nav-card:hover { border-color: rgba(148, 163, 184, 0.52); background: rgba(30, 41, 59, 0.34); transform: translateY(-1px); }
-.nav-card-active { border-color: rgba(45, 212, 191, 0.82); background: linear-gradient(145deg, rgba(15, 75, 70, 0.62), rgba(30, 41, 59, 0.76)); box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.2), 0 8px 18px rgba(15, 23, 42, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
+.nav-card-active { border-color: color-mix(in srgb, var(--sp-border-action) 85%, white 15%); background: linear-gradient(145deg, rgba(15, 82, 75, 0.64), rgba(29, 43, 63, 0.78)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sp-accent-action) 24%, transparent), 0 8px 18px rgba(15, 23, 42, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
 .nav-card-core:not(.nav-card-active) { border-color: rgba(100, 116, 139, 0.52); background: rgba(30, 41, 59, 0.3); }
 .nav-card-core:not(.nav-card-active) .nav-label-primary { color: #d7e2f2; }
 .nav-card-primary-inactive .nav-label-primary { font-weight: 590; }
@@ -80,8 +77,8 @@
 .nav-card-active .nav-label-icon,
 .nav-card-active .nav-label-primary { color: var(--text-inverse); }
 .nav-card-active .nav-icon-shell {
-  border-color: rgba(45, 212, 191, 0.58);
-  background: rgba(15, 118, 110, 0.42);
+  border-color: color-mix(in srgb, var(--sp-border-action) 74%, transparent);
+  background: color-mix(in srgb, var(--sp-accent-action) 44%, transparent);
 }
 .nav-card-muted { border-color: rgba(71, 85, 105, 0.28); background: rgba(15, 23, 42, 0.08); }
 .nav-card-muted .nav-label-primary { color: #9fb2cb; font-weight: 580; }
@@ -121,8 +118,8 @@
 
 .nav-start-pill {
   border-radius: 999px;
-  border: 1px solid rgba(45, 212, 191, 0.42);
-  background: rgba(15, 118, 110, 0.22);
+  border: 1px solid color-mix(in srgb, var(--sp-border-action) 70%, transparent);
+  background: color-mix(in srgb, var(--sp-accent-action) 26%, transparent);
   color: #ccfbf1;
   font-size: 0.56rem;
   letter-spacing: 0.06em;
@@ -132,8 +129,8 @@
 }
 
 .nav-card-active .nav-start-pill {
-  background: rgba(13, 148, 136, 0.38);
-  border-color: rgba(45, 212, 191, 0.72);
+  background: color-mix(in srgb, var(--sp-accent-action) 44%, transparent);
+  border-color: color-mix(in srgb, var(--sp-border-action) 82%, #b2f5ea);
   color: #f0fdfa;
 }
 

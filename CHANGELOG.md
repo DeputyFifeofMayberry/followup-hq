@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### SetPoint visual-system foundation: brand-led material tiers, token hierarchy, and calmer operational contrast
+- Established a clearer SetPoint visual identity foundation in the shared token layer by defining explicit identity tones, operational neutrals, action-accent intent, trust surfaces, and tiered material roles (brand canvas/rail, command/hero, operational work, support, elevated, and trust/attention). This replaces the previous loosely grouped blue-gray token model with a deliberate branded hierarchy that is designed for repeated daily-use surfaces. (`src/styles/tokens.css`)
+- Re-centered app shell chrome on branded-but-restrained material usage: the shell now consumes a dedicated brand canvas token, stronger brand-border discipline, and action-driven active state treatments so navigation and shell framing read as SetPoint even without logo dependence while still preserving calm operational readability. (`src/styles/shell.css`, `src/styles/tokens.css`)
+- Updated shared primitive surfaces and action semantics to consume the new system tokens (hero/command tiering, trust badges/chips/tiles, and primary action emphasis), reducing generic dashboard styling drift and ensuring foundational components reflect one visual language instead of mixed ad hoc color choices. (`src/styles/primitives.css`, `src/styles/tokens.css`)
+- Applied the new material hierarchy to shared workspace grammar (summary bands, toolbar chips, feedback tiers, row active emphasis, inspector/list surfaces), proving the foundation is integrated into active workspace rendering rather than dead token definitions and preparing later prompts for page-level refinement on top of one consistent system. (`src/styles/workspaces.css`, `src/styles/tokens.css`)
+- Tuned SetPoint brand mark surfaces to align with the new identity palette and border language so high-brand moments remain premium/structural while staying coherent with the updated shell/workspace material direction. (`src/styles/brand.css`, `src/styles/tokens.css`)
+
 ### Final hardening pass: brand drift cleanup, shell discipline, and execution-family residue removal
 - Completed a final SetPoint cleanup pass across app/package shell identity by removing residual legacy branding identifiers that could leak in app/runtime surfaces, including package identity and desktop bundle identifier alignment to SetPoint naming. (`package.json`, `src-tauri/tauri.conf.json`)
 - Hardened Overview execution routing semantics by replacing the stale “Open full queue” legacy target with an explicit Follow Ups queue route, removing a transitional pseudo-workspace path that silently normalized away and made lane handoff intent unclear. (`src/components/OverviewPage.tsx`)

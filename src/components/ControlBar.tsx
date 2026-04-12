@@ -109,6 +109,17 @@ export function ControlBar({
     { key: 'waiting' as const, view: 'Waiting' as const, label: 'Waiting' },
     { key: 'atRisk' as const, view: 'At risk' as const, label: 'At risk' },
   ];
+  const queuePressureSummary = queuePressure.map((queue) => (
+    <button
+      key={queue.key}
+      type="button"
+      className={`followup-queue-pressure-chip ${vm.activeView === queue.view ? 'followup-queue-pressure-chip-active' : ''}`.trim()}
+      onClick={() => vm.setActiveView(queue.view)}
+    >
+      <span>{queue.label}</span>
+      <strong>{queuePressureCounts[queue.key]}</strong>
+    </button>
+  ));
 
   return (
     <ExecutionToolbarSurface className="followup-control-stack">
@@ -217,6 +228,12 @@ export function ControlBar({
           )}
         />
       )}
+
+      {!isMobileLike ? (
+        <div className="followup-queue-pressure-strip" aria-label="Queue pressure summary">
+          {queuePressureSummary}
+        </div>
+      ) : null}
 
       {!isMobileLike ? (
         <ExecutionFilterChipRow muted={vm.activeRowAffectingOptions.length === 0} className="execution-family-filter-chip-row">

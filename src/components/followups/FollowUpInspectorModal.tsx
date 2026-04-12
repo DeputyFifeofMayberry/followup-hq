@@ -95,8 +95,8 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
         onClose={onClose}
       />
       <AppModalBody>
-        <div className="space-y-3">
-          <section className="detail-card">
+        <div className="space-y-3 followup-inspector-flow">
+          <section className="detail-card followup-inspector-identity-card">
             <div className="task-inspector-status-strip">
               <Badge kind="status" variant={statusTone(selectedFollowUp.status)} withDot>{selectedFollowUp.status}</Badge>
               <Badge kind="priority" variant={priorityTone(selectedFollowUp.priority)}>{selectedFollowUp.priority}</Badge>
@@ -107,7 +107,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
             <div className="mt-1 text-xs text-slate-600">Due {formatDate(selectedFollowUp.dueDate)} • Next touch {formatDate(selectedFollowUp.nextTouchDate)} • Promised {formatDate(selectedFollowUp.promisedDate)}</div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card followup-inspector-focus-card">
             <SectionHeader title="Execution focus" subtitle={editSurfacePolicy.execution.intent} compact />
             <div className="mt-2 space-y-2">
               <div className="tonal-micro"><strong>{context.attentionSignal.label}</strong> — {context.attentionSignal.helperText}</div>
@@ -117,9 +117,9 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card followup-inspector-actions-card">
             <SectionHeader title="Primary actions" subtitle="Execution-first actions; deeper edits are secondary." compact />
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2 followup-inspector-primary-actions">
               <button type="button" className="primary-btn" onClick={() => onOpenTouchModal()}>Log touch</button>
               <button type="button" className="action-btn" onClick={() => onMarkNudged(selectedFollowUp.id)}><Send className="h-4 w-4" />Mark nudged</button>
               <button type="button" className="action-btn" onClick={() => onSnooze(selectedFollowUp.id, 2)}><Clock3 className="h-4 w-4" />Snooze 2d</button>
@@ -130,7 +130,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
               {selectedFollowUp.status === 'Closed'
                 ? <button type="button" className="action-btn" onClick={() => onStartActionFlow('reopen', selectedFollowUp)}><RotateCcw className="h-4 w-4" />Reopen</button>
                 : <button type="button" className="action-btn" onClick={() => onStartActionFlow('close', selectedFollowUp)}><CheckCircle2 className="h-4 w-4" />Close</button>}
-              <button type="button" className="action-btn" onClick={() => onStartActionFlow(context.recommendedAction.id === 'waiting_on_response' ? 'mark_waiting_external' : context.recommendedAction.id === 'close' ? 'close' : context.recommendedAction.id === 'escalate' ? 'escalate' : 'confirm_sent', selectedFollowUp)}><ArrowRight className="h-4 w-4" />Run recommended flow</button>
+              <button type="button" className="primary-btn followup-inspector-recommended-action" onClick={() => onStartActionFlow(context.recommendedAction.id === 'waiting_on_response' ? 'mark_waiting_external' : context.recommendedAction.id === 'close' ? 'close' : context.recommendedAction.id === 'escalate' ? 'escalate' : 'confirm_sent', selectedFollowUp)}><ArrowRight className="h-4 w-4" />Run recommended flow</button>
             </div>
           </section>
 
@@ -159,7 +159,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
             </section>
           ) : null}
 
-          <section className="detail-card inspector-block">
+          <section className="detail-card inspector-block followup-inspector-maintenance-card">
             <SectionHeader title="Maintenance & full edit" subtitle={editSurfacePolicy.full_edit.intent} compact />
             <div className="mt-2 rounded-2xl tonal-panel p-3">
               <div className="text-xs text-slate-600">Use full edit for schema-level updates, fields not shown in execution view, and deeper record maintenance.</div>

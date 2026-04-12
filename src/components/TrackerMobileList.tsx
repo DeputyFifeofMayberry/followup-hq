@@ -80,7 +80,7 @@ export function TrackerMobileList({
             const hasNextMove = Boolean(item.nextAction?.trim());
 
             return (
-              <ExecutionMobileCardShell key={item.id} active={active} className="followup-mobile-queue-card">
+              <ExecutionMobileCardShell key={item.id} active={active} className={`followup-mobile-queue-card followup-mobile-queue-card-${urgency.tone}`.trim()}>
                 <button type="button" className="tracker-mobile-main" onClick={() => onOpenDetails(item.id)}>
                   <div className="tracker-mobile-title-row">
                     <h3>{item.title}</h3>

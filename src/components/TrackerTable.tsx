@@ -136,7 +136,11 @@ export function TrackerTable({
         return <div className={`text-xs ${blocked > 0 ? 'text-rose-700 font-semibold' : 'text-slate-700'}`}>{open}/{total} open{blocked > 0 ? ` • ${blocked} blocked` : ''}</div>;
       },
     },
-    nextAction: { accessorKey: 'nextAction', header: 'Next move', cell: ({ row }) => <div className="tracker-next-move-content text-xs text-slate-600">{row.original.nextAction || 'No next move set'}</div> },
+    nextAction: {
+      accessorKey: 'nextAction',
+      header: 'Next move',
+      cell: ({ row }) => <div className={`tracker-next-move-content ${row.original.nextAction ? '' : 'tracker-next-move-content-missing'}`.trim()}>{row.original.nextAction || 'No next move set'}</div>,
+    },
   }), [personalMode]);
 
   const columns = useMemo<ColumnDef<FollowUpItem>[]>(() => {
@@ -257,6 +261,7 @@ export function TrackerTable({
           <tbody>
             {table.getRowModel().rows.map((row) => {
               const active = row.original.id === vm.selectedId;
+              const matterNow = getWhatMattersNow(row.original);
               return (
                 <tr
                   key={row.id}
@@ -270,7 +275,11 @@ export function TrackerTable({
                   }}
                   tabIndex={0}
                   aria-selected={active}
-                  className={active ? 'tracker-row tracker-row-active list-row-family-active' : 'tracker-row'}
+                  className={[
+                    'tracker-row',
+                    active ? 'tracker-row-active list-row-family-active' : '',
+                    `tracker-row-signal-${matterNow.tone}`,
+                  ].filter(Boolean).join(' ')}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className={[

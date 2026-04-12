@@ -133,7 +133,7 @@ function ToggleRow({
   );
 }
 
-export function ExportWorkspace() {
+export function ExportWorkspace({ embedded = false }: { embedded?: boolean }) {
   const { items, tasks } = useAppStore(useShallow((s) => ({ items: s.items, tasks: s.tasks })));
   const [options, setOptions] = useState<ExportOptions>(defaultOptions);
   const [lastExportMessage, setLastExportMessage] = useState('');
@@ -177,13 +177,14 @@ export function ExportWorkspace() {
   const showFollowUps = options.dataset !== 'tasks';
   const showTasks = options.dataset !== 'followUps';
 
-  return (
-    <WorkspacePage>
-      <AppShellCard className="workspace-summary-strip" surface="hero">
+  const exportShell = (
+    <>
+      {!embedded ? (
+        <AppShellCard className="workspace-summary-strip" surface="hero">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionHeader
-            title="Exports"
-            subtitle="Build reporting exports with clear scope, preview, and one final action."
+            title="Reporting exports"
+            subtitle="Build report exports with clear scope, preview, and one final action."
             compact
             actions={<div className="text-xs text-slate-500 inline-flex items-center gap-1"><FileSpreadsheet className="h-3.5 w-3.5" />Operational report export</div>}
           />
@@ -209,7 +210,36 @@ export function ExportWorkspace() {
           </div>
         </div>
         {lastExportMessage ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{lastExportMessage}</div> : null}
-      </AppShellCard>
+        </AppShellCard>
+      ) : (
+        <AppShellCard className="space-y-3" surface="inspector">
+          <SectionHeader
+            title="Export this report"
+            subtitle="Exports stay available as a downstream action from reporting."
+            compact
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <div className="text-sm text-slate-500">Follow-ups in export</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-950">{filteredFollowUps.length}</div>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <div className="text-sm text-slate-500">Tasks in export</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-950">{filteredTasks.length}</div>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <div className="text-sm text-amber-700">Detail preset</div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 capitalize">{options.detailLevel}</div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={resetFilters} className="action-btn"><RefreshCcw className="h-4 w-4" />Reset</button>
+            <button type="button" onClick={handleCsvExport} className="action-btn"><Download className="h-4 w-4" />Quick CSV</button>
+            <button type="button" onClick={handleWorkbookExport} className="primary-btn"><FileSpreadsheet className="h-4 w-4" />Export workbook</button>
+          </div>
+          {lastExportMessage ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{lastExportMessage}</div> : null}
+        </AppShellCard>
+      )}
 
       <section className="support-workspace-shell">
         <div className="space-y-4">
@@ -409,8 +439,9 @@ export function ExportWorkspace() {
           </section>
         </aside>
       </section>
-    </WorkspacePage>
+    </>
   );
+
+  if (embedded) return exportShell;
+  return <WorkspacePage>{exportShell}</WorkspacePage>;
 }
-
-

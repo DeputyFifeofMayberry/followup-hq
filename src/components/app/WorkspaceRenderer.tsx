@@ -1,5 +1,4 @@
 import type { AppMode, SavedViewKey } from '../../types';
-import { ExportWorkspace } from '../ExportWorkspace';
 import { IntakeWorkspacePanel } from '../IntakeWorkspacePanel';
 import { DirectoryWorkspace } from '../DirectoryWorkspace';
 import { TaskWorkspace } from '../TaskWorkspace';
@@ -7,6 +6,7 @@ import { OverviewPage } from '../OverviewPage';
 import { TrackerWorkspace } from './TrackerWorkspace';
 import { normalizeWorkspaceSelection } from '../../lib/workspaceRegistry';
 import type { WorkspaceKey } from '../../lib/appModeConfig';
+import { ReportsWorkspace } from '../reports/ReportsWorkspace';
 
 interface WorkspaceRendererProps {
   workspace: WorkspaceKey;
@@ -24,7 +24,7 @@ export function WorkspaceRenderer({ workspace, appMode, openFollowUp, openTask, 
     case 'tasks':
       return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} />;
     case 'exports':
-      return <ExportWorkspace />;
+      return <ReportsWorkspace />;
     case 'intake':
       return <IntakeWorkspacePanel />;
     case 'directory':

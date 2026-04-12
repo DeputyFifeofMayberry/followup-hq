@@ -34,7 +34,7 @@ export const reportDefinitions: { [K in ReportType]: ReportDefinition<K> } = {
   data_quality: {
     id: 'data_quality',
     label: 'Data quality / cleanup',
-    description: 'Integrity and remediation pressure grouped by reason.',
+    description: 'Operational remediation buckets for integrity cleanup, drilldown, and route-to-fix actions.',
     build: buildDataQualityReport,
   },
 };

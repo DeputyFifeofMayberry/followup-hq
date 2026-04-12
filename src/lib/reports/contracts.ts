@@ -394,12 +394,101 @@ export interface DataQualityReasonRow {
   count: number;
 }
 
+export type DataQualitySeverity = 'Critical' | 'High' | 'Moderate' | 'Low';
+
+export type DataQualityCategory =
+  | 'structural_linkage'
+  | 'ownership_assignment'
+  | 'provenance_trust'
+  | 'draft_incomplete'
+  | 'cleanup_operational'
+  | 'orphaned_execution';
+
+export interface DataQualityDriver {
+  key: string;
+  label: string;
+  reasonKey?: string;
+  count: number;
+  impact: number;
+  detail?: string;
+}
+
+export interface DataQualityBreakdown {
+  affectedCount: number;
+  followUpCount: number;
+  taskCount: number;
+  trustDistortionCount: number;
+  routingBrokenCount: number;
+  ownershipImpactCount: number;
+  executionBlockedCount: number;
+}
+
+export interface DataQualityAffectedRecord {
+  id: string;
+  recordType: 'followup' | 'task';
+  title: string;
+  project: string;
+  owner: string;
+  projectId?: string;
+  linkedFollowUpId?: string;
+  reasonLabel: string;
+  reasonKey: string;
+  impactLabel: 'Trust' | 'Routing' | 'Ownership' | 'Execution clarity';
+}
+
+export interface DataQualityRouteContext {
+  category: DataQualityCategory;
+  primaryProject?: string;
+  primaryProjectId?: string;
+  representativeFollowUpId?: string;
+  representativeTaskId?: string;
+}
+
+export interface DataQualityBucketRow {
+  id: string;
+  category: DataQualityCategory;
+  severity: DataQualitySeverity;
+  priorityScore: number;
+  affectedCount: number;
+  topReasonSummary: string;
+  remediationFocus: string;
+  materiallyDistortsTrust: boolean;
+  dominantImpact: DataQualityAffectedRecord['impactLabel'];
+  drivers: DataQualityDriver[];
+  breakdown: DataQualityBreakdown;
+  representativeRecords: DataQualityAffectedRecord[];
+  routeContext: DataQualityRouteContext;
+}
+
+export interface DataQualityDrilldown {
+  bucketId: string;
+  category: DataQualityCategory;
+  severity: DataQualitySeverity;
+  priorityScore: number;
+  whyPrioritized: string;
+  remediationGuidance: string;
+  nextActions: string[];
+  dominantImpact: DataQualityAffectedRecord['impactLabel'];
+  topReasonSummary: string;
+  drivers: DataQualityDriver[];
+  breakdown: DataQualityBreakdown;
+  representativeRecords: DataQualityAffectedRecord[];
+  routeContext: DataQualityRouteContext;
+}
+
 export interface DataQualityReportResult {
   header: ReportHeaderSummary;
   cleanupCount: number;
   orphanedTaskCount: number;
   draftCount: number;
+  reportingDistortionCount: number;
+  routingBrokenCount: number;
+  ownershipIssueCount: number;
+  highestPriorityBucketCount: number;
   reasons: DataQualityReasonRow[];
+  rankedBuckets: DataQualityBucketRow[];
+  defaultSelectedBucketId?: string;
+  drilldownsByBucketId: Record<string, DataQualityDrilldown>;
 }
 
 export type ReportResultMap = {

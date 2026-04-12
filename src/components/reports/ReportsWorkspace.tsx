@@ -121,7 +121,16 @@ export function ReportsWorkspace({
       }
       case 'data_quality': {
         const result = runReport('data_quality', reportContext);
-        return { content: <DataQualityReport result={result} />, activeTrust: result.header.trust };
+        return {
+          content: (
+            <DataQualityReport
+              result={result}
+              onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+              onSetWorkspace={onSetWorkspace}
+            />
+          ),
+          activeTrust: result.header.trust,
+        };
       }
       default:
         return { content: null, activeTrust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) } };

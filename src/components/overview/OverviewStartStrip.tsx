@@ -12,7 +12,7 @@ interface OverviewStartStripProps {
 export function OverviewStartStrip({ stats, onOpenIntake, onCreateWork }: OverviewStartStripProps) {
   return (
     <ExecutionSummaryBand
-      className="overview-summary-strip-compact"
+      className="execution-summary-strip-unified overview-summary-strip-compact"
       kicker="Daily overview"
       title="Command center for today’s routing decisions."
       supporting="Scan today’s pressure and route each item into the right lane with confidence."

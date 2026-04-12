@@ -185,9 +185,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
         <WorkspacePrimaryLayout
           className="task-workspace-layout workspace-primary-layout-collapsed"
         >
-          <ExecutionLaneQueueCard className="task-workspace-main-card">
+          <ExecutionLaneQueueCard className="task-workspace-main-card execution-lane-queue-surface">
             <ExecutionSummaryBand
-              className={`task-queue-summary-strip ${isMobileLike ? 'task-queue-summary-strip-mobile' : ''}`.trim()}
+              className={`execution-summary-strip-unified task-queue-summary-strip ${isMobileLike ? 'task-queue-summary-strip-mobile' : ''}`.trim()}
               kicker={activeQueueLabel}
               title={isMobileLike ? vm.queueSummary : queueIntent}
               supporting={!isMobileLike ? vm.queueSummary : undefined}

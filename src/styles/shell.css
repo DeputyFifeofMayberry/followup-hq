@@ -20,12 +20,12 @@
   --workspace-shell-surface-padding: clamp(0.72rem, 0.95vw, 0.92rem);
   min-width: 0;
   display: grid;
-  gap: clamp(0.62rem, 0.86vw, 0.88rem);
+  gap: clamp(0.58rem, 0.8vw, 0.8rem);
   border-radius: calc(var(--radius-xl) - 0.1rem);
   border: 1px solid color-mix(in srgb, var(--sp-border-brand) 42%, transparent);
   background: var(--surface-shell-pane);
   box-shadow: 0 24px 50px rgba(2, 6, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.52);
-  padding: clamp(0.62rem, 1vw, 0.94rem);
+  padding: clamp(0.58rem, 0.92vw, 0.86rem);
 }
 
 .app-nav-rail {
@@ -180,7 +180,8 @@
 
 .workspace-body-slot {
   display: grid;
-  gap: 0.95rem;
+  gap: 0.88rem;
+  padding-top: 0.04rem;
 }
 
 .workspace-header,

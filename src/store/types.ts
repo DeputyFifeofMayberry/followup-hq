@@ -38,6 +38,8 @@ import type {
   ExecutionRouteKind,
   ExecutionSectionKey,
   ExecutionRouteTarget,
+  ReportDraftPatch,
+  SavedReportDefinition,
 } from '../types';
 import type { WorkflowValidationResult } from '../lib/workflowPolicy';
 import type { RecordRef } from '../lib/recordContext';
@@ -195,6 +197,17 @@ export interface AppStoreActions {
   setQueueDensity: (density: UnifiedQueueDensity) => void;
   saveExecutionView: (name: string, scope?: 'personal' | 'team') => void;
   applyExecutionView: (viewId: string) => void;
+  createSavedReportDefinition: (input: { name: string; basedOnTemplateId?: string; draft?: ReportDraftPatch }) => string;
+  updateSavedReportDefinition: (id: string, patch: Partial<Pick<SavedReportDefinition, 'name' | 'isPinned'>>) => void;
+  deleteSavedReportDefinition: (id: string) => void;
+  duplicateSavedReportDefinition: (id: string, name?: string) => string | null;
+  pinSavedReportDefinition: (id: string, pinned: boolean) => void;
+  openSavedReportDefinition: (id: string) => void;
+  setLastOpenedReportDefinition: (id: string | null) => void;
+  setReportDraft: (patch: ReportDraftPatch) => void;
+  saveActiveReportDraft: () => void;
+  saveReportDraftAsNew: (name: string) => string | null;
+  revertActiveReportDraft: () => void;
   setExecutionSelectedId: (id: string | null) => void;
   launchExecutionIntent: (intent: Omit<ExecutionIntent, 'createdAt'>) => void;
   clearExecutionIntent: () => void;

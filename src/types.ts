@@ -133,6 +133,61 @@ export type ReportType =
   | 'owner_workload'
   | 'followup_risk'
   | 'data_quality';
+export type ReportTemplateKind =
+  | 'executive_snapshot'
+  | 'weekly_pm_project_health'
+  | 'owner_workload_review'
+  | 'followup_risk_review'
+  | 'data_quality_cleanup_audit'
+  | 'custom';
+export type ReportScopeMode = 'all_open' | 'project' | 'owner';
+
+export interface ReportDefinitionScope {
+  mode: ReportScopeMode;
+  project?: string;
+  owner?: string;
+  includeClosed: boolean;
+}
+
+export interface ReportDisplayPreferences {
+  rowLimit: number;
+  highlightThreshold: 'all' | 'watch' | 'at_risk' | 'critical';
+  showReasonDetails: boolean;
+}
+
+export interface ReportExportPreferences {
+  detailLevel: 'simple' | 'standard' | 'detailed';
+  includeSummarySheet: boolean;
+}
+
+export interface SavedReportDefinition {
+  id: string;
+  name: string;
+  reportType: ReportType;
+  scope: ReportDefinitionScope;
+  display: ReportDisplayPreferences;
+  export: ReportExportPreferences;
+  createdAt: string;
+  updatedAt: string;
+  lastRunAt?: string;
+  isPinned: boolean;
+  isBuiltInTemplate: boolean;
+  basedOnTemplate?: ReportTemplateKind;
+}
+
+export interface ReportDraftState {
+  reportType: ReportType;
+  scope: ReportDefinitionScope;
+  display: ReportDisplayPreferences;
+  export: ReportExportPreferences;
+}
+
+export interface ReportDraftPatch {
+  reportType?: ReportType;
+  scope?: Partial<ReportDefinitionScope>;
+  display?: Partial<ReportDisplayPreferences>;
+  export?: Partial<ReportExportPreferences>;
+}
 export type AppUserRole = 'user' | 'manager' | 'admin';
 export type AppMode = 'personal' | 'team';
 export type VisibilityScope = 'private' | 'team' | 'company';
@@ -1553,6 +1608,9 @@ export interface AppSnapshot {
   intakeWorkCandidates?: IntakeWorkCandidate[];
   intakeReviewerFeedback?: IntakeReviewerFeedback[];
   savedExecutionViews?: SavedExecutionView[];
+  savedReportDefinitions?: SavedReportDefinition[];
+  activeReportDefinitionId?: string | null;
+  lastOpenedReportDefinitionId?: string | null;
   followUpFilters?: FollowUpAdvancedFilters;
   taskWorkspaceSession?: TaskWorkspaceSession;
   directoryWorkspaceSession?: DirectoryWorkspaceSession;

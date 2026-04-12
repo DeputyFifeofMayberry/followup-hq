@@ -4,6 +4,9 @@ import type { AppBusinessState } from './types';
 
 export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 'companies' | 'projects' | 'tasks' | 'intakeSignals' | 'intakeDocuments' | 'dismissedDuplicatePairs' | 'droppedEmailImports' | 'outlookConnection' | 'outlookMessages' | 'forwardedEmails' | 'forwardedRules' | 'forwardedCandidates' | 'forwardedLedger' | 'forwardedRoutingAudit' | 'intakeCandidates' | 'intakeAssets' | 'intakeBatches' | 'intakeWorkCandidates' | 'intakeReviewerFeedback'> & {
   savedExecutionViews: SavedExecutionView[];
+  savedReportDefinitions: PersistedPayload['auxiliary']['savedReportDefinitions'];
+  activeReportDefinitionId: PersistedPayload['auxiliary']['activeReportDefinitionId'];
+  lastOpenedReportDefinitionId: PersistedPayload['auxiliary']['lastOpenedReportDefinitionId'];
   followUpFilters: FollowUpAdvancedFilters;
   taskWorkspaceSession: PersistedPayload['auxiliary']['taskWorkspaceSession'];
   directoryWorkspaceSession: PersistedPayload['auxiliary']['directoryWorkspaceSession'];
@@ -42,6 +45,9 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       intakeWorkCandidates: state.intakeWorkCandidates,
       intakeReviewerFeedback: state.intakeReviewerFeedback,
       savedExecutionViews: state.savedExecutionViews,
+      savedReportDefinitions: state.savedReportDefinitions,
+      activeReportDefinitionId: state.activeReportDefinitionId,
+      lastOpenedReportDefinitionId: state.lastOpenedReportDefinitionId,
       followUpFilters: state.followUpFilters,
       taskWorkspaceSession: state.taskWorkspaceSession,
       directoryWorkspaceSession: state.directoryWorkspaceSession,

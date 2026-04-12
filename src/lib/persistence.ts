@@ -102,6 +102,9 @@ export interface AppAuxiliaryState {
   intakeWorkCandidates: AppSnapshot['intakeWorkCandidates'];
   intakeReviewerFeedback: AppSnapshot['intakeReviewerFeedback'];
   savedExecutionViews: AppSnapshot['savedExecutionViews'];
+  savedReportDefinitions?: AppSnapshot['savedReportDefinitions'];
+  activeReportDefinitionId?: AppSnapshot['activeReportDefinitionId'];
+  lastOpenedReportDefinitionId?: AppSnapshot['lastOpenedReportDefinitionId'];
   followUpFilters?: AppSnapshot['followUpFilters'];
   taskWorkspaceSession?: AppSnapshot['taskWorkspaceSession'];
   directoryWorkspaceSession?: AppSnapshot['directoryWorkspaceSession'];
@@ -261,6 +264,9 @@ function buildFallbackSnapshot(): AppSnapshot {
     intakeWorkCandidates: [],
     intakeReviewerFeedback: [],
     savedExecutionViews: [],
+    savedReportDefinitions: [],
+    activeReportDefinitionId: null,
+    lastOpenedReportDefinitionId: null,
     followUpFilters: undefined,
     taskWorkspaceSession: undefined,
     directoryWorkspaceSession: undefined,
@@ -300,6 +306,9 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       intakeWorkCandidates: snapshot.intakeWorkCandidates ?? [],
       intakeReviewerFeedback: snapshot.intakeReviewerFeedback ?? [],
       savedExecutionViews: snapshot.savedExecutionViews ?? [],
+      savedReportDefinitions: snapshot.savedReportDefinitions ?? [],
+      activeReportDefinitionId: snapshot.activeReportDefinitionId ?? null,
+      lastOpenedReportDefinitionId: snapshot.lastOpenedReportDefinitionId ?? null,
       followUpFilters: snapshot.followUpFilters,
       followUpColumns: snapshot.followUpColumns,
       savedFollowUpViews: snapshot.savedFollowUpViews ?? [],

@@ -206,6 +206,7 @@ const AUXILIARY_ARRAY_DEFAULT_KEYS: Array<keyof AppAuxiliaryState> = [
   'intakeWorkCandidates',
   'intakeReviewerFeedback',
   'savedExecutionViews',
+  'savedReportDefinitions',
   'followUpColumns',
 ];
 

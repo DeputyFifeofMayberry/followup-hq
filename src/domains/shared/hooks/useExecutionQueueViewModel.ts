@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../../store/useAppStore';
+import { selectMaterializedUnifiedQueue } from '../../../store/selectors/unifiedQueue';
 import { buildExecutionDailySections, buildExecutionQueueStats } from '../selectors/executionQueueSelectors';
 
 export function useExecutionQueueViewModel() {
   const store = useAppStore(useShallow((s) => ({
-    getUnifiedQueue: s.getUnifiedQueue,
+    items: s.items,
+    tasks: s.tasks,
     setSelectedId: s.setSelectedId,
     setSelectedTaskId: s.setSelectedTaskId,
     openCreateFromCapture: s.openCreateFromCapture,
@@ -35,7 +37,13 @@ export function useExecutionQueueViewModel() {
     clearExecutionIntent: s.clearExecutionIntent,
   })));
 
-  const queue = store.getUnifiedQueue();
+  const queue = useMemo(() => selectMaterializedUnifiedQueue({
+    items: store.items,
+    tasks: store.tasks,
+    queuePreset: store.queuePreset,
+    executionFilter: store.executionFilter,
+    executionSort: store.executionSort,
+  }), [store.items, store.tasks, store.queuePreset, store.executionFilter, store.executionSort]);
   const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
   const dailySections = useMemo(() => buildExecutionDailySections(queue), [queue]);
 

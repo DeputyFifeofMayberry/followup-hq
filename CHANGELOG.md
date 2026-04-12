@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Overview hydration reliability fix: reactive queue subscription on first load
+- Fixed the Overview first-refresh empty-state bug at the data-flow root by replacing function-reference subscriptions (`getUnifiedQueue`) with reactive subscriptions to queue-producing store inputs (`items`, `tasks`, `queuePreset`, `executionFilter`, `executionSort`), then materializing queue data through a shared selector utility. This ensures Overview recomputes immediately when hydration writes real data into the store. (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/store/selectors/unifiedQueue.ts`, `src/store/slices/executionViewSlice.ts`)
+- Applied the same reactive queue-materialization path to the shared execution queue view-model so queue consumers consistently subscribe to underlying queue state rather than relying on imperative getter timing. (`src/domains/shared/hooks/useExecutionQueueViewModel.ts`, `src/store/selectors/unifiedQueue.ts`)
+- Added an explicit Overview initializing state tied to store hydration (`hydrated`) so the page no longer presents a misleading “queue is clear” empty state while persisted data is still loading. (`src/components/OverviewPage.tsx`)
+- Added focused selector regression coverage that exercises queue materialization across hydration-like state changes and filter changes, protecting the reactive unified-queue derivation seam from regressions. (`src/store/selectors/__tests__/unifiedQueueSelector.test.ts`)
+
 ### Overview daily-driver polish pass: responsive resilience, empty-state trust, and dashboard/queue/inspector coherence
 - Hardened Overview responsiveness across desktop/tablet/mobile with denser but clearer control behavior: improved dashboard spacing rhythm, mobile action-button sizing, stacked next-up row actions, stronger context-strip wrapping, and deliberate small-screen filter/queue composition instead of simple collapse behavior. (`src/styles/workspaces.css`)
 - Added explicit low-data and empty-state coverage across the dashboard and queue loop: next-up empty guidance, enriched hotspot/commitment/ownership no-data messaging, focused-slice zero-row explanation with reset action, filter-specific empty messaging, and a full-queue clear state with direct Intake/Create recovery actions. (`src/components/overview/OverviewDashboardPanels.tsx`, `src/components/OverviewPage.tsx`, `src/components/overview/OverviewDashboardHeader.tsx`)

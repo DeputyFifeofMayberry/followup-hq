@@ -1,27 +1,23 @@
 import { AlertTriangle, CheckCircle2, Clock3, ShieldAlert } from 'lucide-react';
+import type { ExecutiveSnapshotReportResult, ReportTone } from '../../lib/reports';
 import { AppShellCard, SectionHeader, StatTile } from '../ui/AppPrimitives';
-import type { ReportViewProps } from './reportModels';
 
-const TONE_ICON = {
+const TONE_ICON: Record<ReportTone, typeof CheckCircle2> = {
   warn: Clock3,
   danger: AlertTriangle,
   info: ShieldAlert,
   default: CheckCircle2,
-} as const;
+};
 
-export function ExecutiveSnapshotReport({ summaryCards, queue }: ReportViewProps) {
-  const highestPressure = queue.slice(0, 8);
+export function ExecutiveSnapshotReport({ result }: { result: ExecutiveSnapshotReportResult }) {
+  const highestPressure = result.pressurePreview;
 
   return (
     <div className="space-y-4">
       <AppShellCard surface="data" className="space-y-4">
-        <SectionHeader
-          title="Executive snapshot"
-          subtitle="Current execution pressure, risk posture, and closeout opportunity from the live queue."
-          compact
-        />
+        <SectionHeader title={result.header.title} subtitle={result.header.subtitle} compact />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {summaryCards.map((card) => {
+          {result.header.highlights.map((card) => {
             const Icon = TONE_ICON[card.tone ?? 'default'];
             return (
               <div key={card.id} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -63,7 +59,7 @@ export function ExecutiveSnapshotReport({ summaryCards, queue }: ReportViewProps
                       <div className="text-xs text-slate-500">{row.recordType === 'task' ? 'Task' : 'Follow-up'} • {row.priority}</div>
                     </td>
                     <td className="px-3 py-2 text-slate-700">{row.project}</td>
-                    <td className="px-3 py-2 text-slate-700">{row.whyInQueue}</td>
+                    <td className="px-3 py-2 text-slate-700">{row.pressureReason}</td>
                     <td className="px-3 py-2 text-slate-700">{row.owner}</td>
                     <td className="px-3 py-2 text-slate-700">{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : 'No due date'}</td>
                   </tr>

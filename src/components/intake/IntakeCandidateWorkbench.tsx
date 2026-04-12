@@ -29,7 +29,6 @@ interface Props {
   onSetConfirmUnsafeCreate: (value: boolean) => void;
   onApplyQuickFix: (action: IntakeQuickFixAction) => void;
   onSelectMatchId: (id: string | null) => void;
-  onSelectCandidateId: (id: string) => void;
   onSetSourceTab: (tab: SourceTab) => void;
   onSelectEvidenceLocator: (locator: string | null) => void;
 }

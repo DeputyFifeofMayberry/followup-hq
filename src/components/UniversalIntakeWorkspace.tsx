@@ -5,13 +5,14 @@ import { buildReviewerActionHints, buildWorkCandidateFieldReviews, summarizeFiel
 import { evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeReviewQueue } from '../lib/intakeReviewQueue';
 import { buildCandidateFieldSuggestions, buildIntakeReviewPlan, type IntakeQuickFixAction } from '../lib/intakeReviewPlan';
+import { buildQueueLaneView, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
 import { getIntakeFileCapability } from '../lib/intakeFileCapabilities';
 import { useAppStore } from '../store/useAppStore';
 import { IntakeBatchToolsPanel } from './intake/IntakeBatchToolsPanel';
 import { IntakeCandidateWorkbench } from './intake/IntakeCandidateWorkbench';
 import { IntakeCapturePanel } from './intake/IntakeCapturePanel';
 import { IntakeQueuePanel } from './intake/IntakeQueuePanel';
-import { queueLane, type ActionFeedback, type QueueLane, type SourceTab } from './intake/intakeWorkspaceTypes';
+import { type ActionFeedback, type QueueLane, type SourceTab } from './intake/intakeWorkspaceTypes';
 
 export function UniversalIntakeWorkspace() {
   const {
@@ -36,7 +37,7 @@ export function UniversalIntakeWorkspace() {
 
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [selectedQueueItemId, setSelectedQueueItemId] = useState<string | null>(null);
   const [activeLane, setActiveLane] = useState<QueueLane>('needs_correction');
   const [feedback, setFeedback] = useState<ActionFeedback | null>(null);
   const [manualText, setManualText] = useState('');
@@ -50,31 +51,29 @@ export function UniversalIntakeWorkspace() {
   const activeBatchIds = useMemo(() => new Set(intakeBatches.filter((batch) => batch.status !== 'archived').map((batch) => batch.id)), [intakeBatches]);
   const pendingCandidates = useMemo(() => intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending' && activeBatchIds.has(entry.batchId)), [intakeWorkCandidates, activeBatchIds]);
   const queue = useMemo(() => buildIntakeReviewQueue(pendingCandidates, intakeAssets, intakeBatches, undefined, intakeReviewerFeedback), [pendingCandidates, intakeAssets, intakeBatches, intakeReviewerFeedback]);
+  const laneView = useMemo(() => buildQueueLaneView(queue), [queue]);
+  const byLane = laneView.byLane;
+  const pendingCandidatesById = useMemo(() => new Map(pendingCandidates.map((candidate) => [candidate.id, candidate])), [pendingCandidates]);
+  const queueById = useMemo(() => new Map(queue.map((item) => [item.id, item])), [queue]);
 
-  const byLane = useMemo(() => {
-    const out: Record<QueueLane, typeof pendingCandidates> = { ready_to_create: [], needs_correction: [], link_duplicate_review: [], reference_only: [] };
-    pendingCandidates.forEach((candidate) => {
-      const item = queue.find((entry) => entry.id === candidate.id);
-      out[item ? queueLane(item) : 'needs_correction'].push(candidate);
-    });
-    return out;
-  }, [pendingCandidates, queue]);
-
-  const visibleCandidates = byLane[activeLane];
   useEffect(() => {
-    if (!visibleCandidates.length) { setSelectedCandidateId(null); return; }
-    if (!selectedCandidateId || !visibleCandidates.some((entry) => entry.id === selectedCandidateId)) setSelectedCandidateId(visibleCandidates[0].id);
-  }, [visibleCandidates, selectedCandidateId]);
+    const nextSelectedQueueId = resolveQueueSelectionId({
+      activeLane,
+      byLane,
+      previousSelectionId: selectedQueueItemId,
+    });
+    if (nextSelectedQueueId !== selectedQueueItemId) setSelectedQueueItemId(nextSelectedQueueId);
+  }, [activeLane, byLane, selectedQueueItemId]);
   useEffect(() => {
     setSelectedMatchId(null);
     setSelectedEvidenceLocator(null);
     setSelectedSourceTab('overview');
     setConfirmUnsafeCreate(false);
-  }, [selectedCandidateId]);
+  }, [selectedQueueItemId]);
 
-  const selectedCandidate = pendingCandidates.find((entry) => entry.id === selectedCandidateId) ?? null;
+  const selectedQueueItem = selectedQueueItemId ? queueById.get(selectedQueueItemId) ?? null : null;
+  const selectedCandidate = selectedQueueItem ? pendingCandidatesById.get(selectedQueueItem.id) ?? null : null;
   const selectedAsset = selectedCandidate ? intakeAssets.find((entry) => entry.id === selectedCandidate.assetId) ?? null : null;
-  const selectedQueueItem = selectedCandidate ? queue.find((entry) => entry.id === selectedCandidate.id) ?? null : null;
   const safety = selectedCandidate ? evaluateIntakeImportSafety(selectedCandidate) : null;
   const selectedFieldSummary = useMemo(() => selectedCandidate ? summarizeFieldReviews(buildWorkCandidateFieldReviews(selectedCandidate)) : null, [selectedCandidate]);
   const selectedActionHints = useMemo(() => selectedFieldSummary ? buildReviewerActionHints(selectedFieldSummary, 20) : [], [selectedFieldSummary]);
@@ -121,20 +120,16 @@ export function UniversalIntakeWorkspace() {
   const handleDecision = (decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link') => {
     if (!selectedCandidate) return;
     const selectedMatch = selectedCandidate.existingRecordMatches.find((m) => m.id === selectedMatchId) ?? selectedCandidate.existingRecordMatches[0] ?? null;
-    const currentIdx = visibleCandidates.findIndex((entry) => entry.id === selectedCandidate.id);
-    const nextInLane = currentIdx >= 0 ? visibleCandidates[currentIdx + 1] ?? visibleCandidates[currentIdx - 1] ?? null : null;
     if (decision === 'link') {
       if (!selectedMatch) return setFeedback({ tone: 'error', message: 'Select a matching record first.' });
       decideIntakeWorkCandidate(selectedCandidate.id, 'link', selectedMatch.id);
-      if (nextInLane) setSelectedCandidateId(nextInLane.id);
-      setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id}. ${nextInLane ? 'Loaded next candidate in this lane.' : 'Lane complete.'}` });
+      setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id}.` });
       return;
     }
     const unsafe = Boolean(safety && !safety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task'));
     if (unsafe && !confirmUnsafeCreate) return setFeedback({ tone: 'info', message: 'Duplicate-risk override requires confirmation first.' });
     decideIntakeWorkCandidate(selectedCandidate.id, decision, undefined, { overrideUnsafeCreate: unsafe && confirmUnsafeCreate });
-    if (nextInLane) setSelectedCandidateId(nextInLane.id);
-    setFeedback({ tone: 'success', message: `${decision.replaceAll('_', ' ')} complete. ${nextInLane ? 'Loaded next candidate in this lane.' : 'No more candidates in this lane.'}` });
+    setFeedback({ tone: 'success', message: `${decision.replaceAll('_', ' ')} complete.` });
     setConfirmUnsafeCreate(false);
   };
 
@@ -165,10 +160,10 @@ export function UniversalIntakeWorkspace() {
             <p className="mt-1 text-xs text-slate-600">The queue is your operational landing zone. The workbench is for single-candidate resolution.</p>
           </div>
           <div className="intake-intro-metrics">
-            <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {pendingCandidates.length}</span>
-            <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Needs correction {byLane.needs_correction.length}</span>
-            <span className="intake-intro-chip"><XCircle className="h-3.5 w-3.5" />Link review {byLane.link_duplicate_review.length}</span>
-            <span className="intake-intro-chip"><CheckCircle2 className="h-3.5 w-3.5" />Ready {byLane.ready_to_create.length}</span>
+            <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {laneView.pending.length}</span>
+            <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Needs correction {laneView.counts.needs_correction}</span>
+            <span className="intake-intro-chip"><XCircle className="h-3.5 w-3.5" />Link review {laneView.counts.link_duplicate_review}</span>
+            <span className="intake-intro-chip"><CheckCircle2 className="h-3.5 w-3.5" />Ready {laneView.counts.ready_to_create}</span>
           </div>
         </div>
       </section>
@@ -191,7 +186,7 @@ export function UniversalIntakeWorkspace() {
       }} />
 
       <section className="intake-core-grid intake-core-grid-staged">
-        <IntakeQueuePanel activeLane={activeLane} byLane={byLane} queue={queue} selectedCandidateId={selectedCandidateId} onSelectCandidate={(id) => setSelectedCandidateId(id)} onSetLane={setActiveLane} />
+        <IntakeQueuePanel activeLane={activeLane} byLane={byLane} laneCounts={laneView.counts} selectedCandidateId={selectedQueueItemId} onSelectCandidate={(id) => setSelectedQueueItemId(id)} onSetLane={setActiveLane} />
 
         <IntakeCandidateWorkbench
           selectedCandidate={selectedCandidate}
@@ -213,7 +208,6 @@ export function UniversalIntakeWorkspace() {
           onSetConfirmUnsafeCreate={setConfirmUnsafeCreate}
           onApplyQuickFix={applyQuickFixAction}
           onSelectMatchId={setSelectedMatchId}
-          onSelectCandidateId={setSelectedCandidateId}
           onSetSourceTab={setSelectedSourceTab}
           onSelectEvidenceLocator={setSelectedEvidenceLocator}
         />

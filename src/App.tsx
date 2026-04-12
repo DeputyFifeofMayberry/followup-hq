@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
-import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, Mail, Menu, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Building2, CheckCircle2, Command, HardHat, LoaderCircle, LockKeyhole, Mail, Menu, Search, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react';
 
 import { FollowUpDraftModal } from './components/FollowUpDraftModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
@@ -245,12 +245,14 @@ function MainApp({ session }: { session: Session }) {
   const [commandQuery, setCommandQuery] = useState('');
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [shellUtilitiesOpen, setShellUtilitiesOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutInProgress, setSignOutInProgress] = useState(false);
   const [saveAndSignOutInProgress, setSaveAndSignOutInProgress] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const commandSearchRef = useRef<HTMLInputElement | null>(null);
   const commandOpenTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shellUtilityRef = useRef<HTMLDivElement | null>(null);
   const runPrimaryAction = useCallback((actionKey: 'new-followup' | 'new-task' | 'new-work' | 'none') => {
     if (actionKey === 'new-followup') {
       openCreateModal();
@@ -309,11 +311,25 @@ function MainApp({ session }: { session: Session }) {
         event.preventDefault();
         setMobileNavOpen(false);
       }
+      if (event.key === 'Escape' && shellUtilitiesOpen) {
+        event.preventDefault();
+        setShellUtilitiesOpen(false);
+      }
       if (inInputContext) return;
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mobileNavOpen, modeConfig.workspaceMeta, runPrimaryAction, showCommand, workspace]);
+  }, [mobileNavOpen, modeConfig.workspaceMeta, runPrimaryAction, shellUtilitiesOpen, showCommand, workspace]);
+
+  useEffect(() => {
+    const onDown = (event: MouseEvent) => {
+      if (!shellUtilityRef.current?.contains(event.target as Node)) {
+        setShellUtilitiesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
 
   useEffect(() => {
     if (!showCommand) {
@@ -563,6 +579,61 @@ function MainApp({ session }: { session: Session }) {
               Open command
               <span className="nav-command-shortcut">⌘K</span>
             </button>
+            <div className="nav-system-shell" ref={shellUtilityRef}>
+              <button
+                type="button"
+                className="nav-system-trigger"
+                aria-haspopup="dialog"
+                aria-expanded={shellUtilitiesOpen}
+                onClick={() => setShellUtilitiesOpen((value) => !value)}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                <span>System</span>
+              </button>
+              {shellUtilitiesOpen ? (
+                <section className="nav-system-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Shell utilities">
+                  <div className="nav-system-panel-heading">System</div>
+                  <div className="nav-system-panel-section">
+                    <div className="nav-system-panel-label">Mode</div>
+                    <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
+                  </div>
+                  <div className="nav-system-panel-section nav-system-panel-section-controls">
+                    <SyncStatusControl />
+                    <SettingsDrawer
+                      accountLabel={accountLabel}
+                      appMode={appMode}
+                      onChangeAppMode={setAppMode}
+                      onSignOut={handleStartSignOut}
+                      signOutInProgress={signOutInProgress}
+                      reminderPreferences={reminderPreferences}
+                      reminderCenterSummary={reminderCenterSummary}
+                      pendingReminders={pendingReminders}
+                      updateReminderPreferences={updateReminderPreferences}
+                      requestReminderPermission={requestReminderPermission}
+                      runReminderEvaluation={runReminderEvaluation}
+                      testReminderNotification={testReminderNotification}
+                    />
+                  </div>
+                  <div className="nav-system-panel-section">
+                    <div className="nav-system-context-row">
+                      <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                      {workspace !== 'overview' ? (
+                        <button type="button" className="action-chip workspace-focus-link" onClick={() => {
+                          setWorkspace('overview');
+                          setMobileNavOpen(false);
+                          setShellUtilitiesOpen(false);
+                        }}>
+                          Daily focus: {dailyFocusSummaryLabel}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="nav-system-panel-section nav-system-panel-section-build">
+                    <BuildStamp />
+                  </div>
+                </section>
+              ) : null}
+            </div>
           </div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
@@ -582,36 +653,6 @@ function MainApp({ session }: { session: Session }) {
                 <strong>{currentMeta.userLabel}</strong>
               </div>
             </div>
-            <section className="app-shell-utility-bar app-shell-card app-shell-card-shell" aria-label="Shell utilities">
-              <div className="app-shell-utility-core">
-                <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-                <SyncStatusControl />
-                <SettingsDrawer
-                  accountLabel={accountLabel}
-                  appMode={appMode}
-                  onChangeAppMode={setAppMode}
-                  onSignOut={handleStartSignOut}
-                  signOutInProgress={signOutInProgress}
-                  reminderPreferences={reminderPreferences}
-                  reminderCenterSummary={reminderCenterSummary}
-                  pendingReminders={pendingReminders}
-                  updateReminderPreferences={updateReminderPreferences}
-                  requestReminderPermission={requestReminderPermission}
-                  runReminderEvaluation={runReminderEvaluation}
-                  testReminderNotification={testReminderNotification}
-                />
-                <BuildStamp />
-              </div>
-              <div className="app-shell-utility-context">
-                <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
-                {workspace !== 'overview' ? (
-                  <button type="button" className="action-chip workspace-focus-link" onClick={() => setWorkspace('overview')}>
-                    Daily focus: {dailyFocusSummaryLabel}
-                  </button>
-                ) : null}
-              </div>
-            </section>
-
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
               <div className="workspace-header-row workspace-header-row-top">
                 <div className="workspace-header-main">

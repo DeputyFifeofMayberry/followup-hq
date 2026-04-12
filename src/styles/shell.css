@@ -172,6 +172,82 @@
   color: #b9ccdf;
 }
 
+.nav-system-shell {
+  position: relative;
+}
+
+.nav-system-trigger {
+  width: 100%;
+  justify-content: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-radius: 0.72rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(100, 116, 139, 0.56);
+  background: rgba(15, 23, 42, 0.42);
+  color: #b8cadf;
+  font-size: 0.7rem;
+  font-weight: 560;
+}
+
+.nav-system-trigger:hover {
+  border-color: rgba(148, 163, 184, 0.78);
+  color: #dbe7f6;
+  background: rgba(30, 41, 59, 0.64);
+}
+
+.nav-system-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.42rem);
+  z-index: 70;
+  border-radius: 0.88rem;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.46rem;
+}
+
+.nav-system-panel-heading {
+  font-size: 0.66rem;
+  font-weight: 660;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7f95b1;
+}
+
+.nav-system-panel-section {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.nav-system-panel-label {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+}
+
+.nav-system-panel-section .segmented-control {
+  width: 100%;
+}
+
+.nav-system-panel-section-controls {
+  gap: 0.3rem;
+}
+
+.nav-system-panel-section-build .build-stamp {
+  width: 100%;
+}
+
+.nav-system-context-row {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.nav-system-context-row .workspace-meta-pill {
+  width: fit-content;
+}
+
 .app-nav-rail-support-muted .nav-section-support .nav-card:not(.nav-card-active) {
   border-color: rgba(100, 116, 139, 0.44);
   background: rgba(15, 23, 42, 0.46);
@@ -225,37 +301,6 @@
   display: grid;
   gap: 0.88rem;
   padding-top: 0.04rem;
-}
-
-.app-shell-utility-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.5rem 0.56rem;
-  border-radius: 0.9rem;
-}
-
-.app-shell-utility-core {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.36rem;
-}
-
-.app-shell-utility-core .sync-status-shell {
-  max-width: 100%;
-}
-
-.app-shell-utility-context {
-  min-width: 0;
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.34rem;
 }
 
 .workspace-header,
@@ -384,17 +429,6 @@
     display: flex;
   }
 
-  .app-shell-utility-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  .app-shell-utility-context {
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-
   .app-nav-rail {
     --nav-surface: linear-gradient(180deg, #0b1422 0%, #070f1a 100%);
     --nav-surface-border: rgba(71, 85, 105, 0.9);
@@ -505,18 +539,6 @@
   .app-compact-shell-current strong {
     font-size: 0.86rem;
     line-height: 1.2;
-  }
-
-  .app-shell-utility-core {
-    width: 100%;
-  }
-
-  .app-shell-utility-core .segmented-control {
-    width: 100%;
-  }
-
-  .app-shell-utility-core .build-stamp {
-    width: 100%;
   }
 }
 

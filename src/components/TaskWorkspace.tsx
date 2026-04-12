@@ -169,6 +169,9 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   const activeQueueLabel = taskViewOptions.find((option) => option.value === vm.view)?.label ?? 'Queue';
   const queueIntent = TASK_LANE_DEFINITIONS[vm.view].intent;
+  const queueActionLine = vm.activeFilterCount > 0
+    ? `${vm.filteredTasks.length} tasks in focus after ${vm.activeFilterCount} active filter${vm.activeFilterCount === 1 ? '' : 's'}.`
+    : `${vm.filteredTasks.length} tasks in this queue. ${vm.sortSummary || 'Sorted by due date.'}`;
   const queueStats: Array<{ label: string; value: number; tone: 'default' | 'warn' | 'danger' }> = [
     { label: 'Open', value: vm.taskSummary.open, tone: 'default' },
     { label: 'Overdue', value: vm.taskSummary.overdue, tone: vm.taskSummary.overdue > 0 ? 'danger' : 'default' },
@@ -188,6 +191,12 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
               kicker={activeQueueLabel}
               title={isMobileLike ? vm.queueSummary : queueIntent}
               supporting={!isMobileLike ? vm.queueSummary : undefined}
+              actions={
+                <div className="task-queue-summary-actions" aria-live="polite">
+                  <span className="task-queue-summary-action-line">{queueActionLine}</span>
+                  {vm.activeFilterCount > 0 ? <span className="task-queue-summary-action-chip">Filters active</span> : null}
+                </div>
+              }
               stats={(
                 <>
                   {queueStats.map((stat) => (

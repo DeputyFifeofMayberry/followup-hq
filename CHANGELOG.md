@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Tasks premium execution-lane visual pass: decisive queue hierarchy, calmer controls, and stronger action rows
+- Applied the SetPoint visual system to the Tasks execution summary so the lane now reads as a purpose-built action surface (not a generic stat strip), including upgraded summary material treatment, stronger queue-intent typography, and a live execution context line that reinforces in-focus work and active-filter state. (`src/components/TaskWorkspace.tsx`, `src/styles/workspaces.css`)
+- Refined the Tasks control layer to align with Overview/Follow Ups control grammar while staying execution-specific: search and filter surfaces now use calmer premium materials, the expanded filter panel gained clearer editorial hierarchy/support copy, and control weight was rebalanced so row scanning stays primary. (`src/components/tasks/TaskToolbar.tsx`, `src/styles/workspaces.css`)
+- Reworked the task queue/list composition with an explicit execution queue header and stronger row action hierarchy (labeled why-now and next-move lines, tuned sidecar timing emphasis, clearer selected-row anchor, and restrained quick-complete treatment) to improve fast decision scanning under pressure. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)
+- Upgraded mobile Tasks cards to emphasize urgency and immediate next action with cleaner timing hierarchy and reduced metadata clutter, keeping the compact lane premium and decisive instead of fallback-generic. (`src/components/tasks/TaskList.tsx`, `src/styles/workspaces.css`)
+- Tightened Tasks inspector visual cohesion by promoting dedicated card-level hierarchy classes for identity/focus/action/edit/context/maintenance sections and harmonizing section material boundaries with the SetPoint execution-family language. (`src/components/tasks/TaskInspectorModal.tsx`, `src/styles/workspaces.css`)
+
 ### Follow Ups premium commitments-lane visual pass: calmer pressure hierarchy, refined queue controls, and higher-signal row design
 - Applied the SetPoint visual system directly to the Follow Ups workspace summary/pressure strip so the lane now reads as a commitments surface (not generic stats chrome), including stronger editorial hierarchy, calmer branded material treatment, and clearer lane focus messaging tied to expected execution behavior. (`src/components/app/TrackerWorkspace.tsx`, `src/styles/workspaces.css`)
 - Reworked Follow Ups command composition by adding a dedicated queue-pressure rail, tuning toolbar separation rhythm, and refining control-surface weight so queue switches, filters, and maintenance controls feel intentional and premium while staying secondary to row execution scanning. (`src/components/ControlBar.tsx`, `src/styles/workspaces.css`)

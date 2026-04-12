@@ -563,7 +563,6 @@ function MainApp({ session }: { session: Session }) {
               Open command
               <span className="nav-command-shortcut">⌘K</span>
             </button>
-            <BuildStamp />
           </div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
@@ -583,6 +582,36 @@ function MainApp({ session }: { session: Session }) {
                 <strong>{currentMeta.userLabel}</strong>
               </div>
             </div>
+            <section className="app-shell-utility-bar app-shell-card app-shell-card-shell" aria-label="Shell utilities">
+              <div className="app-shell-utility-core">
+                <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
+                <SyncStatusControl />
+                <SettingsDrawer
+                  accountLabel={accountLabel}
+                  appMode={appMode}
+                  onChangeAppMode={setAppMode}
+                  onSignOut={handleStartSignOut}
+                  signOutInProgress={signOutInProgress}
+                  reminderPreferences={reminderPreferences}
+                  reminderCenterSummary={reminderCenterSummary}
+                  pendingReminders={pendingReminders}
+                  updateReminderPreferences={updateReminderPreferences}
+                  requestReminderPermission={requestReminderPermission}
+                  runReminderEvaluation={runReminderEvaluation}
+                  testReminderNotification={testReminderNotification}
+                />
+                <BuildStamp />
+              </div>
+              <div className="app-shell-utility-context">
+                <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                {workspace !== 'overview' ? (
+                  <button type="button" className="action-chip workspace-focus-link" onClick={() => setWorkspace('overview')}>
+                    Daily focus: {dailyFocusSummaryLabel}
+                  </button>
+                ) : null}
+              </div>
+            </section>
+
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">
               <div className="workspace-header-row workspace-header-row-top">
                 <div className="workspace-header-main">
@@ -594,48 +623,18 @@ function MainApp({ session }: { session: Session }) {
                     <p>{currentMeta.shellPurpose.split(".")[0]}.</p>
                   </div>
                 </div>
-                <div className="workspace-header-meta-top workspace-utility-cluster">
-                  <div className="workspace-utility-cluster-mode">
-                    <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-                  </div>
-                  <div className="workspace-utility-cluster-status">
-                    <SyncStatusControl />
-                  </div>
-                  <SettingsDrawer
-                    accountLabel={accountLabel}
-                    appMode={appMode}
-                    onChangeAppMode={setAppMode}
-                    onSignOut={handleStartSignOut}
-                    signOutInProgress={signOutInProgress}
-                    reminderPreferences={reminderPreferences}
-                    reminderCenterSummary={reminderCenterSummary}
-                    pendingReminders={pendingReminders}
-                    updateReminderPreferences={updateReminderPreferences}
-                    requestReminderPermission={requestReminderPermission}
-                    runReminderEvaluation={runReminderEvaluation}
-                    testReminderNotification={testReminderNotification}
-                  />
-                </div>
               </div>
 
-              <div className="workspace-header-row workspace-header-row-bottom">
-                <div className="workspace-header-actions">
-                  {currentMeta.primaryAction ? (
+              {currentMeta.primaryAction ? (
+                <div className="workspace-header-row workspace-header-row-bottom workspace-header-row-actions-only">
+                  <div className="workspace-header-actions">
                     <button type="button" onClick={() => runPrimaryAction(currentMeta.primaryAction?.actionKey ?? 'none')} className={currentMeta.primaryAction.primary ? 'primary-btn' : 'action-btn'}>
                       {currentMeta.primaryAction.primary ? <Sparkles className="h-4 w-4" /> : null}
                       {currentMeta.primaryAction.label}
                     </button>
-                  ) : null}
+                  </div>
                 </div>
-                <div className="workspace-header-ops">
-                  <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
-                  {workspace !== 'overview' ? (
-                    <button type="button" className="action-chip workspace-focus-link" onClick={() => setWorkspace('overview')}>
-                      Daily focus: {dailyFocusSummaryLabel}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+              ) : null}
             </header>
             <section className="workspace-body-slot">
               {workspaceBody}

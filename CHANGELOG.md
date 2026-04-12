@@ -2,6 +2,11 @@
 
 ## 2026-04-12
 
+### Overview shell hierarchy cleanup: global utility controls moved out of workspace header
+- Relocated shell-level utility controls (app mode switcher, sync trust center, settings, and build stamp) from the workspace header/nav emphasis into a dedicated persistent utility bar in the main shell chrome, so the workspace header can stay focused on workspace identity and primary page actions. (`src/App.tsx`, `src/styles/shell.css`)
+- Removed now-obsolete workspace-header utility cluster styles and related responsive overrides after the utility controls moved to the new shell-level location, reducing style drift and reinforcing a cleaner workspace/content hierarchy. (`src/styles/workspaces.css`)
+- Kept daily focus and workspace health context available from the new shell utility area so cross-workspace orientation remains accessible without presenting shell controls as Overview content. (`src/App.tsx`, `src/styles/shell.css`)
+
 ### Reports acceptance polish pass: snapshot clarity, empty-state finish, and provenance guardrails
 - Tightened Reports snapshot lifecycle messaging so draft-incompatible snapshots are explicitly marked stale (instead of being treated as latest for compare/export), no-snapshot states get intentional guidance, and compare messaging only references compatible run history. (`src/components/reports/ReportsWorkspace.tsx`, `src/lib/reports/reportRuns.ts`)
 - Finished key empty/low-data states in saved-report rails by adding explicit pinned/other empty-state guidance so users understand how to organize reusable report definitions instead of seeing blank columns. (`src/components/reports/ReportsWorkspace.tsx`)

@@ -227,6 +227,37 @@
   padding-top: 0.04rem;
 }
 
+.app-shell-utility-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0.56rem;
+  border-radius: 0.9rem;
+}
+
+.app-shell-utility-core {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.36rem;
+}
+
+.app-shell-utility-core .sync-status-shell {
+  max-width: 100%;
+}
+
+.app-shell-utility-context {
+  min-width: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+}
+
 .workspace-header,
 .workspace-body-slot {
   margin-inline: var(--workspace-shell-rail);
@@ -332,13 +363,6 @@
   flex-wrap: wrap;
 }
 
-.workspace-header-ops {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.34rem;
-  flex-wrap: wrap;
-}
-
 @media (max-width: 1279px) {
   .app-shell {
     padding: 0.7rem;
@@ -358,6 +382,17 @@
 
   .app-compact-shell-bar {
     display: flex;
+  }
+
+  .app-shell-utility-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .app-shell-utility-context {
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .app-nav-rail {
@@ -470,6 +505,18 @@
   .app-compact-shell-current strong {
     font-size: 0.86rem;
     line-height: 1.2;
+  }
+
+  .app-shell-utility-core {
+    width: 100%;
+  }
+
+  .app-shell-utility-core .segmented-control {
+    width: 100%;
+  }
+
+  .app-shell-utility-core .build-stamp {
+    width: 100%;
   }
 }
 

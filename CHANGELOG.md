@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Workspace navigation legibility hardening: split desktop rail vs mobile drawer surfaces
+- Fixed the root workspace-navigation readability issue by separating shell surface roles instead of reusing one translucent treatment in both contexts: desktop now uses a denser command-rail material and mobile uses a dedicated opaque drawer surface with its own header/close affordance. (`src/App.tsx`, `src/styles/shell.css`)
+- Reworked nav-card contrast hierarchy so inactive workspace options remain readable at rest, active workspace cards are clearly dominant, and support-section options stay quieter without fading into the rail background. (`src/styles/shell.css`)
+- Strengthened utility/footer separation and readability by hardening the command button + build stamp treatment and increasing divider contrast so the lower stack no longer visually blends into workspace navigation. (`src/styles/shell.css`)
+- Improved compact/mobile shell navigation quality with a darker overlay, stronger drawer elevation, and a clear workspace-context header to make the open menu feel like an intentional sheet above page content. (`src/App.tsx`, `src/styles/shell.css`)
+- Removed conflicting washed-out/translucent nav visual residue by replacing low-opacity rail/card styles with a consistent high-contrast SetPoint surface model across desktop and mobile states. (`src/styles/shell.css`)
+
 ### Final mobile/detail-state visual hardening: compact shell polish, queue-card coherence, and modal/inspector alignment
 - Ran a focused mobile/detail-state cleanup pass across compact shell chrome, mobile queue cards, and core detail overlays (Overview route detail, Follow Ups inspector, Tasks inspector) to remove remaining desktop-first spacing density and make compact states feel like the same SetPoint product instead of reduced fallbacks. (`src/App.tsx`, `src/styles/shell.css`, `src/styles/workspaces.css`, `src/components/followups/FollowUpInspectorModal.tsx`)
 - Refined compact shell-bar composition on smaller widths by improving spacing rhythm, reducing copy pressure, and tightening workspace-label presentation so shell-to-workspace handoff remains calm and legible in constrained layouts. (`src/App.tsx`, `src/styles/shell.css`)

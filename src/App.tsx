@@ -503,6 +503,18 @@ function MainApp({ session }: { session: Session }) {
             </div>
             <div className="app-brand-subline">{brand.shellSubline}</div>
           </div>
+          <div className="app-nav-drawer-header">
+            <div className="app-nav-drawer-label">Workspace menu</div>
+            <div className="app-nav-drawer-current">{currentMeta.userLabel}</div>
+            <button
+              type="button"
+              className="app-nav-drawer-close"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close workspace navigation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
               <section

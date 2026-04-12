@@ -11,7 +11,7 @@ import { MergeModal } from './components/MergeModal';
 import { TouchLogModal } from './components/TouchLogModal';
 import { WorkspaceRenderer } from './components/app/WorkspaceRenderer';
 import { UniversalRecordDrawer } from './components/UniversalRecordDrawer';
-import { SetPointMark, SetPointMonogram } from './components/brand';
+import { SetPointMark, SetPointMonogram, SetPointWordmark } from './components/brand';
 
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { performSignOut, type SignOutLocalPolicy } from './lib/auth/signOut';
@@ -28,6 +28,7 @@ import { isE2EMode } from './lib/e2eMode';
 import { buildDailyFocusSummary } from './lib/dailyFocus';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
+import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 import { selectOpenTaskCount } from './domains/tasks/selectors';
@@ -94,6 +95,7 @@ function LoginScreen() {
           <div className="login-brand-header">
             <div className="login-brand-badge">{brand.appName} • {brand.shellDescriptor}</div>
             <div className="login-brand-copy">
+              <SetPointWordmark decorative variant="hero" className="login-brand-wordmark" />
               <h1>Daily construction execution.</h1>
               <p>
                 Capture inbound work, triage it quickly, and move it through accountable follow-up and task execution.
@@ -124,7 +126,9 @@ function LoginScreen() {
         <section className="login-card-wrap">
           <div className="login-card">
             <div className="login-card-topbar">
-              <div className="login-chip login-chip-brand">{brand.appName}</div>
+              <div className="login-chip login-chip-brand">
+                <SetPointWordmark decorative variant="compact" />
+              </div>
               <div className="login-chip login-chip-muted">{brand.auth.secureSignInLabel}</div>
             </div>
 
@@ -490,8 +494,13 @@ function MainApp({ session }: { session: Session }) {
       <div className="app-shell-layout">
         <aside id="primary-workspace-nav" className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''} ${mobileNavOpen ? 'app-nav-rail-mobile-open' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
-            <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
-            <div className="app-brand-title app-brand-title-text">{brand.shellTitle}</div>
+            <div className="app-brand-row">
+              <SetPointMonogram decorative className="app-brand-monogram" />
+              <div className="app-brand-copy-cluster">
+                <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
+                <SetPointWordmark decorative variant="compact" className="app-brand-title app-brand-title-text" />
+              </div>
+            </div>
             <div className="app-brand-subline">{brand.shellSubline}</div>
           </div>
           <div className="nav-section-stack">
@@ -536,7 +545,14 @@ function MainApp({ session }: { session: Session }) {
               </section>
             ))}
           </div>
-          <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command</button></div>
+          <div className="nav-utility-stack">
+            <button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}>
+              <Command className="h-4 w-4" />
+              Open command
+              <span className="nav-command-shortcut">⌘K</span>
+            </button>
+            <BuildStamp />
+          </div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 
@@ -548,7 +564,7 @@ function MainApp({ session }: { session: Session }) {
               </button>
               <div className="app-compact-shell-brand">
                 <SetPointMonogram decorative className="app-compact-shell-monogram" />
-                <strong className="app-compact-shell-wordmark">{brand.shellTitle}</strong>
+                <SetPointWordmark decorative variant="compact" className="app-compact-shell-wordmark" />
               </div>
               <div className="app-compact-shell-current">
                 <span>Current workspace</span>
@@ -621,6 +637,7 @@ function MainApp({ session }: { session: Session }) {
             <div role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
               <AppModalHeader title="Command palette" onClose={() => setShowCommand(false)} />
               <AppModalBody scrollable={false}>
+            <div className="command-shell-kicker">SetPoint command center</div>
             <label className="field-block">
               <span className="field-label">Quick find command</span>
               <div className="search-field-wrap">
@@ -680,7 +697,7 @@ function MainApp({ session }: { session: Session }) {
                 </section>
               )) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}
             </div>
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <div className="command-shell-shortcuts">
               ↑/↓ move • Enter run • Esc close • Ctrl/Cmd+Shift+N quick capture
             </div>
               </AppModalBody>

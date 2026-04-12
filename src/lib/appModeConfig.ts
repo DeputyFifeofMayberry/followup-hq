@@ -114,9 +114,9 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
 
 export const appModeConfig: Record<AppMode, AppModeConfig> = {
   personal: {
-    displayName: 'Personal mode',
-    shellLabel: `${brand.appName} personal operations`,
-    shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
+    displayName: 'Personal',
+    shellLabel: `${brand.appName} workspace`,
+    shellDescription: 'Personal execution workspace.',
     supportViewsMuted: true,
     supportActionsSecondary: true,
     emphasizeCoordinationActions: false,
@@ -130,9 +130,9 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
     workspaceMeta: buildWorkspaceMeta('personal'),
   },
   team: {
-    displayName: 'Team mode',
-    shellLabel: `${brand.appName} team operations`,
-    shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
+    displayName: 'Team',
+    shellLabel: `${brand.appName} workspace`,
+    shellDescription: 'Team coordination workspace.',
     supportViewsMuted: false,
     supportActionsSecondary: false,
     emphasizeCoordinationActions: true,

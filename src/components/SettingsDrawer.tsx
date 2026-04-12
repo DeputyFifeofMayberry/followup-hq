@@ -2,6 +2,7 @@ import { Bell, BellOff, Cog, PlayCircle, Send, ShieldAlert, UserRound } from 'lu
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppMode, ReminderPermissionState } from '../types';
 import { formatDateTime } from '../lib/utils';
+import { BuildStamp } from './app/BuildStamp';
 
 interface SettingsDrawerProps {
   accountLabel: string;
@@ -119,6 +120,14 @@ export function SettingsDrawer({
             <span className="sync-status-row-label">Account</span>
             <div className="sync-status-row-detail"><UserRound className="h-3.5 w-3.5 inline mr-1" /> {accountLabel}</div>
             <button type="button" className="action-btn" onClick={onSignOut} disabled={signOutInProgress}>{signOutInProgress ? 'Signing out…' : 'Sign out'}</button>
+          </div>
+
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Build and diagnostics</span>
+            <div className="sync-status-row-detail">
+              Build metadata is kept here to avoid competing with navigation and workspace actions.
+            </div>
+            <BuildStamp />
           </div>
         </section>
       ) : null}

@@ -28,7 +28,6 @@ import { isE2EMode } from './lib/e2eMode';
 import { buildDailyFocusSummary } from './lib/dailyFocus';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { AppToastHost } from './components/app/AppToastHost';
-import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 import { selectOpenTaskCount } from './domains/tasks/selectors';
@@ -466,6 +465,7 @@ function MainApp({ session }: { session: Session }) {
   }, [hasSignOutRisk]);
   const accountLabel = session.user.email ?? 'Account';
   const dailyFocus = useMemo(() => buildDailyFocusSummary(items, tasks), [items, tasks]);
+  const dailyFocusSummaryLabel = `${dailyFocus.pressure} overdue • ${dailyFocus.dueTodayFollowUps} due today`;
 
   const executeSignOut = useCallback(async (localPolicy: SignOutLocalPolicy) => {
     if (signOutInProgress) return;
@@ -542,9 +542,6 @@ function MainApp({ session }: { session: Session }) {
             ))}
           </div>
           <div className="mt-4"><button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}><Command className="h-4 w-4" />Open command</button></div>
-          <div className="app-nav-build-slot">
-            <BuildStamp />
-          </div>
         </aside>
         {mobileNavOpen ? <button type="button" className="app-nav-overlay" aria-label="Close navigation drawer" onClick={() => setMobileNavOpen(false)} /> : null}
 
@@ -567,15 +564,20 @@ function MainApp({ session }: { session: Session }) {
               <div className="workspace-header-row workspace-header-row-top">
                 <div className="workspace-header-main">
                   <div className="workspace-label">{modeConfig.displayName}</div>
-                  <div className="workspace-header-title-row">
-                    <h1>{currentMeta.shellTitle}</h1>
-                    <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                  <div className="workspace-header-title-wrap">
+                    <div className="workspace-header-title-row">
+                      <h1>{currentMeta.shellTitle}</h1>
+                    </div>
+                    <p>{currentMeta.shellPurpose.split(".")[0]}.</p>
                   </div>
-                  <p>{currentMeta.shellPurpose.split(".")[0]}.</p>
                 </div>
-                <div className="workspace-header-meta-top workspace-header-ops">
-                  <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
-                  <SyncStatusControl />
+                <div className="workspace-header-meta-top workspace-utility-cluster">
+                  <div className="workspace-utility-cluster-mode">
+                    <SegmentedControl value={appMode} onChange={setAppMode} options={[{ value: 'personal', label: 'Personal' }, { value: 'team', label: 'Team' }]} />
+                  </div>
+                  <div className="workspace-utility-cluster-status">
+                    <SyncStatusControl />
+                  </div>
                   <SettingsDrawer
                     accountLabel={accountLabel}
                     appMode={appMode}
@@ -601,26 +603,15 @@ function MainApp({ session }: { session: Session }) {
                       {currentMeta.primaryAction.label}
                     </button>
                   ) : null}
-                  {workspace !== 'followups' && workspace !== 'tasks' ? (
-                    <button type="button" className="action-btn" onClick={() => runPrimaryAction('new-followup')} title="Quick capture (Ctrl/Cmd+Shift+N)">
-                      <Sparkles className="h-4 w-4" />
-                      Quick add
+                </div>
+                <div className="workspace-header-ops">
+                  <WorkspaceHeaderMetaPill tone="info">{currentHealthLabel}</WorkspaceHeaderMetaPill>
+                  {workspace !== 'overview' ? (
+                    <button type="button" className="action-chip workspace-focus-link" onClick={() => setWorkspace('overview')}>
+                      Daily focus: {dailyFocusSummaryLabel}
                     </button>
                   ) : null}
                 </div>
-
-                <details className="daily-focus-strip">
-                  <summary>
-                    <span className="daily-focus-label">Daily focus</span>
-                    <span className="daily-focus-summary">{dailyFocus.pressure} overdue • {dailyFocus.dueTodayFollowUps} due today</span>
-                  </summary>
-                  <div className="daily-focus-actions">
-                    <button type="button" className="action-chip" onClick={() => openTrackerView('Overdue')}>Overdue</button>
-                    <button type="button" className="action-chip" onClick={() => openTrackerView('Today')}>Due today</button>
-                    <button type="button" className="action-chip" onClick={() => openTrackerView('Needs nudge')}>Needs nudge</button>
-                    <span className="daily-focus-task-meta">Tasks: {dailyFocus.overdueTasks} overdue · {dailyFocus.dueSoonTasks} due soon</span>
-                  </div>
-                </details>
               </div>
             </header>
             <section className="workspace-body-slot">

@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Shell hierarchy redesign: calmer chrome, single-action workspace headers, and demoted utility metadata
+- Rebuilt the top-level shell hierarchy so permanent chrome now emphasizes orientation/trust/navigation instead of acting like a mixed dashboard: removed shell-level Daily Focus strip prominence, tightened header utility controls into one compact cluster (mode, sync trust, settings), and increased shell spacing/visual calm to reduce competing emphasis. (`src/App.tsx`, `src/styles/shell.css`, `src/styles/workspaces.css`, `src/styles/primitives.css`)
+- Enforced one clear workspace-level primary action by removing duplicated quick-add signaling from the global header and keeping workspace intent focused on title, concise purpose, and primary next step. (`src/App.tsx`)
+- Relocated build/debug metadata out of premium nav rail brand space into Settings under a dedicated diagnostics section, preserving technical access without competing with navigation and workspace hierarchy. (`src/components/SettingsDrawer.tsx`, `src/App.tsx`, `src/styles/shell.css`)
+- Simplified top-level mode/shell labeling to reduce chrome copy load and keep orientation language concise. (`src/lib/appModeConfig.ts`)
+
 ### SetPoint brand consolidation across auth, shell, trust messaging, and persisted UI preferences
 - Added a centralized brand source of truth for user-facing product copy and storage key conventions, including safe localStorage legacy-key migration helpers that read `followup-hq:*` keys, migrate values forward, and continue writing only `setpoint:*` keys. (`src/config/brand.ts`)
 - Completed a production branding pass across core user-visible flows: Supabase setup gate, auth/login panels and action labels, shell wordmark/navigation chrome (desktop + compact), loading/session copy, sign-out recovery messaging, runtime error fallback title, mode shell labels, and persistence/trust/reminder messaging now consistently reference SetPoint. (`src/App.tsx`, `src/main.tsx`, `src/lib/appModeConfig.ts`, `src/lib/syncStatus.ts`, `src/store/useAppStore.ts`, `src-tauri/tauri.conf.json`, `src-tauri/src/main.rs`)

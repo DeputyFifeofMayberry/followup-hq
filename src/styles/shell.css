@@ -20,12 +20,12 @@
   --workspace-shell-surface-padding: clamp(0.72rem, 0.95vw, 0.92rem);
   min-width: 0;
   display: grid;
-  gap: clamp(0.48rem, 0.75vw, 0.72rem);
+  gap: clamp(0.62rem, 0.86vw, 0.88rem);
   border-radius: calc(var(--radius-xl) - 0.1rem);
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: var(--surface-shell-pane);
   box-shadow: 0 24px 50px rgba(2, 6, 23, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  padding: clamp(0.56rem, 0.9vw, 0.86rem);
+  padding: clamp(0.62rem, 1vw, 0.94rem);
 }
 
 .app-nav-rail {
@@ -222,34 +222,13 @@
 .action-chip {
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 999px;
-  padding: 0.18rem 0.46rem;
+  padding: 0.26rem 0.56rem;
   background: rgba(241, 245, 249, 0.95);
   color: #334155;
+  font-size: 0.66rem;
   font-weight: 620;
+  line-height: 1.3;
 }
-
-.daily-focus-strip {
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  background: rgba(248, 250, 252, 0.82);
-  border-radius: 0.72rem;
-  padding: 0.1rem 0.3rem;
-  min-width: min(380px, 100%);
-  max-width: 100%;
-}
-.daily-focus-strip summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-}
-.daily-focus-strip summary::-webkit-details-marker { display: none; }
-.daily-focus-label { font-size: 0.61rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 700; }
-.daily-focus-summary { font-size: 0.64rem; color: #334155; }
-.daily-focus-actions { margin-top: 0.24rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
-.daily-focus-task-meta { font-size: 0.66rem; color: #64748b; }
 
 .action-chip:hover {
   border-color: rgba(100, 116, 139, 0.45);
@@ -351,23 +330,17 @@
 
 .app-compact-shell-wordmark { font-size: 0.85rem; font-weight: 740; color: var(--brand-wordmark-dark); }
 
-.app-nav-build-slot {
-  margin-top: 0.55rem;
-  padding-top: 0.48rem;
-  border-top: 1px solid rgba(100, 116, 139, 0.22);
-}
-
 .build-stamp {
-  border: 1px solid rgba(100, 116, 139, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 0.72rem;
-  background: rgba(15, 23, 42, 0.2);
+  background: rgba(248, 250, 252, 0.96);
   padding: 0.38rem 0.44rem;
-  color: #9fb3cd;
+  color: #475569;
 }
 
 .build-stamp[open] {
-  background: rgba(15, 23, 42, 0.32);
-  border-color: rgba(148, 163, 184, 0.42);
+  background: #f8fafc;
+  border-color: rgba(100, 116, 139, 0.5);
 }
 
 .build-stamp-summary {
@@ -382,17 +355,17 @@
 .build-stamp-line {
   font-size: 0.66rem;
   line-height: 1.2;
-  color: #b6c8dd;
+  color: #475569;
 }
 
 .build-stamp-sha {
-  color: #d8e6f6;
+  color: #0f172a;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 .build-stamp-detail {
   margin-top: 0.45rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
   padding-top: 0.4rem;
 }
 
@@ -411,18 +384,18 @@
   font-size: 0.56rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8ea3be;
+  color: #64748b;
   font-weight: 700;
 }
 
 .build-stamp-detail dd {
   margin: 0;
   font-size: 0.66rem;
-  color: #d4e2f2;
+  color: #1e293b;
 }
 
 .build-stamp-pr-title {
-  color: #a5bad3;
+  color: #475569;
 }
 
 .build-stamp-break {
@@ -431,7 +404,7 @@
 }
 
 .build-stamp-detail a {
-  color: #c8dcf6;
+  color: #1d4ed8;
   text-decoration: underline;
-  text-decoration-color: rgba(148, 163, 184, 0.45);
+  text-decoration-color: rgba(37, 99, 235, 0.38);
 }

@@ -14,6 +14,9 @@ export function OverviewDashboardPanels({
   dashboard,
   onAction,
 }: OverviewDashboardPanelsProps) {
+  const hasCommitmentPressure = Object.values(dashboard.commitments).some((metric) => metric.count > 0);
+  const hasOwnershipRisk = Object.values(dashboard.ownershipRisk).some((metric) => metric.count > 0);
+
   return (
     <div className="overview-dashboard-panel-stack">
       <section className="overview-dashboard-panel-grid overview-dashboard-panel-grid-primary" aria-label="Overview primary dashboard panels">
@@ -30,13 +33,13 @@ export function OverviewDashboardPanels({
               <span role="columnheader">Priority</span>
               <span role="columnheader">Action</span>
             </div>
-            {dashboard.nextUpRows.map((row) => (
+            {dashboard.nextUpRows.length ? dashboard.nextUpRows.map((row) => (
               <div key={row.id} className="overview-dashboard-nextup-row" role="row">
                 <div className="overview-dashboard-nextup-cell-main">
-                  <strong>{row.title}</strong>
-                  <span>{row.project} · {row.reason}</span>
+                  <strong title={row.title}>{row.title}</strong>
+                  <span title={`${row.project} · ${row.reason}`}>{row.project} · {row.reason}</span>
                 </div>
-                <div className="overview-dashboard-nextup-cell">{row.ownerLabel}</div>
+                <div className="overview-dashboard-nextup-cell" title={row.ownerLabel}>{row.ownerLabel}</div>
                 <div className="overview-dashboard-nextup-cell">{row.dueLabel}</div>
                 <div className="overview-dashboard-nextup-cell">
                   <Badge variant={priorityTone(row.priority)}>{row.priority}</Badge>
@@ -58,7 +61,11 @@ export function OverviewDashboardPanels({
                   </button>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="overview-dashboard-empty">
+                Nothing is queued for the next-up table yet. Capture new work from intake or create a work item to seed today&rsquo;s run list.
+              </p>
+            )}
           </div>
         </article>
 
@@ -98,7 +105,7 @@ export function OverviewDashboardPanels({
           <div className="overview-dashboard-hotspot-list">
             {dashboard.hotspots.length ? dashboard.hotspots.map((hotspot) => (
               <div key={hotspot.project} className="overview-dashboard-hotspot-row">
-                <strong>{hotspot.project}</strong>
+                <strong title={hotspot.project}>{hotspot.project}</strong>
                 <span>{hotspot.pressureCount} pressure · {hotspot.blockedCount} blocked · {hotspot.dueNowCount} due now · {hotspot.readyToCloseCount} closeout</span>
                 <div className="overview-dashboard-lane-actions">
                   <button type="button" className="action-btn action-btn-quiet" onClick={() => onAction({ type: 'focus_hotspot', project: hotspot.project })}>Show in queue</button>
@@ -111,7 +118,7 @@ export function OverviewDashboardPanels({
                   </button>
                 </div>
               </div>
-            )) : <p className="overview-dashboard-empty">No concentrated hotspots right now.</p>}
+            )) : <p className="overview-dashboard-empty">No concentrated hotspots right now. Pressure is spread across projects, so triage from the full queue.</p>}
           </div>
         </article>
 
@@ -120,13 +127,17 @@ export function OverviewDashboardPanels({
             <p>Today and this week</p>
             <h3>Commitment pressure timeline</h3>
           </header>
-          <div className="overview-dashboard-trend-grid">
-            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'overdue' })}><span>Overdue</span><strong>{dashboard.commitments.overdue.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueToday' })}><span>Due today</span><strong>{dashboard.commitments.dueToday.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueWithin7Days' })}><span>Due in 7 days</span><strong>{dashboard.commitments.dueWithin7Days.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'waitingTooLong' })}><span>Waiting too long</span><strong>{dashboard.commitments.waitingTooLong.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'readyToClose' })}><span>Ready to close</span><strong>{dashboard.commitments.readyToClose.count}</strong></button>
-          </div>
+          {hasCommitmentPressure ? (
+            <div className="overview-dashboard-trend-grid">
+              <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'overdue' })}><span>Overdue</span><strong>{dashboard.commitments.overdue.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueToday' })}><span>Due today</span><strong>{dashboard.commitments.dueToday.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'dueWithin7Days' })}><span>Due in 7 days</span><strong>{dashboard.commitments.dueWithin7Days.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'waitingTooLong' })}><span>Waiting too long</span><strong>{dashboard.commitments.waitingTooLong.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_commitment', key: 'readyToClose' })}><span>Ready to close</span><strong>{dashboard.commitments.readyToClose.count}</strong></button>
+            </div>
+          ) : (
+            <p className="overview-dashboard-empty">No commitment pressure in this slice. You can stay in full queue mode and move forward planning work.</p>
+          )}
         </article>
 
         <article className="overview-dashboard-panel">
@@ -134,12 +145,16 @@ export function OverviewDashboardPanels({
             <p>Ownership and data risk</p>
             <h3>Unassigned and no-date drag</h3>
           </header>
-          <div className="overview-dashboard-trend-grid">
-            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'unassigned' })}><span>Unassigned</span><strong>{dashboard.ownershipRisk.unassigned.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'noDate' })}><span>No date set</span><strong>{dashboard.ownershipRisk.noDate.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'cleanupRequired' })}><span>Cleanup required</span><strong>{dashboard.ownershipRisk.cleanupRequired.count}</strong></button>
-            <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'orphanedTask' })}><span>Orphaned tasks</span><strong>{dashboard.ownershipRisk.orphanedTask.count}</strong></button>
-          </div>
+          {hasOwnershipRisk ? (
+            <div className="overview-dashboard-trend-grid">
+              <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'unassigned' })}><span>Unassigned</span><strong>{dashboard.ownershipRisk.unassigned.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'noDate' })}><span>No date set</span><strong>{dashboard.ownershipRisk.noDate.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'cleanupRequired' })}><span>Cleanup required</span><strong>{dashboard.ownershipRisk.cleanupRequired.count}</strong></button>
+              <button type="button" onClick={() => onAction({ type: 'focus_ownership_risk', key: 'orphanedTask' })}><span>Orphaned tasks</span><strong>{dashboard.ownershipRisk.orphanedTask.count}</strong></button>
+            </div>
+          ) : (
+            <p className="overview-dashboard-empty">No ownership or data risk detected. Keep the queue clean by assigning owners and dates on new work.</p>
+          )}
         </article>
       </section>
 

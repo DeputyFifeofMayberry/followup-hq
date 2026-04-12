@@ -9,6 +9,7 @@ import {
   ExecutionLaneQueueCard,
   ExecutionToolbarSurface,
   NoMatchesState,
+  StatePanel,
   WorkspaceContentFrame,
   WorkspacePage,
   WorkspacePrimaryLayout,
@@ -76,8 +77,15 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
     const summary = activeFilterMeta?.filterSummary ?? 'Highest-priority work across follow-ups and tasks.';
     const countPhrase = activeFilterMeta ? `${searchedCount} matches` : `${searchedCount} items`;
     const visiblePhrase = searchedCount > visibleCount ? ` · showing ${visibleCount}` : '';
+    if (dashboardQueueContext) {
+      return `${activeLabel} · ${countPhrase}${visiblePhrase}. Dashboard focus: ${dashboardQueueContext.label}.`;
+    }
     return `${activeLabel} · ${countPhrase}${visiblePhrase}. ${summary}`;
-  }, [activeFilterMeta, searchedCount, visibleCount]);
+  }, [activeFilterMeta, searchedCount, visibleCount, dashboardQueueContext]);
+  const isSearchEmpty = visibleRows.length === 0 && Boolean(searchQuery);
+  const isDashboardFocusedEmpty = visibleRows.length === 0 && !searchQuery && Boolean(dashboardQueueContext);
+  const isSignalFilterEmpty = visibleRows.length === 0 && !searchQuery && selectedFilter !== 'all' && !dashboardQueueContext;
+  const isFullQueueEmpty = visibleRows.length === 0 && !searchQuery && selectedFilter === 'all' && !dashboardQueueContext;
 
   const inspectorTitle = selected ? `Route ${selected.recordType === 'task' ? 'task' : 'follow-up'}` : 'Route item';
 
@@ -198,8 +206,48 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
       </div>
 
       <section className="overview-triage-main" aria-label="Overview triage queue">
-        {visibleRows.length === 0 && searchQuery ? (
+        {isSearchEmpty ? (
           <NoMatchesState message="Nothing matches this overview search." />
+        ) : isDashboardFocusedEmpty ? (
+          <StatePanel
+            tone="empty"
+            title="This dashboard focus has no queue rows right now"
+            message={`${dashboardQueueContext?.label ?? 'Selected focus'} is currently clear. Reset to full queue or choose a different focus slice to continue triage.`}
+            action={(
+              <div className="overview-empty-state-actions">
+                <button
+                  type="button"
+                  className="action-btn action-btn-quiet"
+                  onClick={() => clearDashboardQueueFocus(true)}
+                >
+                  Reset to full queue
+                </button>
+              </div>
+            )}
+          />
+        ) : isSignalFilterEmpty ? (
+          <StatePanel
+            tone="empty"
+            title={`No ${activeFilterMeta?.label?.toLowerCase() ?? 'filtered'} rows right now`}
+            message={(activeFilterMeta?.filterSummary ?? 'This focus is currently clear.') + ' Switch back to full queue to keep triaging.'}
+            action={(
+              <div className="overview-empty-state-actions">
+                <button type="button" className="action-btn action-btn-quiet" onClick={() => selectQueueFilter('all')}>View full queue</button>
+              </div>
+            )}
+          />
+        ) : isFullQueueEmpty ? (
+          <StatePanel
+            tone="empty"
+            title="Overview queue is currently clear"
+            message="No tasks or follow-ups need triage right now. Capture new requests in intake or create a work item to keep momentum."
+            action={(
+              <div className="overview-empty-state-actions">
+                <button type="button" className="action-btn action-btn-quiet" onClick={() => onOpenWorkspace('intake')}>Open intake</button>
+                <button type="button" className="action-btn" onClick={openCreateWorkModal}>Create work item</button>
+              </div>
+            )}
+          />
         ) : (
           <OverviewTriageList
             rows={visibleRows}

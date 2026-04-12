@@ -1,11 +1,11 @@
-import type { OverviewDashboardKpi } from '../../domains/overview/hooks/useOverviewTriageViewModel';
+import type { OverviewDashboardAction, OverviewDashboardKpi } from '../../domains/overview/hooks/useOverviewTriageViewModel';
 
 interface OverviewDashboardKpisProps {
   kpis: OverviewDashboardKpi[];
-  onSelectKpi: (kpi: OverviewDashboardKpi) => void;
+  onAction: (action: OverviewDashboardAction) => void;
 }
 
-export function OverviewDashboardKpis({ kpis, onSelectKpi }: OverviewDashboardKpisProps) {
+export function OverviewDashboardKpis({ kpis, onAction }: OverviewDashboardKpisProps) {
   return (
     <section className="overview-dashboard-kpi-grid" aria-label="Overview key performance indicators">
       {kpis.map((kpi) => (
@@ -13,7 +13,7 @@ export function OverviewDashboardKpis({ kpis, onSelectKpi }: OverviewDashboardKp
           key={kpi.key}
           type="button"
           className={`overview-dashboard-kpi-card overview-dashboard-kpi-${kpi.tone}`}
-          onClick={() => onSelectKpi(kpi)}
+          onClick={() => onAction({ type: 'focus_kpi', key: kpi.key })}
         >
           <span>{kpi.label}</span>
           <strong>{kpi.value}</strong>

@@ -1,4 +1,4 @@
-import { buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../intakeWorkspaceQueueModel';
+import { buildBatchApprovalSummary, buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../intakeWorkspaceQueueModel';
 import type { IntakeQueueItem } from '../intakeReviewQueue';
 import type { IntakeDecisionPolicyResult } from '../intakeDecisionPolicy';
 
@@ -50,8 +50,8 @@ function queueItem(partial: Partial<IntakeQueueItem> & Pick<IntakeQueueItem, 'id
 }
 
 const queue = [
-  queueItem({ id: 'c-needs-2', priorityScore: 1040, readiness: 'unsafe_to_create', sortDate: '2026-04-10', missingCriticalFields: 2 }),
-  queueItem({ id: 'c-ready', bucket: 'ready_to_approve', readiness: 'ready_to_approve', priorityScore: 980, sortDate: '2026-04-11', triageCategory: 'ready_now' }),
+  queueItem({ id: 'c-needs-2', priorityScore: 1040, readiness: 'unsafe_to_create', sortDate: '2026-04-10', missingCriticalFields: 2, batchExclusionReasons: ['Core fields are medium+ confidence (type + title + project)'] }),
+  queueItem({ id: 'c-ready', bucket: 'ready_to_approve', readiness: 'ready_to_approve', priorityScore: 980, sortDate: '2026-04-11', triageCategory: 'ready_now', batchSafe: true }),
   queueItem({ id: 'c-link', bucket: 'link_duplicate_review', readiness: 'needs_link_decision', priorityScore: 1030, duplicateRisk: true }),
   queueItem({ id: 'c-needs-1', priorityScore: 1010, readiness: 'ready_after_correction', sortDate: '2026-04-12' }),
   queueItem({ id: 'c-reference', bucket: 'reference_likely', readiness: 'reference_likely', priorityScore: 900, candidateType: 'reference', triageCategory: 'reference_likely' }),
@@ -60,6 +60,7 @@ const queue = [
 
 const laneView = buildQueueLaneView(queue);
 const opsSummary = buildQueueOpsSummary(queue);
+const batchSummary = buildBatchApprovalSummary(queue);
 assert(laneView.pending.length === 5, 'lane view should only include pending queue items');
 assert(laneView.counts.needs_correction === 2, 'needs_correction count should be derived from queue readiness lanes');
 assert(laneView.counts.link_duplicate_review === 1, 'link lane count should match queue lane assignment');
@@ -67,7 +68,10 @@ assert(laneView.counts.ready_to_create === 1, 'ready lane count should match que
 assert(laneView.counts.reference_only === 1, 'reference lane count should match queue lane assignment');
 assert(laneView.byLane.needs_correction[0]?.id === 'c-needs-2', 'needs-correction lane should be sorted by workflow priority');
 assert(opsSummary.pendingCount === 5, 'ops summary pending count should use authoritative pending queue');
-assert(opsSummary.safeNowCount === 0, 'ops summary safe-now count should come from batch-safe queue semantics');
+assert(opsSummary.safeNowCount === 1, 'ops summary safe-now count should come from batch-safe queue semantics');
+assert(batchSummary.includedCount === 1, 'batch summary should include only pending batch-safe records');
+assert(batchSummary.excludedCount === 4, 'batch summary should count pending non-safe records as excluded');
+assert(batchSummary.topExclusionReasons[0]?.reason === 'Core fields are medium+ confidence (type + title + project)', 'batch summary should aggregate top exclusion reasons from queue items');
 assert(opsSummary.linkReviewCount === 1, 'ops summary link review count should map duplicate review pressure');
 assert(opsSummary.needsCorrectionCount === 2, 'ops summary correction count should map correction queue pressure');
 assert(opsSummary.referenceLikelyCount === 1, 'ops summary should include reference-likely queue pressure');
@@ -88,3 +92,15 @@ const postDecisionSelection = resolveQueueSelectionId({
   previousSelectionId: 'c-needs-2',
 });
 assert(postDecisionSelection === 'c-needs-1', 'after decision removes selected queue item, next-best item should auto-advance in active lane');
+
+const emptyCorrectionLaneSelection = resolveQueueSelectionId({
+  activeLane: 'needs_correction',
+  byLane: {
+    needs_correction: [],
+    link_duplicate_review: laneView.byLane.link_duplicate_review,
+    ready_to_create: laneView.byLane.ready_to_create,
+    reference_only: laneView.byLane.reference_only,
+  },
+  previousSelectionId: 'c-needs-1',
+});
+assert(emptyCorrectionLaneSelection === 'c-link', 'selection should fall forward to next best pending lane when active lane is empty after queue mutation');

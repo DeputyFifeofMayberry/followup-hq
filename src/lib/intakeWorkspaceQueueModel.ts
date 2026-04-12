@@ -60,15 +60,57 @@ export function buildQueueOpsSummary(queue: IntakeQueueItem[]) {
   };
 }
 
+export interface IntakeBatchApprovalSummary {
+  pendingCount: number;
+  includedCount: number;
+  excludedCount: number;
+  includedIds: string[];
+  topExclusionReasons: Array<{ reason: string; count: number }>;
+}
+
+export function buildBatchApprovalSummary(queue: IntakeQueueItem[]): IntakeBatchApprovalSummary {
+  const pending = queue.filter((item) => item.status === 'pending');
+  const included = pending.filter((item) => item.batchSafe);
+  const excluded = pending.filter((item) => !item.batchSafe);
+  const reasonCounts = new Map<string, number>();
+
+  excluded.forEach((item) => {
+    item.batchExclusionReasons.forEach((reason) => {
+      const normalized = reason.trim();
+      if (!normalized) return;
+      reasonCounts.set(normalized, (reasonCounts.get(normalized) ?? 0) + 1);
+    });
+  });
+
+  const topExclusionReasons = [...reasonCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return {
+    pendingCount: pending.length,
+    includedCount: included.length,
+    excludedCount: excluded.length,
+    includedIds: included.map((item) => item.id),
+    topExclusionReasons,
+  };
+}
+
 export function resolveQueueSelectionId(input: {
   activeLane: QueueLane;
   byLane: Record<QueueLane, IntakeQueueItem[]>;
   previousSelectionId: string | null;
 }) {
   const visible = input.byLane[input.activeLane];
-  if (!visible.length) return null;
   if (input.previousSelectionId && visible.some((item) => item.id === input.previousSelectionId)) {
     return input.previousSelectionId;
   }
-  return visible[0].id;
+  if (visible[0]) return visible[0].id;
+
+  const laneFallbackOrder: QueueLane[] = ['needs_correction', 'link_duplicate_review', 'ready_to_create', 'reference_only'];
+  for (const lane of laneFallbackOrder) {
+    const candidate = input.byLane[lane][0];
+    if (candidate) return candidate.id;
+  }
+  return null;
 }

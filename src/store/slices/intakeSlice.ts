@@ -6,7 +6,7 @@ import { addDaysIso, buildTouchEvent, createId, todayIso } from '../../lib/utils
 import { fileFromIntakeRetrySource } from '../../lib/intakeRetryCache';
 import { enrichFollowUpFromIntakeLink, enrichTaskFromIntakeLink } from '../../lib/intakeLinking';
 import type { FollowUpItem, IntakeReviewerFeedbackField, TaskItem } from '../../types';
-import type { AppStore, AppStoreActions } from '../types';
+import type { AppStore, AppStoreActions, IntakeBatchApproveResult } from '../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
 
 export function createIntakeSlice(set: SliceSet, get: SliceGet, { queuePersist }: SliceContext): Pick<AppStoreActions,
@@ -167,7 +167,48 @@ export function createIntakeSlice(set: SliceSet, get: SliceGet, { queuePersist }
       set((latest: AppStore) => recomputeAllBatchStats(latest));
       queuePersist();
     },
-    batchApproveHighConfidence: () => { const state = get(); state.intakeWorkCandidates.filter((candidate) => candidate.approvalStatus === 'pending' && evaluateIntakeImportSafety(candidate).safeToBatchApprove).forEach((candidate) => { const action = candidate.candidateType === 'task' || candidate.candidateType === 'update_existing_task' ? 'approve_task' : 'approve_followup'; state.decideIntakeWorkCandidate(candidate.id, action); }); },
+    batchApproveHighConfidence: () => {
+      const state = get();
+      const activeBatchIds = new Set(state.intakeBatches.filter((batch) => batch.status !== 'archived').map((batch) => batch.id));
+      const safeCandidates = state.intakeWorkCandidates.filter((candidate) => (
+        candidate.approvalStatus === 'pending'
+        && activeBatchIds.has(candidate.batchId)
+        && evaluateIntakeImportSafety(candidate).safeToBatchApprove
+      ));
+      const result: IntakeBatchApproveResult = {
+        attemptedCount: safeCandidates.length,
+        processedCount: 0,
+        followupsCreated: 0,
+        tasksCreated: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        remainingPendingCount: 0,
+      };
+
+      safeCandidates.forEach((candidate) => {
+        const action = candidate.candidateType === 'task' || candidate.candidateType === 'update_existing_task' ? 'approve_task' : 'approve_followup';
+        state.decideIntakeWorkCandidate(candidate.id, action);
+        const updated = get().intakeWorkCandidates.find((entry) => entry.id === candidate.id);
+        if (!updated) {
+          result.failedCount += 1;
+          return;
+        }
+        if (updated.approvalStatus !== 'imported') {
+          result.skippedCount += 1;
+          return;
+        }
+        result.processedCount += 1;
+        if (action === 'approve_task') result.tasksCreated += 1;
+        else result.followupsCreated += 1;
+      });
+
+      result.remainingPendingCount = get().intakeWorkCandidates.filter((candidate) => (
+        candidate.approvalStatus === 'pending'
+        && activeBatchIds.has(candidate.batchId)
+      )).length;
+
+      return result;
+    },
 
     ingestIntakeText: async (rawText, titleHint) => {
       const trimmed = rawText.trim();

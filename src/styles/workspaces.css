@@ -1374,6 +1374,51 @@
   background: #effcf4;
   color: #166534;
 }
+.intake-safe-approve-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  border-radius: 0.8rem;
+  padding: 0.55rem 0.62rem;
+}
+.intake-safe-approve-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.intake-safe-exclusions-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.7rem;
+  background: #fff;
+}
+.intake-safe-exclusions-panel > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.45rem 0.58rem;
+  font-size: 0.74rem;
+  font-weight: 620;
+  color: #334155;
+}
+.intake-safe-exclusions-panel > summary::-webkit-details-marker { display: none; }
+.intake-safe-exclusions-body {
+  padding: 0 0.58rem 0.55rem;
+}
+.intake-batch-receipt-card {
+  border: 1px solid #bfdbfe;
+  border-radius: 0.8rem;
+  background: #f8fbff;
+  padding: 0.6rem 0.68rem;
+}
+.intake-batch-receipt-grid {
+  display: grid;
+  gap: 0.34rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  font-size: 0.75rem;
+  color: #0f172a;
+}
 .intake-lane-panel,
 .intake-workbench-panel,
 .intake-source-panel {
@@ -1502,6 +1547,7 @@
   .intake-core-grid,
   .intake-core-grid-staged { grid-template-columns: 1fr; }
   .intake-intro-metrics { justify-content: flex-start; }
+  .intake-batch-receipt-grid { grid-template-columns: 1fr; }
   .intake-lane-panel,
   .intake-workbench-panel,
   .intake-source-panel {

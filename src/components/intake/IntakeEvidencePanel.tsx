@@ -7,6 +7,7 @@ interface Props {
   selectedCandidate: IntakeWorkCandidate | null;
   selectedSourceTab: SourceTab;
   selectedEvidenceLocator: string | null;
+  evidenceFocusLabel?: string | null;
   onSetTab: (tab: SourceTab) => void;
   onSelectLocator: (locator: string | null) => void;
 }
@@ -20,6 +21,7 @@ export function IntakeEvidencePanel(props: Props) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Evidence</div>
           <div className="text-xs text-slate-600">Inspect source only when needed for decision confidence.</div>
         </div>
+        {props.evidenceFocusLabel ? <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => props.onSetTab('evidence')}>Focused: {props.evidenceFocusLabel}</button> : null}
       </div>
       <div className="mb-2 flex flex-wrap gap-1.5">{tabs.map((tab) => <button key={tab} className={`action-btn !px-2 !py-1 text-xs ${props.selectedSourceTab === tab ? '!border-sky-300 !bg-sky-50 !text-sky-700' : ''}`} onClick={() => props.onSetTab(tab)}>{tab}</button>)}</div>
       {props.selectedAsset ? <div className="space-y-2 text-xs max-h-[320px] overflow-auto">

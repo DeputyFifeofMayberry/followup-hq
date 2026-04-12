@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Intake full-review corrective loop redesign: blocker-driven edits, contextual evidence, integrated duplicate linking, and persistent decision controls
+- Reworked the full-review workbench composition from a long detached stack into a correction loop: blocker rows are now actionable and can jump reviewers directly into the exact editor target (title/type/project/owner/due date/next step or duplicate review) with active-target highlighting, reducing blocker-to-form hunting during deep review. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/components/intake/intakeWorkspaceTypes.ts`, `src/styles/workspaces.css`)
+- Restructured the full-review editor into high-signal groups (`Required for create-new`, `Link / duplicate decision`, `Supporting detail`) so required corrections and duplicate pressure sit in one coherent path near the decision point instead of being spread across disconnected cards. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)
+- Added contextual evidence focus plumbing so blocker-driven evidence inspection carries field + locator context into the evidence panel, keeps the selected locator visible, and supports rapid return to correction flow. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/components/intake/IntakeEvidencePanel.tsx`, `src/components/intake/intakeWorkspaceTypes.ts`)
+- Added a sticky full-review decision rail inside the modal body so final actions (create/link/reference) stay immediately available through long correction sessions, with blocked-state messaging kept adjacent to those actions. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)
+- Expanded targeted intake workflow checks for blocker-to-editor target mapping and contextual evidence focus descriptors to protect the new corrective-loop interaction contract. (`src/lib/__tests__/intakeWorkspaceDecisionBar.test.ts`)
+
 ### Intake two-speed interaction model: compact triage by default + explicit full review mode
 - Re-architected the selected-item Intake surface into a true two-speed flow: the default panel now stays compact and triage-first (identity, readiness, recommendation, blocker/duplicate pressure cues, and primary decision actions) instead of rendering the full correction workbench inline for every item. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)
 - Moved deep correction/edit/evidence workflows behind an explicit “Open full review” action that launches a dedicated full-review modal with field correction tooling, blocker walkthrough, duplicate comparison, and evidence inspection preserved in one coherent deep mode. (`src/components/intake/IntakeCandidateWorkbench.tsx`)

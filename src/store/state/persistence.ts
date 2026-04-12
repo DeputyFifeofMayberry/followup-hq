@@ -7,6 +7,7 @@ export type PersistableAppState = Pick<AppBusinessState, 'items' | 'contacts' | 
   savedReportDefinitions: PersistedPayload['auxiliary']['savedReportDefinitions'];
   activeReportDefinitionId: PersistedPayload['auxiliary']['activeReportDefinitionId'];
   lastOpenedReportDefinitionId: PersistedPayload['auxiliary']['lastOpenedReportDefinitionId'];
+  reportRuns: PersistedPayload['auxiliary']['reportRuns'];
   followUpFilters: FollowUpAdvancedFilters;
   taskWorkspaceSession: PersistedPayload['auxiliary']['taskWorkspaceSession'];
   directoryWorkspaceSession: PersistedPayload['auxiliary']['directoryWorkspaceSession'];
@@ -48,6 +49,7 @@ export function buildPersistedPayload(state: PersistableAppState): PersistedPayl
       savedReportDefinitions: state.savedReportDefinitions,
       activeReportDefinitionId: state.activeReportDefinitionId,
       lastOpenedReportDefinitionId: state.lastOpenedReportDefinitionId,
+      reportRuns: state.reportRuns,
       followUpFilters: state.followUpFilters,
       taskWorkspaceSession: state.taskWorkspaceSession,
       directoryWorkspaceSession: state.directoryWorkspaceSession,

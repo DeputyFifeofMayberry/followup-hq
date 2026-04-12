@@ -196,6 +196,7 @@ export function createMetaSlice(
           activeReportDefinitionId: hydratedActiveReportId,
           lastOpenedReportDefinitionId: payload.auxiliary.lastOpenedReportDefinitionId ?? hydratedActiveReportId,
           reportDraft: hydratedActiveReport ? toReportDraftState(hydratedActiveReport) : defaultReportDraftState,
+          reportRuns: payload.auxiliary.reportRuns ?? [],
           followUpFilters: payload.auxiliary.followUpFilters ?? defaultFollowUpFilters,
           taskWorkspaceSession: {
             ...defaultTaskWorkspaceSession,

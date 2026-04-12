@@ -105,6 +105,7 @@ export interface AppAuxiliaryState {
   savedReportDefinitions?: AppSnapshot['savedReportDefinitions'];
   activeReportDefinitionId?: AppSnapshot['activeReportDefinitionId'];
   lastOpenedReportDefinitionId?: AppSnapshot['lastOpenedReportDefinitionId'];
+  reportRuns?: AppSnapshot['reportRuns'];
   followUpFilters?: AppSnapshot['followUpFilters'];
   taskWorkspaceSession?: AppSnapshot['taskWorkspaceSession'];
   directoryWorkspaceSession?: AppSnapshot['directoryWorkspaceSession'];
@@ -267,6 +268,7 @@ function buildFallbackSnapshot(): AppSnapshot {
     savedReportDefinitions: [],
     activeReportDefinitionId: null,
     lastOpenedReportDefinitionId: null,
+    reportRuns: [],
     followUpFilters: undefined,
     taskWorkspaceSession: undefined,
     directoryWorkspaceSession: undefined,
@@ -309,6 +311,7 @@ function fromSnapshot(snapshot: AppSnapshot): PersistedPayload {
       savedReportDefinitions: snapshot.savedReportDefinitions ?? [],
       activeReportDefinitionId: snapshot.activeReportDefinitionId ?? null,
       lastOpenedReportDefinitionId: snapshot.lastOpenedReportDefinitionId ?? null,
+      reportRuns: snapshot.reportRuns ?? [],
       followUpFilters: snapshot.followUpFilters,
       followUpColumns: snapshot.followUpColumns,
       savedFollowUpViews: snapshot.savedFollowUpViews ?? [],

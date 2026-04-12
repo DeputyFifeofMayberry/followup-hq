@@ -1,5 +1,5 @@
-import { BarChart3, Copy, Download, FilePlus2, FileSpreadsheet, Pin, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { BarChart3, Clock3, Copy, Download, FilePlus2, FileSpreadsheet, History, Pin, RefreshCw, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
 import type { WorkspaceKey } from '../../lib/appModeConfig';
 import { useShallow } from 'zustand/react/shallow';
 import { ExportWorkspace } from '../ExportWorkspace';
@@ -16,6 +16,8 @@ import { DataQualityReport } from './DataQualityReport';
 import { useAppStore } from '../../store/useAppStore';
 import type { ReportDraftState } from '../../types';
 import { ReportTrustPanel } from './ReportTrustPanel';
+import { buildReportRunSummaryFromHeader } from '../../lib/reports/reportRuns';
+import type { ReportHeaderSummary } from '../../lib/reports/contracts';
 
 const SCOPE_MODE_OPTIONS: Array<{ value: ReportDraftState['scope']['mode']; label: string; helper: string }> = [
   { value: 'trusted_live_only', label: 'Trusted live only', helper: 'Strict execution-ready view.' },
@@ -48,6 +50,9 @@ export function ReportsWorkspace({
     deleteSavedReportDefinition,
     duplicateSavedReportDefinition,
     pinSavedReportDefinition,
+    reportRuns,
+    recordReportRun,
+    recordReportRunExport,
   } = useAppStore(useShallow((s) => ({
     items: s.items,
     tasks: s.tasks,
@@ -65,6 +70,9 @@ export function ReportsWorkspace({
     deleteSavedReportDefinition: s.deleteSavedReportDefinition,
     duplicateSavedReportDefinition: s.duplicateSavedReportDefinition,
     pinSavedReportDefinition: s.pinSavedReportDefinition,
+    reportRuns: s.reportRuns,
+    recordReportRun: s.recordReportRun,
+    recordReportRunExport: s.recordReportRunExport,
   })));
 
   const activeDefinition = savedReportDefinitions.find((entry) => entry.id === activeReportDefinitionId) ?? savedReportDefinitions[0];
@@ -74,7 +82,7 @@ export function ReportsWorkspace({
   const pinnedReports = savedReportDefinitions.filter((entry) => entry.isPinned);
   const otherReports = savedReportDefinitions.filter((entry) => !entry.isPinned);
 
-  const { content, activeTrust } = useMemo(() => {
+  const { content, activeTrust, activeHeader } = useMemo((): { content: ReactNode; activeTrust: ReportHeaderSummary['trust']; activeHeader: ReportHeaderSummary } => {
     switch (reportDraft.reportType) {
       case 'executive_snapshot': {
         const result = runReport('executive_snapshot', reportContext);
@@ -88,6 +96,7 @@ export function ReportsWorkspace({
             />
           ),
           activeTrust: result.header.trust,
+          activeHeader: result.header,
         };
       }
       case 'project_health': {
@@ -101,6 +110,7 @@ export function ReportsWorkspace({
             />
           ),
           activeTrust: result.header.trust,
+          activeHeader: result.header,
         };
       }
       case 'owner_workload': {
@@ -114,6 +124,7 @@ export function ReportsWorkspace({
             />
           ),
           activeTrust: result.header.trust,
+          activeHeader: result.header,
         };
       }
       case 'followup_risk': {
@@ -127,6 +138,7 @@ export function ReportsWorkspace({
             />
           ),
           activeTrust: result.header.trust,
+          activeHeader: result.header,
         };
       }
       case 'data_quality': {
@@ -140,13 +152,55 @@ export function ReportsWorkspace({
             />
           ),
           activeTrust: result.header.trust,
+          activeHeader: result.header,
         };
       }
       default:
-        return { content: null, activeTrust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) } };
+        return {
+          content: null,
+          activeTrust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) },
+          activeHeader: {
+            title: reportMeta.label,
+            subtitle: reportMeta.description,
+            scope: reportContext.scope,
+            trust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) },
+            highlights: [],
+          },
+        };
     }
-  }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, reportDraft.reportType, setReportDraft]);
+  }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, reportDraft.reportType, reportMeta.description, reportMeta.label, setReportDraft]);
 
+  const activeDefinitionRuns = useMemo(
+    () => (activeDefinition
+      ? reportRuns
+        .filter((run) => run.reportDefinitionId === activeDefinition.id)
+        .sort((a, b) => new Date(b.ranAt).getTime() - new Date(a.ranAt).getTime())
+      : []),
+    [activeDefinition, reportRuns],
+  );
+  const latestRun = activeDefinitionRuns[0];
+  const previousRun = activeDefinitionRuns[1];
+  const handleRecordRun = () => {
+    if (!activeDefinition) return;
+    recordReportRun({
+      reportDefinitionId: activeDefinition.id,
+      reportNameSnapshot: activeDefinition.name,
+      reportType: reportDraft.reportType,
+      scopeMode: reportDraft.scope.mode,
+      summary: buildReportRunSummaryFromHeader(activeHeader),
+    });
+  };
+
+  const exportProvenance = latestRun ? {
+    reportName: latestRun.reportNameSnapshot,
+    reportTypeLabel: reportMeta.label,
+    scopeModeLabel: activeTrust.scopeReceipt.modeLabel,
+    ranAt: latestRun.ranAt,
+    includedCount: latestRun.summary.includedCount,
+    excludedCount: latestRun.summary.excludedCount,
+    confidenceLabel: latestRun.summary.confidenceLabel,
+    comparedToPreviousRun: Boolean(latestRun.deltaFromPrevious),
+  } : undefined;
 
 
   return (
@@ -161,6 +215,7 @@ export function ReportsWorkspace({
           />
           <div className="flex flex-wrap gap-2">
             <button type="button" className="action-btn" onClick={() => createSavedReportDefinition({ name: 'New Report', draft: reportDraft })}><FilePlus2 className="h-4 w-4" />Create new report</button>
+            <button type="button" className="action-btn" onClick={handleRecordRun}><RefreshCw className="h-4 w-4" />Refresh snapshot</button>
             <div className="action-btn pointer-events-none"><Download className="h-4 w-4" />Export controls below</div>
             <div className="action-btn pointer-events-none"><FileSpreadsheet className="h-4 w-4" />{reportMeta.label}</div>
           </div>
@@ -271,6 +326,51 @@ export function ReportsWorkspace({
       </AppShellCard>
 
       <ReportTrustPanel trust={activeTrust} />
+      <AppShellCard surface="inspector" className="space-y-3">
+        <SectionHeader title="Run history" subtitle="Durable report snapshots with compare-to-last-run and export linkage." compact />
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Latest run</div>
+            <div className="mt-2 text-sm font-semibold text-slate-950">{latestRun ? new Date(latestRun.ranAt).toLocaleString() : 'No run yet'}</div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Included delta</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.includedCountDelta >= 0 ? '+' : ''}${latestRun.deltaFromPrevious.includedCountDelta}` : '—'}</div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Excluded delta</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.excludedCountDelta >= 0 ? '+' : ''}${latestRun.deltaFromPrevious.excludedCountDelta}` : '—'}</div>
+          </div>
+          <div className="rounded-2xl bg-amber-50 p-4">
+            <div className="text-xs uppercase tracking-[0.12em] text-amber-700">Confidence change</div>
+            <div className="mt-2 text-sm font-semibold text-slate-950">{latestRun?.deltaFromPrevious ? `${latestRun.deltaFromPrevious.previousConfidenceTier} → ${latestRun.deltaFromPrevious.currentConfidenceTier}` : latestRun?.summary.confidenceLabel ?? '—'}</div>
+          </div>
+        </div>
+        {latestRun?.deltaFromPrevious?.metricDeltas.length ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+            <div className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"><Clock3 className="h-3.5 w-3.5" />Top metric changes since prior run</div>
+            <ul className="space-y-1">
+              {latestRun.deltaFromPrevious.metricDeltas.slice(0, 5).map((metric) => (
+                <li key={metric.key}>• {metric.label}: {metric.currentValue} ({metric.delta >= 0 ? '+' : ''}{metric.delta})</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500"><History className="h-3.5 w-3.5" />Recent runs</div>
+          {activeDefinitionRuns.length ? (
+            <ul className="space-y-2 text-sm text-slate-700">
+              {activeDefinitionRuns.slice(0, 5).map((run) => (
+                <li key={run.id} className="rounded-xl bg-slate-50 px-3 py-2">
+                  <div className="font-medium text-slate-900">{new Date(run.ranAt).toLocaleString()} · {run.summary.includedCount}/{run.summary.excludedCount} · {run.summary.confidenceLabel}</div>
+                  <div className="mt-1 text-xs text-slate-500">{run.exportRecords[0] ? `Latest export: ${run.exportRecords[0].fileName}` : 'No export linked yet.'}</div>
+                </li>
+              ))}
+            </ul>
+          ) : <div className="text-sm text-slate-500">No run history yet. Use “Refresh snapshot” to capture this report state.</div>}
+          {previousRun ? <div className="mt-2 text-xs text-slate-500">Comparing against run from {new Date(previousRun.ranAt).toLocaleString()}.</div> : null}
+        </div>
+      </AppShellCard>
 
       {content}
 
@@ -278,6 +378,17 @@ export function ReportsWorkspace({
         <ExportWorkspace
           embedded
           reportTrustSummary={activeTrust}
+          reportProvenance={exportProvenance}
+          onExported={({ format, fileName }) => {
+            if (!latestRun) return;
+            recordReportRunExport({
+              runId: latestRun.id,
+              format,
+              fileName,
+              detailLevel: reportDraft.export.detailLevel,
+              includeSummarySheet: reportDraft.export.includeSummarySheet,
+            });
+          }}
         />
       </section>
     </WorkspacePage>

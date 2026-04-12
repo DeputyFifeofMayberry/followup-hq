@@ -39,6 +39,7 @@ import type {
   ExecutionSectionKey,
   ExecutionRouteTarget,
   ReportDraftPatch,
+  ReportRunRecord,
   SavedReportDefinition,
 } from '../types';
 import type { WorkflowValidationResult } from '../lib/workflowPolicy';
@@ -208,6 +209,10 @@ export interface AppStoreActions {
   saveActiveReportDraft: () => void;
   saveReportDraftAsNew: (name: string) => string | null;
   revertActiveReportDraft: () => void;
+  recordReportRun: (input: Omit<ReportRunRecord, 'id' | 'ranAt' | 'deltaFromPrevious' | 'exportRecords'>) => string;
+  recordReportRunExport: (input: { runId: string; format: 'xlsx' | 'csv'; fileName: string; detailLevel: 'simple' | 'standard' | 'detailed'; includeSummarySheet: boolean }) => void;
+  getReportRunHistoryForDefinition: (definitionId: string, limit?: number) => ReportRunRecord[];
+  getMostRecentReportRunForDefinition: (definitionId: string) => ReportRunRecord | undefined;
   setExecutionSelectedId: (id: string | null) => void;
   launchExecutionIntent: (intent: Omit<ExecutionIntent, 'createdAt'>) => void;
   clearExecutionIntent: () => void;

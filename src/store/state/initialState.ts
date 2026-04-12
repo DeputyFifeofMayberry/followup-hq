@@ -74,6 +74,7 @@ export const initialUiState: AppUiState = {
   activeReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
   lastOpenedReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
   reportDraft: defaultReportDraftState,
+  reportRuns: [],
   executionIntent: null,
   executionSelectedId: null,
   recordDrawerRef: null,

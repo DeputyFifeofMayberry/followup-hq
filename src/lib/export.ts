@@ -55,6 +55,17 @@ export interface ExportOptions {
   tasks: TaskExportFilters;
 }
 
+export interface ExportProvenance {
+  reportName: string;
+  reportTypeLabel: string;
+  scopeModeLabel: string;
+  ranAt: string;
+  includedCount: number;
+  excludedCount: number;
+  confidenceLabel: string;
+  comparedToPreviousRun: boolean;
+}
+
 export const FOLLOW_UP_STATUS_OPTIONS: FollowUpStatus[] = [
   'Needs action',
   'Waiting on external',
@@ -318,8 +329,9 @@ function buildSummaryRows(
   followUps: FollowUpItem[],
   tasks: TaskItem[],
   options: ExportOptions,
+  provenance?: ExportProvenance,
 ): Array<Record<string, string | number>> {
-  return [
+  const rows: Array<Record<string, string | number>> = [
     { Metric: 'Generated At', Value: formatDateTime(new Date().toISOString()) },
     { Metric: 'Dataset', Value: options.dataset },
     { Metric: 'Detail Level', Value: options.detailLevel },
@@ -338,14 +350,27 @@ function buildSummaryRows(
     { Metric: 'Blocked Tasks', Value: tasks.filter((task) => task.status === 'Blocked').length },
     { Metric: 'Linked Tasks', Value: tasks.filter((task) => task.linkedFollowUpId).length },
   ];
+  if (provenance) {
+    rows.unshift(
+      { Metric: 'Compared To Previous Run', Value: provenance.comparedToPreviousRun ? 'Yes' : 'No' },
+      { Metric: 'Confidence', Value: provenance.confidenceLabel },
+      { Metric: 'Included Records', Value: provenance.includedCount },
+      { Metric: 'Excluded Records', Value: provenance.excludedCount },
+      { Metric: 'Run Time', Value: formatDateTime(provenance.ranAt) },
+      { Metric: 'Scope Mode', Value: provenance.scopeModeLabel },
+      { Metric: 'Report Type', Value: provenance.reportTypeLabel },
+      { Metric: 'Report Name', Value: provenance.reportName },
+    );
+  }
+  return rows;
 }
 
-export async function exportWorkbookFile(followUps: FollowUpItem[], tasks: TaskItem[], options: ExportOptions): Promise<string> {
+export async function exportWorkbookFile(followUps: FollowUpItem[], tasks: TaskItem[], options: ExportOptions, provenance?: ExportProvenance): Promise<string> {
   const xlsx = await loadXlsx();
   const workbook = xlsx.utils.book_new();
 
   if (options.includeSummarySheet) {
-    appendSheet(xlsx, workbook, 'Summary', buildSummaryRows(followUps, tasks, options));
+    appendSheet(xlsx, workbook, 'Summary', buildSummaryRows(followUps, tasks, options, provenance));
   }
 
   if (options.dataset === 'followUps' || options.dataset === 'combined') {
@@ -379,6 +404,20 @@ export async function exportCsvFile(rows: Array<Record<string, string | number>>
   anchor.click();
   URL.revokeObjectURL(url);
   return fileName;
+}
+
+export function buildCsvProvenanceRows(provenance?: ExportProvenance): Array<Record<string, string | number>> {
+  if (!provenance) return [];
+  return [
+    { Section: 'Report Name', Value: provenance.reportName },
+    { Section: 'Report Type', Value: provenance.reportTypeLabel },
+    { Section: 'Scope Mode', Value: provenance.scopeModeLabel },
+    { Section: 'Run Time', Value: formatDateTime(provenance.ranAt) },
+    { Section: 'Included Records', Value: provenance.includedCount },
+    { Section: 'Excluded Records', Value: provenance.excludedCount },
+    { Section: 'Confidence', Value: provenance.confidenceLabel },
+    { Section: 'Compared To Previous Run', Value: provenance.comparedToPreviousRun ? 'Yes' : 'No' },
+  ];
 }
 
 export function buildCsvRows(

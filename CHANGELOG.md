@@ -2,6 +2,11 @@
 
 ## 2026-04-12
 
+### Shell utility de-emphasis: moved global controls into nav-rail footer system panel
+- Removed the full-width shell utility bar from above the workspace header so Overview and all workspace content now start directly with page-level chrome instead of global system controls. (`src/App.tsx`, `src/styles/shell.css`)
+- Relocated global shell utilities into a low-attention **System** entry point in the left-nav utility footer (and the same footer inside the mobile nav drawer), with a compact popover containing app mode, sync trust control, settings entry point, workspace health/daily focus context, and build metadata. (`src/App.tsx`, `src/styles/shell.css`)
+- Kept healthy sync/save state and build info globally reachable but visually quieter by tucking both into the footer popover, while preserving immediate access to detailed sync diagnostics and settings actions from any workspace. (`src/App.tsx`, `src/styles/shell.css`, `src/components/SyncStatusControl.tsx`, `src/components/SettingsDrawer.tsx`, `src/components/app/BuildStamp.tsx`)
+
 ### Overview hydration reliability fix: reactive queue subscription on first load
 - Fixed the Overview first-refresh empty-state bug at the data-flow root by replacing function-reference subscriptions (`getUnifiedQueue`) with reactive subscriptions to queue-producing store inputs (`items`, `tasks`, `queuePreset`, `executionFilter`, `executionSort`), then materializing queue data through a shared selector utility. This ensures Overview recomputes immediately when hydration writes real data into the store. (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/store/selectors/unifiedQueue.ts`, `src/store/slices/executionViewSlice.ts`)
 - Applied the same reactive queue-materialization path to the shared execution queue view-model so queue consumers consistently subscribe to underlying queue state rather than relying on imperative getter timing. (`src/domains/shared/hooks/useExecutionQueueViewModel.ts`, `src/store/selectors/unifiedQueue.ts`)

@@ -24,6 +24,28 @@ export function laneLabel(lane: QueueLane) {
   return 'Reference only';
 }
 
+export function laneDescription(lane: QueueLane) {
+  if (lane === 'ready_to_create') return 'Clean records that are safe to move now.';
+  if (lane === 'link_duplicate_review') return 'Potential overlap that needs existing-record verification first.';
+  if (lane === 'needs_correction') return 'Missing or conflicting fields that block safe decisions.';
+  return 'Informational records likely best stored without creating new work.';
+}
+
+export function recommendedActionCue(action: string) {
+  if (action === 'create_new') return 'Create new work';
+  if (action === 'link_existing') return 'Link existing record';
+  if (action === 'save_reference') return 'Route as reference';
+  if (action === 'reject') return 'Reject candidate';
+  return 'Manual review';
+}
+
+export function triageStateTone(item: Pick<IntakeQueueItem, 'readiness' | 'batchSafe'>): 'safe' | 'correction' | 'link' | 'reference' {
+  if (item.readiness === 'reference_likely') return 'reference';
+  if (item.readiness === 'needs_link_decision') return 'link';
+  if (item.readiness === 'ready_to_approve' && item.batchSafe) return 'safe';
+  return 'correction';
+}
+
 export function decisionLabel(mode: 'create_new_task' | 'create_new_followup' | 'link_existing' | 'duplicate_update_review' | 'save_reference' | 'reject') {
   if (mode === 'create_new_followup') return 'Create follow-up';
   if (mode === 'create_new_task') return 'Create task';

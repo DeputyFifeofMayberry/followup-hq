@@ -1369,6 +1369,11 @@
   font-size: 0.68rem;
   color: #41546b;
 }
+.intake-intro-chip-safe {
+  border-color: #86efac;
+  background: #effcf4;
+  color: #166534;
+}
 .intake-lane-panel,
 .intake-workbench-panel,
 .intake-source-panel {
@@ -1413,6 +1418,57 @@
 }
 .intake-lane-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.34rem; }
 .intake-lane-tab { justify-content: flex-start; }
+.intake-lane-tab-ops {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+}
+.intake-lane-tab-ops.is-active {
+  border-color: #7dd3fc !important;
+  background: #f0f9ff !important;
+  color: #0c4a6e !important;
+}
+.intake-lane-tab-title { font-weight: 650; }
+.intake-lane-tab-subtitle {
+  font-size: 0.64rem;
+  line-height: 1.25;
+  color: #64748b;
+  white-space: normal;
+}
+.intake-queue-row {
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.55rem;
+}
+.intake-queue-row.is-selected {
+  border-color: #7dd3fc;
+  box-shadow: inset 0 0 0 1px #e0f2fe;
+  background: #f8fcff;
+}
+.intake-queue-row-safe { border-left: 4px solid #22c55e; }
+.intake-queue-row-correction { border-left: 4px solid #fb7185; }
+.intake-queue-row-link { border-left: 4px solid #f59e0b; }
+.intake-queue-row-reference { border-left: 4px solid #94a3b8; }
+.intake-queue-ready-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.06rem 0.42rem;
+  font-size: 0.62rem;
+  color: #475569;
+  background: #f8fafc;
+}
+.intake-queue-ready-pill.is-safe {
+  border-color: #86efac;
+  background: #effcf4;
+  color: #166534;
+}
+.intake-queue-signal-grid {
+  display: grid;
+  gap: 0.2rem;
+}
 .intake-guidance-card {
   border: 1px solid var(--border-default);
   border-radius: 0.78rem;
@@ -1464,6 +1520,10 @@
   gap: 0.3rem;
 }
 .intake-workbench-summary-card { background: #f8fbff; border-color: var(--border-strong); }
+.intake-workbench-summary-card-safe { border-color: #86efac; background: #f2fdf6; }
+.intake-workbench-summary-card-link { border-color: #fcd34d; background: #fffbeb; }
+.intake-workbench-summary-card-reference { border-color: #cbd5e1; background: #f8fafc; }
+.intake-workbench-summary-card-correction { border-color: #fecdd3; background: #fff7f8; }
 .intake-workbench-summary-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .intake-confidence-pill {
   border-radius: 999px;

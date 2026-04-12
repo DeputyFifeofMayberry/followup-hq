@@ -1,4 +1,4 @@
-import { buildQueueLaneView, resolveQueueSelectionId } from '../intakeWorkspaceQueueModel';
+import { buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../intakeWorkspaceQueueModel';
 import type { IntakeQueueItem } from '../intakeReviewQueue';
 import type { IntakeDecisionPolicyResult } from '../intakeDecisionPolicy';
 
@@ -59,12 +59,18 @@ const queue = [
 ];
 
 const laneView = buildQueueLaneView(queue);
+const opsSummary = buildQueueOpsSummary(queue);
 assert(laneView.pending.length === 5, 'lane view should only include pending queue items');
 assert(laneView.counts.needs_correction === 2, 'needs_correction count should be derived from queue readiness lanes');
 assert(laneView.counts.link_duplicate_review === 1, 'link lane count should match queue lane assignment');
 assert(laneView.counts.ready_to_create === 1, 'ready lane count should match queue lane assignment');
 assert(laneView.counts.reference_only === 1, 'reference lane count should match queue lane assignment');
 assert(laneView.byLane.needs_correction[0]?.id === 'c-needs-2', 'needs-correction lane should be sorted by workflow priority');
+assert(opsSummary.pendingCount === 5, 'ops summary pending count should use authoritative pending queue');
+assert(opsSummary.safeNowCount === 0, 'ops summary safe-now count should come from batch-safe queue semantics');
+assert(opsSummary.linkReviewCount === 1, 'ops summary link review count should map duplicate review pressure');
+assert(opsSummary.needsCorrectionCount === 2, 'ops summary correction count should map correction queue pressure');
+assert(opsSummary.referenceLikelyCount === 1, 'ops summary should include reference-likely queue pressure');
 
 const defaultSelection = resolveQueueSelectionId({ activeLane: 'needs_correction', byLane: laneView.byLane, previousSelectionId: null });
 assert(defaultSelection === 'c-needs-2', 'default selection should be highest-priority queue item in active lane');

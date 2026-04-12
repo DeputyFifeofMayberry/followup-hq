@@ -7,7 +7,7 @@ import type { ImportSafetyResult } from '../../lib/intakeImportSafety';
 import type { IntakeQueueItem } from '../../lib/intakeReviewQueue';
 import type { IntakeAssetRecord, IntakeWorkCandidate } from '../../types';
 import { IntakeEvidencePanel } from './IntakeEvidencePanel';
-import { actionIsPrimary, candidateTypeLabel, confidenceBand, correctionBucketLabel, createActionBlockReason, decisionLabel, recommendedActionDescription, reviewReasonForField, type SourceTab } from './intakeWorkspaceTypes';
+import { actionIsPrimary, candidateTypeLabel, confidenceBand, correctionBucketLabel, createActionBlockReason, decisionLabel, laneDescription, laneLabel, recommendedActionDescription, reviewReasonForField, triageStateTone, type QueueLane, type SourceTab } from './intakeWorkspaceTypes';
 
 interface Props {
   selectedCandidate: IntakeWorkCandidate | null;
@@ -24,6 +24,9 @@ interface Props {
   selectedSourceTab: SourceTab;
   selectedEvidenceLocator: string | null;
   duplicateGroup: IntakeWorkCandidate[];
+  activeLane: QueueLane;
+  lanePosition: number;
+  laneTotal: number;
   onUpdateCandidate: (id: string, patch: Partial<IntakeWorkCandidate>) => void;
   onDecision: (decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link') => void;
   onSetConfirmUnsafeCreate: (value: boolean) => void;
@@ -56,16 +59,25 @@ export function IntakeCandidateWorkbench(props: Props) {
   }
 
   const c = props.selectedCandidate;
+  const selectedStateTone = props.selectedQueueItem ? triageStateTone(props.selectedQueueItem) : 'correction';
+  const selectedStateLabel = selectedStateTone === 'safe'
+    ? 'Safe item'
+    : selectedStateTone === 'link'
+      ? 'Exception: link review'
+      : selectedStateTone === 'reference'
+        ? 'Reference lane'
+        : 'Exception: correction required';
   return (
     <section className="intake-workbench-panel">
       <div className="mb-2 text-sm font-semibold text-slate-900">Candidate workbench</div>
       <p className="mb-2 text-xs text-slate-600">Resolve this record from top to bottom: orient, fix blockers, verify duplicate risk, then finalize one decision.</p>
       <div className="space-y-3">
-        <div className="intake-guidance-card intake-workbench-summary-card">
+        <div className={`intake-guidance-card intake-workbench-summary-card intake-workbench-summary-card-${selectedStateTone}`}>
           <div className="intake-workbench-summary-head">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Selected item</div>
               <div className="mt-1 text-base font-semibold text-slate-900">{c.title || 'Untitled candidate'}</div>
+              <div className="mt-1 text-[11px] text-slate-600">Lane: {laneLabel(props.activeLane)} ({props.lanePosition}/{props.laneTotal || 1}) • {laneDescription(props.activeLane)}</div>
             </div>
             <div className={`intake-confidence-pill intake-confidence-pill-${confidenceBand(c.confidence).toLowerCase()}`}>{confidenceBand(c.confidence)} confidence</div>
           </div>
@@ -74,6 +86,8 @@ export function IntakeCandidateWorkbench(props: Props) {
             <div><span className="text-slate-500">Review state:</span> {props.selectedQueueItem?.readiness.replaceAll('_', ' ') || 'manual review'}</div>
             <div><span className="text-slate-500">Project:</span> {c.project || 'Missing'}</div>
             <div><span className="text-slate-500">Owner:</span> {c.owner || c.assignee || 'Missing'}</div>
+            <div><span className="text-slate-500">Triage state:</span> {selectedStateLabel}</div>
+            <div><span className="text-slate-500">Primary next action:</span> {suggestedActionLabel}</div>
           </div>
         </div>
 

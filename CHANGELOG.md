@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Final hardening pass: brand drift cleanup, shell discipline, and execution-family residue removal
+- Completed a final SetPoint cleanup pass across app/package shell identity by removing residual legacy branding identifiers that could leak in app/runtime surfaces, including package identity and desktop bundle identifier alignment to SetPoint naming. (`package.json`, `src-tauri/tauri.conf.json`)
+- Hardened Overview execution routing semantics by replacing the stale “Open full queue” legacy target with an explicit Follow Ups queue route, removing a transitional pseudo-workspace path that silently normalized away and made lane handoff intent unclear. (`src/components/OverviewPage.tsx`)
+- Tightened compact/mobile shell orientation language so the top bar now consistently reports the active workspace label without duplicating mode emphasis in cramped layouts. (`src/App.tsx`)
+- Removed obsolete execution/shell residue left from pre-migration architecture (unused legacy `Header` and redundant execution section wrapper), reducing dead code and eliminating duplicate execution grammar paths no longer used by Overview/Follow Ups/Tasks. (`src/components/Header.tsx`, `src/components/execution/ExecutionSection.tsx`)
+- Cleaned ownership boundaries in the workspace renderer by removing the transitional no-op `openTrackerView` prop and stale `TaskWorkspace` mode prop drift, so execution workspace wiring reflects actual usage and is easier to reason about during ongoing reliability work. (`src/components/app/WorkspaceRenderer.tsx`, `src/components/TaskWorkspace.tsx`, `src/App.tsx`)
+
 ### Execution workspace migration complete: Overview, Follow Ups, and Tasks now run on one shared family grammar
 - Migrated the real execution workspace entries to consistently use the shared execution primitives so summary bands, toolbar/filter behavior, queue surfaces, and inspector framing now align across Overview (`OverviewPage`), Follow Ups (`TrackerWorkspace` + `ControlBar`), and Tasks (`TaskWorkspace` + `TaskToolbar`). (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewSignalCards.tsx`, `src/components/app/TrackerWorkspace.tsx`, `src/components/ControlBar.tsx`, `src/components/TaskWorkspace.tsx`, `src/components/tasks/TaskToolbar.tsx`)
 - Standardized Overview triage shell structure onto the shared toolbar + chip pattern and migrated route inspection to shared inspector sections/selection strip so routing detail treatment now matches the same execution-detail hierarchy users see in task and follow-up flows. (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewRouteInspector.tsx`)

@@ -21,7 +21,7 @@ import { OverviewRouteInspector } from './overview/OverviewRouteInspector';
 import { useOverviewTriageViewModel } from '../domains/overview/hooks/useOverviewTriageViewModel';
 import { useViewportBand } from '../hooks/useViewport';
 
-type WorkspaceKey = 'overview' | 'queue' | 'tracker' | 'followups' | 'tasks' | 'intake' | 'directory' | 'outlook' | 'projects' | 'relationships';
+type WorkspaceKey = 'overview' | 'followups' | 'tasks' | 'intake' | 'directory';
 
 interface OverviewPageProps {
   onOpenWorkspace: (workspace: WorkspaceKey) => void;
@@ -141,7 +141,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
           {hasMoreRows ? (
             <button type="button" className="action-btn" onClick={showMoreRows}>Show more</button>
           ) : <span />}
-          <button type="button" className="action-btn" onClick={() => onOpenWorkspace('queue')}>Open full queue</button>
+          <button type="button" className="action-btn" onClick={() => onOpenWorkspace('followups')}>Open Follow Ups queue</button>
         </div>
       </section>
     </ExecutionLaneQueueCard>

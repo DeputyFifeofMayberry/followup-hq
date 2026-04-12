@@ -331,16 +331,12 @@ function MainApp({ session }: { session: Session }) {
     return () => window.removeEventListener('resize', closeOnDesktop);
   }, []);
 
-  const openTrackerView = useCallback((view: SavedViewKey, project = 'All') => {
+  const openTrackerItem = useCallback((itemId: string, view: SavedViewKey = 'All', project = 'All') => {
+    setSelectedId(itemId);
     setActiveView(view);
     setProjectFilter(project);
     setWorkspace('followups');
-  }, [setActiveView, setProjectFilter]);
-
-  const openTrackerItem = useCallback((itemId: string, view: SavedViewKey = 'All', project = 'All') => {
-    setSelectedId(itemId);
-    openTrackerView(view, project);
-  }, [openTrackerView, setSelectedId]);
+  }, [setActiveView, setProjectFilter, setSelectedId]);
 
   const openTaskItem = useCallback((taskId: string, project = 'All') => {
     const executionSource = workspace === 'intake'
@@ -385,13 +381,12 @@ function MainApp({ session }: { session: Session }) {
     <WorkspaceRenderer
       workspace={workspace}
       appMode={appMode}
-      openTrackerView={openTrackerView}
       openFollowUp={openTrackerItem}
       openTask={openTaskItem}
       setWorkspace={setWorkspace}
       openDirectoryRecord={openDirectoryRecord}
     />
-  ), [workspace, appMode, openTrackerItem, openTaskItem, openTrackerView, openDirectoryRecord]);
+  ), [workspace, appMode, openTrackerItem, openTaskItem, openDirectoryRecord]);
 
   const navSections = useMemo(() => {
     const workspaceEntries = orderedWorkspaces.map((key) => ({ key, meta: modeConfig.workspaceMeta[key] }));
@@ -556,8 +551,8 @@ function MainApp({ session }: { session: Session }) {
                 <strong className="app-compact-shell-wordmark">{brand.shellTitle}</strong>
               </div>
               <div className="app-compact-shell-current">
-                <span>{modeConfig.displayName}</span>
-                <strong>{currentMeta.shellTitle}</strong>
+                <span>Current workspace</span>
+                <strong>{currentMeta.userLabel}</strong>
               </div>
             </div>
             <header className="workspace-header workspace-header-tight app-shell-card app-shell-card-hero">

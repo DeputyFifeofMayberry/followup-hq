@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { AlertTriangle, CheckCircle2, Cloud, CloudCog, Edit3, Loader2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import type { DirtyRecordRef } from '../../store/persistenceQueue';
-import { selectRecordSaveStatus } from '../../store/recordSaveStatus';
+import { deriveRecordSaveStatusModel, selectRecordSaveStatusSnapshot } from '../../store/recordSaveStatus';
 import { useAppStore } from '../../store/useAppStore';
 import { AppBadge } from '../ui/AppPrimitives';
 
@@ -13,7 +15,11 @@ export function RecordSaveStatus({
   editing?: boolean;
   compact?: boolean;
 }) {
-  const model = useAppStore((state) => selectRecordSaveStatus(state, record, { editingOverride: editing }));
+  const snapshot = useAppStore(useShallow((state) => selectRecordSaveStatusSnapshot(state, record)));
+  const model = useMemo(
+    () => deriveRecordSaveStatusModel(snapshot, { editingOverride: editing }),
+    [snapshot, editing],
+  );
 
   const icon = model.stage === 'needs-attention'
     ? <AlertTriangle className="h-3.5 w-3.5" />

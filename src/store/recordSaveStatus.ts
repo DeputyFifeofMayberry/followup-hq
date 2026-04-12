@@ -15,101 +15,129 @@ export interface RecordSaveStatusModel {
 
 const keyFor = (ref: Pick<DirtyRecordRef, 'type' | 'id'>) => `${ref.type}:${ref.id}`;
 
-export function selectRecordSaveStatus(
+export interface RecordSaveStatusSnapshot {
+  canonicalStage: CanonicalSaveProofStage;
+  canonicalStageLabel: string;
+  canonicalStageDescription: string;
+  ledger?: AppStore['recordSaveLedger'][string];
+  isDirty: boolean;
+  isEditingSurface: boolean;
+  hasLocalUnsavedChanges: boolean;
+  hasConflict: boolean;
+  isSyncSaving: boolean;
+  persistenceMode: AppStore['persistenceMode'];
+}
+
+export function selectRecordSaveStatusSnapshot(
   state: AppStore,
   record: Pick<DirtyRecordRef, 'type' | 'id'>,
+): RecordSaveStatusSnapshot {
+  const canonical = deriveCanonicalSaveProofStatus(state);
+  const recordKey = keyFor(record);
+  return {
+    canonicalStage: canonical.stage,
+    canonicalStageLabel: canonical.stageLabel,
+    canonicalStageDescription: canonical.stageDescription,
+    ledger: state.recordSaveLedger[recordKey],
+    isDirty: state.dirtyRecordRefs.some((entry) => entry.type === record.type && entry.id === record.id),
+    isEditingSurface: state.activeRecordSurface === 'full_editor'
+      && state.activeRecordRef?.type === record.type
+      && state.activeRecordRef?.id === record.id,
+    hasLocalUnsavedChanges: state.hasLocalUnsavedChanges,
+    hasConflict: state.conflictQueue.some((entry) => entry.recordId === record.id),
+    isSyncSaving: state.syncState === 'saving',
+    persistenceMode: state.persistenceMode,
+  };
+}
+
+export function deriveRecordSaveStatusModel(
+  snapshot: RecordSaveStatusSnapshot,
   options?: { editingOverride?: boolean },
 ): RecordSaveStatusModel {
-  const canonical = deriveCanonicalSaveProofStatus(state);
-  const ledger = state.recordSaveLedger[keyFor(record)];
-  const isDirty = state.dirtyRecordRefs.some((entry) => entry.type === record.type && entry.id === record.id);
-  const isEditingSurface = state.activeRecordSurface === 'full_editor'
-    && state.activeRecordRef?.type === record.type
-    && state.activeRecordRef?.id === record.id;
-  const isEditing = Boolean(options?.editingOverride ?? false) || isEditingSurface;
-  const recordConflict = state.conflictQueue.some((entry) => entry.recordId === record.id);
-  const hasAttention = recordConflict || (canonical.stage === 'needs-attention' && (isDirty || isEditing || Boolean(ledger)));
+  const isEditing = Boolean(options?.editingOverride ?? false) || snapshot.isEditingSurface;
+  const hasAttention = snapshot.hasConflict
+    || (snapshot.canonicalStage === 'needs-attention' && (snapshot.isDirty || isEditing || Boolean(snapshot.ledger)));
 
   if (hasAttention) {
     return {
       stage: 'needs-attention',
-      label: recordConflict ? 'Needs attention (conflict)' : 'Needs attention',
-      detail: recordConflict
+      label: snapshot.hasConflict ? 'Needs attention (conflict)' : 'Needs attention',
+      detail: snapshot.hasConflict
         ? 'This record is involved in a save conflict and requires review.'
         : 'Save trust is degraded for this record until the current issue is resolved.',
       tone: 'danger',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger?.lastAttentionAt,
+      timestamp: snapshot.ledger?.lastAttentionAt,
     };
   }
 
-  const isSaving = state.syncState === 'saving' && (isDirty || state.hasLocalUnsavedChanges);
+  const isSaving = snapshot.isSyncSaving && (snapshot.isDirty || snapshot.hasLocalUnsavedChanges);
   if (isSaving) {
     return {
       stage: 'saving',
       label: 'Saving…',
       detail: 'Writing local durable state and advancing cloud sync.',
       tone: 'info',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: true,
-      timestamp: ledger?.lastQueuedAt,
+      timestamp: snapshot.ledger?.lastQueuedAt,
     };
   }
 
-  if (isEditing && isDirty) {
+  if (isEditing && snapshot.isDirty) {
     return {
       stage: 'editing',
       label: 'Editing',
       detail: 'You have unsaved edits for this record.',
       tone: 'info',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger?.lastQueuedAt,
+      timestamp: snapshot.ledger?.lastQueuedAt,
     };
   }
 
-  if (isDirty) {
+  if (snapshot.isDirty) {
     return {
       stage: 'queued-for-cloud',
       label: 'Queued for cloud',
       detail: 'Saved locally and queued for cloud confirmation.',
       tone: 'warn',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger?.lastLocalSavedAt ?? ledger?.lastQueuedAt,
+      timestamp: snapshot.ledger?.lastLocalSavedAt ?? snapshot.ledger?.lastQueuedAt,
     };
   }
 
-  if (state.persistenceMode !== 'supabase') {
+  if (snapshot.persistenceMode !== 'supabase') {
     return {
       stage: 'saved-locally',
       label: 'Saved locally',
       detail: 'Protected on this device profile.',
       tone: 'info',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger?.lastLocalSavedAt,
+      timestamp: snapshot.ledger?.lastLocalSavedAt,
     };
   }
 
-  if (ledger?.lastVerifiedRevision !== undefined) {
-    const localRevision = ledger.lastLocalSavedRevision ?? ledger.lastCloudConfirmedRevision ?? 0;
-    if (localRevision > ledger.lastVerifiedRevision) {
+  if (snapshot.ledger?.lastVerifiedRevision !== undefined) {
+    const localRevision = snapshot.ledger.lastLocalSavedRevision ?? snapshot.ledger.lastCloudConfirmedRevision ?? 0;
+    if (localRevision > snapshot.ledger.lastVerifiedRevision) {
       return {
         stage: 'verification-stale',
         label: 'Verification stale',
         detail: 'This record changed after its last cloud verification.',
         tone: 'warn',
-        isDirty,
+        isDirty: snapshot.isDirty,
         isEditing,
         isSaving: false,
-        timestamp: ledger.lastVerifiedAt,
+        timestamp: snapshot.ledger.lastVerifiedAt,
       };
     }
 
@@ -118,46 +146,54 @@ export function selectRecordSaveStatus(
       label: 'Cloud verified',
       detail: 'Cloud read-back verification covers this record revision.',
       tone: 'success',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger.lastVerifiedAt,
+      timestamp: snapshot.ledger.lastVerifiedAt,
     };
   }
 
-  if (ledger?.lastCloudConfirmedRevision !== undefined) {
+  if (snapshot.ledger?.lastCloudConfirmedRevision !== undefined) {
     return {
       stage: 'cloud-confirmed',
       label: 'Cloud confirmed',
       detail: 'Cloud commit receipt includes this record revision.',
       tone: 'success',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger.lastCloudConfirmedAt,
+      timestamp: snapshot.ledger.lastCloudConfirmedAt,
     };
   }
 
-  if (ledger?.lastLocalSavedRevision !== undefined) {
+  if (snapshot.ledger?.lastLocalSavedRevision !== undefined) {
     return {
       stage: 'saved-locally',
       label: 'Saved locally',
       detail: 'Locally durable; awaiting cloud confirmation.',
       tone: 'info',
-      isDirty,
+      isDirty: snapshot.isDirty,
       isEditing,
       isSaving: false,
-      timestamp: ledger.lastLocalSavedAt,
+      timestamp: snapshot.ledger.lastLocalSavedAt,
     };
   }
 
   return {
-    stage: canonical.stage,
-    label: canonical.stageLabel,
-    detail: canonical.stageDescription,
-    tone: canonical.stage === 'cloud-confirmed' || canonical.stage === 'cloud-verified' ? 'success' : canonical.stage === 'queued-for-cloud' || canonical.stage === 'verification-stale' ? 'warn' : canonical.stage === 'needs-attention' ? 'danger' : 'info',
-    isDirty,
+    stage: snapshot.canonicalStage,
+    label: snapshot.canonicalStageLabel,
+    detail: snapshot.canonicalStageDescription,
+    tone: snapshot.canonicalStage === 'cloud-confirmed' || snapshot.canonicalStage === 'cloud-verified' ? 'success' : snapshot.canonicalStage === 'queued-for-cloud' || snapshot.canonicalStage === 'verification-stale' ? 'warn' : snapshot.canonicalStage === 'needs-attention' ? 'danger' : 'info',
+    isDirty: snapshot.isDirty,
     isEditing,
     isSaving: false,
   };
+}
+
+export function selectRecordSaveStatus(
+  state: AppStore,
+  record: Pick<DirtyRecordRef, 'type' | 'id'>,
+  options?: { editingOverride?: boolean },
+): RecordSaveStatusModel {
+  return deriveRecordSaveStatusModel(selectRecordSaveStatusSnapshot(state, record), options);
 }

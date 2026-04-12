@@ -2,6 +2,10 @@
 
 ## 2026-04-12
 
+### Record-level save status selector stabilization to stop React #185 nested update loops
+- Fixed the record-level save badge subscription architecture that could trigger `Maximum update depth exceeded` in React: `RecordSaveStatus` no longer subscribes to a freshly constructed derived object from Zustand on each render. The component now subscribes to a shallow-compared primitive snapshot and derives the display model with `useMemo`, which keeps selector snapshot identity stable while preserving the same trust-stage semantics. (`src/components/save/RecordSaveStatus.tsx`, `src/store/recordSaveStatus.ts`)
+- Refactored record save-status derivation into explicit snapshot + model helpers so both direct selectors and component-level derivation share one pure logic path without unstable subscription outputs. (`src/store/recordSaveStatus.ts`)
+
 ### Save/trust hardening pass: verification freshness correctness, post-save scheduling, and honest feedback under rapid edits
 - Fixed a production React render-loop crash risk in sync trust toasts (`Maximum update depth exceeded` / React #185): SyncStatusControl’s stage-announcement effect no longer depends on the entire mutable sync snapshot object and now uses a pure, revision-keyed announcement derivation with one-shot dedupe keys, preventing repeated toast-triggered update cascades during save/trust churn. (`src/components/SyncStatusControl.tsx`, `src/lib/syncStatus.ts`)
 - Fixed a root-cause verification freshness bug in `useAppStore` where a verification run could mark the **current** revision as verified even when newer edits landed during the verification lifecycle; verification evidence is now only promoted when the verified batch/revision still matches the active revision at completion. This prevents false “current cloud verified” trust projection during rapid edits. (`src/store/useAppStore.ts`)

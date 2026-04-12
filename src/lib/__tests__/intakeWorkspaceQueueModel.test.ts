@@ -33,6 +33,7 @@ function queueItem(partial: Partial<IntakeQueueItem> & Pick<IntakeQueueItem, 'id
     sourceType: partial.sourceType ?? 'universal_intake',
     parseStatus: partial.parseStatus,
     parseQuality: partial.parseQuality,
+    admissionState: partial.admissionState ?? 'action_ready',
     duplicateRisk: partial.duplicateRisk ?? false,
     missingCriticalFields: partial.missingCriticalFields ?? 0,
     conflictingEvidence: partial.conflictingEvidence ?? false,

@@ -14,6 +14,7 @@ import { resolveCandidateMatches } from './intake/reviewPipeline';
 import { getIntakeFileCapability, getIntakeFileExtension } from './intakeFileCapabilities';
 import { buildDateSignalSet } from './intakeDates';
 import { buildIntakeRetrySource } from './intakeRetryCache';
+import { assessIntakeAssetAdmission, assessIntakeCandidateAdmission } from './intakeAdmission';
 
 const emailRegex = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const explicitDateRegex = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)\b/;
@@ -911,7 +912,7 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     ...dateWarnings,
   ];
 
-  return {
+  const candidate: IntakeWorkCandidate = {
     id: createId('CAN'),
     batchId: asset.batchId,
     assetId: asset.id,
@@ -950,6 +951,16 @@ function buildCandidateFromChunk(asset: IntakeAssetRecord, chunk: ExtractionChun
     approvalStatus: 'pending',
     createdAt: todayIso(),
     updatedAt: todayIso(),
+  };
+  const admission = assessIntakeCandidateAdmission({
+    candidate,
+    assetAdmissionState: asset.admissionState ?? 'action_ready',
+  });
+  return {
+    ...candidate,
+    admissionState: admission.state,
+    admissionReasons: admission.reasons,
+    warnings: [...new Set([...candidate.warnings, ...(admission.state === 'action_ready' ? [] : admission.reasons)])],
   };
 }
 
@@ -1040,6 +1051,9 @@ export async function parseIntakeFile(file: File, batchId: string, options: Pars
       })),
       parserStages: [...(base.parserStages ?? []), 'stage3-semantic-ready', 'stage4-validated'],
     };
+    const admission = assessIntakeAssetAdmission({ asset, capabilityState: capability.state });
+    asset.admissionState = admission.state;
+    asset.admissionReasons = admission.reasons;
 
     const assets: IntakeAssetRecord[] = [asset];
     for (const attachment of extracted.attachments.slice(0, 15)) {
@@ -1077,6 +1091,11 @@ function chunkSignature(candidate: IntakeWorkCandidate, chunk: ExtractionChunk):
 }
 
 export function buildCandidatesFromAsset(asset: IntakeAssetRecord, items: FollowUpItem[], tasks: TaskItem[]): IntakeWorkCandidate[] {
+  const assetAdmission = asset.admissionState ?? assessIntakeAssetAdmission({
+    asset,
+    capabilityState: (asset.metadata.capabilityState as ReturnType<typeof getIntakeFileCapability>['state']) ?? 'parse_supported',
+  }).state;
+  if (assetAdmission === 'extracted_only') return [];
   const chunkSource = (asset.extractionChunks ?? []).map((chunk) => ({
     text: chunk.text,
     sourceRef: chunk.sourceRef || chunk.locator || asset.fileName,
@@ -1101,9 +1120,11 @@ export function buildCandidatesFromAsset(asset: IntakeAssetRecord, items: Follow
     const signature = signatures[index];
     return {
       ...candidate,
+      admissionState: candidate.admissionState ?? assetAdmission,
+      admissionReasons: [...new Set([...(candidate.admissionReasons ?? []), ...(asset.admissionReasons ?? [])])],
       suspectedDuplicateGroupId: (counts.get(signature) ?? 0) > 1 ? `dup-${signature}` : undefined,
     };
-  });
+  }).filter((candidate) => candidate.admissionState !== 'extracted_only');
 }
 
 export function buildBatchRecord(assetIds: string[]): IntakeBatchRecord {

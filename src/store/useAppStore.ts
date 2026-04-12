@@ -22,6 +22,7 @@ import { verifyPersistedState, type VerificationMode } from '../lib/persistenceV
 import { readLocalPersistedPayloadSnapshot } from '../lib/persistence';
 import { selectVerificationTargetPayload } from './verificationTarget';
 import { deriveVerificationMetaFromResult } from './verificationState';
+import { deriveCanonicalSaveProofStatus } from './saveProofModel';
 import {
   buildReminderCenterSummary,
   buildWorkspaceAttentionCounts,
@@ -44,10 +45,12 @@ let completedAutomaticVerificationKey: string | null = null;
 let verificationLifecyclePromise: Promise<void> | null = null;
 
 export function canRunAutomaticVerification(state: AppStore): boolean {
+  const canonical = deriveCanonicalSaveProofStatus(state);
   return state.persistenceMode === 'supabase'
     && state.lastReceiptStatus === 'committed'
     && Boolean(state.lastConfirmedBatchId)
-    && state.saveProof.cloudProofState === 'confirmed'
+    && canonical.cloudConfirmationCurrentForRevision
+    && (canonical.stage === 'cloud-confirmed' || canonical.stage === 'verification-stale')
     && !state.hasLocalUnsavedChanges
     && state.pendingBatchCount === 0
     && state.unresolvedOutboxCount === 0
@@ -139,6 +142,14 @@ export const useAppStore = create<AppStore>()((set, get) => {
           latestVerificationResult: result,
           recoveryReviewNeeded: derived.recoveryReviewNeeded,
           reviewedMismatchIds: derived.recoveryReviewNeeded ? state.reviewedMismatchIds : [],
+          saveProof: result.summary.verified
+            ? {
+              ...state.saveProof,
+              latestVerifiedAt: result.summary.completedAt,
+              latestVerifiedBatchId: result.summary.basedOnBatchId ?? state.lastConfirmedBatchId,
+              latestVerifiedRevision: state.localRevision,
+            }
+            : state.saveProof,
           persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
             kind: 'saved',
             summary: derived.activitySummary,

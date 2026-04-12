@@ -177,6 +177,9 @@ export const initialMetaState: AppMetaState = {
   lastFailureMessage: undefined,
   lastFailureClass: undefined,
   saveProof: {
+    latestVerifiedAt: undefined,
+    latestVerifiedBatchId: undefined,
+    latestVerifiedRevision: undefined,
     latestLocalSaveAttemptAt: undefined,
     latestDurableLocalWriteAt: undefined,
     latestCloudConfirmedCommitAt: undefined,

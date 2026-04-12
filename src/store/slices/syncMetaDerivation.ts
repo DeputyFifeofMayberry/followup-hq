@@ -67,6 +67,9 @@ export function deriveSyncMetaFromLoadResult(load: Pick<LoadResult, 'mode' | 'so
   const loadedFromLocalCache = load.source === 'local-cache';
   const didRestoreFallback = Boolean(load.loadedFromFallback && loadedFromLocalCache);
   const saveProof: SaveProofState = load.saveProof ?? {
+    latestVerifiedAt: undefined,
+    latestVerifiedBatchId: undefined,
+    latestVerifiedRevision: undefined,
     latestLocalSaveAttemptAt: load.localCacheUpdatedAt,
     latestDurableLocalWriteAt: load.localCacheUpdatedAt,
     latestCloudConfirmedCommitAt: load.cloudUpdatedAt ?? load.localCacheLastCloudConfirmedAt,

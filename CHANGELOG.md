@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-12
+
+### Canonical save-proof trust ladder: distinct local protection, cloud commit proof, verification freshness, and stale verification semantics
+- Introduced a shared canonical save-proof model that defines one product-level trust ladder (`editing`, `saving`, `saved-locally`, `queued-for-cloud`, `cloud-confirmed`, `cloud-verified`, `verification-stale`, `needs-attention`) with reusable derived flags for confirmation/verification freshness and revision-ahead checks, so every UI surface can consume one authoritative trust interpretation instead of duplicating overlapping conditions. (`src/store/saveProofModel.ts`, `src/lib/syncStatus.ts`, `src/store/useAppStore.ts`)
+- Extended canonical save-proof metadata to persist verification evidence (`latestVerifiedAt`, `latestVerifiedBatchId`, `latestVerifiedRevision`) and wired verification-success updates into the shared store so cloud verification is now explicitly tied to a specific confirmed batch and local revision, allowing stale verification to be represented when newer revisions exist. (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/useAppStore.ts`, `src/lib/persistence.ts`, `src/store/slices/metaSlice.ts`, `src/store/slices/syncMetaDerivation.ts`)
+- Refactored sync status derivation to project user-facing wording from the canonical ladder so local safety, queued cloud work, cloud commit proof, cloud match verification, stale verification, and true attention-needed states are semantically separated and no longer conflated as generic “saved/verified” states. (`src/lib/syncStatus.ts`, `src/components/SyncStatusControl.tsx`)
+
 ## 2026-04-11
 
 ### Verification lifecycle stuck-state fix: deterministic auto-verification scheduling and terminal settlement

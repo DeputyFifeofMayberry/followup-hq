@@ -57,6 +57,9 @@ export function createMetaSlice(
   return {
     initializeApp: async () => {
       const startupSaveProof: SaveProofState = {
+        latestVerifiedAt: undefined,
+        latestVerifiedBatchId: undefined,
+        latestVerifiedRevision: undefined,
         latestLocalSaveAttemptAt: undefined,
         latestDurableLocalWriteAt: undefined,
         latestCloudConfirmedCommitAt: undefined,

@@ -250,6 +250,9 @@ export type OperationCountsByEntity = SaveBatchEntityCounts;
 export type ReceiptStatus = SaveBatchStatus;
 export type SaveProofCloudState = 'confirmed' | 'pending' | 'degraded' | 'local-only';
 export interface SaveProofState {
+  latestVerifiedAt?: string;
+  latestVerifiedBatchId?: string;
+  latestVerifiedRevision?: number;
   latestLocalSaveAttemptAt?: string;
   latestDurableLocalWriteAt?: string;
   latestCloudConfirmedCommitAt?: string;

@@ -249,6 +249,22 @@ export type OutboxLifecycleState = 'idle' | 'queued' | 'flushing' | 'failed' | '
 export type OperationCountsByEntity = SaveBatchEntityCounts;
 export type ReceiptStatus = SaveBatchStatus;
 export type SaveProofCloudState = 'confirmed' | 'pending' | 'degraded' | 'local-only';
+export interface RecordSaveLedgerEntry {
+  type: DirtyRecordRef['type'];
+  id: string;
+  lastQueuedAt?: string;
+  lastQueuedRevision?: number;
+  lastLocalSavedAt?: string;
+  lastLocalSavedRevision?: number;
+  lastCloudConfirmedAt?: string;
+  lastCloudConfirmedRevision?: number;
+  lastCloudConfirmedBatchId?: string;
+  lastVerifiedAt?: string;
+  lastVerifiedRevision?: number;
+  lastVerifiedBatchId?: string;
+  lastAttentionAt?: string;
+  lastAttentionReason?: string;
+}
 export interface SaveProofState {
   latestVerifiedAt?: string;
   latestVerifiedBatchId?: string;
@@ -319,6 +335,7 @@ export interface AppMetaState {
   unsavedChangeCount: number;
   hasLocalUnsavedChanges: boolean;
   dirtyRecordRefs: DirtyRecordRef[];
+  recordSaveLedger: Record<string, RecordSaveLedgerEntry>;
   lastCloudConfirmedAt?: string;
   lastLocalWriteAt?: string;
   lastFallbackRestoreAt?: string;

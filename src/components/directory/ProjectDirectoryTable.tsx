@@ -1,6 +1,7 @@
 import { formatDate } from '../../lib/utils';
 import type { ProjectDerivedRecord } from '../../lib/projectSelectors';
 import { isUnclassifiedProject } from '../../domains/directory/hooks/useDirectoryViewModel';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface ProjectDirectoryTableProps {
   rows: ProjectDerivedRecord[];
@@ -27,6 +28,7 @@ export function ProjectDirectoryTable({ rows, selectedProjectId, onSelectProject
                 <td className="px-2 py-2">
                   <div className="font-medium text-slate-900">{isUnclassifiedProject(row.project) ? 'Unclassified' : row.project.name}</div>
                   <div className="text-xs text-slate-500">{row.project.code || 'No code'} • {row.project.clientOrg || row.project.ownerOrg || 'No owner org set'}</div>
+                  {selectedProjectId === row.project.id ? <div className="mt-1"><RecordSaveStatus record={{ type: 'project', id: row.project.id }} compact /></div> : null}
                 </td>
                 <td className="px-2 py-2">{row.project.owner || '—'}</td>
                 <td className="px-2 py-2">

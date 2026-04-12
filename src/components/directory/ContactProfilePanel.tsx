@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ContactRecord } from '../../types';
 import type { ContactDraft } from '../../domains/directory/hooks/usePeopleDirectoryViewModel';
 import { CONTACT_COMMUNICATION_OPTIONS, CONTACT_RELATIONSHIP_STATUS_OPTIONS, CONTACT_RESPONSIVENESS_OPTIONS, CONTACT_RISK_TIER_OPTIONS, companyNameById } from '../../domains/directory/hooks/usePeopleDirectoryViewModel';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface ContactProfilePanelProps {
   contact: ContactRecord | null;
@@ -53,6 +54,9 @@ export function ContactProfilePanel({
           <div className="text-lg font-semibold text-slate-950">{contact.name}</div>
           <div className="text-xs text-slate-600">{companyNameById(companyRecords, contact.companyId)} • {contact.title || contact.role || 'Role not set'}</div>
           <div className="mt-1 text-xs text-slate-500">Owner: {contact.internalOwner || 'Unassigned'} • Status: {contact.relationshipStatus || 'Active'} • Risk: {contact.riskTier || 'Low'}</div>
+          <div className="mt-1">
+            <RecordSaveStatus record={{ type: 'contact', id: contact.id }} editing={editing} />
+          </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {!editing ? <button className="primary-btn" onClick={onBeginEdit}>Edit contact</button> : null}

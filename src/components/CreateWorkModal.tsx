@@ -10,6 +10,7 @@ import { createRecordEditorSession, followUpEditorAdapter, taskEditorAdapter, up
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFooter, SegmentedControl } from './ui/AppPrimitives';
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
+import { RecordSaveStatus } from './save/RecordSaveStatus';
 
 type WorkMode = 'followup' | 'task';
 type EditorMode = 'quick' | 'full';
@@ -411,6 +412,8 @@ export function CreateWorkModal() {
           onClose={close}
         />
         <AppModalBody scrollable={false} className="create-work-modal-body">
+          {followUpEditing && currentItem ? <RecordSaveStatus record={{ type: 'followup', id: currentItem.id }} editing /> : null}
+          {taskEditing && currentTask ? <RecordSaveStatus record={{ type: 'task', id: currentTask.id }} editing /> : null}
           {followUpEditing && currentItem ? (
             <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Follow-up actions</div>

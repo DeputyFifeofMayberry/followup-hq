@@ -2,6 +2,7 @@ import { formatDate, todayIso } from '../../lib/utils';
 import type { ProjectStatus } from '../../types';
 import { PROJECT_STATUS_OPTIONS, splitLocationValue, toDelimitedArray, type ProjectWorkspaceMode } from '../../domains/directory/hooks/useDirectoryViewModel';
 import { ProjectRelationshipLinks } from './ProjectRelationshipLinks';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface ProjectProfilePanelProps {
   selectedRow: any;
@@ -34,6 +35,9 @@ export function ProjectProfilePanel({ selectedRow, editing, draft, detailTab, wo
           <div>
             <div className="text-lg font-semibold text-slate-950">{selectedRow.project.name}</div>
             <div className="text-xs text-slate-600">{selectedRow.project.code || 'No code'} • {selectedRow.project.status} • {selectedRow.project.owner || 'Unassigned owner'}</div>
+            <div className="mt-1">
+              <RecordSaveStatus record={{ type: 'project', id: selectedRow.project.id }} editing={editing} />
+            </div>
           </div>
         </div>
 

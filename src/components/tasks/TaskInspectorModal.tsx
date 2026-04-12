@@ -7,6 +7,7 @@ import type { FollowUpItem, TaskItem } from '../../types';
 import { Badge } from '../Badge';
 import { CloseoutReadinessCard } from '../CloseoutReadinessCard';
 import { AppBadge, AppModal, AppModalBody, AppModalFooter, AppModalHeader, SectionHeader } from '../ui/AppPrimitives';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 type TaskInspectorModalProps = {
   open: boolean;
@@ -257,7 +258,10 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
         onClose={onClose}
         closeLabel={isMobileLike ? 'Back to queue' : 'Close'}
       />
-      <AppModalBody className={isMobileLike ? "task-inspector-modal-mobile" : ""}>{isMobileLike ? mobileInspectorContent : desktopInspectorContent}</AppModalBody>
+      <AppModalBody className={isMobileLike ? "task-inspector-modal-mobile" : ""}>
+        <RecordSaveStatus record={{ type: 'task', id: selectedTask.id }} />
+        {isMobileLike ? mobileInspectorContent : desktopInspectorContent}
+      </AppModalBody>
       <AppModalFooter>
         <button onClick={onClose} className="action-btn">{isMobileLike ? 'Back to queue' : 'Close'}</button>
       </AppModalFooter>

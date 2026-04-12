@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { buildContactDraft, usePeopleDirectoryViewModel } from '../../domains/directory/hooks/usePeopleDirectoryViewModel';
 import { ContactCreateModal } from './ContactCreateModal';
 import { ContactProfilePanel } from './ContactProfilePanel';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface PeopleDirectoryPaneProps {
   vm: {
@@ -49,6 +50,7 @@ export function PeopleDirectoryPane({ vm, onOpenDirectoryRecord, onOpenFollowUp,
               </div>
               <div className="text-xs text-slate-600">{contact.title || contact.role || 'Role not set'} • {contact.internalOwner || 'Unassigned owner'}</div>
               <div className="text-[11px] text-slate-500">{contact.relationshipStatus || 'Active'} • Risk {contact.riskTier || 'Low'}</div>
+              {peopleVm.selectedContact?.id === contact.id ? <div className="mt-1"><RecordSaveStatus record={{ type: 'contact', id: contact.id }} compact /></div> : null}
             </button>
           ))}
         </div>

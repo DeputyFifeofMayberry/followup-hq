@@ -130,6 +130,26 @@ export const useAppStore = create<AppStore>()((set, get) => {
         const derived = deriveVerificationMetaFromResult(result);
 
         set((state) => ({
+          recordSaveLedger: result.summary.verified
+            ? Object.fromEntries(
+              Object.entries(state.recordSaveLedger).map(([key, entry]) => {
+                if (
+                  entry.lastCloudConfirmedBatchId
+                  && result.summary.basedOnBatchId
+                  && entry.lastCloudConfirmedBatchId === result.summary.basedOnBatchId
+                  && entry.lastCloudConfirmedRevision === state.localRevision
+                ) {
+                  return [key, {
+                    ...entry,
+                    lastVerifiedAt: result.summary.completedAt,
+                    lastVerifiedRevision: state.localRevision,
+                    lastVerifiedBatchId: result.summary.basedOnBatchId,
+                  }];
+                }
+                return [key, entry];
+              }),
+            )
+            : state.recordSaveLedger,
           verificationState: derived.verificationState,
           lastVerificationRunId: result.summary.runId,
           lastVerificationStartedAt: result.summary.startedAt,
@@ -233,6 +253,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
   };
 
   const queuePersist = (meta?: QueueRequestMeta) => {
+    const recordKey = (ref: DirtyRecordRef) => `${ref.type}:${ref.id}`;
     if (!persistenceQueue) {
       persistenceQueue = createPersistenceQueue(
         {
@@ -252,6 +273,19 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const merged = new Map<string, DirtyRecordRef>();
               state.dirtyRecordRefs.forEach((ref) => merged.set(`${ref.type}:${ref.id}`, ref));
               requestMeta?.dirtyRecords?.forEach((ref) => merged.set(`${ref.type}:${ref.id}`, ref));
+              const queuedAt = new Date().toISOString();
+              const ledger = { ...state.recordSaveLedger };
+              requestMeta?.dirtyRecords?.forEach((ref) => {
+                const key = recordKey(ref);
+                const previous = ledger[key];
+                ledger[key] = {
+                  ...previous,
+                  type: ref.type,
+                  id: ref.id,
+                  lastQueuedAt: queuedAt,
+                  lastQueuedRevision: state.localRevision + 1,
+                };
+              });
               const scopedCount = requestMeta?.dirtyRecords?.length ?? 0;
               const queuedEvent = createPersistenceActivityEvent({
                 kind: 'queued',
@@ -263,6 +297,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 hasLocalUnsavedChanges: true,
                 unsavedChangeCount: pendingRecordCount,
                 dirtyRecordRefs: Array.from(merged.values()),
+                recordSaveLedger: ledger,
                 syncState: 'dirty',
                 outboxState: 'queued',
                 localSaveState: 'saved',
@@ -329,6 +364,26 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const hasConfirmedCloudReceipt = mode === 'supabase'
                 && postSave.saveProof.latestReceiptStatus === 'committed'
                 && Boolean(postSave.saveProof.latestConfirmedBatchId);
+              const persistedRefs = state.dirtyRecordRefs;
+              const nextLedger = { ...state.recordSaveLedger };
+              persistedRefs.forEach((ref) => {
+                const key = recordKey(ref);
+                const previous = nextLedger[key];
+                nextLedger[key] = {
+                  ...previous,
+                  type: ref.type,
+                  id: ref.id,
+                  lastLocalSavedAt: timestamp,
+                  lastLocalSavedRevision: nextLocalRevision,
+                  ...(hasConfirmedCloudReceipt
+                    ? {
+                      lastCloudConfirmedAt: postSave.lastCloudConfirmedAt ?? timestamp,
+                      lastCloudConfirmedRevision: nextLocalRevision,
+                      lastCloudConfirmedBatchId: postSave.lastConfirmedBatchId,
+                    }
+                    : {}),
+                };
+              });
               const autoVerificationKey = buildAutomaticVerificationKey({
                 lastConfirmedBatchId: postSave.lastConfirmedBatchId,
                 lastConfirmedBatchCommittedAt: postSave.lastConfirmedBatchCommittedAt,
@@ -437,6 +492,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 unsavedChangeCount: 0,
                 hasLocalUnsavedChanges: false,
                 dirtyRecordRefs: [],
+                recordSaveLedger: nextLedger,
                 pendingOfflineChangeCount: state.connectivityState === 'offline' || diagnostics?.skippedCloudSend ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
                 cloudSyncStatus: hasOutstandingCloudWork ? 'pending-cloud' : postSave.cloudSyncStatus,
                 pendingBatchCount: hasOutstandingCloudWork ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
@@ -467,6 +523,17 @@ export const useAppStore = create<AppStore>()((set, get) => {
             }
           },
           onError: (message, timestamp, reason, diagnostics) => set((state) => {
+            const nextLedger = { ...state.recordSaveLedger };
+            state.dirtyRecordRefs.forEach((ref) => {
+              const key = recordKey(ref);
+              nextLedger[key] = {
+                ...nextLedger[key],
+                type: ref.type,
+                id: ref.id,
+                lastAttentionAt: timestamp,
+                lastAttentionReason: message,
+              };
+            });
             const nextSaveProof = {
               ...state.saveProof,
               latestLocalSaveAttemptAt: timestamp,
@@ -507,6 +574,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
             hasLocalUnsavedChanges: true,
             unsavedChangeCount: state.dirtyRecordRefs.length,
             pendingOfflineChangeCount: state.connectivityState === 'offline' ? state.dirtyRecordRefs.length : state.pendingOfflineChangeCount,
+            recordSaveLedger: nextLedger,
             cloudSyncStatus: 'cloud-save-failed-local-preserved',
             loadedFromLocalRecoveryCache: false,
             lastLocalWriteAt: timestamp,

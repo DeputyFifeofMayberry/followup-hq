@@ -95,7 +95,16 @@ export function ReportsWorkspace({
       }
       case 'owner_workload': {
         const result = runReport('owner_workload', reportContext);
-        return { content: <OwnerWorkloadReport result={result} />, activeTrust: result.header.trust };
+        return {
+          content: (
+            <OwnerWorkloadReport
+              result={result}
+              onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+              onSetWorkspace={onSetWorkspace}
+            />
+          ),
+          activeTrust: result.header.trust,
+        };
       }
       case 'followup_risk': {
         const result = runReport('followup_risk', reportContext);

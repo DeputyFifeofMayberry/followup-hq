@@ -99,7 +99,16 @@ export function ReportsWorkspace({
       }
       case 'followup_risk': {
         const result = runReport('followup_risk', reportContext);
-        return { content: <FollowUpRiskReport result={result} />, activeTrust: result.header.trust };
+        return {
+          content: (
+            <FollowUpRiskReport
+              result={result}
+              onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+              onSetWorkspace={onSetWorkspace}
+            />
+          ),
+          activeTrust: result.header.trust,
+        };
       }
       case 'data_quality': {
         const result = runReport('data_quality', reportContext);

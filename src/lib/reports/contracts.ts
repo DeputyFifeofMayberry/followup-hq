@@ -193,13 +193,93 @@ export interface OwnerWorkloadReportResult {
   rankedOwners: OwnerWorkloadRow[];
 }
 
+export type FollowUpRiskCategory =
+  | 'timing_pressure'
+  | 'dependency_waiting'
+  | 'execution_block'
+  | 'cleanup_distortion'
+  | 'escalation_risk'
+  | 'missing_plan';
+
+export interface FollowUpRiskScore {
+  total: number;
+  timingPressure: number;
+  dependencyWaiting: number;
+  executionBlock: number;
+  cleanupDistortion: number;
+  escalationRisk: number;
+  missingPlan: number;
+}
+
+export interface FollowUpRiskBreakdown {
+  dueInDays?: number;
+  nextTouchInDays?: number;
+  promisedInDays?: number;
+  waitingOn?: string;
+  waitingTooLong: boolean;
+  blocked: boolean;
+  escalated: boolean;
+  linkedTaskCount: number;
+  linkedOpenTaskCount: number;
+  linkedBlockedTaskCount: number;
+  linkedOverdueTaskCount: number;
+  cleanupRequired: boolean;
+  staleTouchDays?: number;
+  staleMoveDays?: number;
+}
+
+export interface FollowUpRiskDriver {
+  key: string;
+  label: string;
+  category: FollowUpRiskCategory;
+  impact: number;
+  detail?: string;
+}
+
+export interface FollowUpRiskRouteContext {
+  followUpId: string;
+  projectName: string;
+  projectId?: string;
+  primaryTaskId?: string;
+}
+
+export interface FollowUpRiskDrilldown {
+  followUpId: string;
+  title: string;
+  project: string;
+  owner: string;
+  severity: ReportSeverity;
+  tier: 'Severe' | 'High' | 'Watch' | 'Stable';
+  status: string;
+  priority: string;
+  score: FollowUpRiskScore;
+  breakdown: FollowUpRiskBreakdown;
+  drivers: FollowUpRiskDriver[];
+  topRiskCategory: FollowUpRiskCategory;
+  riskSummary: string;
+  recommendedNextMove: string;
+  routeContext: FollowUpRiskRouteContext;
+}
+
 export interface FollowUpRiskRow extends RankedReportRowBase {
   followUpId: string;
   title: string;
   project: string;
   owner: string;
+  severity: ReportSeverity;
+  tier: 'Severe' | 'High' | 'Watch' | 'Stable';
+  status: string;
+  priority: string;
+  score: number;
+  riskScore: FollowUpRiskScore;
+  topRiskCategory: FollowUpRiskCategory;
+  topRiskSummary: string;
+  breakdown: FollowUpRiskBreakdown;
+  drivers: FollowUpRiskDriver[];
   dueDate?: string;
+  nextTouchDate?: string;
   waitingOn?: string;
+  routeContext: FollowUpRiskRouteContext;
 }
 
 export interface FollowUpRiskReportResult {
@@ -207,7 +287,14 @@ export interface FollowUpRiskReportResult {
   highRiskCount: number;
   watchCount: number;
   stableCount: number;
+  dueNowRiskCount: number;
+  waitingDependencyRiskCount: number;
+  blockedExecutionRiskCount: number;
+  escalationRiskCount: number;
+  cleanupDistortedCount: number;
   rankedFollowUps: FollowUpRiskRow[];
+  defaultSelectedFollowUpId?: string;
+  drilldownsByFollowUpId: Record<string, FollowUpRiskDrilldown>;
 }
 
 export interface DataQualityReasonRow {

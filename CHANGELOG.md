@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Intake queue orchestration foundation: queue-first state ownership for review workflow
+- Refactored `UniversalIntakeWorkspace` so queue-derived lane views are now the authoritative orchestration model (ordering, selection, lane counts, and filtered visible lists) instead of lane ownership from raw pending candidate arrays, aligning live UI behavior with `buildIntakeReviewQueue` intelligence. (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeWorkspaceQueueModel.ts`)
+- Added dedicated queue-workflow helpers that normalize pending queue ordering and lane partitioning using existing queue scoring semantics (`priorityScore`, readiness, and sort date), then resolve stable per-lane selection with preserve-or-fallback behavior to prevent selection bounce/revert during queue mutations. (`src/lib/intakeWorkspaceQueueModel.ts`)
+- Updated `IntakeQueuePanel` to render directly from queue items and queue-derived lane counts so queue list cards, lane tabs, and workflow metrics all read from the same authoritative source without duplicate candidate-first derivations. (`src/components/intake/IntakeQueuePanel.tsx`, `src/components/UniversalIntakeWorkspace.tsx`)
+- Removed manual “next candidate in visible raw array” advancement logic from decision handling and now rely on queue-driven selection resolution after each decision mutation, so approve/link/reference/reject flows consistently advance to the next best pending queue item in the active filtered lane. (`src/components/UniversalIntakeWorkspace.tsx`)
+- Added targeted regression coverage for queue-authoritative lane counts, default selection priority, selection preservation, fallback selection after disappearance, and post-decision next-best auto-advance behavior. (`src/lib/__tests__/intakeWorkspaceQueueModel.test.ts`)
+
 ### Workspace navigation legibility hardening: split desktop rail vs mobile drawer surfaces
 - Fixed the root workspace-navigation readability issue by separating shell surface roles instead of reusing one translucent treatment in both contexts: desktop now uses a denser command-rail material and mobile uses a dedicated opaque drawer surface with its own header/close affordance. (`src/App.tsx`, `src/styles/shell.css`)
 - Reworked nav-card contrast hierarchy so inactive workspace options remain readable at rest, active workspace cards are clearly dominant, and support-section options stay quieter without fading into the rail background. (`src/styles/shell.css`)

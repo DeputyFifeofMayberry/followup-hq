@@ -13,8 +13,8 @@ export function OverviewDashboardHeader({ totalQueue, selectedFilter, onSelectFi
     <section className="overview-dashboard-header" aria-label="Overview dashboard header">
       <div className="overview-dashboard-title-wrap">
         <p className="overview-dashboard-kicker">Overview dashboard</p>
-        <h2>Operational control center</h2>
-        <p>Track pressure, route next-up work, and keep today’s queue moving without leaving Overview.</p>
+        <h2>Project controls command surface</h2>
+        <p>Prioritize pressure, route to the correct lane, then execute directly in the queue below.</p>
       </div>
       <div className="overview-dashboard-header-sidecar">
         <div className="overview-dashboard-context-pills" role="group" aria-label="Overview context">

@@ -30,18 +30,28 @@ export function OverviewDashboardPanels({ dashboard, onRouteLane, onSelectFilter
         <article className="overview-dashboard-panel overview-dashboard-next-up">
           <header>
             <p>Main work next up</p>
-            <h3>Highest-pressure queue rows</h3>
+            <h3>Execution queue priority table</h3>
           </header>
-          <div className="overview-dashboard-nextup-table">
+          <div className="overview-dashboard-nextup-table" role="table" aria-label="Overview next-up action table">
+            <div className="overview-dashboard-nextup-head" role="row">
+              <span role="columnheader">Work item</span>
+              <span role="columnheader">Owner</span>
+              <span role="columnheader">Due</span>
+              <span role="columnheader">Priority</span>
+              <span role="columnheader">Action</span>
+            </div>
             {dashboard.nextUpRows.map((row) => (
-              <div key={row.id} className="overview-dashboard-nextup-row">
-                <div>
+              <div key={row.id} className="overview-dashboard-nextup-row" role="row">
+                <div className="overview-dashboard-nextup-cell-main">
                   <strong>{row.title}</strong>
-                  <span>{row.project}</span>
+                  <span>{row.project} · {row.reason}</span>
+                </div>
+                <div className="overview-dashboard-nextup-cell">{row.ownerLabel}</div>
+                <div className="overview-dashboard-nextup-cell">{row.dueLabel}</div>
+                <div className="overview-dashboard-nextup-cell">
+                  <Badge variant={priorityTone(row.priority)}>{row.priority}</Badge>
                 </div>
                 <div className="overview-dashboard-nextup-row-side">
-                  <Badge kind="meta" variant="neutral">{row.reason}</Badge>
-                  <Badge variant={priorityTone(row.priority)}>{row.priority}</Badge>
                   <button
                     type="button"
                     className="action-btn"
@@ -84,45 +94,62 @@ export function OverviewDashboardPanels({ dashboard, onRouteLane, onSelectFilter
       <section className="overview-dashboard-panel-grid overview-dashboard-panel-grid-secondary" aria-label="Overview supporting dashboard panels">
         <article className="overview-dashboard-panel">
           <header>
-            <p>Project hotspots</p>
-            <h3>Where pressure is concentrated</h3>
+            <p>Pressure by project</p>
+            <h3>Hotspots with queue routing</h3>
           </header>
           <div className="overview-dashboard-hotspot-list">
             {dashboard.hotspots.length ? dashboard.hotspots.map((hotspot) => (
-              <div key={hotspot.project} className="overview-dashboard-hotspot-row">
+              <button
+                key={hotspot.project}
+                type="button"
+                className="overview-dashboard-hotspot-row"
+                onClick={() => {
+                  if (hotspot.filterKey !== 'all') onSelectFilter(hotspot.filterKey);
+                  if (hotspot.sampleRowId) onSelectRow(hotspot.sampleRowId);
+                  onRouteLane(hotspot.lane, hotspot.section, `review ${hotspot.project} hotspot`);
+                }}
+              >
                 <strong>{hotspot.project}</strong>
-                <span>{hotspot.pressureCount} pressured · {hotspot.blockedCount} blocked · {hotspot.dueNowCount} due now</span>
-              </div>
+                <span>{hotspot.pressureCount} pressure · {hotspot.blockedCount} blocked · {hotspot.dueNowCount} due now · {hotspot.readyToCloseCount} closeout</span>
+              </button>
             )) : <p className="overview-dashboard-empty">No concentrated hotspots right now.</p>}
           </div>
         </article>
 
         <article className="overview-dashboard-panel">
           <header>
-            <p>Weekly momentum</p>
-            <h3>Near-term pressure outlook</h3>
+            <p>Today and this week</p>
+            <h3>Commitment pressure timeline</h3>
           </header>
           <div className="overview-dashboard-trend-grid">
-            <div><span>Overdue</span><strong>{dashboard.trend.overdue}</strong></div>
-            <div><span>Due today</span><strong>{dashboard.trend.dueToday}</strong></div>
-            <div><span>Due in 7 days</span><strong>{dashboard.trend.dueWithin7Days}</strong></div>
-            <div><span>Waiting too long</span><strong>{dashboard.trend.waitingTooLong}</strong></div>
-            <div><span>Closeout relief</span><strong>{dashboard.trend.completedRelief}</strong></div>
+            <button type="button" onClick={() => onSelectFilter('due_now')}><span>Overdue</span><strong>{dashboard.commitments.overdue}</strong></button>
+            <button type="button" onClick={() => onSelectFilter('due_now')}><span>Due today</span><strong>{dashboard.commitments.dueToday}</strong></button>
+            <button type="button" onClick={() => onRouteLane('tasks', 'triage', 'plan next 7 days commitments')}><span>Due in 7 days</span><strong>{dashboard.commitments.dueWithin7Days}</strong></button>
+            <button type="button" onClick={() => onSelectFilter('waiting')}><span>Waiting too long</span><strong>{dashboard.commitments.waitingTooLong}</strong></button>
+            <button type="button" onClick={() => onSelectFilter('ready_close')}><span>Ready to close</span><strong>{dashboard.commitments.readyToClose}</strong></button>
           </div>
         </article>
 
         <article className="overview-dashboard-panel">
           <header>
-            <p>Today’s workload mix</p>
-            <h3>Coverage and assignment risk</h3>
+            <p>Ownership and data risk</p>
+            <h3>Unassigned and no-date drag</h3>
           </header>
           <div className="overview-dashboard-trend-grid">
-            <div><span>Tasks</span><strong>{dashboard.workload.tasks}</strong></div>
-            <div><span>Follow Ups</span><strong>{dashboard.workload.followups}</strong></div>
-            <div><span>Unassigned</span><strong>{dashboard.workload.unassigned}</strong></div>
-            <div><span>No date set</span><strong>{dashboard.workload.noDate}</strong></div>
+            <button type="button" onClick={() => onRouteLane('followups', 'triage', 'assign unowned commitments')}><span>Unassigned</span><strong>{dashboard.ownershipRisk.unassigned}</strong></button>
+            <button type="button" onClick={() => onRouteLane('tasks', 'triage', 'add due dates to undated work')}><span>No date set</span><strong>{dashboard.ownershipRisk.noDate}</strong></button>
+            <button type="button" onClick={() => onRouteLane('followups', 'triage', 'review cleanup-required records')}><span>Cleanup required</span><strong>{dashboard.ownershipRisk.cleanupRequired}</strong></button>
+            <button type="button" onClick={() => onRouteLane('tasks', 'triage', 'repair orphaned task links')}><span>Orphaned tasks</span><strong>{dashboard.ownershipRisk.orphanedTask}</strong></button>
           </div>
         </article>
+      </section>
+
+      <section className="overview-dashboard-execution-bridge" aria-label="Overview queue handoff">
+        <div>
+          <p>Execution layer</p>
+          <h3>Queue below is the operating surface for dashboard decisions</h3>
+        </div>
+        <button type="button" className="action-btn action-btn-quiet" onClick={() => onSelectFilter('all')}>Reset to full queue</button>
       </section>
     </div>
   );

@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Intake two-speed interaction model: compact triage by default + explicit full review mode
+- Re-architected the selected-item Intake surface into a true two-speed flow: the default panel now stays compact and triage-first (identity, readiness, recommendation, blocker/duplicate pressure cues, and primary decision actions) instead of rendering the full correction workbench inline for every item. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)
+- Moved deep correction/edit/evidence workflows behind an explicit “Open full review” action that launches a dedicated full-review modal with field correction tooling, blocker walkthrough, duplicate comparison, and evidence inspection preserved in one coherent deep mode. (`src/components/intake/IntakeCandidateWorkbench.tsx`)
+- Kept queue/selection coherence while introducing mode separation by wiring queue “open” actions to full review, preserving selected candidate context, and resetting expanded mode cleanly when selection changes so queue triage remains the stable primary workflow. (`src/components/UniversalIntakeWorkspace.tsx`, `src/components/intake/IntakeQueuePanel.tsx`, `src/lib/intakeReviewMode.ts`)
+- Added targeted regression checks for the new intake review-mode state helpers (queue action behavior and full-review reset rules) to protect compact-vs-expanded state transitions from drifting as intake workflows evolve. (`src/lib/__tests__/intakeReviewMode.test.ts`)
+
 ### Intake safe batch-approve workflow completion: explicit action, exclusion transparency, and durable result receipts
 - Promoted safe-path batch approval to a first-class Intake triage action in the operational header with explicit safe-now volume, excluded volume, and intentional copy that reinforces the queue safety contract instead of presenting batch approval as a hidden/secondary shortcut. (`src/components/UniversalIntakeWorkspace.tsx`, `src/styles/workspaces.css`)
 - Added queue-authoritative inclusion/exclusion visibility for batch approval by introducing a shared summary helper that computes included IDs, excluded counts, and top exclusion reasons directly from `batchSafe` + `batchExclusionReasons`, then surfaced this in a lightweight “why excluded” review panel. (`src/lib/intakeWorkspaceQueueModel.ts`, `src/components/UniversalIntakeWorkspace.tsx`)

@@ -393,7 +393,7 @@ export function WorkspaceInspectorSection({
   children,
 }: PropsWithChildren<{ title: string; subtitle?: string }>) {
   return (
-    <section className="workspace-inspector-section inspector-block">
+    <section className="workspace-inspector-section inspector-block inspector-block-quiet">
       <div>
         <div className="workspace-inspector-section-title">{title}</div>
         {subtitle ? <p className="workspace-inspector-section-subtitle">{subtitle}</p> : null}

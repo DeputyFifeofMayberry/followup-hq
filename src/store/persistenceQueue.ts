@@ -32,7 +32,14 @@ interface QueueHandlers {
   getSyncAttemptContext?: () => SyncAttemptContext;
   onQueued: (meta?: QueueRequestMeta) => void;
   onSaving: (context: { reason: 'auto' | 'manual' | 'retry' | 'replay'; attempt: number }) => void;
-  onSaved: (mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading', timestamp: string, reason: 'auto' | 'manual' | 'retry' | 'replay', didPersist: boolean, diagnostics?: SaveResult['diagnostics']) => void;
+  onSaved: (
+    mode: 'supabase' | 'tauri-sqlite' | 'browser' | 'loading',
+    timestamp: string,
+    reason: 'auto' | 'manual' | 'retry' | 'replay',
+    didPersist: boolean,
+    diagnostics: SaveResult['diagnostics'] | undefined,
+    flushedDirtyRecords: DirtyRecordRef[],
+  ) => void;
   onError: (message: string, timestamp: string, reason: 'auto' | 'manual' | 'retry' | 'replay', diagnostics?: SaveResult['diagnostics']) => void;
 }
 
@@ -71,16 +78,17 @@ export function createPersistenceQueue(handlers: QueueHandlers, config: QueueCon
     }
     inFlight = (async () => {
     handlers.onSaving({ reason, attempt });
+    const flushedDirtyRecords = Array.from(pendingDirtyRefs.values());
+    const flushedDirtyRecordKeys = flushedDirtyRecords.map((ref) => `${ref.type}:${ref.id}`);
     const payload = handlers.getPayload();
 
     try {
-      const dirtyRecords = Array.from(pendingDirtyRefs.values());
       const saveResult = await saveFn(payload, {
-        dirtyRecords,
+        dirtyRecords: flushedDirtyRecords,
         forceSchemaCheck: reason === 'retry',
       });
-      pendingDirtyRefs = new Map();
-      handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics);
+      flushedDirtyRecordKeys.forEach((key) => pendingDirtyRefs.delete(key));
+      handlers.onSaved(saveResult.mode, todayIso(), reason, true, saveResult.diagnostics, flushedDirtyRecords);
     } catch (error) {
       const message = formatPersistenceErrorMessage(normalizePersistenceError(error, { operation: 'save' }));
       const diagnostics = typeof error === 'object' && error !== null && 'diagnostics' in error

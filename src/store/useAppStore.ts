@@ -363,7 +363,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({ kind: 'saving', summary })),
             };
           }),
-          onSaved: (mode, timestamp, reason, didPersist, diagnostics) => {
+          onSaved: (mode, timestamp, reason, didPersist, diagnostics, flushedDirtyRecords) => {
             let shouldSchedulePostSaveVerification = false;
             set((state) => {
               const postSave = resolvePostSaveMetaState(state, mode, timestamp, didPersist, diagnostics);
@@ -375,9 +375,11 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const hasConfirmedCloudReceipt = mode === 'supabase'
                 && postSave.saveProof.latestReceiptStatus === 'committed'
                 && Boolean(postSave.saveProof.latestConfirmedBatchId);
-              const persistedRefs = state.dirtyRecordRefs;
+              const flushedRecordKeys = new Set(flushedDirtyRecords.map((ref) => recordKey(ref)));
+              const remainingDirtyRefs = state.dirtyRecordRefs.filter((ref) => !flushedRecordKeys.has(recordKey(ref)));
+              const hasRemainingDirtyRefs = remainingDirtyRefs.length > 0;
               const nextLedger = { ...state.recordSaveLedger };
-              persistedRefs.forEach((ref) => {
+              flushedDirtyRecords.forEach((ref) => {
                 const key = recordKey(ref);
                 const previous = nextLedger[key];
                 nextLedger[key] = {
@@ -457,7 +459,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 persistenceMode: mode,
                 localRevision: nextLocalRevision,
                 lastLocalSavedAt: timestamp,
-                syncState: postSave.syncState,
+                syncState: hasRemainingDirtyRefs ? 'dirty' : postSave.syncState,
                 saveError: '',
                 lastSyncedAt: postSave.lastSyncedAt,
                 lastCloudConfirmedAt: postSave.lastCloudConfirmedAt,
@@ -483,9 +485,9 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   : state.lastCloudConfirmedRevision,
                 localSaveState: 'saved',
                 cloudSyncState: mode !== 'supabase'
-                  ? 'confirmed'
+                  ? (hasRemainingDirtyRefs ? 'queued' : 'confirmed')
                   : hasConfirmedCloudReceipt
-                    ? 'confirmed'
+                    ? (hasRemainingDirtyRefs ? (state.connectivityState === 'offline' ? 'offline-pending' : 'queued') : 'confirmed')
                     : hasOutstandingCloudWork
                       ? state.connectivityState === 'offline' || diagnostics?.skippedCloudSend
                         ? 'offline-pending'
@@ -498,13 +500,17 @@ export const useAppStore = create<AppStore>()((set, get) => {
                 unresolvedOutboxCount: unresolvedAfterSave,
                 lastOutboxFlushAt: timestamp,
                 lastFallbackRestoreAt: state.lastFallbackRestoreAt,
-                unsavedChangeCount: 0,
-                hasLocalUnsavedChanges: false,
-                dirtyRecordRefs: [],
+                unsavedChangeCount: remainingDirtyRefs.length,
+                hasLocalUnsavedChanges: hasRemainingDirtyRefs,
+                dirtyRecordRefs: remainingDirtyRefs,
                 recordSaveLedger: nextLedger,
-                pendingOfflineChangeCount: state.connectivityState === 'offline' || diagnostics?.skippedCloudSend ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
-                cloudSyncStatus: hasOutstandingCloudWork ? 'pending-cloud' : postSave.cloudSyncStatus,
-                pendingBatchCount: hasOutstandingCloudWork ? Math.max(unresolvedAfterSave, pendingOperationCount) : 0,
+                pendingOfflineChangeCount: state.connectivityState === 'offline' || diagnostics?.skippedCloudSend
+                  ? Math.max(unresolvedAfterSave, pendingOperationCount, remainingDirtyRefs.length)
+                  : 0,
+                cloudSyncStatus: hasOutstandingCloudWork || hasRemainingDirtyRefs ? 'pending-cloud' : postSave.cloudSyncStatus,
+                pendingBatchCount: hasOutstandingCloudWork || hasRemainingDirtyRefs
+                  ? Math.max(unresolvedAfterSave, pendingOperationCount, remainingDirtyRefs.length)
+                  : 0,
                 loadedFromLocalRecoveryCache: postSave.loadedFromLocalRecoveryCache,
                 sessionTrustState: postSave.sessionTrustState,
                 sessionDegraded: postSave.sessionDegraded,

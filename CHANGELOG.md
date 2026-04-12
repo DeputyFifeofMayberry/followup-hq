@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Reports reusable saved-definition system: pinned templates, durable state, and explicit draft/save workflow
+- Added a first-class saved report definition model with typed scope/display/export preferences, built-in template identity, and draft state plumbing so reports persist as reusable operational assets instead of transient view toggles. (`src/types.ts`, `src/lib/reports/savedDefinitions.ts`, `src/lib/reports/index.ts`)
+- Extended store ownership/persistence for report definitions with dedicated actions for create/update/delete/duplicate/pin/open/save/save-as/revert behavior, plus hydration that merges immutable starter templates with user-saved definitions. (`src/store/state/types.ts`, `src/store/state/initialState.ts`, `src/store/types.ts`, `src/store/slices/reportDefinitionsSlice.ts`, `src/store/useAppStore.ts`, `src/store/state/persistence.ts`, `src/store/slices/metaSlice.ts`, `src/lib/persistence.ts`, `src/lib/persistenceVerification.ts`)
+- Rebuilt `ReportsWorkspace` into a repeatable workflow surface with a visible saved-reports rail (pinned + other), active identity, built-in template protections, and explicit unsaved draft controls (save changes, save as new, rename, revert, duplicate, delete). (`src/components/reports/ReportsWorkspace.tsx`)
+- Updated reporting-context derivation so active report draft scope choices (project/owner/include closed/row limit) influence the effective runtime context used by existing registry-driven report builders without replacing the builder architecture. (`src/lib/reports/reportContext.ts`)
+
 
 ### Project Health report deepening: dependable ranked operations view with drilldown and route actions
 - Rebuilt the Project Health reporting contract from a shallow row list into a report-grade model with typed score components, tiers, categorized reasons (execution pressure / cleanup distortion / closeout opportunity), breakdown metrics, drilldown summaries, detail record rows, default selection metadata, and route context for downstream navigation. (`src/lib/reports/contracts.ts`)

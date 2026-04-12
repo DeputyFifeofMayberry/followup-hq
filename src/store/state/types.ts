@@ -26,6 +26,8 @@ import type {
   ReminderLedgerEntry,
   ReminderPermissionState,
   ReminderPreferences,
+  ReportDraftState,
+  SavedReportDefinition,
   SavedExecutionView,
   SavedFollowUpCustomView,
   FollowUpAdvancedFilters,
@@ -197,6 +199,10 @@ export interface AppUiState {
   executionSort: UnifiedQueueSort;
   queueDensity: UnifiedQueueDensity;
   savedExecutionViews: SavedExecutionView[];
+  savedReportDefinitions: SavedReportDefinition[];
+  activeReportDefinitionId: string | null;
+  lastOpenedReportDefinitionId: string | null;
+  reportDraft: ReportDraftState;
   executionIntent: ExecutionIntent | null;
   executionSelectedId: string | null;
   recordDrawerRef: RecordRef | null;

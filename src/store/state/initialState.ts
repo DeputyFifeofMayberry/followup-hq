@@ -1,4 +1,5 @@
 import { defaultExecutionViews } from '../../lib/unifiedQueue';
+import { builtInReportTemplates, defaultReportDraftState } from '../../lib/reports/savedDefinitions';
 import { getDefaultForwardedRules } from '../../lib/intakeRules';
 import { defaultFollowUpFilters } from '../../lib/followUpSelectors';
 import { getDefaultOutlookSettings } from '../../lib/outlookGraph';
@@ -69,6 +70,10 @@ export const initialUiState: AppUiState = {
   executionSort: 'queue_score',
   queueDensity: 'compact',
   savedExecutionViews: defaultExecutionViews,
+  savedReportDefinitions: builtInReportTemplates,
+  activeReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
+  lastOpenedReportDefinitionId: builtInReportTemplates[0]?.id ?? null,
+  reportDraft: defaultReportDraftState,
   executionIntent: null,
   executionSelectedId: null,
   recordDrawerRef: null,

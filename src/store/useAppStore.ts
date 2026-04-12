@@ -5,6 +5,7 @@ import { buildPersistedPayload } from './state/persistence';
 import { initialBusinessState, initialMetaState, initialUiState } from './state/initialState';
 import { createUiSlice } from './slices/uiSlice';
 import { createExecutionViewSlice } from './slices/executionViewSlice';
+import { createReportDefinitionsSlice } from './slices/reportDefinitionsSlice';
 import { createFollowUpsSlice } from './slices/followUpsSlice';
 import { createTasksSlice } from './slices/tasksSlice';
 import { createProjectsSlice } from './slices/projectsSlice';
@@ -680,6 +681,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
     ...createMetaSlice(set, defaultOutlookConnection),
     ...createUiSlice(set, get, queuePersist),
     ...createExecutionViewSlice(set, get, { queuePersist }),
+    ...createReportDefinitionsSlice(set, get, { queuePersist }),
     ...createFollowUpsSlice(set, get, { queuePersist }),
     ...createTasksSlice(set, get, { queuePersist }),
     ...createProjectsSlice(set, { queuePersist }),

@@ -199,7 +199,7 @@ export interface AppStoreActions {
   saveExecutionView: (name: string, scope?: 'personal' | 'team') => void;
   applyExecutionView: (viewId: string) => void;
   createSavedReportDefinition: (input: { name: string; basedOnTemplateId?: string; draft?: ReportDraftPatch }) => string;
-  updateSavedReportDefinition: (id: string, patch: Partial<Pick<SavedReportDefinition, 'name' | 'isPinned'>>) => void;
+  updateSavedReportDefinition: (id: string, patch: Partial<Pick<SavedReportDefinition, 'name' | 'isPinned' | 'reportType' | 'scope' | 'display' | 'export'>>) => void;
   deleteSavedReportDefinition: (id: string) => void;
   duplicateSavedReportDefinition: (id: string, name?: string) => string | null;
   pinSavedReportDefinition: (id: string, pinned: boolean) => void;

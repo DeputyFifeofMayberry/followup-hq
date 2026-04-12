@@ -243,6 +243,7 @@ export interface ReportRunRecord {
   reportNameSnapshot: string;
   reportType: ReportType;
   scopeMode: ReportScopeMode;
+  draftSignature?: string;
   summary: ReportRunSummary;
   deltaFromPrevious?: ReportRunDelta;
   exportRecords: ReportExportRecord[];

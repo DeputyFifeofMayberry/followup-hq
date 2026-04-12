@@ -1,11 +1,19 @@
 import { createId } from '../../lib/utils';
-import { builtInReportTemplates, defaultReportDraftState, mergeBuiltInReportTemplates, reportDraftEquals, toReportDraftState } from '../../lib/reports/savedDefinitions';
+import {
+  builtInReportTemplates,
+  defaultReportDraftState,
+  reportDraftEquals,
+  sanitizeReportDraftState,
+  sanitizeSavedReportDefinition,
+  sanitizeSavedReportDefinitions,
+  toReportDraftState,
+} from '../../lib/reports/savedDefinitions';
 import type { ReportDraftPatch, ReportDraftState, SavedReportDefinition } from '../../types';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
 
 function mergeDraft(current: ReportDraftState, patch: ReportDraftPatch): ReportDraftState {
-  return {
+  return sanitizeReportDraftState({
     reportType: patch.reportType ?? current.reportType,
     scope: {
       ...current.scope,
@@ -19,7 +27,7 @@ function mergeDraft(current: ReportDraftState, patch: ReportDraftPatch): ReportD
       ...current.export,
       ...patch.export,
     },
-  };
+  });
 }
 
 function toSavedDefinition(input: {
@@ -57,13 +65,13 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
         ? get().savedReportDefinitions.find((entry) => entry.id === basedOnTemplateId)
         : undefined;
       const nextDraft = mergeDraft(base ? toReportDraftState(base) : defaultReportDraftState, draft ?? {});
-      const definition = toSavedDefinition({
+      const definition = sanitizeSavedReportDefinition(toSavedDefinition({
         name,
         draft: nextDraft,
         basedOnTemplate: base?.basedOnTemplate ?? 'custom',
-      });
+      }));
       set((state: AppStore) => ({
-        savedReportDefinitions: mergeBuiltInReportTemplates([definition, ...state.savedReportDefinitions]),
+        savedReportDefinitions: sanitizeSavedReportDefinitions([definition, ...state.savedReportDefinitions]),
         activeReportDefinitionId: definition.id,
         lastOpenedReportDefinitionId: definition.id,
         reportDraft: toReportDraftState(definition),
@@ -77,12 +85,21 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
         savedReportDefinitions: state.savedReportDefinitions.map((entry) => {
           if (entry.id !== id) return entry;
           changed = true;
-          return {
+          const next = sanitizeSavedReportDefinition({
             ...entry,
             ...patch,
             updatedAt: new Date().toISOString(),
-          };
+          });
+          return next;
         }),
+        reportDraft: state.activeReportDefinitionId === id
+          ? mergeDraft(state.reportDraft, {
+            reportType: patch.reportType,
+            scope: patch.scope,
+            display: patch.display,
+            export: patch.export,
+          })
+          : state.reportDraft,
       }));
       if (changed) queuePersist();
     },
@@ -92,7 +109,7 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
         const target = state.savedReportDefinitions.find((entry) => entry.id === id);
         if (!target || target.isBuiltInTemplate) return state;
         changed = true;
-        const remaining = mergeBuiltInReportTemplates(state.savedReportDefinitions.filter((entry) => entry.id !== id));
+        const remaining = sanitizeSavedReportDefinitions(state.savedReportDefinitions.filter((entry) => entry.id !== id));
         const fallback = remaining[0]?.id ?? builtInReportTemplates[0]?.id ?? null;
         const nextActive = state.activeReportDefinitionId === id ? fallback : state.activeReportDefinitionId;
         const nextLastOpened = state.lastOpenedReportDefinitionId === id ? fallback : state.lastOpenedReportDefinitionId;
@@ -101,6 +118,7 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
           savedReportDefinitions: remaining,
           activeReportDefinitionId: nextActive,
           lastOpenedReportDefinitionId: nextLastOpened,
+          reportRuns: state.reportRuns.filter((run) => run.reportDefinitionId !== id),
           reportDraft: activeDefinition ? toReportDraftState(activeDefinition) : defaultReportDraftState,
         };
       });
@@ -109,13 +127,13 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
     duplicateSavedReportDefinition: (id, name) => {
       const source = get().savedReportDefinitions.find((entry) => entry.id === id);
       if (!source) return null;
-      const clone = toSavedDefinition({
+      const clone = sanitizeSavedReportDefinition(toSavedDefinition({
         name: name ?? `${source.name} Copy`,
         draft: toReportDraftState(source),
         basedOnTemplate: source.basedOnTemplate ?? 'custom',
-      });
+      }));
       set((state: AppStore) => ({
-        savedReportDefinitions: mergeBuiltInReportTemplates([clone, ...state.savedReportDefinitions]),
+        savedReportDefinitions: sanitizeSavedReportDefinitions([clone, ...state.savedReportDefinitions]),
         activeReportDefinitionId: clone.id,
         lastOpenedReportDefinitionId: clone.id,
         reportDraft: toReportDraftState(clone),
@@ -182,13 +200,13 @@ export function createReportDefinitionsSlice(set: SliceSet, get: SliceGet, { que
     saveReportDraftAsNew: (name) => {
       const state = get();
       const active = state.savedReportDefinitions.find((entry) => entry.id === state.activeReportDefinitionId);
-      const definition = toSavedDefinition({
+      const definition = sanitizeSavedReportDefinition(toSavedDefinition({
         name,
-        draft: state.reportDraft,
+        draft: sanitizeReportDraftState(state.reportDraft),
         basedOnTemplate: active?.basedOnTemplate ?? 'custom',
-      });
+      }));
       set((current: AppStore) => ({
-        savedReportDefinitions: mergeBuiltInReportTemplates([definition, ...current.savedReportDefinitions]),
+        savedReportDefinitions: sanitizeSavedReportDefinitions([definition, ...current.savedReportDefinitions]),
         activeReportDefinitionId: definition.id,
         lastOpenedReportDefinitionId: definition.id,
         reportDraft: toReportDraftState(definition),

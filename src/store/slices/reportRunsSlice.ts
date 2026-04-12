@@ -1,6 +1,6 @@
 import { createId } from '../../lib/utils';
 import { buildReportRunDelta } from '../../lib/reports/reportComparison';
-import { sortReportRunsNewestFirst } from '../../lib/reports/reportRuns';
+import { sanitizeReportRuns, sortReportRunsNewestFirst } from '../../lib/reports/reportRuns';
 import type { ReportRunRecord } from '../../types';
 import type { AppStore, AppStoreActions } from '../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
@@ -18,7 +18,7 @@ export function createReportRunsSlice(set: SliceSet, get: SliceGet, { queuePersi
     recordReportRun: (input) => {
       const now = new Date().toISOString();
       const previousRun = input.reportDefinitionId
-        ? get().reportRuns.find((run) => run.reportDefinitionId === input.reportDefinitionId)
+        ? get().reportRuns.find((run) => run.reportDefinitionId === input.reportDefinitionId && run.reportType === input.reportType)
         : undefined;
       const nextRun: ReportRunRecord = {
         ...input,
@@ -29,7 +29,7 @@ export function createReportRunsSlice(set: SliceSet, get: SliceGet, { queuePersi
       };
       nextRun.deltaFromPrevious = buildReportRunDelta(nextRun, previousRun);
       set((state: AppStore) => ({
-        reportRuns: trimRuns([nextRun, ...state.reportRuns]),
+        reportRuns: trimRuns(sanitizeReportRuns([nextRun, ...state.reportRuns])),
         savedReportDefinitions: input.reportDefinitionId
           ? state.savedReportDefinitions.map((definition) => (
             definition.id === input.reportDefinitionId
@@ -66,11 +66,11 @@ export function createReportRunsSlice(set: SliceSet, get: SliceGet, { queuePersi
       if (changed) queuePersist();
     },
     getReportRunHistoryForDefinition: (definitionId, limit = 10) => {
-      const runs = get().reportRuns.filter((run) => run.reportDefinitionId === definitionId);
+      const runs = sanitizeReportRuns(get().reportRuns).filter((run) => run.reportDefinitionId === definitionId);
       return sortReportRunsNewestFirst(runs).slice(0, Math.max(1, limit));
     },
     getMostRecentReportRunForDefinition: (definitionId) => (
-      get().reportRuns.find((run) => run.reportDefinitionId === definitionId)
+      sanitizeReportRuns(get().reportRuns).find((run) => run.reportDefinitionId === definitionId)
     ),
   };
 }

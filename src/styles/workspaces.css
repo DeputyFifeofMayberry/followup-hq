@@ -1528,6 +1528,35 @@
   border-color: #bfdbfe;
   background: #f0f7ff;
 }
+.intake-triage-cues-card {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.intake-triage-cues-grid {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.intake-triage-cue {
+  border: 1px solid #dbe5f1;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.45rem 0.5rem;
+  display: grid;
+  gap: 0.18rem;
+}
+.intake-triage-cue.is-danger {
+  border-color: #fecdd3;
+  background: #fff7f8;
+}
+.intake-triage-cue.is-safe {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.intake-triage-cue.is-warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
 .support-workspace-shell { grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr); }
 .support-layout-card-quiet { background: #f8fbff; }
 @media (max-width: 1360px) {
@@ -1599,5 +1628,6 @@
 
 @media (max-width: 900px) {
   .intake-summary-metadata-grid,
-  .intake-edit-grid { grid-template-columns: 1fr; }
+  .intake-edit-grid,
+  .intake-triage-cues-grid { grid-template-columns: 1fr; }
 }

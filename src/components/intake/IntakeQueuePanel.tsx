@@ -25,7 +25,7 @@ function defaultQuickAction(item: IntakeQueueItem): { action: QueueQuickAction; 
     return { action: 'quick_save_reference', label: 'Quick save reference' };
   }
   if (item.readiness === 'needs_link_decision') return { action: 'review_link', label: 'Review link options' };
-  return { action: 'open', label: 'Open workbench' };
+  return { action: 'open', label: 'Open full review' };
 }
 
 export function IntakeQueuePanel({ activeLane, byLane, laneCounts, selectedCandidateId, onSelectCandidate, onSetLane, onQuickAction }: Props) {
@@ -69,7 +69,7 @@ export function IntakeQueuePanel({ activeLane, byLane, laneCounts, selectedCandi
             </div>
           </button>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => onQuickAction(queueItem.id, 'open')}><PencilLine className="h-3 w-3" />Open</button>
+            <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => onQuickAction(queueItem.id, 'open')}><PencilLine className="h-3 w-3" />Full review</button>
             {quickAction.action !== 'open' ? <button className="action-btn !px-2 !py-1 text-[11px] !border-sky-300 !bg-sky-50 !text-sky-700" onClick={() => onQuickAction(queueItem.id, quickAction.action)}>
               {quickAction.action === 'review_link' ? <Link2 className="h-3 w-3" /> : <Workflow className="h-3 w-3" />}
               {quickAction.label}

@@ -5,6 +5,7 @@ import { buildReviewerActionHints, buildWorkCandidateFieldReviews, summarizeFiel
 import { evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeReviewQueue } from '../lib/intakeReviewQueue';
 import { buildCandidateFieldSuggestions, buildIntakeReviewPlan, type IntakeQuickFixAction } from '../lib/intakeReviewPlan';
+import { queueActionOpensFullReview, type IntakeQueueQuickAction } from '../lib/intakeReviewMode';
 import { buildBatchApprovalSummary, buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
 import { getIntakeFileCapability } from '../lib/intakeFileCapabilities';
 import type { IntakeBatchApproveResult } from '../store/types';
@@ -50,6 +51,7 @@ export function UniversalIntakeWorkspace() {
   const [selectedEvidenceLocator, setSelectedEvidenceLocator] = useState<string | null>(null);
   const [confirmUnsafeCreate, setConfirmUnsafeCreate] = useState(false);
   const [batchReceipt, setBatchReceipt] = useState<IntakeBatchApproveResult | null>(null);
+  const [fullReviewOpen, setFullReviewOpen] = useState(false);
 
   const activeBatchIds = useMemo(() => new Set(intakeBatches.filter((batch) => batch.status !== 'archived').map((batch) => batch.id)), [intakeBatches]);
   const pendingCandidates = useMemo(() => intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending' && activeBatchIds.has(entry.batchId)), [intakeWorkCandidates, activeBatchIds]);
@@ -74,6 +76,7 @@ export function UniversalIntakeWorkspace() {
     setSelectedEvidenceLocator(null);
     setSelectedSourceTab('overview');
     setConfirmUnsafeCreate(false);
+    setFullReviewOpen(false);
   }, [selectedQueueItemId]);
 
   const selectedQueueItem = selectedQueueItemId ? queueById.get(selectedQueueItemId) ?? null : null;
@@ -145,9 +148,12 @@ export function UniversalIntakeWorkspace() {
     runDecision(selectedCandidate.id, decision);
   };
 
-  const handleQueueQuickAction = (candidateId: string, action: 'open' | 'quick_create_followup' | 'quick_create_task' | 'quick_save_reference' | 'review_link') => {
+  const handleQueueQuickAction = (candidateId: string, action: IntakeQueueQuickAction) => {
     setSelectedQueueItemId(candidateId);
-    if (action === 'open') return;
+    if (queueActionOpensFullReview(action)) {
+      setFullReviewOpen(true);
+      return;
+    }
     if (action === 'review_link') {
       setActiveLane('link_duplicate_review');
       return;
@@ -192,8 +198,8 @@ export function UniversalIntakeWorkspace() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Intake workflow</div>
-            <h2 className="text-lg font-semibold text-slate-900">Add source → Review queue → Resolve one candidate → Continue.</h2>
-            <p className="mt-1 text-xs text-slate-600">The queue is your operational landing zone. The workbench is for single-candidate resolution.</p>
+            <h2 className="text-lg font-semibold text-slate-900">Add source → Scan queue → Triage quickly → Open full review only when needed.</h2>
+            <p className="mt-1 text-xs text-slate-600">The default selected-item surface is compact triage. Deep correction and evidence tools stay available in full review.</p>
           </div>
           <div className="intake-intro-metrics">
             <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {opsSummary.pendingCount}</span>
@@ -293,6 +299,7 @@ export function UniversalIntakeWorkspace() {
           activeLane={activeLane}
           lanePosition={selectedQueueItem ? (byLane[activeLane].findIndex((item) => item.id === selectedQueueItem.id) + 1) : 0}
           laneTotal={byLane[activeLane].length}
+          fullReviewOpen={fullReviewOpen}
           onUpdateCandidate={updateIntakeWorkCandidate}
           onDecision={handleDecision}
           onSetConfirmUnsafeCreate={setConfirmUnsafeCreate}
@@ -300,6 +307,8 @@ export function UniversalIntakeWorkspace() {
           onSelectMatchId={setSelectedMatchId}
           onSetSourceTab={setSelectedSourceTab}
           onSelectEvidenceLocator={setSelectedEvidenceLocator}
+          onOpenFullReview={() => setFullReviewOpen(true)}
+          onCloseFullReview={() => setFullReviewOpen(false)}
         />
       </section>
 

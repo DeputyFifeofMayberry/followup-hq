@@ -6,8 +6,9 @@ import { ConflictQueueCenter } from './ConflictQueueCenter';
 import { downloadVerificationIncidentReport, exportVerificationIncident } from '../lib/persistenceVerification';
 import { useAppStore } from '../store/useAppStore';
 import { formatDateTime } from '../lib/utils';
-import { getCloudConfirmationLabel, getSyncStatusModel, selectSyncMetaSnapshot } from '../lib/syncStatus';
+import { getCloudConfirmationLabel, getSyncStatusModel, getSyncStatusToastAnnouncement, selectSyncMetaSnapshot } from '../lib/syncStatus';
 import { getSupabaseHost } from '../lib/supabase';
+import type { SyncTrustStage } from '../lib/syncStatus';
 
 function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' | 'danger'; spinning: boolean }) {
   if (spinning || tone === 'info') return <LoaderCircle className={spinning ? 'h-3.5 w-3.5 state-spin' : 'h-3.5 w-3.5'} />;
@@ -48,7 +49,8 @@ export function SyncStatusControl() {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const previousStageRef = useRef<string | null>(null);
+  const previousStageRef = useRef<SyncTrustStage | null>(null);
+  const lastAnnouncedToastKeyRef = useRef<string | null>(null);
 
   const statusModel = useMemo(() => getSyncStatusModel(syncMeta), [syncMeta]);
   const isBackendSetupIssue = syncMeta.sessionDegradedReason === 'backend-schema-mismatch'
@@ -147,36 +149,37 @@ export function SyncStatusControl() {
 
   useEffect(() => {
     const previousStage = previousStageRef.current;
-    if (previousStage === statusModel.stage) return;
+    const announcement = getSyncStatusToastAnnouncement({
+      hasLocalUnsavedChanges: syncMeta.hasLocalUnsavedChanges,
+      pendingBatchCount: syncMeta.pendingBatchCount,
+      cloudSyncState: syncMeta.cloudSyncState,
+      localRevision: syncMeta.localRevision,
+      lastCloudConfirmedRevision: syncMeta.lastCloudConfirmedRevision,
+      lastConfirmedBatchId: syncMeta.lastConfirmedBatchId,
+      saveProof: syncMeta.saveProof,
+    }, { stage: statusModel.stage, previousStage });
     previousStageRef.current = statusModel.stage;
-
-    const cloudCommitCurrentForRevision = !syncMeta.hasLocalUnsavedChanges
-      && syncMeta.pendingBatchCount === 0
-      && syncMeta.cloudSyncState === 'confirmed'
-      && syncMeta.localRevision === syncMeta.lastCloudConfirmedRevision;
-    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'cloud-verified' && cloudCommitCurrentForRevision) {
-      syncMeta.pushToast({
-        tone: 'success',
-        title: 'Cloud save committed',
-        message: 'Latest batch is committed in cloud storage. Verification can run separately.',
-        durationMs: 1800,
-        source: 'sync.status.cloud_confirmed',
-      });
-      return;
-    }
-
-    if (statusModel.stage === 'cloud-verified' && cloudCommitCurrentForRevision) {
-      syncMeta.pushToast({
-        tone: 'success',
-        title: 'Cloud match verified',
-        message: 'Current local state matches the latest cloud read-back.',
-        durationMs: 2000,
-        source: 'sync.status.verified',
-      });
-    }
+    if (!announcement) return;
+    if (lastAnnouncedToastKeyRef.current === announcement.key) return;
+    lastAnnouncedToastKeyRef.current = announcement.key;
+    syncMeta.pushToast({
+      tone: announcement.tone,
+      title: announcement.title,
+      message: announcement.message,
+      durationMs: announcement.durationMs,
+      source: announcement.source,
+    });
   }, [
     statusModel.stage,
-    syncMeta,
+    syncMeta.hasLocalUnsavedChanges,
+    syncMeta.pendingBatchCount,
+    syncMeta.cloudSyncState,
+    syncMeta.localRevision,
+    syncMeta.lastCloudConfirmedRevision,
+    syncMeta.lastConfirmedBatchId,
+    syncMeta.saveProof?.latestVerifiedBatchId,
+    syncMeta.saveProof?.latestVerifiedRevision,
+    syncMeta.pushToast,
   ]);
 
   useEffect(() => {

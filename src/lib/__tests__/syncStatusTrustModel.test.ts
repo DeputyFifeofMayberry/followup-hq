@@ -1,4 +1,4 @@
-import { getSyncStatusModel, selectSyncMetaSnapshot } from '../syncStatus';
+import { getSyncStatusModel, getSyncStatusToastAnnouncement, selectSyncMetaSnapshot } from '../syncStatus';
 import type { AppStore } from '../../store/types';
 
 function assert(condition: boolean, message: string): void {
@@ -257,6 +257,43 @@ function testSharedSnapshotSelectorConsistency(): void {
   assert(snapshotForHeader.lastReceiptHashMatch === true, 'sync snapshot should include hash match status');
 }
 
+function testToastAnnouncementKeysAreStablePerRevisionTransition(): void {
+  const cloudConfirmedAnnouncement = getSyncStatusToastAnnouncement(baseMeta(), {
+    stage: 'cloud-confirmed',
+    previousStage: 'queued-for-cloud',
+  });
+  assert(Boolean(cloudConfirmedAnnouncement), 'cloud-confirmed stage should emit a toast announcement when commit is current');
+  assert(cloudConfirmedAnnouncement?.source === 'sync.status.cloud_confirmed', `expected cloud-confirmed source, got ${cloudConfirmedAnnouncement?.source}`);
+
+  const sameRevisionAnnouncement = getSyncStatusToastAnnouncement(baseMeta(), {
+    stage: 'cloud-confirmed',
+    previousStage: 'queued-for-cloud',
+  });
+  assert(cloudConfirmedAnnouncement?.key === sameRevisionAnnouncement?.key, 'announcement key should remain stable for the same committed revision');
+
+  const newRevisionAnnouncement = getSyncStatusToastAnnouncement({
+    ...baseMeta(),
+    localRevision: 2,
+    lastCloudConfirmedRevision: 2,
+    lastConfirmedBatchId: 'batch-2',
+  }, {
+    stage: 'cloud-confirmed',
+    previousStage: 'queued-for-cloud',
+  });
+  assert(cloudConfirmedAnnouncement?.key !== newRevisionAnnouncement?.key, 'announcement key should change for a newly committed revision');
+}
+
+function testToastAnnouncementSuppressesWhenCommitNotCurrent(): void {
+  const staleCommit = getSyncStatusToastAnnouncement({
+    ...baseMeta(),
+    hasLocalUnsavedChanges: true,
+  }, {
+    stage: 'cloud-confirmed',
+    previousStage: 'queued-for-cloud',
+  });
+  assert(staleCommit === null, 'announcement should be suppressed when local state is not commit-current');
+}
+
 (function run() {
   testCloudCommittedLabeling();
   testCloudVerifiedIsDistinctFromCommitted();
@@ -267,4 +304,6 @@ function testSharedSnapshotSelectorConsistency(): void {
   testNeedsAttentionOverridesOptimisticStates();
   testExplicitPipelineEditingAndSavingStates();
   testSharedSnapshotSelectorConsistency();
+  testToastAnnouncementKeysAreStablePerRevisionTransition();
+  testToastAnnouncementSuppressesWhenCommitNotCurrent();
 })();

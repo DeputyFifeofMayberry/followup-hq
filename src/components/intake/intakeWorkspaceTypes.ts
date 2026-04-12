@@ -4,6 +4,7 @@ import type { IntakeReviewPlan } from '../../lib/intakeReviewPlan';
 export type Tone = 'success' | 'error' | 'info';
 export type QueueLane = 'ready_to_create' | 'needs_correction' | 'link_duplicate_review' | 'reference_only';
 export type SourceTab = 'overview' | 'preview' | 'evidence' | 'metadata';
+export type IntakeReviewEditorTarget = 'title' | 'candidateType' | 'project' | 'owner' | 'dueDate' | 'nextStep' | 'duplicateReview';
 
 export interface ActionFeedback {
   tone: Tone;
@@ -102,6 +103,28 @@ export function reviewReasonForField(key: string) {
   if (key === 'owner') return 'Owner clarity prevents orphaned follow-ups.';
   if (key === 'nextStep') return 'A concrete next step reduces decision hesitation.';
   return 'Needs reviewer confirmation before safe approval.';
+}
+
+export function toEditorTargetForField(key: string): IntakeReviewEditorTarget {
+  if (key === 'type') return 'candidateType';
+  if (key === 'existingLink') return 'duplicateReview';
+  if (key === 'title' || key === 'project' || key === 'owner' || key === 'dueDate' || key === 'nextStep') return key;
+  return 'title';
+}
+
+export function editorTargetLabel(target: IntakeReviewEditorTarget) {
+  if (target === 'candidateType') return 'Type';
+  if (target === 'duplicateReview') return 'Duplicate / link review';
+  if (target === 'dueDate') return 'Due date';
+  if (target === 'nextStep') return 'Next step';
+  return target.charAt(0).toUpperCase() + target.slice(1);
+}
+
+export function describeEvidenceFocus(input: { fieldLabel?: string; locator?: string | null }) {
+  if (input.fieldLabel && input.locator) return `${input.fieldLabel} • ${input.locator}`;
+  if (input.fieldLabel) return input.fieldLabel;
+  if (input.locator) return input.locator;
+  return null;
 }
 
 export function confidenceBand(confidence: number) {

@@ -1,6 +1,6 @@
-import { ClipboardCheck, Link2, Mail, ShieldAlert, Sparkles, Files, CheckCircle2, Expand, Minimize2 } from 'lucide-react';
-import { useMemo } from 'react';
-import { buildCandidateMatchCompareRows } from '../../lib/intakeEvidence';
+import { ClipboardCheck, Link2, Mail, ShieldAlert, Sparkles, Files, CheckCircle2, Expand, Minimize2, ArrowRightCircle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { buildCandidateMatchCompareRows, type IntakeFieldReviewKey } from '../../lib/intakeEvidence';
 import { toDateInputValue } from '../../lib/intakeDates';
 import type { IntakeQuickFixAction, IntakeReviewPlan } from '../../lib/intakeReviewPlan';
 import type { ImportSafetyResult } from '../../lib/intakeImportSafety';
@@ -8,7 +8,7 @@ import type { IntakeQueueItem } from '../../lib/intakeReviewQueue';
 import type { IntakeAssetRecord, IntakeWorkCandidate } from '../../types';
 import { AppModal, AppModalBody, AppModalFooter, AppModalHeader } from '../ui/AppPrimitives';
 import { IntakeEvidencePanel } from './IntakeEvidencePanel';
-import { actionIsPrimary, candidateTypeLabel, confidenceBand, correctionBucketLabel, createActionBlockReason, decisionLabel, laneDescription, laneLabel, recommendedActionDescription, reviewReasonForField, triageStateTone, type QueueLane, type SourceTab } from './intakeWorkspaceTypes';
+import { actionIsPrimary, candidateTypeLabel, confidenceBand, correctionBucketLabel, createActionBlockReason, decisionLabel, describeEvidenceFocus, editorTargetLabel, laneDescription, laneLabel, recommendedActionDescription, reviewReasonForField, toEditorTargetForField, triageStateTone, type QueueLane, type SourceTab, type IntakeReviewEditorTarget } from './intakeWorkspaceTypes';
 
 interface Props {
   selectedCandidate: IntakeWorkCandidate | null;
@@ -50,6 +50,32 @@ export function IntakeCandidateWorkbench(props: Props) {
   });
   const createActionDisabled = Boolean(createActionBlockedReason);
   const compareRows = useMemo(() => (props.selectedCandidate && selectedMatch ? buildCandidateMatchCompareRows(props.selectedCandidate, selectedMatch) : []), [props.selectedCandidate, selectedMatch]);
+  const [activeEditorTarget, setActiveEditorTarget] = useState<IntakeReviewEditorTarget | null>(null);
+  const [evidenceFocusLabel, setEvidenceFocusLabel] = useState<string | null>(null);
+  const fieldRefs = useRef<Partial<Record<IntakeReviewEditorTarget, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLDivElement | null>>>({});
+
+  useEffect(() => {
+    setActiveEditorTarget(null);
+    setEvidenceFocusLabel(null);
+  }, [props.selectedCandidate?.id]);
+
+  const focusEditorTarget = (target: IntakeReviewEditorTarget) => {
+    setActiveEditorTarget(target);
+    const node = fieldRefs.current[target];
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if ('focus' in node) node.focus();
+  };
+
+  const focusFieldForCorrection = (fieldKey: IntakeFieldReviewKey, fieldLabel: string, evidenceLocator?: string | null) => {
+    const target = toEditorTargetForField(fieldKey);
+    focusEditorTarget(target);
+    if (evidenceLocator) {
+      props.onSetSourceTab('evidence');
+      props.onSelectEvidenceLocator(evidenceLocator);
+      setEvidenceFocusLabel(describeEvidenceFocus({ fieldLabel, locator: evidenceLocator }));
+    }
+  };
 
   if (!props.selectedCandidate) {
     return <section className="intake-workbench-panel">
@@ -152,8 +178,8 @@ export function IntakeCandidateWorkbench(props: Props) {
             {props.selectedReviewPlan ? <div className="intake-guidance-card intake-guidance-required">
               <div className="intake-workbench-section-head">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Required before create</div>
-                  <div className="text-xs text-rose-800">{props.selectedReviewPlan.requiredCorrections.length ? `${props.selectedReviewPlan.requiredCorrections.length} blocker(s) must be resolved.` : 'No blockers remain. Create actions are available.'}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Correction loop</div>
+                  <div className="text-xs text-rose-800">{props.selectedReviewPlan.requiredCorrections.length ? `${props.selectedReviewPlan.requiredCorrections.length} blocker(s): resolve each blocker, verify evidence, then decide.` : 'No blockers remain. Decide from the action rail.'}</div>
                 </div>
                 {!props.selectedReviewPlan.requiredCorrections.length ? <span className="intake-ready-chip"><CheckCircle2 className="h-3.5 w-3.5" />Ready to decide</span> : null}
               </div>
@@ -166,82 +192,102 @@ export function IntakeCandidateWorkbench(props: Props) {
                   {fields.map((field) => {
                     const hint = props.selectedActionHints.find((entry) => entry.field.key === field.key);
                     const evidenceLocator = field.sourceRefs[0]?.locator || field.sourceRefs[0]?.sourceRef || null;
-                    return <div key={field.key} className="intake-blocker-row">
+                    const target = toEditorTargetForField(field.key);
+                    return <div key={field.key} className={`intake-blocker-row ${activeEditorTarget === target ? 'intake-blocker-row-active' : ''}`}>
                       <div>
                         <div className="font-semibold text-slate-900">{field.label}</div>
                         <div className="text-[11px] text-slate-700">{hint?.nextStep || 'Resolve this field before approving.'}</div>
                         <div className="text-[11px] text-rose-700">Why it matters: {reviewReasonForField(field.key)}</div>
                       </div>
-                      {evidenceLocator ? <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => {
-                        props.onSetSourceTab('evidence');
-                        props.onSelectEvidenceLocator(evidenceLocator);
-                      }}>View evidence</button> : null}
+                      <div className="intake-blocker-actions">
+                        <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => focusEditorTarget(target)}><ArrowRightCircle className="h-3.5 w-3.5" />Fix {editorTargetLabel(target)}</button>
+                        {evidenceLocator ? <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => focusFieldForCorrection(field.key, field.label, evidenceLocator)}>View evidence</button> : null}
+                      </div>
                     </div>;
                   })}
                 </div>;
               })}</div> : null}
             </div> : null}
 
-            {props.selectedReviewPlan?.recommendedCorrections.length ? <div className="intake-guidance-card">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recommended improvements</div>
-              <div className="mt-1 text-xs text-slate-600">Helpful quality improvements after blockers are resolved.</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">{props.selectedReviewPlan.recommendedCorrections.slice(0, 6).map((field) => <span key={field.key} className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700">{field.label}</span>)}</div>
-            </div> : null}
-
             <div className="intake-guidance-card">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Field correction editor</div>
-              <div className="mt-1 intake-edit-grid">
-                <label className="field-block intake-edit-field-critical"><span className="field-label">Title <span className="text-rose-700">required</span></span><input className="field-input" value={c.title} onChange={(event) => props.onUpdateCandidate(c.id, { title: event.target.value })} /></label>
-                <label className="field-block"><span className="field-label">Type <span className="text-rose-700">required</span></span><select className="field-input" value={c.candidateType} onChange={(event) => props.onUpdateCandidate(c.id, { candidateType: event.target.value as IntakeWorkCandidate['candidateType'] })}><option value="followup">Follow-up</option><option value="task">Task</option><option value="reference">Reference</option><option value="update_existing_followup">Update follow-up</option><option value="update_existing_task">Update task</option></select></label>
-                <label className="field-block"><span className="field-label">Project <span className="text-rose-700">required</span></span><input className="field-input" value={c.project || ''} onChange={(event) => props.onUpdateCandidate(c.id, { project: event.target.value })} /></label>
-                <label className="field-block"><span className="field-label">Owner <span className="text-rose-700">required for clear ownership</span></span><input className="field-input" value={c.owner || ''} onChange={(event) => props.onUpdateCandidate(c.id, { owner: event.target.value })} /></label>
-                <label className="field-block"><span className="field-label">Due date</span><input type="date" className="field-input" value={toDateInputValue(c.dueDate)} onChange={(event) => props.onUpdateCandidate(c.id, { dueDate: event.target.value })} /></label>
-                <label className="field-block intake-edit-field-critical"><span className="field-label">Next step</span><input className="field-input" value={c.nextStep || ''} onChange={(event) => props.onUpdateCandidate(c.id, { nextStep: event.target.value })} /></label>
-                <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={c.assignee || ''} onChange={(event) => props.onUpdateCandidate(c.id, { assignee: event.target.value })} /></label>
-                <label className="field-block intake-edit-field-summary"><span className="field-label">Summary</span><textarea className="field-textarea" value={c.summary} onChange={(event) => props.onUpdateCandidate(c.id, { summary: event.target.value })} /></label>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Correction editor</div>
+              <div className="mt-1 text-xs text-slate-600">Required fields are grouped first for fast blocker cleanup, with supporting fields below.</div>
+              <div className="mt-2 intake-correction-editor-layout">
+                <div className="intake-correction-main">
+                  <div className="intake-editor-group">
+                    <div className="intake-editor-group-title">Required for create-new</div>
+                    <div className="intake-edit-grid intake-edit-grid-critical">
+                      <label className={`field-block intake-edit-field-critical ${activeEditorTarget === 'title' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Title <span className="text-rose-700">required</span></span><input ref={(node) => { fieldRefs.current.title = node; }} className="field-input" value={c.title} onChange={(event) => props.onUpdateCandidate(c.id, { title: event.target.value })} /></label>
+                      <label className={`field-block ${activeEditorTarget === 'candidateType' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Type <span className="text-rose-700">required</span></span><select ref={(node) => { fieldRefs.current.candidateType = node; }} className="field-input" value={c.candidateType} onChange={(event) => props.onUpdateCandidate(c.id, { candidateType: event.target.value as IntakeWorkCandidate['candidateType'] })}><option value="followup">Follow-up</option><option value="task">Task</option><option value="reference">Reference</option><option value="update_existing_followup">Update follow-up</option><option value="update_existing_task">Update task</option></select></label>
+                      <label className={`field-block ${activeEditorTarget === 'project' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Project <span className="text-rose-700">required</span></span><input ref={(node) => { fieldRefs.current.project = node; }} className="field-input" value={c.project || ''} onChange={(event) => props.onUpdateCandidate(c.id, { project: event.target.value })} /></label>
+                      <label className={`field-block ${activeEditorTarget === 'owner' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Owner <span className="text-rose-700">required for clear ownership</span></span><input ref={(node) => { fieldRefs.current.owner = node; }} className="field-input" value={c.owner || ''} onChange={(event) => props.onUpdateCandidate(c.id, { owner: event.target.value })} /></label>
+                      <label className={`field-block ${activeEditorTarget === 'dueDate' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Due date <span className="text-rose-700">required for create-new</span></span><input ref={(node) => { fieldRefs.current.dueDate = node; }} type="date" className="field-input" value={toDateInputValue(c.dueDate)} onChange={(event) => props.onUpdateCandidate(c.id, { dueDate: event.target.value })} /></label>
+                      <label className={`field-block intake-edit-field-critical ${activeEditorTarget === 'nextStep' ? 'intake-edit-field-active' : ''}`}><span className="field-label">Next step</span><input ref={(node) => { fieldRefs.current.nextStep = node; }} className="field-input" value={c.nextStep || ''} onChange={(event) => props.onUpdateCandidate(c.id, { nextStep: event.target.value })} /></label>
+                    </div>
+                  </div>
+
+                  {(props.safety && (props.safety.requiresLinkReview || c.existingRecordMatches.length > 0)) ? <div className={`intake-editor-group intake-duplicate-review-card ${activeEditorTarget === 'duplicateReview' ? 'intake-edit-field-active' : ''}`}>
+                    <div ref={(node) => { fieldRefs.current.duplicateReview = node; }} className="intake-workbench-section-head">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Link / duplicate decision</div>
+                        <div className="text-xs text-amber-900">Compare before deciding create-new. Selected match stays wired to the final decision action.</div>
+                      </div>
+                      {props.duplicateGroup.length > 1 ? <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{props.duplicateGroup.length} items in group</span> : null}
+                    </div>
+                    <div className="mt-2 space-y-1">{c.existingRecordMatches.map((match) => <button key={match.id} className={`w-full rounded border px-2 py-1 text-left ${selectedMatch?.id === match.id ? 'border-sky-300 bg-white' : 'border-amber-200 bg-amber-50'}`} onClick={() => props.onSelectMatchId(match.id)}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-slate-900">{match.recordType} • {match.title}</div>
+                        <div className="text-[11px] text-slate-700">{Math.round(match.score * 100)}% match</div>
+                      </div>
+                      <div className="text-[11px] text-slate-700">{match.reason}</div>
+                    </button>)}</div>
+                    {compareRows.length ? <div className="intake-match-compare-grid mt-2">{compareRows.slice(0, 5).map((row) => <div key={row.field} className="intake-match-compare-row">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{row.label}</div>
+                      <div className="text-[11px] text-slate-700">Candidate: {row.candidateValue}</div>
+                      <div className="text-[11px] text-slate-700">Existing: {row.existingValue}</div>
+                    </div>)}</div> : null}
+                    {selectedMatch ? <div className="mt-2 text-[11px] text-slate-700">Selected link target: <strong>{selectedMatch.recordType} {selectedMatch.id}</strong></div> : null}
+                  </div> : null}
+
+                  <div className="intake-editor-group">
+                    <div className="intake-editor-group-title">Supporting detail</div>
+                    <div className="intake-edit-grid">
+                      <label className="field-block"><span className="field-label">Assignee</span><input className="field-input" value={c.assignee || ''} onChange={(event) => props.onUpdateCandidate(c.id, { assignee: event.target.value })} /></label>
+                      <label className="field-block intake-edit-field-summary"><span className="field-label">Summary</span><textarea className="field-textarea" value={c.summary} onChange={(event) => props.onUpdateCandidate(c.id, { summary: event.target.value })} /></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="intake-correction-sidecar">
+                  <div className="intake-guidance-card">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Evidence inspector</div>
+                      <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => {
+                        props.onSetSourceTab('overview');
+                        setEvidenceFocusLabel(null);
+                      }}><Minimize2 className="h-3.5 w-3.5" />Reset</button>
+                    </div>
+                    <div className="mt-2"><IntakeEvidencePanel selectedAsset={props.selectedAsset} selectedCandidate={props.selectedCandidate} selectedSourceTab={props.selectedSourceTab} selectedEvidenceLocator={props.selectedEvidenceLocator} evidenceFocusLabel={evidenceFocusLabel} onSetTab={props.onSetSourceTab} onSelectLocator={props.onSelectEvidenceLocator} /></div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {(props.safety && (props.safety.requiresLinkReview || c.existingRecordMatches.length > 0)) ? <div className="intake-guidance-card intake-duplicate-review-card">
-              <div className="intake-workbench-section-head">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Link / duplicate decision</div>
-                  <div className="text-xs text-amber-900">Link if this is the same active record. Create new only when this is clearly distinct work.</div>
-                </div>
-                {props.duplicateGroup.length > 1 ? <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{props.duplicateGroup.length} items in group</span> : null}
+            <div className="intake-full-review-action-rail">
+              <div className="text-xs text-slate-700">{createActionBlockedReason ?? 'No create blockers. Choose the final decision path.'}</div>
+              <div className="intake-decision-primary-row">
+                <button className="action-btn" onClick={() => props.onDecision('reference')}><Files className="h-4 w-4" />Save reference</button>
+                <button className="action-btn" onClick={() => props.onDecision('link')} disabled={!c.existingRecordMatches.length}><Link2 className="h-4 w-4" />Link existing</button>
+                <button className="primary-btn" onClick={() => props.onDecision('approve_followup')} disabled={createActionDisabled}><Mail className="h-4 w-4" />Create follow-up</button>
+                <button className="primary-btn" onClick={() => props.onDecision('approve_task')} disabled={createActionDisabled}><ClipboardCheck className="h-4 w-4" />Create task</button>
               </div>
-              <div className="mt-2 space-y-1">{c.existingRecordMatches.map((match) => <button key={match.id} className={`w-full rounded border px-2 py-1 text-left ${selectedMatch?.id === match.id ? 'border-sky-300 bg-white' : 'border-amber-200 bg-amber-50'}`} onClick={() => props.onSelectMatchId(match.id)}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-semibold text-slate-900">{match.recordType} • {match.title}</div>
-                  <div className="text-[11px] text-slate-700">{Math.round(match.score * 100)}% match</div>
-                </div>
-                <div className="text-[11px] text-slate-700">{match.reason}</div>
-              </button>)}</div>
-              {compareRows.length ? <div className="intake-match-compare-grid mt-2">{compareRows.slice(0, 5).map((row) => <div key={row.field} className="intake-match-compare-row">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{row.label}</div>
-                <div className="text-[11px] text-slate-700">Candidate: {row.candidateValue}</div>
-                <div className="text-[11px] text-slate-700">Existing: {row.existingValue}</div>
-              </div>)}</div> : null}
-              {selectedMatch ? <div className="mt-2 text-[11px] text-slate-700">Selected link target: <strong>{selectedMatch.recordType} {selectedMatch.id}</strong></div> : null}
-            </div> : null}
-
-            <div className="intake-guidance-card">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Evidence inspector</div>
-                <button className="action-btn !px-2 !py-1 text-[11px]" onClick={() => props.onSetSourceTab('overview')}><Minimize2 className="h-3.5 w-3.5" />Reset to overview</button>
-              </div>
-              <div className="mt-2"><IntakeEvidencePanel selectedAsset={props.selectedAsset} selectedCandidate={props.selectedCandidate} selectedSourceTab={props.selectedSourceTab} selectedEvidenceLocator={props.selectedEvidenceLocator} onSetTab={props.onSetSourceTab} onSelectLocator={props.onSelectEvidenceLocator} /></div>
             </div>
           </div>
         </AppModalBody>
         <AppModalFooter>
-          <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <div className="text-xs text-slate-600">Act from full review or return to triage for rapid queue handling.</div>
-            <div className="flex flex-wrap gap-2">
-              <button className="action-btn" onClick={() => props.onDecision('reference')}><Files className="h-4 w-4" />Save reference</button>
-              <button className="action-btn" onClick={() => props.onDecision('link')} disabled={!c.existingRecordMatches.length}><Link2 className="h-4 w-4" />Link existing</button>
-              <button className="primary-btn" onClick={() => props.onDecision('approve_followup')} disabled={createActionDisabled}><Mail className="h-4 w-4" />Create follow-up</button>
-            </div>
+          <div className="flex w-full items-center justify-between gap-2">
+            <div className="text-xs text-slate-600">Back to triage when done, or decide directly from the action rail.</div>
+            <button className="action-btn" onClick={props.onCloseFullReview}>Close full review</button>
           </div>
         </AppModalFooter>
       </AppModal> : null}

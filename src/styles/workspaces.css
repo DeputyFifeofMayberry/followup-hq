@@ -1614,8 +1614,17 @@
 .intake-workbench-section-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
 .intake-ready-chip { display: inline-flex; align-items: center; gap: 0.24rem; background: #e8f8ef; color: #166534; border: 1px solid #86efac; border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.68rem; font-weight: 650; }
 .intake-blocker-row { display: flex; justify-content: space-between; gap: 0.45rem; border: 1px solid #fecdd3; background: #fff; border-radius: 0.6rem; padding: 0.45rem 0.5rem; }
+.intake-blocker-row-active { border-color: #93c5fd; box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2); }
+.intake-blocker-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.intake-correction-editor-layout { display: grid; gap: 0.65rem; grid-template-columns: minmax(0, 1.2fr) minmax(250px, 0.8fr); align-items: start; }
+.intake-correction-main { display: grid; gap: 0.55rem; }
+.intake-correction-sidecar { position: sticky; top: 0.1rem; align-self: start; }
+.intake-editor-group { border: 1px solid var(--border-default); border-radius: 0.7rem; background: #fff; padding: 0.55rem; display: grid; gap: 0.45rem; }
+.intake-editor-group-title { font-size: 0.7rem; font-weight: 670; letter-spacing: 0.05em; text-transform: uppercase; color: #4b5563; }
 .intake-edit-grid { display: grid; gap: 0.48rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.intake-edit-grid-critical { gap: 0.52rem; }
 .intake-edit-field-critical { border-color: #dbeafe; background: #f8fbff; }
+.intake-edit-field-active { border-color: #93c5fd !important; box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35); background: #f8fbff; }
 .intake-edit-field-summary { grid-column: 1 / -1; }
 .intake-duplicate-review-card { border-color: #fcd34d; background: #fffbeb; }
 .intake-match-compare-grid { display: grid; gap: 0.35rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
@@ -1625,9 +1634,21 @@
 .intake-decision-secondary-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .intake-evidence-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; font-size: 0.74rem; font-weight: 650; color: #1e293b; }
 .intake-evidence-panel { border: 1px solid var(--border-default); border-radius: 0.75rem; background: #fff; padding: 0.55rem; }
+.intake-full-review-action-rail {
+  position: sticky;
+  bottom: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.8rem;
+  background: #f8fbff;
+  padding: 0.48rem 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+}
 
 @media (max-width: 900px) {
   .intake-summary-metadata-grid,
   .intake-edit-grid,
-  .intake-triage-cues-grid { grid-template-columns: 1fr; }
+  .intake-triage-cues-grid,
+  .intake-correction-editor-layout { grid-template-columns: 1fr; }
+  .intake-correction-sidecar { position: static; }
 }

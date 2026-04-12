@@ -1,4 +1,4 @@
-import { actionIsPrimary, createActionBlockReason } from '../../components/intake/intakeWorkspaceTypes';
+import { actionIsPrimary, createActionBlockReason, describeEvidenceFocus, editorTargetLabel, toEditorTargetForField } from '../../components/intake/intakeWorkspaceTypes';
 import type { IntakeReviewPlan } from '../intakeReviewPlan';
 
 function assert(condition: boolean, message: string) {
@@ -31,6 +31,14 @@ assert(
 assert(
   createActionBlockReason({ createBlocked: false, safeToCreateNew: false, confirmUnsafeCreate: true }) === null,
   'unsafe create block should clear once reviewer acknowledges override',
+);
+assert(toEditorTargetForField('title') === 'title', 'title blocker should map to title editor target');
+assert(toEditorTargetForField('type') === 'candidateType', 'type blocker should map to candidate type editor target');
+assert(toEditorTargetForField('existingLink') === 'duplicateReview', 'existing-link blocker should map to duplicate review target');
+assert(editorTargetLabel('candidateType') === 'Type', 'candidate type target label should remain readable');
+assert(
+  describeEvidenceFocus({ fieldLabel: 'Project', locator: 'mail.eml#L20' }) === 'Project • mail.eml#L20',
+  'evidence focus should include field + locator context',
 );
 
 console.log('intake workspace decision-bar checks passed');

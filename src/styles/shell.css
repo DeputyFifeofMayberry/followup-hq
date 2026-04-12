@@ -46,7 +46,7 @@
 .nav-text-brand-subline { color: #99abc3; font-size: 0.76rem; font-weight: 540; letter-spacing: 0.01em; margin-top: 0.18rem; }
 .nav-section-stack { display: grid; gap: 0.62rem; }
 .nav-section { display: grid; gap: 0.55rem; }
-.nav-section-heading { padding: 0 0.44rem; color: #a9bdd6; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9; }
+.nav-section-heading { padding: 0 0.44rem; color: #a9bdd6; font-size: 0.69rem; font-weight: 620; letter-spacing: 0.01em; opacity: 0.9; }
 .nav-section-support .nav-section-heading { color: #8093ad; opacity: 0.72; }
 .nav-text-primary { color: #dce8f8; font-size: 0.88rem; font-weight: 600; letter-spacing: -0.005em; }
 .nav-text-secondary { color: #afbed4; font-size: 0.74rem; font-weight: 500; }
@@ -73,7 +73,7 @@
   background: rgba(15, 23, 42, 0.3);
 }
 .nav-label-icon { color: #a7bad3; }
-.nav-label-primary { color: #d5e3f2; font-size: 0.86rem; font-weight: 620; letter-spacing: -0.004em; }
+.nav-label-primary { color: #d5e3f2; font-size: 0.88rem; font-weight: 640; letter-spacing: -0.01em; line-height: 1.25; }
 .nav-card-active .nav-label-icon,
 .nav-card-active .nav-label-primary { color: var(--text-inverse); }
 .nav-card-active .nav-icon-shell {
@@ -191,17 +191,13 @@
   color: var(--brand-wordmark-dark);
 }
 
-.app-compact-shell-current span {
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
+.app-compact-shell-current span { font-size: var(--type-micro); letter-spacing: 0.01em; color: var(--text-muted); }
 
 .app-compact-shell-current strong {
-  font-size: 0.88rem;
-  font-weight: 720;
+  font-size: 0.94rem;
+  font-weight: var(--type-weight-row);
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .app-nav-overlay {

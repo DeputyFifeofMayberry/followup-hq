@@ -652,7 +652,7 @@ function MainApp({ session }: { session: Session }) {
             <div className="space-y-3">
               {groupedVisibleCommands.length ? groupedVisibleCommands.map((grouped) => (
                 <section key={grouped.group} className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{grouped.group}</div>
+                  <div className="text-xs font-semibold tracking-tight text-slate-600">{grouped.group}</div>
                   <div className="space-y-2">
                     {grouped.commands.map((command) => {
                       const commandIndex = flatVisibleCommands.findIndex((entry) => entry.id === command.id);
@@ -680,7 +680,7 @@ function MainApp({ session }: { session: Session }) {
                 </section>
               )) : <NoMatchesState title="No matching command" message="Try a shorter keyword such as “task” or “follow”." />}
             </div>
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
               ↑/↓ move • Enter run • Esc close • Ctrl/Cmd+Shift+N quick capture
             </div>
               </AppModalBody>

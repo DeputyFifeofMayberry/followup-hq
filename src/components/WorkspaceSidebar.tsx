@@ -18,7 +18,7 @@ const workspaces: Array<{ key: WorkspaceKey; label: string; helper: string; icon
   { key: 'tasks', label: 'Tasks', helper: 'Execution task lane', icon: BellRing },
   { key: 'intake', label: 'Intake', helper: 'Drop emails and imports', icon: Inbox },
   { key: 'directory', label: 'Directory', helper: 'Projects, people, companies', icon: Building2 },
-  { key: 'exports', label: 'Exports', helper: 'Reports and snapshots', icon: Building2 },
+  { key: 'exports', label: 'Reports', helper: 'Operational reporting workspace', icon: Building2 },
 ];
 
 export function WorkspaceSidebar({ workspace, onChange }: WorkspaceSidebarProps) {

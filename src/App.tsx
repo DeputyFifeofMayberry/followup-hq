@@ -118,7 +118,7 @@ function LoginScreen() {
             </div>
             <div className="login-point-card">
               <ShieldCheck className="h-5 w-5" />
-              <div>Projects, Relationships, and Exports maintain pressure visibility and reporting confidence.</div>
+              <div>Projects, Relationships, and Reports maintain pressure visibility and reporting confidence.</div>
             </div>
           </div>
         </section>

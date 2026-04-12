@@ -101,14 +101,14 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
     healthLabel: ({ totalItems }) => `${totalItems} linked follow-ups`,
   },
   exports: {
-    userLabel: 'Exports',
-    shellTitle: 'Exports',
+    userLabel: 'Reports',
+    shellTitle: 'Reports',
     shellPurpose: mode === 'personal'
-      ? 'Reporting and export surface for daily status snapshots.'
-      : 'Reporting and export surface for team snapshots and audit packs.',
+      ? 'Operational reports for execution pressure, risk, and closeout readiness.'
+      : 'Team reporting workspace for execution pressure, accountability, and export handoff.',
     category: 'support',
     startSurface: false,
-    healthLabel: () => 'Export-ready data',
+    healthLabel: ({ navCounts }) => `${navCounts.exports || 0} reports need attention`,
   },
 });
 

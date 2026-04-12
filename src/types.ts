@@ -126,6 +126,36 @@ export interface WorkspaceAttentionCounts {
   followups: number;
   tasks: number;
 }
+
+export type ReportType =
+  | 'executive_snapshot'
+  | 'project_health'
+  | 'owner_workload'
+  | 'followup_risk'
+  | 'data_quality';
+
+export interface ReportSelectorItem {
+  id: ReportType;
+  label: string;
+  description: string;
+}
+
+export interface ReportSummaryCardModel {
+  id: string;
+  label: string;
+  value: number;
+  helper?: string;
+  tone?: 'default' | 'warn' | 'danger' | 'info';
+}
+
+export interface ReportMetricSnapshot {
+  dueNow: number;
+  blocked: number;
+  cleanup: number;
+  readyToClose: number;
+  openFollowUps: number;
+  openTasks: number;
+}
 export type AppUserRole = 'user' | 'manager' | 'admin';
 export type AppMode = 'personal' | 'team';
 export type VisibilityScope = 'private' | 'team' | 'company';

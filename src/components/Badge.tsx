@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 type Variant = 'neutral' | 'warn' | 'danger' | 'success' | 'blue' | 'purple' | 'green' | 'gold';
-type BadgeKind = 'status' | 'priority' | 'meta';
+type BadgeKind = 'status' | 'priority' | 'meta' | 'urgency' | 'summary';
 
 const tones: Record<Variant, string> = {
   neutral: 'chip-tone-neutral',
@@ -29,7 +29,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <span className={cn('app-chip', `app-chip-${kind}`, tones[variant], className)}>
+    <span className={cn('app-chip', `app-chip-${kind}`, kind === 'meta' ? 'control-chip-metadata' : kind === 'summary' ? 'control-chip-summary' : 'control-chip-status', tones[variant], className)}>
       {withDot ? <span className="app-chip-dot" aria-hidden="true" /> : null}
       {children}
     </span>

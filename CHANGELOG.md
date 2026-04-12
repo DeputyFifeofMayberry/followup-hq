@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Shared control-language refinement: stronger action hierarchy, clearer chip roles, and premium segmented controls
+- Audited and rebalanced the shared control primitives used across shell/workspace/modals: updated baseline button material and spacing so primary actions now carry clear visual authority, secondary actions stay supportive, and a new quiet-action treatment is available for low-priority dismiss/utility controls. (`src/styles/primitives.css`, `src/components/ui/AppPrimitives.tsx`)
+- Refined primary action styling into a more intentional SetPoint signature (deeper accent gradient, stronger weight, clearer elevation) while keeping secondary/destructive controls calmer and easier to scan in dense toolbars and modal action rows. (`src/styles/primitives.css`)
+- Introduced an explicit shared chip-role grammar (`filter`, `status`, `metadata`, `summary`) and wired it into the primitive layer, reducing previous chip/badge/pill role overlap and making status vs metadata vs interactive filters more distinguishable at a glance. (`src/styles/primitives.css`, `src/styles/workspaces.css`, `src/components/ui/AppPrimitives.tsx`, `src/components/Badge.tsx`)
+- Upgraded segmented controls to a more product-grade selector treatment with stronger container contrast and active/inactive hierarchy, keeping them visually distinct from pills/chips while preserving compact density for workflow views. (`src/styles/primitives.css`, `src/components/ui/AppPrimitives.tsx`)
+- Demoted shell metadata chips and tuned execution/mobile filter chip styling to reduce high-frequency visual competition in row-dense workspaces while retaining quick recognition and hit-target reliability. (`src/styles/shell.css`, `src/styles/workspaces.css`)
+
 ### Typography hierarchy refinement: editorial contrast, calmer labels, and scan-first operational rows
 - Introduced a shared editorial typography scale in design tokens so page titles, section titles, panel headers, row titles, body copy, metadata, labels, and microtext now use an intentional hierarchy instead of near-flat sizing/weight clustering. (`src/styles/tokens.css`)
 - Refined shared primitives to consume the hierarchy (panel titles/support copy, section headers, field labels/helper text, modal titles/subtitles, empty/state panels, and sync-status labels) so support text reads quieter and primary text reads with clearer authority across reusable UI surfaces. (`src/styles/primitives.css`)

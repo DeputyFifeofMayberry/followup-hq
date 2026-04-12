@@ -15,6 +15,7 @@ import { deriveFollowUpAttentionSignal } from '../../domains/followups/helpers/a
 import { deriveFollowUpNextMove } from '../../domains/followups/helpers/nextMove';
 import { deriveFollowUpRecommendedAction } from '../../domains/shared/execution/recommendedAction';
 import type { FollowUpExecutionActionId } from '../../domains/followups/helpers/executionActions';
+import { useViewportBand } from '../../hooks/useViewport';
 
 type FollowUpInspectorModalProps = {
   open: boolean;
@@ -39,6 +40,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
   onSnooze,
   onStartActionFlow,
 }: FollowUpInspectorModalProps) {
+  const { isMobileLike } = useViewportBand();
   const { tasks, duplicateReviews } = useAppStore(useShallow((s) => ({
     tasks: s.tasks,
     duplicateReviews: s.duplicateReviews,
@@ -88,14 +90,15 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
     .slice(0, 8);
 
   return (
-    <AppModal size="wide" onBackdropClick={onClose} onClose={onClose} ariaLabel="Follow-up inspector">
+    <AppModal size={isMobileLike ? 'standard' : 'wide'} onBackdropClick={onClose} onClose={onClose} ariaLabel="Follow-up inspector">
       <AppModalHeader
         title={selectedFollowUp.title}
         subtitle={`${selectedFollowUp.project} • ${selectedFollowUp.assigneeDisplayName || selectedFollowUp.owner}`}
         onClose={onClose}
+        closeLabel={isMobileLike ? 'Back to queue' : 'Close'}
       />
-      <AppModalBody>
-        <div className="space-y-3 followup-inspector-flow">
+      <AppModalBody className={isMobileLike ? 'followup-inspector-modal-mobile' : ''}>
+        <div className={`space-y-3 followup-inspector-flow ${isMobileLike ? 'followup-inspector-flow-mobile' : ''}`.trim()}>
           <section className="detail-card followup-inspector-identity-card">
             <div className="task-inspector-status-strip">
               <Badge kind="status" variant={statusTone(selectedFollowUp.status)} withDot>{selectedFollowUp.status}</Badge>
@@ -181,7 +184,7 @@ export const FollowUpInspectorModal = memo(function FollowUpInspectorModal({
         </div>
       </AppModalBody>
       <AppModalFooter>
-        <button type="button" className="action-btn" onClick={onClose}>Back to queue</button>
+        <button type="button" className="action-btn" onClick={onClose}>{isMobileLike ? 'Back to queue' : 'Close'}</button>
       </AppModalFooter>
     </AppModal>
   );

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   buildCsvRows,
+  buildCsvProvenanceRows,
   exportCsvFile,
   exportWorkbookFile,
   EXPORT_DETAIL_OPTIONS,
@@ -14,6 +15,7 @@ import {
   TASK_STATUS_OPTIONS,
   type ExportDetailLevel,
   type ExportOptions,
+  type ExportProvenance,
 } from '../lib/export';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
@@ -134,7 +136,17 @@ function ToggleRow({
   );
 }
 
-export function ExportWorkspace({ embedded = false, reportTrustSummary }: { embedded?: boolean; reportTrustSummary?: ReportTrustSummary }) {
+export function ExportWorkspace({
+  embedded = false,
+  reportTrustSummary,
+  reportProvenance,
+  onExported,
+}: {
+  embedded?: boolean;
+  reportTrustSummary?: ReportTrustSummary;
+  reportProvenance?: ExportProvenance;
+  onExported?: (payload: { format: 'xlsx' | 'csv'; fileName: string }) => void;
+}) {
   const { items, tasks } = useAppStore(useShallow((s) => ({ items: s.items, tasks: s.tasks })));
   const [options, setOptions] = useState<ExportOptions>(defaultOptions);
   const [lastExportMessage, setLastExportMessage] = useState('');
@@ -161,12 +173,15 @@ export function ExportWorkspace({ embedded = false, reportTrustSummary }: { embe
   const updateTasks = (patch: Partial<ExportOptions['tasks']>) => setOptions((current) => ({ ...current, tasks: { ...current.tasks, ...patch } }));
 
   const handleWorkbookExport = async () => {
-    const fileName = await exportWorkbookFile(filteredFollowUps, filteredTasks, options);
+    const fileName = await exportWorkbookFile(filteredFollowUps, filteredTasks, options, reportProvenance);
+    onExported?.({ format: 'xlsx', fileName });
     setLastExportMessage('Workbook exported: ' + fileName);
   };
 
   const handleCsvExport = async () => {
-    const fileName = await exportCsvFile(buildCsvRows(filteredFollowUps, filteredTasks, options), options.fileBaseName);
+    const baseRows = buildCsvRows(filteredFollowUps, filteredTasks, options);
+    const fileName = await exportCsvFile([...buildCsvProvenanceRows(reportProvenance), ...baseRows], options.fileBaseName);
+    onExported?.({ format: 'csv', fileName });
     setLastExportMessage('CSV exported: ' + fileName);
   };
 
@@ -225,6 +240,7 @@ export function ExportWorkspace({ embedded = false, reportTrustSummary }: { embe
               <div className="mt-1"><strong>Mode:</strong> {reportTrustSummary.scopeReceipt.modeLabel}</div>
               <div><strong>Included / excluded:</strong> {reportTrustSummary.scopeReceipt.includedCount} / {reportTrustSummary.scopeReceipt.excludedCount}</div>
               <div><strong>Confidence:</strong> {reportTrustSummary.confidence.label}</div>
+              {reportProvenance ? <div><strong>Snapshot run:</strong> {new Date(reportProvenance.ranAt).toLocaleString()}</div> : null}
               {reportTrustSummary.topExclusions.length ? (
                 <ul className="mt-2 space-y-1 text-xs text-slate-600">
                   {reportTrustSummary.topExclusions.slice(0, 3).map((bucket) => (

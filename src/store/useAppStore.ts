@@ -6,6 +6,7 @@ import { initialBusinessState, initialMetaState, initialUiState } from './state/
 import { createUiSlice } from './slices/uiSlice';
 import { createExecutionViewSlice } from './slices/executionViewSlice';
 import { createReportDefinitionsSlice } from './slices/reportDefinitionsSlice';
+import { createReportRunsSlice } from './slices/reportRunsSlice';
 import { createFollowUpsSlice } from './slices/followUpsSlice';
 import { createTasksSlice } from './slices/tasksSlice';
 import { createProjectsSlice } from './slices/projectsSlice';
@@ -682,6 +683,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
     ...createUiSlice(set, get, queuePersist),
     ...createExecutionViewSlice(set, get, { queuePersist }),
     ...createReportDefinitionsSlice(set, get, { queuePersist }),
+    ...createReportRunsSlice(set, get, { queuePersist }),
     ...createFollowUpsSlice(set, get, { queuePersist }),
     ...createTasksSlice(set, get, { queuePersist }),
     ...createProjectsSlice(set, { queuePersist }),

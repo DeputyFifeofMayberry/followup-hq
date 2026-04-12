@@ -188,6 +188,65 @@ export interface ReportDraftPatch {
   display?: Partial<ReportDisplayPreferences>;
   export?: Partial<ReportExportPreferences>;
 }
+
+export interface ReportRunSummaryMetric {
+  key: string;
+  label: string;
+  value: number;
+}
+
+export interface ReportRunExclusionMetric {
+  reasonKey: string;
+  label: string;
+  count: number;
+}
+
+export interface ReportRunSummary {
+  includedCount: number;
+  excludedCount: number;
+  confidenceTier: 'high' | 'moderate' | 'low';
+  confidenceLabel: string;
+  summaryMetrics: ReportRunSummaryMetric[];
+  exclusionBreakdown: ReportRunExclusionMetric[];
+}
+
+export interface ReportRunDeltaMetric {
+  key: string;
+  label: string;
+  previousValue: number;
+  currentValue: number;
+  delta: number;
+}
+
+export interface ReportRunDelta {
+  includedCountDelta: number;
+  excludedCountDelta: number;
+  confidenceChanged: boolean;
+  previousConfidenceTier: 'high' | 'moderate' | 'low';
+  currentConfidenceTier: 'high' | 'moderate' | 'low';
+  metricDeltas: ReportRunDeltaMetric[];
+}
+
+export interface ReportExportRecord {
+  id: string;
+  exportedAt: string;
+  format: 'xlsx' | 'csv';
+  fileName: string;
+  detailLevel: ReportExportPreferences['detailLevel'];
+  includeSummarySheet: boolean;
+}
+
+export interface ReportRunRecord {
+  id: string;
+  ranAt: string;
+  reportDefinitionId?: string;
+  reportNameSnapshot: string;
+  reportType: ReportType;
+  scopeMode: ReportScopeMode;
+  summary: ReportRunSummary;
+  deltaFromPrevious?: ReportRunDelta;
+  exportRecords: ReportExportRecord[];
+}
 export type AppUserRole = 'user' | 'manager' | 'admin';
 export type AppMode = 'personal' | 'team';
 export type VisibilityScope = 'private' | 'team' | 'company';
@@ -1611,6 +1670,7 @@ export interface AppSnapshot {
   savedReportDefinitions?: SavedReportDefinition[];
   activeReportDefinitionId?: string | null;
   lastOpenedReportDefinitionId?: string | null;
+  reportRuns?: ReportRunRecord[];
   followUpFilters?: FollowUpAdvancedFilters;
   taskWorkspaceSession?: TaskWorkspaceSession;
   directoryWorkspaceSession?: DirectoryWorkspaceSession;

@@ -28,6 +28,7 @@ import type {
   ReminderPreferences,
   ReportDraftState,
   SavedReportDefinition,
+  ReportRunRecord,
   SavedExecutionView,
   SavedFollowUpCustomView,
   FollowUpAdvancedFilters,
@@ -203,6 +204,7 @@ export interface AppUiState {
   activeReportDefinitionId: string | null;
   lastOpenedReportDefinitionId: string | null;
   reportDraft: ReportDraftState;
+  reportRuns: ReportRunRecord[];
   executionIntent: ExecutionIntent | null;
   executionSelectedId: string | null;
   recordDrawerRef: RecordRef | null;

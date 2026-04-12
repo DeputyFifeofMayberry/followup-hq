@@ -103,6 +103,15 @@ export interface SyncStatusModel {
   trustRecoveryMessage?: string;
 }
 
+export interface SyncStatusToastAnnouncement {
+  key: string;
+  tone: 'success';
+  title: string;
+  message: string;
+  durationMs: number;
+  source: 'sync.status.cloud_confirmed' | 'sync.status.verified';
+}
+
 export function getCloudConfirmationLabel(meta: Pick<SyncMetaSnapshot, 'cloudSyncStatus'>): string {
   switch (meta.cloudSyncStatus) {
     case 'cloud-confirmed':
@@ -525,4 +534,40 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
     showSpinner: verificationRunAppearsActive,
     ...modeDetails,
   };
+}
+
+export function getSyncStatusToastAnnouncement(
+  meta: Pick<SyncMetaSnapshot, 'hasLocalUnsavedChanges' | 'pendingBatchCount' | 'cloudSyncState' | 'localRevision' | 'lastCloudConfirmedRevision' | 'lastConfirmedBatchId' | 'saveProof'>,
+  input: { stage: SyncTrustStage; previousStage: SyncTrustStage | null },
+): SyncStatusToastAnnouncement | null {
+  const cloudCommitCurrentForRevision = !meta.hasLocalUnsavedChanges
+    && meta.pendingBatchCount === 0
+    && meta.cloudSyncState === 'confirmed'
+    && meta.localRevision === meta.lastCloudConfirmedRevision;
+
+  if (!cloudCommitCurrentForRevision) return null;
+
+  if (input.stage === 'cloud-confirmed' && input.previousStage !== 'cloud-verified') {
+    return {
+      key: `cloud-confirmed:${meta.lastConfirmedBatchId ?? 'none'}:${meta.localRevision}:${meta.lastCloudConfirmedRevision}`,
+      tone: 'success',
+      title: 'Cloud save committed',
+      message: 'Latest batch is committed in cloud storage. Verification can run separately.',
+      durationMs: 1800,
+      source: 'sync.status.cloud_confirmed',
+    };
+  }
+
+  if (input.stage === 'cloud-verified') {
+    return {
+      key: `cloud-verified:${meta.saveProof?.latestVerifiedBatchId ?? meta.lastConfirmedBatchId ?? 'none'}:${meta.saveProof?.latestVerifiedRevision ?? meta.localRevision}`,
+      tone: 'success',
+      title: 'Cloud match verified',
+      message: 'Current local state matches the latest cloud read-back.',
+      durationMs: 2000,
+      source: 'sync.status.verified',
+    };
+  }
+
+  return null;
 }

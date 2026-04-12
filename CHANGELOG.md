@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+
+### Data Quality / Cleanup operational deepening: remediation buckets, drilldown, and route-to-fix actions
+- Expanded reporting contracts for Data Quality into a remediation-grade model with typed severity tiers, issue-family categories, bucket breakdowns, structured drivers, representative affected-record rows, drilldown payloads, and route context so the report can explain why a bucket is prioritized and how to act on it. (`src/lib/reports/contracts.ts`)
+- Rebuilt the Data Quality report builder around real integrity and queue truth: records are now grouped into structural linkage, ownership/assignment, provenance/trust, draft/incompleteness, cleanup operational debt, and orphaned execution buckets with an explainable priority score that combines category base risk, affected volume, trust distortion, routing breakage, and execution blockage pressure. (`src/lib/reports/dataQuality.ts`)
+- Reworked the Data Quality report UI into an operational remediation workbench with grouped summary metrics, ranked issue-bucket table (family, severity, priority, affected count, trust impact, remediation focus), selected-bucket drilldown, representative affected-record list, and direct route actions into Follow Ups, Tasks, and Directory project context using existing reporting navigation patterns. (`src/components/reports/DataQualityReport.tsx`, `src/components/reports/ReportsWorkspace.tsx`)
+
 ### Owner Workload operational deepening: explainable pressure model, drilldown, and route-to-action workflow
 - Expanded Owner Workload report contracts with a typed workload score model, pressure categories, workload breakdown, structured drivers, owner drilldown payloads, detail rows, and route context so report output now explains pressure composition instead of returning a shallow count row. (`src/lib/reports/contracts.ts`)
 - Rebuilt Owner Workload aggregation into an explainable multi-dimension workload model that separates volume pressure, urgency pressure, blocked drag, waiting/dependency drag, cleanup distortion, severe-risk concentration, and closeout relief using live queue truth; added grouped owner summary metrics and per-owner drilldown datasets for highest-pressure, blocked/waiting, and cleanup records. (`src/lib/reports/ownerAggregation.ts`)

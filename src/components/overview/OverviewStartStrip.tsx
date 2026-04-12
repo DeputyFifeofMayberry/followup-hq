@@ -14,8 +14,8 @@ export function OverviewStartStrip({ stats, onOpenIntake, onCreateWork }: Overvi
     <ExecutionSummaryBand
       className="overview-summary-strip-compact"
       kicker="Daily overview"
-      title="Scan pressure, then route the next move."
-      supporting="Use Overview to direct follow-ups and tasks into the right execution lane."
+      title="Command center for today’s routing decisions."
+      supporting="Scan today’s pressure and route each item into the right lane with confidence."
       stats={<OverviewSummaryStats stats={stats} />}
       actions={<OverviewRouteActions onOpenIntake={onOpenIntake} onCreateWork={onCreateWork} />}
     />

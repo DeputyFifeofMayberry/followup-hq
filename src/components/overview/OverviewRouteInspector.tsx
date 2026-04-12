@@ -1,4 +1,4 @@
-import { EmptyState } from '../ui/AppPrimitives';
+import { EmptyState, ExecutionLaneSelectionStrip, WorkspaceInspectorSection } from '../ui/AppPrimitives';
 import { formatDate } from '../../lib/utils';
 import type { UnifiedQueueItem } from '../../types';
 import {
@@ -35,32 +35,27 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
   };
 
   return (
-    <div className="overview-quick-context-shell">
-      <div className="overview-quick-context-card">
-        <div className="overview-quick-context-topline">{selected.recordType === 'task' ? 'Task' : 'Follow-up'} · {selected.project || 'No project'}</div>
-        <div className="overview-inspector-selected-title">{selected.title}</div>
-        <div className="overview-quick-context-meta">
-          <span>{getTimingLabel(selected)}</span>
-          <span>{selected.status}</span>
-        </div>
-      </div>
+    <div className="overview-route-inspector">
+      <ExecutionLaneSelectionStrip
+        title={selected.title}
+        helper={`${selected.recordType === 'task' ? 'Task' : 'Follow-up'} · ${selected.project || 'No project'} · ${getTimingLabel(selected)}`}
+        badges={<span className="execution-summary-stat-chip execution-summary-stat-chip-muted">{selected.status}</span>}
+      />
 
-      <section className="overview-inspector-section-block" aria-label="Why this surfaced">
-        <h3 className="overview-inspector-section-heading">Why this surfaced</h3>
+      <WorkspaceInspectorSection title="Why this surfaced" subtitle="Current queue pressure and urgency context.">
         <p className="overview-inspector-why">{recommendation.whyNow}</p>
         {recommendation.urgencySignals.length ? (
           <div className="overview-inspector-signal-row">
             {recommendation.urgencySignals.map((signal) => <span key={signal}>{signal}</span>)}
           </div>
         ) : null}
-      </section>
+      </WorkspaceInspectorSection>
 
-      <section className="overview-inspector-section-block" aria-label="Recommended next lane">
-        <h3 className="overview-inspector-section-heading">Recommended next lane</h3>
+      <WorkspaceInspectorSection title="Recommended next lane" subtitle="Route quickly without leaving overview triage.">
         <p className="overview-inspector-reason">{recommendation.reason}</p>
-      </section>
+      </WorkspaceInspectorSection>
 
-      <div className="overview-quick-actions">
+      <div className="overview-quick-actions workspace-action-row">
         <button onClick={() => onRouteDestination(recommendation.primaryDestination)} className="primary-btn justify-start">{recommendation.label}</button>
         {recommendation.secondaryLabel && recommendation.secondaryDestination ? (
           <button onClick={handleSecondaryRoute} className="action-btn justify-start">{recommendation.secondaryLabel}</button>

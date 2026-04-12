@@ -11,7 +11,7 @@ export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: O
     <div className="overview-filter-row" aria-label="Overview focus filters">
       <button
         type="button"
-        className={`overview-filter-pill overview-filter-pill-baseline ${selectedFilter === 'all' ? 'overview-filter-pill-active' : ''}`}
+        className={`task-mobile-view-chip overview-filter-pill ${selectedFilter === 'all' ? 'task-mobile-view-chip-active' : ''}`}
         onClick={() => onSelectFilter('all')}
       >
         <span>All queue</span>
@@ -21,7 +21,7 @@ export function OverviewSignalCards({ cards, selectedFilter, onSelectFilter }: O
           <button
             key={card.key}
             type="button"
-            className={`overview-filter-pill overview-filter-pill-${card.key} ${selectedFilter === card.key ? 'overview-filter-pill-active' : ''}`}
+            className={`task-mobile-view-chip overview-filter-pill overview-filter-pill-${card.key} ${selectedFilter === card.key ? 'task-mobile-view-chip-active' : ''}`}
             onClick={() => onSelectFilter(card.key)}
           >
             <span>{card.label}</span>

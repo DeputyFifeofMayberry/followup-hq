@@ -88,7 +88,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   };
 
   const queueSurface = (
-    <ExecutionLaneQueueCard className="overview-command-center">
+    <ExecutionLaneQueueCard className="overview-command-center execution-lane-queue-surface">
       <ExecutionToolbarSurface className="overview-toolbar-surface">
         <div className="execution-lane-toolbar-scaffold overview-toolbar-scaffold">
           <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-left">

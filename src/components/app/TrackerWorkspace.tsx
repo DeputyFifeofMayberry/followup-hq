@@ -172,9 +172,9 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
       <WorkspaceContentFrame>
         <WorkspacePrimaryLayout className="workspace-primary-layout-collapsed">
           <div className="tracker-main-single">
-            <ExecutionLaneQueueCard className="tracker-workspace-main">
+            <ExecutionLaneQueueCard className="tracker-workspace-main execution-lane-queue-surface">
               <ExecutionSummaryBand
-                className="followup-lane-summary-strip"
+                className="execution-summary-strip-unified followup-lane-summary-strip"
                 kicker={vm.lanePresentation.laneLabel}
                 title={vm.lanePresentation.laneIntent}
                 supporting={laneSupport}

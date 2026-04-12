@@ -31,7 +31,7 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = personalMode ? 'personal' : 'team' }: OverviewPageProps) {
   void appMode;
-  const { isMobileLike, isPhone } = useViewportBand();
+  const { isMobileLike } = useViewportBand();
   const {
     stats,
     selectedFilter,
@@ -122,7 +122,10 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         </ExecutionFilterChipRow>
       </ExecutionToolbarSurface>
 
-      <div className="overview-queue-state-line" role="status" aria-live="polite">{queueStateText}</div>
+      <div className="overview-queue-header">
+        <div className="overview-queue-header-title">Triage queue</div>
+        <div className="overview-queue-state-line" role="status" aria-live="polite">{queueStateText}</div>
+      </div>
 
       <section className="overview-triage-main" aria-label="Overview triage queue">
         {visibleRows.length === 0 && searchQuery ? (
@@ -150,7 +153,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
-        {!isPhone ? <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} /> : null}
+        <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
 
         {isMobileLike ? (
           <>
@@ -186,7 +189,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
             {detailOpen ? (
               <ExecutionLaneInspectorCard className="overview-inspector-shell">
-                <div className="workspace-inspector-section-title">{inspectorTitle}</div>
+                <div className="workspace-inspector-section-title overview-inspector-kicker">{inspectorTitle}</div>
                 <p className="workspace-inspector-section-subtitle">Review context and route without leaving Overview.</p>
                 <OverviewRouteInspector
                   selected={selected}

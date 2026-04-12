@@ -53,6 +53,7 @@ export function OverviewRouteInspector({ selected, onRouteDestination, onOpenDet
 
       <WorkspaceInspectorSection title="Recommended next lane" subtitle="Route quickly without leaving overview triage.">
         <p className="overview-inspector-reason">{recommendation.reason}</p>
+        <div className="overview-inspector-primary-route">{recommendation.label}</div>
       </WorkspaceInspectorSection>
 
       <div className="overview-quick-actions workspace-action-row">

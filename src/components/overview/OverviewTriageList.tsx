@@ -36,6 +36,10 @@ function nextMoveLabel(row: UnifiedQueueItem) {
   return row.recordType === 'task' ? 'Continue in Tasks' : 'Continue in Follow Ups';
 }
 
+function routeLaneLabel(row: UnifiedQueueItem) {
+  return row.recordType === 'task' ? 'Route to Tasks' : 'Route to Follow Ups';
+}
+
 function timingLabel(row: UnifiedQueueItem) {
   if (row.dueDate) return `Due ${formatDate(row.dueDate)}`;
   if (row.promisedDate) return `Promised ${formatDate(row.promisedDate)}`;
@@ -83,11 +87,13 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
                   <div className="scan-row-primary execution-row-title">{row.title}</div>
                 </div>
                 <div className="overview-row-why-now execution-row-why-now">{reason}</div>
-                <div className="overview-row-next-move execution-row-next-move">Best next move: {nextMoveLabel(row)}</div>
+                <div className="overview-row-next-move execution-row-next-move">
+                  <span className="overview-row-next-move-label">Best next move</span>
+                  <span>{nextMoveLabel(row)}</span>
+                </div>
                 <div className="scan-row-badge-cluster overview-row-meta-chips">
                   <Badge kind="meta" variant="neutral">{projectLabel}</Badge>
                   <Badge kind="meta" variant="neutral">{accountableLabel}</Badge>
-                  <Badge kind="meta" variant="neutral">{recordTypeLabel(row.recordType)}</Badge>
                   <Badge kind="meta" variant="neutral">{timingLabel(row)}</Badge>
                 </div>
               </div>
@@ -96,6 +102,8 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
                   <Badge variant={urgency.variant}>{urgency.label}</Badge>
                 </div>
                 <div className="overview-priority-badge-muted"><Badge variant={priorityTone(row.priority)}>{row.priority}</Badge></div>
+                <div className="overview-row-route-cue">{routeLaneLabel(row)} →</div>
+                <div className="overview-row-type-label">{recordTypeLabel(row.recordType)}</div>
               </div>
             </div>
           </button>

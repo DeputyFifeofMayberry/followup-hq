@@ -1,34 +1,41 @@
-import { AppShellCard, SectionHeader } from '../ui/AppPrimitives';
-import type { ReportViewProps } from './reportModels';
+import type { OwnerWorkloadReportResult } from '../../lib/reports';
+import { AppShellCard, SectionHeader, StatTile } from '../ui/AppPrimitives';
 
-export function OwnerWorkloadReport({ queue }: ReportViewProps) {
-  const owners = Object.entries(queue.reduce<Record<string, { total: number; blocked: number }>>((acc, row) => {
-    if (!acc[row.owner]) acc[row.owner] = { total: 0, blocked: 0 };
-    acc[row.owner].total += 1;
-    if (row.queueFlags.blocked) acc[row.owner].blocked += 1;
-    return acc;
-  }, {})).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
-
+export function OwnerWorkloadReport({ result }: { result: OwnerWorkloadReportResult }) {
   return (
     <AppShellCard surface="data" className="space-y-3">
-      <SectionHeader title="Owner workload" subtitle="Foundation slice: current open queue load per owner with blocked pressure." compact />
+      <SectionHeader title={result.header.title} subtitle={result.header.subtitle} compact />
+      <div className="grid gap-3 sm:grid-cols-3">
+        {result.header.highlights.map((card) => (
+          <StatTile key={card.id} label={card.label} value={card.value} tone={card.tone} helper={card.helper} />
+        ))}
+      </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-200">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
-            <tr><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Open queue items</th><th className="px-3 py-2">Blocked items</th></tr>
+            <tr>
+              <th className="px-3 py-2">Owner</th>
+              <th className="px-3 py-2">Severity</th>
+              <th className="px-3 py-2">Open workload</th>
+              <th className="px-3 py-2">Blocked</th>
+              <th className="px-3 py-2">Due now</th>
+              <th className="px-3 py-2">Waiting</th>
+            </tr>
           </thead>
           <tbody>
-            {owners.map(([owner, summary]) => (
-              <tr key={owner} className="border-t border-slate-100">
-                <td className="px-3 py-2 font-medium text-slate-900">{owner}</td>
-                <td className="px-3 py-2">{summary.total}</td>
-                <td className="px-3 py-2">{summary.blocked}</td>
+            {result.rankedOwners.map((row) => (
+              <tr key={row.id} className="border-t border-slate-100">
+                <td className="px-3 py-2 font-medium text-slate-900">{row.owner}</td>
+                <td className="px-3 py-2 capitalize text-slate-700">{row.severity.replace('_', ' ')}</td>
+                <td className="px-3 py-2">{row.openTotal}</td>
+                <td className="px-3 py-2">{row.blockedTotal}</td>
+                <td className="px-3 py-2">{row.dueNowTotal}</td>
+                <td className="px-3 py-2">{row.waitingTotal}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-slate-500">Next slice: capacity balancing, due-window workload, and owner trend deltas.</p>
     </AppShellCard>
   );
 }

@@ -1,4 +1,5 @@
-import type { ReportSelectorItem, ReportType } from '../../types';
+import type { ReportSelectorItem } from '../../lib/reports';
+import type { ReportType } from '../../types';
 
 interface ReportTypeSelectorProps {
   items: ReportSelectorItem[];

@@ -155,7 +155,7 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
 
         <div className="task-mobile-search-row">
           <label className="field-block task-search-block">
-            <div className="search-field-wrap">
+            <div className="search-field-wrap task-search-field-wrap">
               <Search className="search-field-icon h-4 w-4" />
               <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Search tasks" className="field-input search-field-input" />
               {searchQuery ? <button type="button" onClick={onClearSearch} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
@@ -209,7 +209,7 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
     <ExecutionToolbarSurface className="task-control-stack-calm">
       <div className="task-primary-toolbar-slim">
         <label className="field-block task-search-block">
-          <div className="search-field-wrap">
+          <div className="search-field-wrap task-search-field-wrap">
             <Search className="search-field-icon h-4 w-4" />
             <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="Search tasks" className="field-input search-field-input" />
             {searchQuery ? <button type="button" onClick={onClearSearch} className="search-clear-btn" aria-label="Clear search"><X className="h-4 w-4" /></button> : null}
@@ -233,7 +233,10 @@ export const TaskToolbar = memo(function TaskToolbar(props: TaskToolbarProps) {
 
       {viewOptionsOpen ? (
         <div className="task-filters-panel-slim">
-          <div className="task-view-options-title">More filters</div>
+          <div className="task-view-options-header">
+            <p className="task-view-options-title">Execution filters</p>
+            <p className="task-view-options-support">Tune this queue without burying the next action line.</p>
+          </div>
           <TaskFilterContent {...filterProps} onResetFilters={onResetFilters} />
         </div>
       ) : null}

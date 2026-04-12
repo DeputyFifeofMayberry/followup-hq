@@ -98,7 +98,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
 
   const desktopInspectorContent = (
     <div className="space-y-3">
-          <section className="detail-card">
+          <section className="detail-card task-inspector-identity-card">
             <div className="task-inspector-status-strip">
               <Badge variant={selectedTask.status === 'Blocked' ? 'warn' : selectedTask.status === 'Done' ? 'success' : 'neutral'}>{selectedTask.status}</Badge>
               <Badge variant={priorityTone(selectedTask.priority)}>{selectedTask.priority}</Badge>
@@ -109,7 +109,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card task-inspector-focus-card">
             <SectionHeader title="Why now" subtitle={editSurfacePolicy.execution.intent} compact />
             <div className="mt-2 task-execution-focus">
               <div className="tonal-micro"><strong>{nowSignal.whyNow}</strong></div>
@@ -118,7 +118,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card task-inspector-actions-card">
             <SectionHeader title="What to do next" subtitle={recommendedAction?.reason ?? 'Use structured flows for real workflow transitions.'} compact />
             <div className={`task-inspector-actions mt-2 ${isMobileLike ? 'task-inspector-actions-mobile' : ''}`.trim()}>
               <button onClick={onRunRecommendedTaskAction} className="primary-btn">{recommendedAction?.label ?? 'Update next step'}</button>
@@ -132,7 +132,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card task-inspector-edit-card">
             <SectionHeader title="Quick edit essentials" subtitle="Only live execution fields are editable here." compact />
             <div className="task-quick-edit-grid mt-2 task-quick-edit-grid-two-up">
               <label className="field-block"><span className="field-label">Priority</span><select value={draft.priority} onChange={(event) => setDraft((prev) => prev ? { ...prev, priority: event.target.value as TaskItem['priority'] } : prev)} className="field-input"><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
@@ -145,7 +145,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card">
+          <section className="detail-card task-inspector-linked-card">
             <SectionHeader title="Linked context" subtitle="Parent follow-up and linked-task posture." compact />
             <div className="mt-2 rounded-2xl tonal-panel task-link-context-panel">
               <div className="tonal-micro"><strong>{linkedFollowUp ? linkedFollowUp.title : 'No linked follow-up'}</strong>{linkedFollowUp ? ` (${linkedFollowUp.status})` : ''}</div>
@@ -159,7 +159,7 @@ export const TaskInspectorModal = memo(function TaskInspectorModal({
             </div>
           </section>
 
-          <section className="detail-card inspector-block">
+          <section className="detail-card inspector-block task-inspector-maintenance-card">
             <SectionHeader title="Maintenance & full edit" subtitle="Low-frequency admin and closeout checks." compact />
             <div className="rounded-2xl tonal-panel task-link-context-panel mt-2">
               {linkedParentCloseout ? (

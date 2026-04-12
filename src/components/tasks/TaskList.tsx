@@ -58,6 +58,12 @@ export function TaskList({
   return (
     <div className="workspace-list-content task-list-content">
       {laneFeedback ? <ExecutionLaneFeedbackStrip tone={laneFeedback.tone} message={laneFeedback.message} /> : null}
+      <div className="task-queue-list-header">
+        <div className="task-queue-list-header-kicker">Execution queue</div>
+        <p className="task-queue-list-header-summary">
+          {filteredTasks.length} active task{filteredTasks.length === 1 ? '' : 's'} ready for decisive next moves.
+        </p>
+      </div>
 
       {filteredTasks.length === 0 ? (
         <div className="tracker-empty-state-wrap">
@@ -91,8 +97,8 @@ export function TaskList({
                 </div>
                 <p className="tracker-mobile-next-move"><strong>Next:</strong> {compactNextMove}</p>
                 <p className="tracker-mobile-mainline">{compactWhyNow}</p>
+                <div className="task-mobile-urgency-line">{dueLabel}</div>
                 <div className="scan-row-badge-cluster task-row-meta-chips">
-                  <Badge kind="meta" variant="neutral">{dueLabel}</Badge>
                   {(task.status === 'Blocked' || signal.isOverdue || signal.needsReview) ? null : <Badge kind="meta" variant="neutral">{task.project}</Badge>}
                   {linkedLabel === 'Unlinked' ? <Badge kind="meta" variant="neutral">Needs linkage</Badge> : null}
                 </div>
@@ -112,13 +118,13 @@ export function TaskList({
             <div className="scan-row-layout scan-row-layout-quiet execution-row-layout">
               <div className="scan-row-content execution-row-content">
                 <div className="scan-row-primary execution-row-title">{task.title}</div>
-                <div className="task-row-why-now execution-row-why-now">{signal.whyNow}</div>
-                <div className="task-row-next-move execution-row-next-move">Next move: {signal.nextMove}</div>
+                <div className="task-row-why-now execution-row-why-now"><span className="task-row-line-label">Why now</span>{signal.whyNow}</div>
+                <div className="task-row-next-move execution-row-next-move"><span className="task-row-line-label">Next move</span>{signal.nextMove}</div>
                 <div className="scan-row-badge-cluster task-row-meta-chips">
+                  <Badge kind="meta" variant="neutral">{dueLabel}</Badge>
                   <Badge kind="meta" variant="neutral">{task.project}</Badge>
                   <Badge kind="meta" variant="neutral">{linkedLabel}</Badge>
                   {task.assigneeDisplayName ? <Badge kind="meta" variant="neutral">{task.assigneeDisplayName}</Badge> : null}
-                  <Badge kind="meta" variant="neutral">{dueLabel}</Badge>
                 </div>
                 {metaSummary ? <div className="scan-row-meta">{metaSummary}</div> : null}
               </div>
@@ -126,8 +132,9 @@ export function TaskList({
                 <div className="scan-row-badge-cluster">
                   {urgentLabel ? <Badge variant={signal.isOverdue ? 'danger' : 'warn'}>{urgentLabel}</Badge> : null}
                 </div>
+                <div className="task-row-sidecar-due">{dueLabel}</div>
                 <div className="scan-row-action-cluster">
-                  {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn !px-2.5 !py-1 text-xs">Done</button> : null}
+                  {task.status !== 'Done' ? <button onClick={() => onDoneTask(task)} className="action-btn task-row-done-btn !px-2.5 !py-1 text-xs">Done</button> : null}
                 </div>
               </div>
             </div>

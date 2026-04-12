@@ -56,6 +56,8 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
     { label: 'Needs nudge', value: vm.queueStats.needsNudge, tone: vm.queueStats.needsNudge > 0 ? 'warn' as const : 'default' as const },
     { label: 'Waiting', value: vm.queueStats.waiting, tone: vm.queueStats.waiting > 0 ? 'info' as const : 'default' as const },
   ];
+  const summaryTone = vm.queueStats.overdue > 0 ? 'warn' : 'calm';
+  const laneSupport = `${vm.queueSummary} Focus: ${vm.lanePresentation.expectedAction}`;
 
   const handlePostExecutionProgression = (recordId: string, actionLabel: string) => {
     const nextRows = selectFollowUpRows({
@@ -175,7 +177,8 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
                 className="followup-lane-summary-strip"
                 kicker={vm.lanePresentation.laneLabel}
                 title={vm.lanePresentation.laneIntent}
-                supporting={`${vm.queueSummary} Expected action: ${vm.lanePresentation.expectedAction}`}
+                supporting={laneSupport}
+                tone={summaryTone}
                 stats={laneStats.map((stat) => (
                   <ExecutionSummaryStatChip key={stat.label} label={stat.label} value={stat.value} tone={stat.tone === 'default' ? 'default' : stat.tone} />
                 ))}

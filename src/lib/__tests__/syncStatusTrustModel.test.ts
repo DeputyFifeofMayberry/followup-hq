@@ -86,6 +86,27 @@ function testVerificationStaleIsDistinctFromVerified(): void {
   assert(model.stateLabel === 'Verification stale', `expected verification stale label, got ${model.stateLabel}`);
 }
 
+function testVerifiedSummaryWithoutCurrentRevisionProofStaysCommitted(): void {
+  const model = getSyncStatusModel({
+    ...baseMeta(),
+    localRevision: 4,
+    lastCloudConfirmedRevision: 4,
+    lastVerificationMatched: true,
+    lastVerificationBasedOnBatchId: 'batch-1',
+    verificationSummary: {
+      verified: true,
+      mismatchCount: 0,
+    } as any,
+    saveProof: {
+      ...baseMeta().saveProof,
+      latestVerifiedAt: '2026-04-05T10:01:00.000Z',
+      latestVerifiedBatchId: 'batch-1',
+      latestVerifiedRevision: 3,
+    },
+  });
+  assert(model.stage === 'verification-stale', `expected stale stage when verification is for older revision, got ${model.stage}`);
+}
+
 function testSavedLocallyDoesNotProjectCloudSuccess(): void {
   const model = getSyncStatusModel({
     ...baseMeta(),
@@ -240,6 +261,7 @@ function testSharedSnapshotSelectorConsistency(): void {
   testCloudCommittedLabeling();
   testCloudVerifiedIsDistinctFromCommitted();
   testVerificationStaleIsDistinctFromVerified();
+  testVerifiedSummaryWithoutCurrentRevisionProofStaysCommitted();
   testSavedLocallyDoesNotProjectCloudSuccess();
   testQueuedForCloudIsCautionary();
   testNeedsAttentionOverridesOptimisticStates();

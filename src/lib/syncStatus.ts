@@ -1,6 +1,7 @@
 import type { PersistenceMode } from '../types';
 import type { AppStore } from '../store/types';
 import { deriveCanonicalSaveProofStatus } from '../store/saveProofModel';
+import { brand } from '../config/brand';
 import type {
   CloudSyncStatus,
   OperationCountsByEntity,
@@ -441,7 +442,7 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       primaryState: 'saving',
       stateLabel: 'Editing',
       stateDescription: 'Recent edits are not yet durably saved on this device.',
-      reassurance: 'Keep editing — FollowUp HQ will save automatically.',
+      reassurance: `Keep editing — ${brand.appName} will save automatically.`,
       tone: 'info',
       stateTone: 'warn',
       showSpinner: false,

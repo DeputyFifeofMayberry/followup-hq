@@ -1,4 +1,5 @@
 import type { AppMode } from '../types';
+import { brand } from '../config/brand';
 
 export type WorkspaceKey = 'overview' | 'followups' | 'tasks' | 'intake' | 'directory' | 'exports';
 export type WorkspaceCategory = 'core' | 'support';
@@ -114,7 +115,7 @@ const buildWorkspaceMeta = (mode: AppMode): Record<WorkspaceKey, WorkspaceMeta> 
 export const appModeConfig: Record<AppMode, AppModeConfig> = {
   personal: {
     displayName: 'Personal mode',
-    shellLabel: 'FollowUp HQ personal operations',
+    shellLabel: `${brand.appName} personal operations`,
     shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
     supportViewsMuted: true,
     supportActionsSecondary: true,
@@ -130,7 +131,7 @@ export const appModeConfig: Record<AppMode, AppModeConfig> = {
   },
   team: {
     displayName: 'Team mode',
-    shellLabel: 'FollowUp HQ team operations',
+    shellLabel: `${brand.appName} team operations`,
     shellDescription: 'Overview for triage, Follow Ups for commitments, Tasks for execution, Intake for inbound review, Directory for context, Exports for reporting.',
     supportViewsMuted: false,
     supportActionsSecondary: false,

@@ -2,6 +2,11 @@
 
 ## 2026-04-12
 
+### SetPoint brand consolidation across auth, shell, trust messaging, and persisted UI preferences
+- Added a centralized brand source of truth for user-facing product copy and storage key conventions, including safe localStorage legacy-key migration helpers that read `followup-hq:*` keys, migrate values forward, and continue writing only `setpoint:*` keys. (`src/config/brand.ts`)
+- Completed a production branding pass across core user-visible flows: Supabase setup gate, auth/login panels and action labels, shell wordmark/navigation chrome (desktop + compact), loading/session copy, sign-out recovery messaging, runtime error fallback title, mode shell labels, and persistence/trust/reminder messaging now consistently reference SetPoint. (`src/App.tsx`, `src/main.tsx`, `src/lib/appModeConfig.ts`, `src/lib/syncStatus.ts`, `src/store/useAppStore.ts`, `src-tauri/tauri.conf.json`, `src-tauri/src/main.rs`)
+- Migrated user preference and workspace continuity keys to the new SetPoint prefix without resets by routing app mode, last workspace, create-modal editor mode, advanced-toggle preferences, and smart data-entry defaults through brand-aware read/write helpers with legacy fallback migration. (`src/App.tsx`, `src/components/CreateWorkModal.tsx`, `src/lib/dataEntryDefaults.ts`, `src/config/brand.ts`)
+
 ### Final save-trust hardening pass: rapid-edit correctness, record/global truth alignment, and stale-success suppression
 - Fixed a root save-queue correctness gap where edits made during an in-flight flush could be accidentally cleared from queue tracking and then mislabeled as saved/confirmed. The queue now snapshots exactly which dirty records each flush processed, clears only those records after success, and preserves newly queued edits for the required follow-up flush. (`src/store/persistenceQueue.ts`)
 - Hardened store post-save state transitions to consume the exact flushed record set: record ledgers are updated only for records actually saved in that batch, and dirty/pending/sync status now stays dirty/queued when newer edits still exist. This removes false “everything saved/cloud confirmed” transitions during rapid typing or overlap with manual/retry saves. (`src/store/useAppStore.ts`)

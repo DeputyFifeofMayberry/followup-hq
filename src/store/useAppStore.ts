@@ -34,6 +34,7 @@ import {
   getEffectivePermissionState,
   requestNotificationPermissionForCurrentPlatform,
 } from '../lib/notifications/platform';
+import { brand } from '../config/brand';
 
 const defaultOutlookConnection = initialBusinessState.outlookConnection;
 
@@ -100,7 +101,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
         persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
           kind: 'saving',
           summary: mode === 'manual' ? 'Manual cloud verification started.' : 'Automatic cloud verification started.',
-          detail: 'FollowUp HQ is reading cloud state and comparing it with the latest persisted payload.',
+          detail: `${brand.appName} is reading cloud state and comparing it with the latest persisted payload.`,
         })),
       }));
 
@@ -301,7 +302,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               const queuedEvent = createPersistenceActivityEvent({
                 kind: 'queued',
                 summary: 'Changes queued to save.',
-                detail: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} added to the save queue.` : 'FollowUp HQ will save your latest updates automatically.',
+                detail: scopedCount > 0 ? `${scopedCount} change${scopedCount === 1 ? '' : 's'} added to the save queue.` : `${brand.appName} will save your latest updates automatically.`,
               });
               const pendingRecordCount = merged.size;
               return {
@@ -452,7 +453,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
                   kind: 'saved',
                   at: timestamp,
                   summary: 'Cloud-backed trust restored for this session.',
-                  detail: 'FollowUp HQ confirmed a cloud-backed save and cleared the session trust warning.',
+                  detail: `${brand.appName} confirmed a cloud-backed save and cleared the session trust warning.`,
                 })
                 : null;
               return {
@@ -533,7 +534,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               scheduleAutomaticVerification(
                 'post-save',
                 'Cloud save committed, verifying current cloud state.',
-                'FollowUp HQ is re-reading cloud state to confirm it matches the persisted local payload.',
+                `${brand.appName} is re-reading cloud state to confirm it matches the persisted local payload.`,
               );
             }
           },
@@ -906,8 +907,8 @@ export const useAppStore = create<AppStore>()((set, get) => {
         kind: 'task_due_soon' as const,
         recordType: 'task' as const,
         recordId: 'test',
-        title: 'FollowUp HQ reminder test',
-        project: 'FollowUp HQ',
+        title: `${brand.appName} reminder test`,
+        project: brand.appName,
         owner: 'You',
         severity: 'info' as const,
         workspaceTarget: 'worklist' as const,

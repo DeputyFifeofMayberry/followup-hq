@@ -11,6 +11,7 @@ import { AppModal, AppModalBody, AppModalFooter, AppModalHeader, RecordEditorFoo
 import { FollowUpActionModal } from './actions/FollowUpActionModal';
 import type { FollowUpActionFeedback, FollowUpActionType } from './actions/followUpActionTypes';
 import { RecordSaveStatus } from './save/RecordSaveStatus';
+import { readBrandStorageValue, writeBrandStorageValue } from '../config/brand';
 
 type WorkMode = 'followup' | 'task';
 type EditorMode = 'quick' | 'full';
@@ -88,7 +89,7 @@ function FieldHint({ text, error }: { text?: string; error?: string }) {
 
 function getStoredPreference<T extends string>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
-  const value = window.localStorage.getItem(key);
+  const value = readBrandStorageValue(key);
   return (value as T) || fallback;
 }
 
@@ -249,8 +250,8 @@ export function CreateWorkModal() {
     }
 
     const preferenceMode: WorkMode = currentItem ? 'followup' : currentTask ? 'task' : createWorkDraft?.kind ?? (itemModal.open ? 'followup' : taskModal.open ? 'task' : getRecentWorkMode());
-    const defaultMode = getStoredPreference<EditorMode>(`followup-hq:create-mode:${preferenceMode}`, 'quick');
-    const defaultAdvanced = getStoredPreference<'true' | 'false'>(`followup-hq:show-advanced:${preferenceMode}`, 'false') === 'true';
+    const defaultMode = getStoredPreference<EditorMode>(`create-mode:${preferenceMode}`, 'quick');
+    const defaultAdvanced = getStoredPreference<'true' | 'false'>(`show-advanced:${preferenceMode}`, 'false') === 'true';
     setEditorMode(defaultMode);
     setShowAdvanced(defaultAdvanced);
   }, [open, currentItem, currentTask, createWorkDraft, projectFilter, projects, itemModal.open, taskModal.open]);
@@ -258,13 +259,13 @@ export function CreateWorkModal() {
   useEffect(() => {
     if (!open) return;
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(`followup-hq:create-mode:${mode}`, editorMode);
+    writeBrandStorageValue(`create-mode:${mode}`, editorMode);
   }, [mode, editorMode, open]);
 
   useEffect(() => {
     if (!open) return;
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(`followup-hq:show-advanced:${mode}`, String(showAdvanced));
+    writeBrandStorageValue(`show-advanced:${mode}`, String(showAdvanced));
   }, [mode, showAdvanced, open]);
 
   useEffect(() => {

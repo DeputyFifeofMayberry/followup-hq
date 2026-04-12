@@ -32,9 +32,10 @@ import { BuildStamp } from './components/app/BuildStamp';
 import { useReminderScheduler } from './hooks/useReminderScheduler';
 import { useConnectivitySync } from './hooks/useConnectivitySync';
 import { selectOpenTaskCount } from './domains/tasks/selectors';
+import { brand, readBrandStorageValue, writeBrandStorageValue } from './config/brand';
 
 type WorkspaceKey = ModeWorkspaceKey;
-const LAST_WORKSPACE_STORAGE_KEY = 'followup-hq:last-workspace';
+const LAST_WORKSPACE_STORAGE_SUFFIX = 'last-workspace';
 
 
 function MissingSupabaseConfigScreen() {
@@ -44,8 +45,8 @@ function MissingSupabaseConfigScreen() {
         <div className="w-full rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
           <StatePanel
             tone="warning"
-            title="Supabase setup needed"
-            message="FollowUp HQ needs valid Supabase environment variables before the app can load."
+            title={brand.supabaseSetup.title}
+            message={brand.supabaseSetup.message}
           />
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
             <div className="font-medium text-slate-900">Current issue</div>
@@ -92,7 +93,7 @@ function LoginScreen() {
       <div className="login-layout">
         <section className="login-brand-panel">
           <div className="login-brand-header">
-            <div className="login-brand-badge">FollowUp HQ • Daily construction workflow</div>
+            <div className="login-brand-badge">{brand.appName} • {brand.shellDescriptor}</div>
             <div className="login-brand-copy">
               <h1>Daily construction execution.</h1>
               <p>
@@ -124,13 +125,13 @@ function LoginScreen() {
         <section className="login-card-wrap">
           <div className="login-card">
             <div className="login-card-topbar">
-              <div className="login-chip login-chip-brand">FollowUp HQ</div>
-              <div className="login-chip login-chip-muted">Secure sign-in</div>
+              <div className="login-chip login-chip-brand">{brand.appName}</div>
+              <div className="login-chip login-chip-muted">{brand.auth.secureSignInLabel}</div>
             </div>
 
             <div className="login-card-copy">
-              <h2>Sign in</h2>
-              <p>Enter your daily operations workspace to triage work, track commitments, and finish execution.</p>
+              <h2>{brand.auth.title}</h2>
+              <p>{brand.auth.descriptor}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form">
@@ -171,7 +172,7 @@ function LoginScreen() {
               ) : null}
 
               <button type="submit" disabled={submitting} className="login-submit-btn">
-                {submitting ? 'Signing in...' : 'Sign in to FollowUp HQ'}
+                {submitting ? brand.auth.signingInAction : brand.auth.signInAction}
               </button>
             </form>
 
@@ -233,7 +234,7 @@ function MainApp({ session }: { session: Session }) {
   const [workspace, setWorkspace] = useState<WorkspaceKey>('overview');
   const [appMode, setAppMode] = useState<AppMode>(() => {
     if (typeof window === 'undefined') return 'personal';
-    const saved = window.localStorage.getItem('followup-hq:app-mode');
+    const saved = readBrandStorageValue('app-mode');
     return saved === 'team' ? 'team' : 'personal';
   });
   const modeConfig = getModeConfig(appMode);
@@ -264,7 +265,7 @@ function MainApp({ session }: { session: Session }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const saved = window.localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
+    const saved = readBrandStorageValue(LAST_WORKSPACE_STORAGE_SUFFIX);
     if (saved && orderedWorkspaces.includes(saved as WorkspaceKey)) {
       setWorkspace(saved as WorkspaceKey);
     }
@@ -272,12 +273,12 @@ function MainApp({ session }: { session: Session }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspace);
+    writeBrandStorageValue(LAST_WORKSPACE_STORAGE_SUFFIX, workspace);
   }, [workspace]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('followup-hq:app-mode', appMode);
+      writeBrandStorageValue('app-mode', appMode);
     }
   }, [appMode]);
 
@@ -495,8 +496,8 @@ function MainApp({ session }: { session: Session }) {
         <aside id="primary-workspace-nav" className={`app-nav-rail ${modeConfig.supportViewsMuted ? 'app-nav-rail-support-muted' : ''} ${mobileNavOpen ? 'app-nav-rail-mobile-open' : ''}`} aria-label="Primary workspace navigation">
           <div className="app-brand-block">
             <div className="app-brand-eyebrow">{modeConfig.shellLabel}</div>
-            <div className="app-brand-title app-brand-title-text">FollowUp HQ</div>
-            <div className="app-brand-subline">Daily operations</div>
+            <div className="app-brand-title app-brand-title-text">{brand.shellTitle}</div>
+            <div className="app-brand-subline">{brand.shellSubline}</div>
           </div>
           <div className="nav-section-stack">
             {navSections.map((section) => (
@@ -555,7 +556,7 @@ function MainApp({ session }: { session: Session }) {
               </button>
               <div className="app-compact-shell-brand">
                 <SetPointMonogram decorative className="app-compact-shell-monogram" />
-                <strong className="app-compact-shell-wordmark">FollowUp HQ</strong>
+                <strong className="app-compact-shell-wordmark">{brand.shellTitle}</strong>
               </div>
               <div className="app-compact-shell-current">
                 <span>{modeConfig.displayName}</span>
@@ -718,7 +719,7 @@ function MainApp({ session }: { session: Session }) {
             />
             <AppModalBody>
               <p className="text-sm text-slate-600">
-                You have pending local changes or recovery items. Choose how FollowUp HQ should handle this account before signing out.
+                {brand.signOut.pendingChangesMessage}
               </p>
               <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                 <div>Unsaved local changes: {hasLocalUnsavedChanges || unsavedChangeCount > 0 ? `${Math.max(unsavedChangeCount, 1)} pending` : 'none'}</div>
@@ -844,7 +845,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 sm:px-6 xl:px-8">
         <div className="mx-auto flex min-h-[80vh] max-w-[560px] items-center justify-center">
-          <StatePanel tone="loading" title="Loading session" message="Checking your FollowUp HQ session and workspace context..." />
+          <StatePanel tone="loading" title={brand.session.loadingTitle} message={brand.session.loadingMessage} />
         </div>
       </div>
     );

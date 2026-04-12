@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { sanitizeReportDraftState, sanitizeSavedReportDefinitions } from '../reports/savedDefinitions';
-import { createReportRunSignature, sanitizeReportRuns } from '../reports/reportRuns';
+import { createReportRunSignature, sanitizeReportRuns, selectDraftRunSelection } from '../reports/reportRuns';
 import type { ReportRunRecord, SavedReportDefinition } from '../../types';
 
 const sanitizedLegacy = sanitizeReportDraftState({
@@ -68,3 +68,48 @@ const runs: ReportRunRecord[] = sanitizeReportRuns([
 ], { validDefinitionIds: new Set(['valid-definition']) });
 assert.equal(runs.length, 1, 'runs should drop orphaned definition references during hydration');
 assert.equal(runs[0].exportRecords.length, 0, 'invalid export records should be filtered from persisted run history');
+
+const draftRuns: ReportRunRecord[] = [
+  {
+    id: 'run-newest-other-draft',
+    ranAt: '2026-04-12T12:00:00.000Z',
+    reportDefinitionId: 'valid-definition',
+    reportNameSnapshot: 'Exec',
+    reportType: 'executive_snapshot',
+    scopeMode: 'trusted_live_only',
+    draftSignature: 'other',
+    summary: { includedCount: 1, excludedCount: 0, confidenceTier: 'high', confidenceLabel: 'High', summaryMetrics: [], exclusionBreakdown: [] },
+    exportRecords: [],
+  },
+  {
+    id: 'run-compatible-newest',
+    ranAt: '2026-04-11T12:00:00.000Z',
+    reportDefinitionId: 'valid-definition',
+    reportNameSnapshot: 'Exec',
+    reportType: 'executive_snapshot',
+    scopeMode: 'trusted_live_only',
+    draftSignature: 'target',
+    summary: { includedCount: 1, excludedCount: 0, confidenceTier: 'high', confidenceLabel: 'High', summaryMetrics: [], exclusionBreakdown: [] },
+    exportRecords: [],
+  },
+  {
+    id: 'run-compatible-previous',
+    ranAt: '2026-04-10T12:00:00.000Z',
+    reportDefinitionId: 'valid-definition',
+    reportNameSnapshot: 'Exec',
+    reportType: 'executive_snapshot',
+    scopeMode: 'trusted_live_only',
+    draftSignature: 'target',
+    summary: { includedCount: 1, excludedCount: 0, confidenceTier: 'high', confidenceLabel: 'High', summaryMetrics: [], exclusionBreakdown: [] },
+    exportRecords: [],
+  },
+];
+
+const staleSelection = selectDraftRunSelection(draftRuns, 'missing');
+assert.equal(staleSelection.snapshotState, 'stale', 'selection should surface stale state when only mismatched snapshots exist');
+assert.equal(staleSelection.latestCompatibleRun, undefined, 'stale selection should avoid attaching incompatible latest run as compatible');
+
+const freshSelection = selectDraftRunSelection(draftRuns, 'target');
+assert.equal(freshSelection.snapshotState, 'fresh', 'selection should surface fresh state when compatible snapshot exists');
+assert.equal(freshSelection.latestCompatibleRun?.id, 'run-compatible-newest', 'selection should pick newest compatible snapshot');
+assert.equal(freshSelection.previousCompatibleRun?.id, 'run-compatible-previous', 'selection should expose previous compatible snapshot for compare messaging');

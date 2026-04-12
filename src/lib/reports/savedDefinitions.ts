@@ -3,7 +3,7 @@ import type { ReportDraftState, ReportTemplateKind, SavedReportDefinition } from
 export const defaultReportDraftState: ReportDraftState = {
   reportType: 'executive_snapshot',
   scope: {
-    mode: 'all_open',
+    mode: 'trusted_live_only',
     includeClosed: false,
   },
   display: {
@@ -52,6 +52,13 @@ function buildBuiltInTemplate(input: {
   };
 }
 
+
+
+function normalizeScopeMode(mode: ReportDraftState['scope']['mode'] | 'all_open' | 'project' | 'owner'): ReportDraftState['scope']['mode'] {
+  if (mode === 'all_open' || mode === 'project' || mode === 'owner') return 'trusted_live_only';
+  return mode;
+}
+
 export const builtInReportTemplates: SavedReportDefinition[] = [
   buildBuiltInTemplate({
     id: 'report-template-executive-snapshot',
@@ -86,6 +93,7 @@ export const builtInReportTemplates: SavedReportDefinition[] = [
     name: 'Data Quality / Cleanup Audit',
     reportType: 'data_quality',
     basedOnTemplate: 'data_quality_cleanup_audit',
+    scope: { mode: 'cleanup_audit' },
     display: { rowLimit: 20, highlightThreshold: 'watch' },
   }),
 ];
@@ -117,7 +125,10 @@ export function mergeBuiltInReportTemplates(saved: SavedReportDefinition[] | und
 export function toReportDraftState(definition: SavedReportDefinition): ReportDraftState {
   return {
     reportType: definition.reportType,
-    scope: definition.scope,
+    scope: {
+      ...definition.scope,
+      mode: normalizeScopeMode(definition.scope.mode as ReportDraftState['scope']['mode'] | 'all_open' | 'project' | 'owner'),
+    },
     display: definition.display,
     export: definition.export,
   };

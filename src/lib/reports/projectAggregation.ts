@@ -1,3 +1,4 @@
+import { buildReportTrustSummary } from './reportTrust';
 import { getIntegrityReasonLabel } from '../../domains/records/integrity';
 import type { FollowUpItem, ProjectHealthIndicators, ProjectHealthTier, ProjectRecord, TaskItem, UnifiedQueueItem } from '../../types';
 import type {
@@ -253,6 +254,7 @@ export function buildProjectHealthReport(context: ReportingContext): ProjectHeal
       title: 'Project health',
       subtitle: 'Ranked operational health across execution pressure, cleanup distortion, and closeout opportunity.',
       scope: context.scope,
+      trust: buildReportTrustSummary(context),
       highlights: [
         {
           id: 'project-under-pressure',

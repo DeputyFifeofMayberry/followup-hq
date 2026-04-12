@@ -1,4 +1,4 @@
-import { BarChart3, Copy, Download, FilePlus2, FileSpreadsheet, Pin, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { BarChart3, Copy, Download, FilePlus2, FileSpreadsheet, Pin, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { WorkspaceKey } from '../../lib/appModeConfig';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,6 +15,14 @@ import { FollowUpRiskReport } from './FollowUpRiskReport';
 import { DataQualityReport } from './DataQualityReport';
 import { useAppStore } from '../../store/useAppStore';
 import type { ReportDraftState } from '../../types';
+import { ReportTrustPanel } from './ReportTrustPanel';
+
+const SCOPE_MODE_OPTIONS: Array<{ value: ReportDraftState['scope']['mode']; label: string; helper: string }> = [
+  { value: 'trusted_live_only', label: 'Trusted live only', helper: 'Strict execution-ready view.' },
+  { value: 'trusted_live_plus_review', label: 'Trusted live + review', helper: 'Blend live and review-required records.' },
+  { value: 'all_records', label: 'All records', helper: 'Include all trust states for broad visibility.' },
+  { value: 'cleanup_audit', label: 'Cleanup audit', helper: 'Focus only on records needing trust correction.' },
+];
 
 export function ReportsWorkspace({
   onOpenDirectoryRecord,
@@ -66,28 +74,43 @@ export function ReportsWorkspace({
   const pinnedReports = savedReportDefinitions.filter((entry) => entry.isPinned);
   const otherReports = savedReportDefinitions.filter((entry) => !entry.isPinned);
 
-  const content = useMemo(() => {
+  const { content, activeTrust } = useMemo(() => {
     switch (reportDraft.reportType) {
-      case 'executive_snapshot':
-        return <ExecutiveSnapshotReport result={runReport('executive_snapshot', reportContext)} />;
-      case 'project_health':
-        return (
-          <ProjectHealthReport
-            result={runReport('project_health', reportContext)}
-            onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
-            onSetWorkspace={onSetWorkspace}
-          />
-        );
-      case 'owner_workload':
-        return <OwnerWorkloadReport result={runReport('owner_workload', reportContext)} />;
-      case 'followup_risk':
-        return <FollowUpRiskReport result={runReport('followup_risk', reportContext)} />;
-      case 'data_quality':
-        return <DataQualityReport result={runReport('data_quality', reportContext)} />;
+      case 'executive_snapshot': {
+        const result = runReport('executive_snapshot', reportContext);
+        return { content: <ExecutiveSnapshotReport result={result} />, activeTrust: result.header.trust };
+      }
+      case 'project_health': {
+        const result = runReport('project_health', reportContext);
+        return {
+          content: (
+            <ProjectHealthReport
+              result={result}
+              onOpenDirectoryProject={(projectId) => onOpenDirectoryRecord('project', projectId)}
+              onSetWorkspace={onSetWorkspace}
+            />
+          ),
+          activeTrust: result.header.trust,
+        };
+      }
+      case 'owner_workload': {
+        const result = runReport('owner_workload', reportContext);
+        return { content: <OwnerWorkloadReport result={result} />, activeTrust: result.header.trust };
+      }
+      case 'followup_risk': {
+        const result = runReport('followup_risk', reportContext);
+        return { content: <FollowUpRiskReport result={result} />, activeTrust: result.header.trust };
+      }
+      case 'data_quality': {
+        const result = runReport('data_quality', reportContext);
+        return { content: <DataQualityReport result={result} />, activeTrust: result.header.trust };
+      }
       default:
-        return null;
+        return { content: null, activeTrust: { scopeReceipt: reportContext.scopeReceipt, confidence: reportContext.confidence, topExclusions: reportContext.scopeReceipt.excludedBuckets.slice(0, 4) } };
     }
   }, [onOpenDirectoryRecord, onSetWorkspace, reportContext, reportDraft.reportType]);
+
+
 
   return (
     <WorkspacePage className="space-y-4">
@@ -95,7 +118,7 @@ export function ReportsWorkspace({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionHeader
             title="Reports"
-            subtitle="Reusable report definitions with explicit draft-vs-saved control, pinned starters, and downstream export."
+            subtitle="Operational reports with explicit scope receipts and confidence context."
             compact
             actions={<div className="inline-flex items-center gap-1 text-xs text-slate-500"><BarChart3 className="h-3.5 w-3.5" />Operational reporting system</div>}
           />
@@ -105,19 +128,23 @@ export function ReportsWorkspace({
             <div className="action-btn pointer-events-none"><FileSpreadsheet className="h-4 w-4" />{reportMeta.label}</div>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <div className="rounded-2xl bg-slate-50 p-4">
             <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Active report</div>
             <div className="mt-2 text-lg font-semibold text-slate-950">{activeDefinition?.name ?? reportMeta.label}</div>
             <div className="mt-1 text-xs text-slate-500">{isDirty ? 'Unsaved draft changes' : 'Saved definition is current'}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 p-4">
-            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Scope</div>
-            <div className="mt-2 text-lg font-semibold text-slate-950">{reportContext.scope.openExecutionRecords} open execution records</div>
+            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Scope mode</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{reportContext.scopeReceipt.modeLabel}</div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="text-xs uppercase tracking-[0.12em] text-slate-500">Included vs excluded</div>
+            <div className="mt-2 text-lg font-semibold text-slate-950">{reportContext.scopeReceipt.includedCount} / {reportContext.scopeReceipt.excludedCount}</div>
           </div>
           <div className="rounded-2xl bg-amber-50 p-4">
-            <div className="text-xs uppercase tracking-[0.12em] text-amber-700">Immediate pressure</div>
-            <div className="mt-2 text-lg font-semibold text-slate-950">{reportContext.executionStats.due + reportContext.executionStats.blocked} need action now</div>
+            <div className="text-xs uppercase tracking-[0.12em] text-amber-700">Confidence</div>
+            <div className="mt-2 inline-flex items-center gap-1 text-lg font-semibold text-slate-950"><ShieldCheck className="h-4 w-4" />{reportContext.confidence.label}</div>
           </div>
         </div>
       </AppShellCard>
@@ -163,28 +190,28 @@ export function ReportsWorkspace({
       <AppShellCard surface="command" className="space-y-3">
         <SectionHeader title="Report configuration" subtitle="Change type/scope/display as a draft, then save or save as." compact />
         <ReportTypeSelector items={reportSelectorItems} value={reportDraft.reportType} onChange={(value) => setReportDraft({ reportType: value })} />
-        <div className="grid gap-3 md:grid-cols-3">
-          <label className="field-block">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <label className="field-block md:col-span-2">
             <span className="field-label">Scope mode</span>
             <select className="field-input" value={reportDraft.scope.mode} onChange={(event) => setReportDraft({ scope: { mode: event.target.value as ReportDraftState['scope']['mode'] } })}>
-              <option value="all_open">All open</option>
-              <option value="project">One project</option>
-              <option value="owner">One owner</option>
+              {SCOPE_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label} — {option.helper}</option>
+              ))}
             </select>
           </label>
           <label className="field-block">
-            <span className="field-label">Project scope</span>
-            <input className="field-input" value={reportDraft.scope.project ?? ''} onChange={(event) => setReportDraft({ scope: { project: event.target.value } })} placeholder="Project name" />
+            <span className="field-label">Project filter</span>
+            <input className="field-input" value={reportDraft.scope.project ?? ''} onChange={(event) => setReportDraft({ scope: { project: event.target.value || undefined } })} placeholder="All projects" />
           </label>
           <label className="field-block">
-            <span className="field-label">Owner scope</span>
-            <input className="field-input" value={reportDraft.scope.owner ?? ''} onChange={(event) => setReportDraft({ scope: { owner: event.target.value } })} placeholder="Owner name" />
+            <span className="field-label">Owner filter</span>
+            <input className="field-input" value={reportDraft.scope.owner ?? ''} onChange={(event) => setReportDraft({ scope: { owner: event.target.value || undefined } })} placeholder="All owners" />
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700 md:pt-7">
+            <input type="checkbox" checked={reportDraft.scope.includeClosed} onChange={(event) => setReportDraft({ scope: { includeClosed: event.target.checked } })} />Include closed/done
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={reportDraft.scope.includeClosed} onChange={(event) => setReportDraft({ scope: { includeClosed: event.target.checked } })} />Include closed/done records
-          </label>
           <label className="inline-flex items-center gap-2 text-sm text-slate-700">
             Row limit
             <input type="number" min={5} max={50} className="field-input w-24" value={reportDraft.display.rowLimit} onChange={(event) => setReportDraft({ display: { rowLimit: Number(event.target.value) || 8 } })} />
@@ -206,10 +233,15 @@ export function ReportsWorkspace({
         </div>
       </AppShellCard>
 
+      <ReportTrustPanel trust={activeTrust} />
+
       {content}
 
       <section>
-        <ExportWorkspace embedded />
+        <ExportWorkspace
+          embedded
+          reportTrustSummary={activeTrust}
+        />
       </section>
     </WorkspacePage>
   );

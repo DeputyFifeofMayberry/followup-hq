@@ -24,7 +24,7 @@ export function WorkspaceRenderer({ workspace, appMode, openFollowUp, openTask, 
     case 'tasks':
       return <TaskWorkspace onOpenLinkedFollowUp={(id) => openFollowUp(id)} personalMode={appMode === 'personal'} />;
     case 'exports':
-      return <ReportsWorkspace />;
+      return <ReportsWorkspace onOpenDirectoryRecord={openDirectoryRecord} onSetWorkspace={setWorkspace} />;
     case 'intake':
       return <IntakeWorkspacePanel />;
     case 'directory':

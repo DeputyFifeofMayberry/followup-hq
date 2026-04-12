@@ -2,6 +2,11 @@
 
 ## 2026-04-12
 
+### Owner Workload operational deepening: explainable pressure model, drilldown, and route-to-action workflow
+- Expanded Owner Workload report contracts with a typed workload score model, pressure categories, workload breakdown, structured drivers, owner drilldown payloads, detail rows, and route context so report output now explains pressure composition instead of returning a shallow count row. (`src/lib/reports/contracts.ts`)
+- Rebuilt Owner Workload aggregation into an explainable multi-dimension workload model that separates volume pressure, urgency pressure, blocked drag, waiting/dependency drag, cleanup distortion, severe-risk concentration, and closeout relief using live queue truth; added grouped owner summary metrics and per-owner drilldown datasets for highest-pressure, blocked/waiting, and cleanup records. (`src/lib/reports/ownerAggregation.ts`)
+- Reworked Owner Workload UI into an operational report surface with grouped summary tiles, ranked owner table (tier, score, pressure columns, top driver), selected-owner drilldown inspector, narrative explanation, structured driver list, and direct route-out actions into Follow Ups, Tasks, and primary Project context using existing report routing patterns. (`src/components/reports/OwnerWorkloadReport.tsx`, `src/components/reports/ReportsWorkspace.tsx`)
+
 ### Follow-up Risk operational deepening: explainable risk model, drilldown, and route-to-action workflow
 - Expanded reporting contracts for Follow-up Risk with typed score dimensions, risk categories, structured drivers, per-row breakdowns, drilldown payloads, and route context so the report output now carries clear “why risky” semantics and action routing metadata instead of a thin ranked list row shape. (`src/lib/reports/contracts.ts`)
 - Rebuilt the Follow-up Risk builder into an explainable multi-dimension commitment risk model that combines timing pressure, dependency waiting drag, child-task execution blockage, escalation severity, cleanup distortion, and missing-plan signals from real queue + linked-task + follow-up fields, with explicit drivers and grouped summary counts. (`src/lib/reports/followUpRisk.ts`)

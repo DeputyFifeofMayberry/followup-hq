@@ -180,17 +180,108 @@ export interface ProjectHealthReportResult {
   drilldownsByProjectId: Record<string, ProjectHealthDrilldown>;
 }
 
-export interface OwnerWorkloadRow extends RankedReportRowBase {
-  owner: string;
+export type OwnerWorkloadCategory =
+  | 'volume_pressure'
+  | 'urgency_pressure'
+  | 'blocked_pressure'
+  | 'waiting_pressure'
+  | 'cleanup_distortion'
+  | 'risk_concentration'
+  | 'closeout_relief';
+
+export interface OwnerWorkloadScore {
+  total: number;
+  volumePressure: number;
+  urgencyPressure: number;
+  blockedPressure: number;
+  waitingPressure: number;
+  cleanupDistortion: number;
+  riskConcentration: number;
+  closeoutRelief: number;
+}
+
+export interface OwnerWorkloadBreakdown {
   openTotal: number;
-  blockedTotal: number;
+  followUpOpen: number;
+  taskOpen: number;
   dueNowTotal: number;
+  overdueTotal: number;
+  blockedTotal: number;
   waitingTotal: number;
+  waitingTooLongTotal: number;
+  cleanupTotal: number;
+  severeTotal: number;
+  closeoutReadyTotal: number;
+}
+
+export interface OwnerWorkloadDriver {
+  key: string;
+  label: string;
+  category: OwnerWorkloadCategory;
+  impact: number;
+  detail?: string;
+}
+
+export interface OwnerWorkloadDetailRow {
+  id: string;
+  recordType: 'task' | 'followup';
+  title: string;
+  project: string;
+  status: string;
+  priority: string;
+  reason: string;
+  score: number;
+}
+
+export interface OwnerWorkloadRouteContext {
+  owner: string;
+  primaryProject?: string;
+  primaryProjectId?: string;
+  hottestFollowUpId?: string;
+  hottestTaskId?: string;
+}
+
+export interface OwnerWorkloadDrilldown {
+  owner: string;
+  severity: ReportSeverity;
+  tier: 'Overloaded' | 'High' | 'Watch' | 'Balanced';
+  score: OwnerWorkloadScore;
+  breakdown: OwnerWorkloadBreakdown;
+  topDriverSummary: string;
+  narrative: string;
+  dominantPressure: OwnerWorkloadCategory;
+  drivers: OwnerWorkloadDriver[];
+  highestPressureRows: OwnerWorkloadDetailRow[];
+  blockedRows: OwnerWorkloadDetailRow[];
+  cleanupRows: OwnerWorkloadDetailRow[];
+  routeContext: OwnerWorkloadRouteContext;
+}
+
+export interface OwnerWorkloadRow {
+  id: string;
+  label: string;
+  owner: string;
+  severity: ReportSeverity;
+  tier: OwnerWorkloadDrilldown['tier'];
+  score: OwnerWorkloadScore;
+  breakdown: OwnerWorkloadBreakdown;
+  dominantPressure: OwnerWorkloadCategory;
+  topDriverSummary: string;
+  drivers: OwnerWorkloadDriver[];
+  reasons: RankedReason[];
+  routeContext: OwnerWorkloadRouteContext;
 }
 
 export interface OwnerWorkloadReportResult {
   header: ReportHeaderSummary;
+  overloadedOwnerCount: number;
+  dueNowHeavyOwnerCount: number;
+  blockedHeavyOwnerCount: number;
+  waitingHeavyOwnerCount: number;
+  cleanupDistortedOwnerCount: number;
   rankedOwners: OwnerWorkloadRow[];
+  defaultSelectedOwnerId?: string;
+  drilldownsByOwnerId: Record<string, OwnerWorkloadDrilldown>;
 }
 
 export type FollowUpRiskCategory =

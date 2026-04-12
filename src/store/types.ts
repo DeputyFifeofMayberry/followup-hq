@@ -54,6 +54,16 @@ export interface BatchWorkflowResult {
   warnings: string[];
 }
 
+export interface IntakeBatchApproveResult {
+  attemptedCount: number;
+  processedCount: number;
+  followupsCreated: number;
+  tasksCreated: number;
+  skippedCount: number;
+  failedCount: number;
+  remainingPendingCount: number;
+}
+
 export interface AppStoreActions {
   initializeApp: () => Promise<void>;
   flushPersistenceNow: () => Promise<void>;
@@ -196,7 +206,7 @@ export interface AppStoreActions {
   ingestIntakeFiles: (files: File[], source?: 'drop' | 'file_picker' | 'manual_paste') => Promise<void>;
   updateIntakeWorkCandidate: (candidateId: string, patch: any) => void;
   decideIntakeWorkCandidate: (candidateId: string, decision: 'approve_task' | 'approve_followup' | 'link' | 'reference' | 'reject', linkedRecordId?: string, options?: { overrideUnsafeCreate?: boolean }) => void;
-  batchApproveHighConfidence: () => void;
+  batchApproveHighConfidence: () => IntakeBatchApproveResult;
   ingestIntakeText: (rawText: string, titleHint?: string) => Promise<void>;
   archiveIntakeBatch: (batchId: string) => void;
   clearFinalizedIntakeCandidates: (batchId?: string) => void;

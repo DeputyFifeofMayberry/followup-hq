@@ -1,12 +1,13 @@
-import { CheckCircle2, Info, Link2, TriangleAlert, Wrench } from 'lucide-react';
+import { CheckCircle2, CircleOff, Info, Link2, ShieldCheck, TriangleAlert, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildReviewerActionHints, buildWorkCandidateFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeReviewQueue } from '../lib/intakeReviewQueue';
 import { buildCandidateFieldSuggestions, buildIntakeReviewPlan, type IntakeQuickFixAction } from '../lib/intakeReviewPlan';
-import { buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
+import { buildBatchApprovalSummary, buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
 import { getIntakeFileCapability } from '../lib/intakeFileCapabilities';
+import type { IntakeBatchApproveResult } from '../store/types';
 import { useAppStore } from '../store/useAppStore';
 import { IntakeBatchToolsPanel } from './intake/IntakeBatchToolsPanel';
 import { IntakeCandidateWorkbench } from './intake/IntakeCandidateWorkbench';
@@ -17,7 +18,7 @@ import { type ActionFeedback, type QueueLane, type SourceTab } from './intake/in
 export function UniversalIntakeWorkspace() {
   const {
     intakeAssets, intakeWorkCandidates, intakeBatches, ingestIntakeFiles, ingestIntakeText, updateIntakeWorkCandidate,
-    decideIntakeWorkCandidate, intakeReviewerFeedback, archiveIntakeBatch, clearFinalizedIntakeCandidates,
+    decideIntakeWorkCandidate, batchApproveHighConfidence, intakeReviewerFeedback, archiveIntakeBatch, clearFinalizedIntakeCandidates,
     removeIntakeAsset, retryIntakeAssetParse, deleteIntakeBatchIfEmpty,
   } = useAppStore(useShallow((s) => ({
     intakeAssets: s.intakeAssets,
@@ -27,6 +28,7 @@ export function UniversalIntakeWorkspace() {
     ingestIntakeText: s.ingestIntakeText,
     updateIntakeWorkCandidate: s.updateIntakeWorkCandidate,
     decideIntakeWorkCandidate: s.decideIntakeWorkCandidate,
+    batchApproveHighConfidence: s.batchApproveHighConfidence,
     intakeReviewerFeedback: s.intakeReviewerFeedback,
     archiveIntakeBatch: s.archiveIntakeBatch,
     clearFinalizedIntakeCandidates: s.clearFinalizedIntakeCandidates,
@@ -47,12 +49,14 @@ export function UniversalIntakeWorkspace() {
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedEvidenceLocator, setSelectedEvidenceLocator] = useState<string | null>(null);
   const [confirmUnsafeCreate, setConfirmUnsafeCreate] = useState(false);
+  const [batchReceipt, setBatchReceipt] = useState<IntakeBatchApproveResult | null>(null);
 
   const activeBatchIds = useMemo(() => new Set(intakeBatches.filter((batch) => batch.status !== 'archived').map((batch) => batch.id)), [intakeBatches]);
   const pendingCandidates = useMemo(() => intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending' && activeBatchIds.has(entry.batchId)), [intakeWorkCandidates, activeBatchIds]);
   const queue = useMemo(() => buildIntakeReviewQueue(pendingCandidates, intakeAssets, intakeBatches, undefined, intakeReviewerFeedback), [pendingCandidates, intakeAssets, intakeBatches, intakeReviewerFeedback]);
   const laneView = useMemo(() => buildQueueLaneView(queue), [queue]);
   const opsSummary = useMemo(() => buildQueueOpsSummary(queue), [queue]);
+  const batchApprovalSummary = useMemo(() => buildBatchApprovalSummary(queue), [queue]);
   const byLane = laneView.byLane;
   const pendingCandidatesById = useMemo(() => new Map(pendingCandidates.map((candidate) => [candidate.id, candidate])), [pendingCandidates]);
   const queueById = useMemo(() => new Map(queue.map((item) => [item.id, item])), [queue]);
@@ -170,6 +174,18 @@ export function UniversalIntakeWorkspace() {
     if (action.kind === 'save_reference') return handleDecision('reference');
   };
 
+  const handleBatchApproveSafe = () => {
+    const result = batchApproveHighConfidence();
+    setBatchReceipt(result);
+    const skippedOrFailed = result.skippedCount + result.failedCount;
+    setFeedback({
+      tone: skippedOrFailed > 0 ? 'info' : 'success',
+      message: skippedOrFailed > 0
+        ? `Batch approval processed ${result.processedCount}/${result.attemptedCount} safe records. Review receipt for skipped items.`
+        : `Batch approval processed ${result.processedCount} safe records.`,
+    });
+  };
+
   return (
     <div className="intake-workspace-shell">
       <section className="intake-workspace-intro intake-support-panel">
@@ -187,9 +203,51 @@ export function UniversalIntakeWorkspace() {
             <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Reference likely {opsSummary.referenceLikelyCount}</span>
           </div>
         </div>
+        <div className="intake-safe-approve-banner mt-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Safe-path approval</div>
+            <div className="text-sm font-semibold text-slate-900">Approve safe records ({batchApprovalSummary.includedCount})</div>
+            <div className="text-xs text-slate-600">High-confidence records can be approved in one step. {batchApprovalSummary.excludedCount} record(s) still require manual review.</div>
+          </div>
+          <button
+            className="action-btn intake-safe-approve-btn"
+            disabled={batchApprovalSummary.includedCount === 0}
+            onClick={handleBatchApproveSafe}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Approve safe records ({batchApprovalSummary.includedCount})
+          </button>
+        </div>
+        <details className="mt-2 intake-safe-exclusions-panel">
+          <summary>Included {batchApprovalSummary.includedCount} • Excluded {batchApprovalSummary.excludedCount} (why excluded)</summary>
+          <div className="intake-safe-exclusions-body">
+            {batchApprovalSummary.topExclusionReasons.length ? <ul className="list-disc pl-4 text-xs text-slate-700 space-y-1">
+              {batchApprovalSummary.topExclusionReasons.map((reason) => (
+                <li key={reason.reason}>{reason.reason} <span className="text-slate-500">({reason.count})</span></li>
+              ))}
+            </ul> : <div className="text-xs text-slate-500">No exclusions right now. All pending records are currently safe-path eligible.</div>}
+          </div>
+        </details>
       </section>
 
       {feedback ? <div className={`rounded-xl border px-3 py-2 text-sm ${feedback.tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : feedback.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>{feedback.message}</div> : null}
+      {batchReceipt ? <section className="intake-batch-receipt-card">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">Batch approval receipt</div>
+            <div className="text-sm font-semibold text-slate-900">Processed {batchReceipt.processedCount} of {batchReceipt.attemptedCount} safe records</div>
+          </div>
+          {(batchReceipt.skippedCount + batchReceipt.failedCount) > 0
+            ? <span className="intake-intro-chip"><CircleOff className="h-3.5 w-3.5" />Skipped/failed {batchReceipt.skippedCount + batchReceipt.failedCount}</span>
+            : <span className="intake-intro-chip intake-intro-chip-safe"><CheckCircle2 className="h-3.5 w-3.5" />No skipped records</span>}
+        </div>
+        <div className="mt-2 intake-batch-receipt-grid">
+          <div><span className="text-slate-500">Follow-ups created:</span> {batchReceipt.followupsCreated}</div>
+          <div><span className="text-slate-500">Tasks created:</span> {batchReceipt.tasksCreated}</div>
+          <div><span className="text-slate-500">Remaining review queue:</span> {batchReceipt.remainingPendingCount}</div>
+          <div><span className="text-slate-500">Skipped:</span> {batchReceipt.skippedCount} • <span className="text-slate-500">Failed:</span> {batchReceipt.failedCount}</div>
+        </div>
+      </section> : null}
 
       <IntakeCapturePanel dragging={dragging} loading={loading} manualText={manualText} manualTitleHint={manualTitleHint} pasteLoading={pasteLoading} setManualText={setManualText} setManualTitleHint={setManualTitleHint} setDragging={setDragging} onFiles={onFiles} onSubmitPaste={async () => {
         const trimmed = manualText.trim();

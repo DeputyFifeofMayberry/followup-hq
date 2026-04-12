@@ -5,8 +5,11 @@ import {
   AppModalBody,
   AppModalFooter,
   AppModalHeader,
+  ExecutionLaneFeedbackStrip,
   WorkspaceContentFrame,
   ExecutionLaneQueueCard,
+  ExecutionSummaryBand,
+  ExecutionSummaryStatChip,
   WorkspacePrimaryLayout,
   WorkspacePage,
 } from '../ui/AppPrimitives';
@@ -168,25 +171,18 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
         <WorkspacePrimaryLayout className="workspace-primary-layout-collapsed">
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main">
-              <section className="followup-lane-summary-strip" aria-label="Follow-up lane summary">
-                <div className="followup-lane-summary-head">
-                  <div className="followup-lane-summary-kicker">{vm.lanePresentation.laneLabel}</div>
-                  <p className="followup-lane-summary-text">{vm.lanePresentation.laneIntent}</p>
-                  <p className="followup-lane-summary-subtext">{vm.queueSummary}</p>
-                  <p className="followup-lane-summary-subtext">Expected action: {vm.lanePresentation.expectedAction}</p>
-                </div>
-                <div className="followup-lane-summary-stats">
-                  {laneStats.map((stat) => (
-                    <div key={stat.label} className={`followup-lane-summary-chip ${stat.tone !== 'default' ? `followup-lane-summary-chip-${stat.tone}` : ''}`.trim()}>
-                      <span>{stat.label}</span>
-                      <strong>{stat.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <ExecutionSummaryBand
+                className="followup-lane-summary-strip"
+                kicker={vm.lanePresentation.laneLabel}
+                title={vm.lanePresentation.laneIntent}
+                supporting={`${vm.queueSummary} Expected action: ${vm.lanePresentation.expectedAction}`}
+                stats={laneStats.map((stat) => (
+                  <ExecutionSummaryStatChip key={stat.label} label={stat.label} value={stat.value} tone={stat.tone === 'default' ? 'default' : stat.tone} />
+                ))}
+              />
               <ControlBar onOpenDuplicateReview={() => setDuplicateModalOpen(true)} duplicateCount={vm.duplicateCount} queuePressureCounts={vm.queuePressureCounts} />
-              {revealNotice ? <div className="followup-hidden-intent-notice" role="status">{revealNotice}</div> : null}
-              {laneFeedback ? <div className="followup-hidden-intent-notice" role="status">{laneFeedback}</div> : null}
+              {revealNotice ? <ExecutionLaneFeedbackStrip message={revealNotice} tone="info" /> : null}
+              {laneFeedback ? <ExecutionLaneFeedbackStrip message={laneFeedback} tone="success" /> : null}
               <TrackerTable
                 personalMode={personalMode}
                 embedded

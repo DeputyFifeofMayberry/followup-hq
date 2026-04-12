@@ -70,19 +70,20 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
               'list-row-family',
               'w-full',
               'text-left',
+              'execution-row-shell',
               active ? 'overview-priority-row-active list-row-family-active' : '',
             ].join(' ')}
             aria-current={active ? 'true' : undefined}
             aria-selected={active}
           >
-            <div className="overview-triage-row-layout">
-              <div className="overview-triage-row-content">
+            <div className="overview-triage-row-layout execution-row-layout">
+              <div className="overview-triage-row-content execution-row-content">
                 <div className="overview-triage-row-titleline">
                   <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
-                  <div className="scan-row-primary">{row.title}</div>
+                  <div className="scan-row-primary execution-row-title">{row.title}</div>
                 </div>
-                <div className="overview-row-why-now">{reason}</div>
-                <div className="overview-row-next-move">Best next move: {nextMoveLabel(row)}</div>
+                <div className="overview-row-why-now execution-row-why-now">{reason}</div>
+                <div className="overview-row-next-move execution-row-next-move">Best next move: {nextMoveLabel(row)}</div>
                 <div className="scan-row-badge-cluster overview-row-meta-chips">
                   <Badge kind="meta" variant="neutral">{projectLabel}</Badge>
                   <Badge kind="meta" variant="neutral">{accountableLabel}</Badge>
@@ -90,7 +91,7 @@ export function OverviewTriageList({ rows, selectedId, onSelect }: OverviewTriag
                   <Badge kind="meta" variant="neutral">{timingLabel(row)}</Badge>
                 </div>
               </div>
-              <div className="overview-triage-row-sidecar">
+              <div className="overview-triage-row-sidecar execution-row-sidecar">
                 <div className="scan-row-badge-cluster">
                   <Badge variant={urgency.variant}>{urgency.label}</Badge>
                 </div>

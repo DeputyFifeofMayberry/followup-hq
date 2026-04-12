@@ -130,7 +130,7 @@ export function ExecutionSummaryStatChip({
   tone?: 'default' | 'warn' | 'danger' | 'info' | 'muted';
 }) {
   return (
-    <div className={`execution-summary-stat-chip execution-summary-stat-chip-${tone}`.trim()}>
+    <div className={`execution-summary-stat-chip control-chip control-chip-summary execution-summary-stat-chip-${tone}`.trim()}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -283,7 +283,7 @@ export function ExecutionFilterChip({
   quiet?: boolean;
 }) {
   return (
-    <button type="button" className={`execution-filter-chip ${quiet ? 'execution-filter-chip-quiet' : ''}`.trim()} onClick={onClear} aria-label={`Remove filter ${label}`}>
+    <button type="button" className={`execution-filter-chip control-chip control-chip-filter ${quiet ? 'execution-filter-chip-quiet' : ''}`.trim()} onClick={onClear} aria-label={`Remove filter ${label}`}>
       {label}
       <span aria-hidden>×</span>
     </button>
@@ -416,7 +416,7 @@ export function SurfaceBlock({
 }
 
 export function AppBadge({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' | 'success' | 'danger' }>) {
-  return <span className={`app-badge app-badge-${tone}`}>{children}</span>;
+  return <span className={`app-badge control-chip control-chip-status app-badge-${tone}`}>{children}</span>;
 }
 
 export function AttentionPill({
@@ -430,7 +430,7 @@ export function AttentionPill({
 }
 
 export function WorkspaceHeaderMetaPill({ children, tone = 'default' }: PropsWithChildren<{ tone?: 'default' | 'info' | 'warn' }>) {
-  return <div className={`workspace-meta-pill workspace-meta-pill-${tone}`}>{children}</div>;
+  return <div className={`workspace-meta-pill control-chip control-chip-metadata workspace-meta-pill-${tone}`}>{children}</div>;
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
@@ -501,7 +501,7 @@ export function SegmentedControl<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={`segmented-control ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
+    <div className={`segmented-control control-segmented ${className}`.trim()} role="tablist" aria-label={ariaLabel}>
       {options.map((option, index) => {
         const active = value === option.value;
         const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
@@ -525,7 +525,7 @@ export function SegmentedControl<T extends string>({
             type="button"
             onClick={() => onChange(option.value)}
             onKeyDown={onKeyDown}
-            className={active ? 'segmented-control-btn segmented-control-btn-active' : 'segmented-control-btn'}
+            className={active ? 'segmented-control-btn control-segmented-btn segmented-control-btn-active control-segmented-btn-active' : 'segmented-control-btn control-segmented-btn'}
             role="tab"
             aria-selected={active}
             aria-label={option.ariaLabel}
@@ -597,7 +597,7 @@ export function AppModalHeader({ title, subtitle, onClose, closeLabel = 'Close' 
         <div className="modal-title">{title}</div>
         {subtitle ? <div className="modal-subtitle">{subtitle}</div> : null}
       </div>
-      <button onClick={onClose} className="action-btn">{closeLabel}</button>
+      <button onClick={onClose} className="action-btn action-btn-quiet">{closeLabel}</button>
     </div>
   );
 }

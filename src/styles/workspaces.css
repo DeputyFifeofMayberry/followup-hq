@@ -167,17 +167,17 @@
 .execution-summary-band-actions { display: inline-flex; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 0.35rem; }
 .execution-summary-band-stats { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .execution-summary-stat-chip {
-  border: 1px solid #d6e2ef;
+  border: 1px solid #cddaea;
   border-radius: 999px;
-  background: var(--sp-neutral-0);
-  padding: 0.2rem 0.5rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 0.22rem 0.52rem;
   display: inline-flex;
   align-items: baseline;
   gap: 0.28rem;
   font-size: 0.67rem;
-  color: #4a6077;
+  color: #3d5670;
 }
-.execution-summary-stat-chip strong { font-size: 0.76rem; color: #12263d; }
+.execution-summary-stat-chip strong { font-size: 0.76rem; color: #10263e; }
 .execution-summary-stat-chip-warn { border-color: #f0cca8; background: var(--sp-surface-trust-warn); }
 .execution-summary-stat-chip-danger { border-color: #f4b8b8; background: var(--sp-surface-trust-danger); }
 .execution-summary-stat-chip-info { border-color: #bfdbfe; background: var(--sp-surface-trust-info); }
@@ -193,15 +193,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  border: 1px solid #d2deec;
+  border: 1px solid #bed0e2;
   border-radius: 999px;
-  background: var(--surface-command);
-  color: #334155;
-  padding: 0.18rem 0.54rem;
-  font-size: 0.68rem;
+  background: linear-gradient(180deg, #fafdff 0%, #eef4fb 100%);
+  color: #1d3854;
+  padding: 0.2rem 0.56rem;
+  font-size: 0.67rem;
   font-weight: 650;
 }
-.execution-filter-chip-quiet { background: #f8fbff; border-color: #dce7f4; }
+.execution-filter-chip:hover { border-color: #94aec8; background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%); }
+.execution-filter-chip-quiet { background: #f8fbff; border-color: #dce7f4; color: #50657c; font-weight: 600; }
 .execution-lane-feedback {
   border: 1px solid var(--border-subtle);
   border-radius: 0.72rem;
@@ -412,20 +413,20 @@
   padding-bottom: 0.08rem;
 }
 .task-mobile-view-chip {
-  border: 1px solid #d2deec;
-  background: #f8fbff;
-  color: #334155;
+  border: 1px solid #bfd1e4;
+  background: linear-gradient(180deg, #fafdff 0%, #eff5fb 100%);
+  color: #27425e;
   border-radius: 999px;
-  padding: 0.36rem 0.62rem;
+  padding: 0.38rem 0.64rem;
   font-size: 0.7rem;
-  font-weight: 670;
+  font-weight: 650;
   white-space: nowrap;
 }
 .task-mobile-view-chip-active {
-  border-color: #3b82f6;
-  background: #eaf2ff;
-  color: #1e3a8a;
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.16);
+  border-color: #6e8fb4;
+  background: linear-gradient(180deg, #ffffff 0%, #f2f8ff 100%);
+  color: #102a44;
+  box-shadow: 0 2px 9px rgba(15, 23, 42, 0.08), inset 0 0 0 1px rgba(97, 137, 178, 0.24);
 }
 .task-mobile-search-row {
   display: grid;

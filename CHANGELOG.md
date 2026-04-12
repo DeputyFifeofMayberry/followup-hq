@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Intake queue-first triage surface: operational summary, action lanes, and decision-rich rows
+- Reworked Intake’s top-of-page summary strip into an operational triage header driven by authoritative queue metrics (pending, safe-now, link review, correction pressure, reference-likely) via shared queue helpers, removing ad hoc counting drift from the workspace shell. (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeWorkspaceQueueModel.ts`)
+- Upgraded `IntakeQueuePanel` from a simple selector list into an action-lane triage surface with explicit lane purpose copy, current-view framing, state-differentiated row hierarchy (safe/correction/link/reference), and decision-relevant row signals (recommended cue, next-step hint, blockers, duplicate pressure, trust/confidence, source context, safe-now status). (`src/components/intake/IntakeQueuePanel.tsx`, `src/components/intake/intakeWorkspaceTypes.ts`, `src/styles/workspaces.css`)
+- Added disciplined row-level quick actions that stay within existing queue/review semantics: open workbench always, plus contextual quick paths for batch-safe create, reference routing, and direct link-review entry when the queue state is strong enough. (`src/components/intake/IntakeQueuePanel.tsx`, `src/components/UniversalIntakeWorkspace.tsx`)
+- Improved workbench framing so selected-candidate context now stays tied to lane flow (lane identity, item position in lane, safe-vs-exception state, and primary next action), reinforcing queue + workbench as one operational triage loop. (`src/components/intake/IntakeCandidateWorkbench.tsx`, `src/styles/workspaces.css`)
+- Added targeted regression coverage for queue-ops summary derivation and intake presentation helpers that power lane microcopy/action cues and row-state semantics. (`src/lib/__tests__/intakeWorkspaceQueueModel.test.ts`, `src/lib/__tests__/intakeQueuePresentationModel.test.ts`)
+
 ### Intake queue orchestration foundation: queue-first state ownership for review workflow
 - Refactored `UniversalIntakeWorkspace` so queue-derived lane views are now the authoritative orchestration model (ordering, selection, lane counts, and filtered visible lists) instead of lane ownership from raw pending candidate arrays, aligning live UI behavior with `buildIntakeReviewQueue` intelligence. (`src/components/UniversalIntakeWorkspace.tsx`, `src/lib/intakeWorkspaceQueueModel.ts`)
 - Added dedicated queue-workflow helpers that normalize pending queue ordering and lane partitioning using existing queue scoring semantics (`priorityScore`, readiness, and sort date), then resolve stable per-lane selection with preserve-or-fallback behavior to prevent selection bounce/revert during queue mutations. (`src/lib/intakeWorkspaceQueueModel.ts`)

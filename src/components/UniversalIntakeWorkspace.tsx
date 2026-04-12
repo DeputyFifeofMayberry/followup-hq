@@ -1,11 +1,11 @@
-import { CheckCircle2, Info, TriangleAlert, XCircle } from 'lucide-react';
+import { CheckCircle2, Info, Link2, TriangleAlert, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { buildReviewerActionHints, buildWorkCandidateFieldReviews, summarizeFieldReviews } from '../lib/intakeEvidence';
 import { evaluateIntakeImportSafety } from '../lib/intakeImportSafety';
 import { buildIntakeReviewQueue } from '../lib/intakeReviewQueue';
 import { buildCandidateFieldSuggestions, buildIntakeReviewPlan, type IntakeQuickFixAction } from '../lib/intakeReviewPlan';
-import { buildQueueLaneView, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
+import { buildQueueLaneView, buildQueueOpsSummary, resolveQueueSelectionId } from '../lib/intakeWorkspaceQueueModel';
 import { getIntakeFileCapability } from '../lib/intakeFileCapabilities';
 import { useAppStore } from '../store/useAppStore';
 import { IntakeBatchToolsPanel } from './intake/IntakeBatchToolsPanel';
@@ -52,6 +52,7 @@ export function UniversalIntakeWorkspace() {
   const pendingCandidates = useMemo(() => intakeWorkCandidates.filter((entry) => entry.approvalStatus === 'pending' && activeBatchIds.has(entry.batchId)), [intakeWorkCandidates, activeBatchIds]);
   const queue = useMemo(() => buildIntakeReviewQueue(pendingCandidates, intakeAssets, intakeBatches, undefined, intakeReviewerFeedback), [pendingCandidates, intakeAssets, intakeBatches, intakeReviewerFeedback]);
   const laneView = useMemo(() => buildQueueLaneView(queue), [queue]);
+  const opsSummary = useMemo(() => buildQueueOpsSummary(queue), [queue]);
   const byLane = laneView.byLane;
   const pendingCandidatesById = useMemo(() => new Map(pendingCandidates.map((candidate) => [candidate.id, candidate])), [pendingCandidates]);
   const queueById = useMemo(() => new Map(queue.map((item) => [item.id, item])), [queue]);
@@ -117,20 +118,39 @@ export function UniversalIntakeWorkspace() {
     } finally { setLoading(false); }
   };
 
-  const handleDecision = (decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link') => {
-    if (!selectedCandidate) return;
-    const selectedMatch = selectedCandidate.existingRecordMatches.find((m) => m.id === selectedMatchId) ?? selectedCandidate.existingRecordMatches[0] ?? null;
+  const runDecision = (candidateId: string, decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link', opts?: { force?: boolean }) => {
+    const candidate = pendingCandidatesById.get(candidateId);
+    if (!candidate) return;
+    const candidateSafety = evaluateIntakeImportSafety(candidate);
+    const selectedMatch = candidate.existingRecordMatches.find((m) => m.id === selectedMatchId) ?? candidate.existingRecordMatches[0] ?? null;
     if (decision === 'link') {
       if (!selectedMatch) return setFeedback({ tone: 'error', message: 'Select a matching record first.' });
-      decideIntakeWorkCandidate(selectedCandidate.id, 'link', selectedMatch.id);
+      decideIntakeWorkCandidate(candidate.id, 'link', selectedMatch.id);
       setFeedback({ tone: 'success', message: `Linked to ${selectedMatch.recordType} ${selectedMatch.id}.` });
       return;
     }
-    const unsafe = Boolean(safety && !safety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task'));
-    if (unsafe && !confirmUnsafeCreate) return setFeedback({ tone: 'info', message: 'Duplicate-risk override requires confirmation first.' });
-    decideIntakeWorkCandidate(selectedCandidate.id, decision, undefined, { overrideUnsafeCreate: unsafe && confirmUnsafeCreate });
+    const unsafe = Boolean(candidateSafety && !candidateSafety.safeToCreateNew && (decision === 'approve_followup' || decision === 'approve_task'));
+    if (unsafe && !confirmUnsafeCreate && !opts?.force) return setFeedback({ tone: 'info', message: 'Duplicate-risk override requires confirmation first.' });
+    decideIntakeWorkCandidate(candidate.id, decision, undefined, { overrideUnsafeCreate: unsafe && (confirmUnsafeCreate || Boolean(opts?.force)) });
     setFeedback({ tone: 'success', message: `${decision.replaceAll('_', ' ')} complete.` });
     setConfirmUnsafeCreate(false);
+  };
+
+  const handleDecision = (decision: 'approve_followup' | 'approve_task' | 'reference' | 'reject' | 'link') => {
+    if (!selectedCandidate) return;
+    runDecision(selectedCandidate.id, decision);
+  };
+
+  const handleQueueQuickAction = (candidateId: string, action: 'open' | 'quick_create_followup' | 'quick_create_task' | 'quick_save_reference' | 'review_link') => {
+    setSelectedQueueItemId(candidateId);
+    if (action === 'open') return;
+    if (action === 'review_link') {
+      setActiveLane('link_duplicate_review');
+      return;
+    }
+    if (action === 'quick_create_followup') return runDecision(candidateId, 'approve_followup', { force: true });
+    if (action === 'quick_create_task') return runDecision(candidateId, 'approve_task', { force: true });
+    if (action === 'quick_save_reference') return runDecision(candidateId, 'reference');
   };
 
   const applyQuickFixAction = (action: IntakeQuickFixAction) => {
@@ -160,10 +180,11 @@ export function UniversalIntakeWorkspace() {
             <p className="mt-1 text-xs text-slate-600">The queue is your operational landing zone. The workbench is for single-candidate resolution.</p>
           </div>
           <div className="intake-intro-metrics">
-            <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {laneView.pending.length}</span>
-            <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Needs correction {laneView.counts.needs_correction}</span>
-            <span className="intake-intro-chip"><XCircle className="h-3.5 w-3.5" />Link review {laneView.counts.link_duplicate_review}</span>
-            <span className="intake-intro-chip"><CheckCircle2 className="h-3.5 w-3.5" />Ready {laneView.counts.ready_to_create}</span>
+            <span className="intake-intro-chip"><Info className="h-3.5 w-3.5" />Pending {opsSummary.pendingCount}</span>
+            <span className="intake-intro-chip intake-intro-chip-safe"><CheckCircle2 className="h-3.5 w-3.5" />Safe now {opsSummary.safeNowCount}</span>
+            <span className="intake-intro-chip"><Link2 className="h-3.5 w-3.5" />Link review {opsSummary.linkReviewCount}</span>
+            <span className="intake-intro-chip"><Wrench className="h-3.5 w-3.5" />Needs correction {opsSummary.needsCorrectionCount}</span>
+            <span className="intake-intro-chip"><TriangleAlert className="h-3.5 w-3.5" />Reference likely {opsSummary.referenceLikelyCount}</span>
           </div>
         </div>
       </section>
@@ -186,7 +207,15 @@ export function UniversalIntakeWorkspace() {
       }} />
 
       <section className="intake-core-grid intake-core-grid-staged">
-        <IntakeQueuePanel activeLane={activeLane} byLane={byLane} laneCounts={laneView.counts} selectedCandidateId={selectedQueueItemId} onSelectCandidate={(id) => setSelectedQueueItemId(id)} onSetLane={setActiveLane} />
+        <IntakeQueuePanel
+          activeLane={activeLane}
+          byLane={byLane}
+          laneCounts={laneView.counts}
+          selectedCandidateId={selectedQueueItemId}
+          onSelectCandidate={(id) => setSelectedQueueItemId(id)}
+          onSetLane={setActiveLane}
+          onQuickAction={handleQueueQuickAction}
+        />
 
         <IntakeCandidateWorkbench
           selectedCandidate={selectedCandidate}
@@ -203,6 +232,9 @@ export function UniversalIntakeWorkspace() {
           selectedSourceTab={selectedSourceTab}
           selectedEvidenceLocator={selectedEvidenceLocator}
           duplicateGroup={duplicateGroup}
+          activeLane={activeLane}
+          lanePosition={selectedQueueItem ? (byLane[activeLane].findIndex((item) => item.id === selectedQueueItem.id) + 1) : 0}
+          laneTotal={byLane[activeLane].length}
           onUpdateCandidate={updateIntakeWorkCandidate}
           onDecision={handleDecision}
           onSetConfirmUnsafeCreate={setConfirmUnsafeCreate}

@@ -1,4 +1,4 @@
-import { sortReviewQueue, type IntakeQueueItem } from './intakeReviewQueue';
+import { buildQueueMetrics, sortReviewQueue, type IntakeQueueItem } from './intakeReviewQueue';
 import { queueLane, type QueueLane } from '../components/intake/intakeWorkspaceTypes';
 
 function queueSortDateValue(value: string) {
@@ -46,6 +46,18 @@ export function buildQueueLaneView(queue: IntakeQueueItem[]) {
     reference_only: byLane.reference_only.length,
   };
   return { pending, byLane, counts };
+}
+
+export function buildQueueOpsSummary(queue: IntakeQueueItem[]) {
+  const metrics = buildQueueMetrics(queue);
+  const pending = queue.filter((item) => item.status === 'pending');
+  return {
+    pendingCount: metrics.pendingCount,
+    safeNowCount: metrics.batchSafeCount,
+    linkReviewCount: metrics.duplicateReviewCount,
+    needsCorrectionCount: metrics.weakOrConflictingCount,
+    referenceLikelyCount: pending.filter((item) => item.readiness === 'reference_likely').length,
+  };
 }
 
 export function resolveQueueSelectionId(input: {

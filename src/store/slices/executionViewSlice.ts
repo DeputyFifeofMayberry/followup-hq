@@ -1,9 +1,9 @@
-import { applyQueuePreset, applyUnifiedFilter, buildUnifiedQueue, sortUnifiedQueue } from '../../lib/unifiedQueue';
 import { createId, todayIso } from '../../lib/utils';
 import type { AppStore, AppStoreActions } from '../types';
 import type { ExecutionIntent, UnifiedQueueFilter } from '../../types';
 import type { SliceContext, SliceGet, SliceSet } from './types';
 import { executionIntentToHandoff } from '../../domains/shared/execution';
+import { selectMaterializedUnifiedQueue } from '../selectors/unifiedQueue';
 
 export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePersist }: SliceContext): Pick<AppStoreActions,
   'getUnifiedQueue' | 'setQueuePreset' | 'setExecutionFilter' | 'setExecutionSort' | 'setQueueDensity' | 'saveExecutionView' | 'applyExecutionView' |
@@ -24,10 +24,7 @@ export function createExecutionViewSlice(set: SliceSet, get: SliceGet, { queuePe
 
   return {
     getUnifiedQueue: () => {
-      const state = get();
-      const queue = buildUnifiedQueue(state.items, state.tasks);
-      const preset = applyQueuePreset(queue, state.queuePreset);
-      return sortUnifiedQueue(applyUnifiedFilter(preset, state.executionFilter), state.executionSort);
+      return selectMaterializedUnifiedQueue(get());
     },
     setQueuePreset: (preset) => set({ queuePreset: preset }),
     setExecutionFilter: (filter) => set({ executionFilter: filter }),

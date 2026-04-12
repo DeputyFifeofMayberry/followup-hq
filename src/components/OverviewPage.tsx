@@ -37,6 +37,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   void appMode;
   const { isMobileLike } = useViewportBand();
   const {
+    hydrated,
     dashboard,
     selectedFilter,
     selectQueueFilter,
@@ -86,6 +87,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   const isDashboardFocusedEmpty = visibleRows.length === 0 && !searchQuery && Boolean(dashboardQueueContext);
   const isSignalFilterEmpty = visibleRows.length === 0 && !searchQuery && selectedFilter !== 'all' && !dashboardQueueContext;
   const isFullQueueEmpty = visibleRows.length === 0 && !searchQuery && selectedFilter === 'all' && !dashboardQueueContext;
+  const isInitializingOverview = !hydrated && isFullQueueEmpty;
 
   const inspectorTitle = selected ? `Route ${selected.recordType === 'task' ? 'task' : 'follow-up'}` : 'Route item';
 
@@ -235,6 +237,12 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
                 <button type="button" className="action-btn action-btn-quiet" onClick={() => selectQueueFilter('all')}>View full queue</button>
               </div>
             )}
+          />
+        ) : isInitializingOverview ? (
+          <StatePanel
+            tone="loading"
+            title="Loading overview queue"
+            message="Preparing dashboard metrics and triage queue from saved data."
           />
         ) : isFullQueueEmpty ? (
           <StatePanel

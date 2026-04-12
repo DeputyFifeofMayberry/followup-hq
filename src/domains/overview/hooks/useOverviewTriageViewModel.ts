@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { ExecutionRouteTarget, ExecutionSectionKey, UnifiedQueueItem } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
+import { selectMaterializedUnifiedQueue } from '../../../store/selectors/unifiedQueue';
 import { buildExecutionQueueStats } from '../../shared/selectors/executionQueueSelectors';
 import { resolveExecutionLaneSelection } from '../../shared';
 
@@ -217,7 +218,12 @@ const isUnassignedRow: RowPredicate = (row) => !(row.assignee?.trim() || row.own
 
 export function useOverviewTriageViewModel() {
   const store = useAppStore(useShallow((s) => ({
-    getUnifiedQueue: s.getUnifiedQueue,
+    items: s.items,
+    tasks: s.tasks,
+    queuePreset: s.queuePreset,
+    executionFilter: s.executionFilter,
+    executionSort: s.executionSort,
+    hydrated: s.hydrated,
     executionSelectedId: s.executionSelectedId,
     setExecutionSelectedId: s.setExecutionSelectedId,
     openExecutionLane: s.openExecutionLane,
@@ -225,7 +231,13 @@ export function useOverviewTriageViewModel() {
     openCreateWorkModal: s.openCreateWorkModal,
   })));
 
-  const queue = store.getUnifiedQueue();
+  const queue = useMemo(() => selectMaterializedUnifiedQueue({
+    items: store.items,
+    tasks: store.tasks,
+    queuePreset: store.queuePreset,
+    executionFilter: store.executionFilter,
+    executionSort: store.executionSort,
+  }), [store.items, store.tasks, store.queuePreset, store.executionFilter, store.executionSort]);
   const [selectedFilter, setSelectedFilter] = useState<OverviewFilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(BASE_TRIAGE_LIMIT);
@@ -699,6 +711,7 @@ export function useOverviewTriageViewModel() {
   };
 
   return {
+    hydrated: store.hydrated,
     stats,
     dashboard,
     selectedFilter,

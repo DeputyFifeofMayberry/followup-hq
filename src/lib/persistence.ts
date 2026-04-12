@@ -370,6 +370,9 @@ function normalizeSaveProofCandidate(parsed: unknown, legacy: SaveProofState): S
     : legacy.cloudProofState;
   return {
     ...legacy,
+    latestVerifiedAt: typeof candidate.latestVerifiedAt === 'string' ? candidate.latestVerifiedAt : legacy.latestVerifiedAt,
+    latestVerifiedBatchId: typeof candidate.latestVerifiedBatchId === 'string' ? candidate.latestVerifiedBatchId : legacy.latestVerifiedBatchId,
+    latestVerifiedRevision: typeof candidate.latestVerifiedRevision === 'number' && Number.isFinite(candidate.latestVerifiedRevision) && candidate.latestVerifiedRevision >= 0 ? Math.floor(candidate.latestVerifiedRevision) : legacy.latestVerifiedRevision,
     latestLocalSaveAttemptAt: typeof candidate.latestLocalSaveAttemptAt === 'string' ? candidate.latestLocalSaveAttemptAt : legacy.latestLocalSaveAttemptAt,
     latestDurableLocalWriteAt: typeof candidate.latestDurableLocalWriteAt === 'string' ? candidate.latestDurableLocalWriteAt : legacy.latestDurableLocalWriteAt,
     latestCloudConfirmedCommitAt: typeof candidate.latestCloudConfirmedCommitAt === 'string' ? candidate.latestCloudConfirmedCommitAt : legacy.latestCloudConfirmedCommitAt,
@@ -420,6 +423,9 @@ function normalizeLocalCache(parsed: unknown): LocalCachePayload | null {
     ? asRecord.lastReceiptStatus
     : undefined;
   const legacySaveProof: SaveProofState = {
+    latestVerifiedAt: undefined,
+    latestVerifiedBatchId: undefined,
+    latestVerifiedRevision: undefined,
     latestLocalSaveAttemptAt: updatedAt,
     latestDurableLocalWriteAt: updatedAt,
     latestCloudConfirmedCommitAt: typeof asRecord.lastCloudConfirmedAt === 'string' ? asRecord.lastCloudConfirmedAt : undefined,
@@ -1350,6 +1356,9 @@ export async function savePersistedPayload(
   const hasLocalChanges = auxiliaryChanged || scopedOps.length > 0;
   const nextLocalRevision = hasLocalChanges ? (existingCache?.localRevision ?? 0) + 1 : (existingCache?.localRevision ?? 0);
   const previousSaveProof: SaveProofState = existingCache?.saveProof ?? {
+    latestVerifiedAt: undefined,
+    latestVerifiedBatchId: undefined,
+    latestVerifiedRevision: undefined,
     latestLocalSaveAttemptAt: undefined,
     latestDurableLocalWriteAt: undefined,
     latestCloudConfirmedCommitAt: existingCache?.lastCloudConfirmedAt,

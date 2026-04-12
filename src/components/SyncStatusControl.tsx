@@ -89,7 +89,7 @@ export function SyncStatusControl() {
     if (previousStage === statusModel.stage) return;
     previousStageRef.current = statusModel.stage;
 
-    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'verified') {
+    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'cloud-verified') {
       syncMeta.pushToast({
         tone: 'success',
         title: 'Cloud save confirmed',
@@ -100,7 +100,7 @@ export function SyncStatusControl() {
       return;
     }
 
-    if (statusModel.stage === 'verified') {
+    if (statusModel.stage === 'cloud-verified') {
       syncMeta.pushToast({
         tone: 'success',
         title: 'Save verified',

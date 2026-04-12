@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Overview daily-driver polish pass: responsive resilience, empty-state trust, and dashboard/queue/inspector coherence
+- Hardened Overview responsiveness across desktop/tablet/mobile with denser but clearer control behavior: improved dashboard spacing rhythm, mobile action-button sizing, stacked next-up row actions, stronger context-strip wrapping, and deliberate small-screen filter/queue composition instead of simple collapse behavior. (`src/styles/workspaces.css`)
+- Added explicit low-data and empty-state coverage across the dashboard and queue loop: next-up empty guidance, enriched hotspot/commitment/ownership no-data messaging, focused-slice zero-row explanation with reset action, filter-specific empty messaging, and a full-queue clear state with direct Intake/Create recovery actions. (`src/components/overview/OverviewDashboardPanels.tsx`, `src/components/OverviewPage.tsx`, `src/components/overview/OverviewDashboardHeader.tsx`)
+- Improved long-content resilience for repeated daily use by hardening overflow/wrap handling for long titles, project names, reason lines, owner labels, and queue status/context copy in both dashboard and queue surfaces while preserving scanability. (`src/styles/workspaces.css`, `src/components/overview/OverviewDashboardPanels.tsx`)
+- Tightened dashboard/queue state coherence by reducing ambiguous status copy and clarifying when queue rows are narrowed by dashboard focus, so focused/empty/recovery states remain explainable and recoverable without inspector confusion. (`src/components/OverviewPage.tsx`)
+
 ### Overview dashboard interaction architecture hardening: typed action model + view-model owned intent
 - Refactored Overview dashboard interactions around a strongly typed `OverviewDashboardAction` union and centralized `OverviewDashboardQueueIntent` model, so KPI/lane/hotspot/commitment/ownership/next-up semantics now resolve in the Overview view-model instead of ad hoc page-local predicate/date/filter logic. (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`)
 - Added a canonical dashboard-intent resolver/executor in `useOverviewTriageViewModel` (`resolveDashboardQueueIntent` + `runDashboardAction`) that owns queue-focus context metadata, preferred selection handling, and optional secondary route-out metadata for each dashboard slice from one source of truth. (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`)

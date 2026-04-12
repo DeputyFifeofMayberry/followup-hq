@@ -14,7 +14,7 @@ import {
   WorkspacePrimaryLayout,
 } from './ui/AppPrimitives';
 import type { AppMode } from '../types';
-import { OverviewStartStrip } from './overview/OverviewStartStrip';
+import { OverviewDashboard } from './overview/OverviewDashboard';
 import { OverviewSignalCards } from './overview/OverviewSignalCards';
 import { OverviewTriageList } from './overview/OverviewTriageList';
 import { OverviewRouteInspector } from './overview/OverviewRouteInspector';
@@ -33,7 +33,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   void appMode;
   const { isMobileLike } = useViewportBand();
   const {
-    stats,
+    dashboard,
     selectedFilter,
     selected,
     signalCards,
@@ -153,7 +153,21 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   return (
     <WorkspacePage>
       <WorkspaceContentFrame>
-        <OverviewStartStrip stats={stats} onOpenIntake={() => onOpenWorkspace('intake')} onCreateWork={openCreateWorkModal} />
+        <OverviewDashboard
+          dashboard={dashboard}
+          selectedFilter={selectedFilter}
+          onSelectFilter={setSelectedFilter}
+          onCreateWork={openCreateWorkModal}
+          onOpenIntake={() => onOpenWorkspace('intake')}
+          onRouteLane={(lane, section, intentLabel) => {
+            routeToLane(lane, { section, intentLabel });
+            onOpenWorkspace(lane);
+          }}
+          onSelectRow={(id) => {
+            setSelectedId(id);
+            setDetailOpen(true);
+          }}
+        />
 
         {isMobileLike ? (
           <>

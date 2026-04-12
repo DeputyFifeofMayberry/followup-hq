@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Overview dashboard-first redesign: command-center strip replaced with operational panels above queue execution
+- Replaced the old compact `OverviewStartStrip` summary band with a true dashboard shell at the top of Overview, introducing a stronger dashboard header/context row, compact KPI cards, and multi-panel operational layout while keeping shell utilities out of Overview after the prior shell relocation. (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewDashboard.tsx`, `src/components/overview/OverviewDashboardHeader.tsx`, `src/components/overview/OverviewDashboardKpis.tsx`, `src/components/overview/OverviewDashboardPanels.tsx`)
+- Expanded the Overview triage view model with real derived dashboard data (pressure KPIs, next-up ranking, lane-health composition, project hotspots, weekly pressure snapshot, and workload mix) grounded directly in unified queue truth and queue flags rather than display-only widgets. (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`)
+- Added route-capable dashboard interactions so KPI/panel actions can narrow queue state, inspect high-pressure rows, or route directly into Tasks/Follow Ups lanes with concrete section intent labels, keeping dashboard decisions connected to real execution workflows. (`src/components/OverviewPage.tsx`, `src/components/overview/OverviewDashboardPanels.tsx`)
+- Reworked Overview workspace styling to support enterprise/project-controls hierarchy (dashboard shell, KPI grid, primary/secondary panel rows, responsive behavior) while preserving the existing queue + inspector execution surface below the dashboard. (`src/styles/workspaces.css`)
+- Removed obsolete compact-strip components that were superseded by the new dashboard-first structure. (`src/components/overview/OverviewStartStrip.tsx`, `src/components/overview/OverviewSummaryStats.tsx`, `src/components/overview/OverviewRouteActions.tsx`)
+
 ### Overview shell hierarchy cleanup: global utility controls moved out of workspace header
 - Relocated shell-level utility controls (app mode switcher, sync trust center, settings, and build stamp) from the workspace header/nav emphasis into a dedicated persistent utility bar in the main shell chrome, so the workspace header can stay focused on workspace identity and primary page actions. (`src/App.tsx`, `src/styles/shell.css`)
 - Removed now-obsolete workspace-header utility cluster styles and related responsive overrides after the utility controls moved to the new shell-level location, reducing style drift and reinforcing a cleaner workspace/content hierarchy. (`src/styles/workspaces.css`)

@@ -2,6 +2,12 @@
 
 ## 2026-04-12
 
+### Save/trust hardening pass: verification freshness correctness, post-save scheduling, and honest feedback under rapid edits
+- Fixed a root-cause verification freshness bug in `useAppStore` where a verification run could mark the **current** revision as verified even when newer edits landed during the verification lifecycle; verification evidence is now only promoted when the verified batch/revision still matches the active revision at completion. This prevents false “current cloud verified” trust projection during rapid edits. (`src/store/useAppStore.ts`)
+- Hardened automatic post-save verification scheduling so committed cloud saves can actually trigger post-save verification once save settles, instead of being blocked by stale pre-save flags (`hasLocalUnsavedChanges` / `flushing` state from the in-flight cycle). (`src/store/useAppStore.ts`)
+- Tightened trust-center/toast feedback to avoid overstating certainty: cloud-commit/verified success toasts now require current-revision conditions, and verification diagnostics now explicitly distinguish “matched current state” from “matched an earlier revision.” (`src/components/SyncStatusControl.tsx`)
+- Added regression coverage for the key stale-verification trust boundary where a verification summary can be true for an earlier revision but must still render as stale/not-current for the live revision. (`src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Record-level save trust visibility across core editors and directory workflows
 - Added a reusable per-record save-status derivation (`selectRecordSaveStatus`) backed by a new in-store record save ledger so each record can report trustworthy stage transitions (`Editing`, `Saving…`, `Saved locally`, `Queued for cloud`, `Cloud confirmed`, `Cloud verified`, `Verification stale`, `Needs attention`) using canonical save-proof semantics plus record-scoped conflict/degraded overrides. (`src/store/recordSaveStatus.ts`, `src/store/state/types.ts`, `src/store/useAppStore.ts`, `src/store/state/initialState.ts`, `src/store/slices/metaSlice.ts`)
 - Introduced shared `RecordSaveStatus` UI for compact and full contexts with consistent trust-tone badges/icons/detail text, allowing workflows to show item-level confidence without relying on the global sync control. (`src/components/save/RecordSaveStatus.tsx`)

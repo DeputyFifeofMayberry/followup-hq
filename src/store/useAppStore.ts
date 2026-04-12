@@ -87,6 +87,10 @@ export const useAppStore = create<AppStore>()((set, get) => {
   const runVerificationLifecycle = async (mode: VerificationMode): Promise<void> => {
     if (verificationLifecyclePromise) return verificationLifecyclePromise;
 
+    const lifecycleStart = get();
+    const verificationRevisionAtStart = lifecycleStart.localRevision;
+    const verificationBatchIdAtStart = lifecycleStart.lastConfirmedBatchId;
+
     const lifecycle = (async () => {
       const startedAt = new Date().toISOString();
       set((state) => ({
@@ -128,22 +132,25 @@ export const useAppStore = create<AppStore>()((set, get) => {
         });
 
         const derived = deriveVerificationMetaFromResult(result);
+        const verificationMatchedCurrentRevision = Boolean(result.summary.verified
+          && verificationBatchIdAtStart
+          && result.summary.basedOnBatchId === verificationBatchIdAtStart);
 
         set((state) => ({
-          recordSaveLedger: result.summary.verified
+          recordSaveLedger: verificationMatchedCurrentRevision && state.localRevision === verificationRevisionAtStart
             ? Object.fromEntries(
               Object.entries(state.recordSaveLedger).map(([key, entry]) => {
                 if (
                   entry.lastCloudConfirmedBatchId
-                  && result.summary.basedOnBatchId
-                  && entry.lastCloudConfirmedBatchId === result.summary.basedOnBatchId
-                  && entry.lastCloudConfirmedRevision === state.localRevision
+                  && verificationBatchIdAtStart
+                  && entry.lastCloudConfirmedBatchId === verificationBatchIdAtStart
+                  && entry.lastCloudConfirmedRevision === verificationRevisionAtStart
                 ) {
                   return [key, {
                     ...entry,
                     lastVerifiedAt: result.summary.completedAt,
-                    lastVerifiedRevision: state.localRevision,
-                    lastVerifiedBatchId: result.summary.basedOnBatchId,
+                    lastVerifiedRevision: verificationRevisionAtStart,
+                    lastVerifiedBatchId: verificationBatchIdAtStart,
                   }];
                 }
                 return [key, entry];
@@ -154,7 +161,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
           lastVerificationRunId: result.summary.runId,
           lastVerificationStartedAt: result.summary.startedAt,
           lastVerificationCompletedAt: result.summary.completedAt,
-          lastVerificationMatched: result.summary.verified,
+          lastVerificationMatched: verificationMatchedCurrentRevision && state.localRevision === verificationRevisionAtStart,
           lastVerificationMismatchCount: result.summary.mismatchCount,
           lastVerificationBasedOnBatchId: result.summary.basedOnBatchId,
           lastVerificationFailureMessage: derived.failureMessage,
@@ -162,18 +169,22 @@ export const useAppStore = create<AppStore>()((set, get) => {
           latestVerificationResult: result,
           recoveryReviewNeeded: derived.recoveryReviewNeeded,
           reviewedMismatchIds: derived.recoveryReviewNeeded ? state.reviewedMismatchIds : [],
-          saveProof: result.summary.verified
+          saveProof: verificationMatchedCurrentRevision && state.localRevision === verificationRevisionAtStart
             ? {
               ...state.saveProof,
               latestVerifiedAt: result.summary.completedAt,
-              latestVerifiedBatchId: result.summary.basedOnBatchId ?? state.lastConfirmedBatchId,
-              latestVerifiedRevision: state.localRevision,
+              latestVerifiedBatchId: verificationBatchIdAtStart,
+              latestVerifiedRevision: verificationRevisionAtStart,
             }
             : state.saveProof,
           persistenceActivity: appendPersistenceActivity(state.persistenceActivity, createPersistenceActivityEvent({
             kind: 'saved',
-            summary: derived.activitySummary,
-            detail: derived.activityDetail,
+            summary: result.summary.verified && state.localRevision !== verificationRevisionAtStart
+              ? 'Verification completed for an earlier revision.'
+              : derived.activitySummary,
+            detail: result.summary.verified && state.localRevision !== verificationRevisionAtStart
+              ? 'Cloud read-back matched the previously committed revision, but newer edits were made before verification finished. Run verification again after the latest commit.'
+              : derived.activityDetail,
           })),
         }));
       } catch (error) {
@@ -391,9 +402,7 @@ export const useAppStore = create<AppStore>()((set, get) => {
               }, 'post-save');
               shouldSchedulePostSaveVerification = hasConfirmedCloudReceipt
                 && !hasOutstandingCloudWork
-                && !state.hasLocalUnsavedChanges
-                && state.outboxState !== 'flushing'
-                && state.cloudSyncState !== 'sending'
+                && postSave.syncState !== 'saving'
                 && autoVerificationKey !== completedAutomaticVerificationKey;
               const staleDeleteDetail = diagnostics?.staleDeleteWarnings?.length
                 ? ` ${diagnostics.staleDeleteWarnings.join(' ')}`

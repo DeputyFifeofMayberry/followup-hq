@@ -77,9 +77,11 @@ export function SyncStatusControl() {
     return Object.entries(counts);
   }, [syncMeta.latestVerificationResult?.mismatches]);
   const verificationResultLabel = syncMeta.verificationSummary?.verified
-    ? timestampDriftCount > 0
-      ? `matched current cloud state (${timestampDriftCount} timestamp drift record${timestampDriftCount === 1 ? '' : 's'}, content matched)`
-      : 'matched current cloud state'
+    ? statusModel.stage === 'cloud-verified'
+      ? timestampDriftCount > 0
+        ? `matched current cloud state (${timestampDriftCount} timestamp drift record${timestampDriftCount === 1 ? '' : 's'}, content matched)`
+        : 'matched current cloud state'
+      : 'matched a prior revision; run verification again after latest edits commit'
     : syncMeta.verificationSummary?.verificationReadFailed
       ? verificationReadFailureKind === 'backend-contract'
         ? `stopped by backend contract mismatch${syncMeta.verificationSummary.verificationReadFailureMessage ? ` (${syncMeta.verificationSummary.verificationReadFailureMessage})` : ''}`
@@ -148,7 +150,11 @@ export function SyncStatusControl() {
     if (previousStage === statusModel.stage) return;
     previousStageRef.current = statusModel.stage;
 
-    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'cloud-verified') {
+    const cloudCommitCurrentForRevision = !syncMeta.hasLocalUnsavedChanges
+      && syncMeta.pendingBatchCount === 0
+      && syncMeta.cloudSyncState === 'confirmed'
+      && syncMeta.localRevision === syncMeta.lastCloudConfirmedRevision;
+    if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'cloud-verified' && cloudCommitCurrentForRevision) {
       syncMeta.pushToast({
         tone: 'success',
         title: 'Cloud save committed',
@@ -159,7 +165,7 @@ export function SyncStatusControl() {
       return;
     }
 
-    if (statusModel.stage === 'cloud-verified') {
+    if (statusModel.stage === 'cloud-verified' && cloudCommitCurrentForRevision) {
       syncMeta.pushToast({
         tone: 'success',
         title: 'Cloud match verified',
@@ -168,7 +174,10 @@ export function SyncStatusControl() {
         source: 'sync.status.verified',
       });
     }
-  }, [statusModel.stage, syncMeta]);
+  }, [
+    statusModel.stage,
+    syncMeta,
+  ]);
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {

@@ -1,6 +1,6 @@
 import { Ellipsis } from 'lucide-react';
 import { Badge } from './Badge';
-import { AppBadge, EmptyState } from './ui/AppPrimitives';
+import { AppBadge, EmptyState, ExecutionMobileCardShell } from './ui/AppPrimitives';
 import { daysUntil, formatDate, isOverdue, needsNudge, priorityTone, statusTone } from '../lib/utils';
 import type { FollowUpItem } from '../types';
 
@@ -80,7 +80,7 @@ export function TrackerMobileList({
             const hasNextMove = Boolean(item.nextAction?.trim());
 
             return (
-              <article key={item.id} className={active ? 'tracker-mobile-card tracker-mobile-card-active' : 'tracker-mobile-card'}>
+              <ExecutionMobileCardShell key={item.id} active={active} className="followup-mobile-queue-card">
                 <button type="button" className="tracker-mobile-main" onClick={() => onOpenDetails(item.id)}>
                   <div className="tracker-mobile-title-row">
                     <h3>{item.title}</h3>
@@ -116,7 +116,7 @@ export function TrackerMobileList({
                     </div>
                   </details>
                 </div>
-              </article>
+              </ExecutionMobileCardShell>
             );
           })
         )}

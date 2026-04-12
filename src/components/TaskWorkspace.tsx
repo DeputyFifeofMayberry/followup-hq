@@ -236,7 +236,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
             onResetFilters={vm.resetPanelFilters}
           />
 
-            {!isMobileLike ? <ExecutionFilterChipRow muted={vm.activeFilterChips.length === 0} className="task-filter-chip-row">
+            {!isMobileLike ? <ExecutionFilterChipRow muted={vm.activeFilterChips.length === 0} className="execution-family-filter-chip-row">
               {vm.activeFilterChips.length > 0 ? (
                 <>
                   {vm.activeFilterChips.map((chip) => (

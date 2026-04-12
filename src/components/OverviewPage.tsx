@@ -4,8 +4,10 @@ import {
   AppModal,
   AppModalBody,
   AppModalHeader,
+  ExecutionFilterChipRow,
   ExecutionLaneInspectorCard,
   ExecutionLaneQueueCard,
+  ExecutionToolbarSurface,
   NoMatchesState,
   WorkspaceContentFrame,
   WorkspacePage,
@@ -87,8 +89,9 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
   const queueSurface = (
     <ExecutionLaneQueueCard className="overview-command-center">
-      <div className="overview-toolbar-row">
-        <div className="overview-toolbar-left">
+      <ExecutionToolbarSurface className="overview-toolbar-surface">
+        <div className="execution-lane-toolbar-scaffold overview-toolbar-scaffold">
+          <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-left">
           <label className="field-block overview-search-block">
             <div className="search-field-wrap">
               <Search className="search-field-icon h-4 w-4" />
@@ -105,9 +108,19 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
               ) : null}
             </div>
           </label>
+          </div>
+          <div className="execution-lane-toolbar-zone execution-lane-toolbar-zone-middle">
           <OverviewSignalCards cards={signalCards} selectedFilter={selectedFilter} onSelectFilter={setSelectedFilter} />
+          </div>
         </div>
-      </div>
+        <ExecutionFilterChipRow muted={!searchQuery && selectedFilter === 'all'} className="overview-filter-chip-row">
+          {selectedFilter !== 'all' ? (
+            <button type="button" className="execution-filter-chip" onClick={() => setSelectedFilter('all')}>Queue: {activeFilterMeta?.label ?? 'All queue'} <span aria-hidden>×</span></button>
+          ) : null}
+          {searchQuery ? <button type="button" className="execution-filter-chip" onClick={() => setSearchQuery('')}>Search: {searchQuery} <span aria-hidden>×</span></button> : null}
+          {!searchQuery && selectedFilter === 'all' ? <span className="task-sort-summary">No active narrowing. Showing full overview queue.</span> : null}
+        </ExecutionFilterChipRow>
+      </ExecutionToolbarSurface>
 
       <div className="overview-queue-state-line" role="status" aria-live="polite">{queueStateText}</div>
 

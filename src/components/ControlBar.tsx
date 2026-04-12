@@ -219,7 +219,7 @@ export function ControlBar({
       )}
 
       {!isMobileLike ? (
-        <ExecutionFilterChipRow muted={vm.activeRowAffectingOptions.length === 0} className="followup-filter-chip-row">
+        <ExecutionFilterChipRow muted={vm.activeRowAffectingOptions.length === 0} className="execution-family-filter-chip-row">
           {vm.activeRowAffectingOptions.length > 0 ? (
             <>
               <span className="task-sort-summary">Narrowing rows by:</span>

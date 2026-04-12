@@ -38,6 +38,8 @@ export interface OverviewDashboardNextUpRow {
   title: string;
   recordType: UnifiedQueueItem['recordType'];
   project: string;
+  ownerLabel: string;
+  dueLabel: string;
   reason: string;
   priority: UnifiedQueueItem['priority'];
   score: number;
@@ -61,21 +63,25 @@ export interface OverviewDashboardProjectHotspot {
   blockedCount: number;
   dueNowCount: number;
   readyToCloseCount: number;
+  lane: LaneTarget;
+  section: OverviewDashboardSection;
+  filterKey: OverviewFilterKey;
+  sampleRowId?: string;
 }
 
-export interface OverviewDashboardTrendSnapshot {
+export interface OverviewDashboardCommitments {
   overdue: number;
   dueToday: number;
   dueWithin7Days: number;
   waitingTooLong: number;
-  completedRelief: number;
+  readyToClose: number;
 }
 
-export interface OverviewDashboardWorkloadMix {
-  tasks: number;
-  followups: number;
+export interface OverviewDashboardOwnershipRisk {
   unassigned: number;
   noDate: number;
+  cleanupRequired: number;
+  orphanedTask: number;
 }
 
 export interface OverviewDashboardModel {
@@ -84,8 +90,8 @@ export interface OverviewDashboardModel {
   nextUpRows: OverviewDashboardNextUpRow[];
   laneHealth: OverviewDashboardLaneHealth[];
   hotspots: OverviewDashboardProjectHotspot[];
-  trend: OverviewDashboardTrendSnapshot;
-  workload: OverviewDashboardWorkloadMix;
+  commitments: OverviewDashboardCommitments;
+  ownershipRisk: OverviewDashboardOwnershipRisk;
 }
 
 function pickLaneForRows(rows: UnifiedQueueItem[], fallback: LaneTarget): LaneTarget {
@@ -139,6 +145,16 @@ function resolveDashboardSection(row: UnifiedQueueItem): OverviewDashboardSectio
   if (row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday) return 'now';
   if (row.queueFlags.readyToCloseParent) return 'ready_to_close';
   return 'triage';
+}
+
+function formatDashboardDueLabel(row: UnifiedQueueItem): string {
+  if (row.queueFlags.overdue) return 'Overdue';
+  if (row.queueFlags.dueToday || row.queueFlags.needsTouchToday) return 'Due today';
+  if (isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, Date.now())) return 'Due in 7d';
+  if (row.dueDate) return `Due ${new Date(row.dueDate).toLocaleDateString()}`;
+  if (row.promisedDate) return `Promised ${new Date(row.promisedDate).toLocaleDateString()}`;
+  if (row.nextTouchDate) return `Touch ${new Date(row.nextTouchDate).toLocaleDateString()}`;
+  return 'No date';
 }
 
 export function useOverviewTriageViewModel() {
@@ -255,6 +271,8 @@ export function useOverviewTriageViewModel() {
       title: row.title,
       recordType: row.recordType,
       project: row.project || 'No project',
+      ownerLabel: row.assignee?.trim() || row.owner?.trim() || 'Unassigned',
+      dueLabel: formatDashboardDueLabel(row),
       reason: row.queueReasons[0] || row.whyInQueue,
       priority: row.priority,
       score: row.score,
@@ -262,7 +280,7 @@ export function useOverviewTriageViewModel() {
       section: resolveDashboardSection(row),
     }));
 
-    const hotspotMap = new Map<string, OverviewDashboardProjectHotspot>();
+    const hotspotMap = new Map<string, OverviewDashboardProjectHotspot & { rows: UnifiedQueueItem[] }>();
     pressureRows.forEach((row) => {
       const project = row.project?.trim() || 'No project';
       const current = hotspotMap.get(project) ?? {
@@ -271,15 +289,40 @@ export function useOverviewTriageViewModel() {
         blockedCount: 0,
         dueNowCount: 0,
         readyToCloseCount: 0,
+        lane: row.recordType === 'task' ? 'tasks' as LaneTarget : 'followups' as LaneTarget,
+        section: resolveDashboardSection(row),
+        filterKey: 'due_now' as OverviewFilterKey,
+        sampleRowId: row.id,
+        rows: [],
       };
       current.pressureCount += 1;
       if (row.queueFlags.blocked || row.queueFlags.parentAtRisk) current.blockedCount += 1;
       if (row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday) current.dueNowCount += 1;
       if (row.queueFlags.readyToCloseParent) current.readyToCloseCount += 1;
+      current.rows.push(row);
       hotspotMap.set(project, current);
     });
 
     const hotspots = [...hotspotMap.values()]
+      .map((hotspot) => {
+        const blockedCount = hotspot.rows.filter((row) => row.queueFlags.blocked || row.queueFlags.parentAtRisk).length;
+        const dueNowCount = hotspot.rows.filter((row) => row.queueFlags.overdue || row.queueFlags.dueToday || row.queueFlags.needsTouchToday).length;
+        const waitingCount = hotspot.rows.filter((row) => row.queueFlags.waiting || row.queueFlags.waitingTooLong).length;
+        const lane = pickLaneForRows(hotspot.rows, 'tasks');
+        const section: OverviewDashboardSection = blockedCount > 0 ? 'blocked' : dueNowCount > 0 ? 'now' : 'triage';
+        const filterKey: OverviewFilterKey = blockedCount > 0 ? 'blocked' : dueNowCount > 0 ? 'due_now' : waitingCount > 0 ? 'waiting' : 'all';
+        return {
+          project: hotspot.project,
+          pressureCount: hotspot.pressureCount,
+          blockedCount: hotspot.blockedCount,
+          dueNowCount: hotspot.dueNowCount,
+          readyToCloseCount: hotspot.readyToCloseCount,
+          lane,
+          section,
+          filterKey,
+          sampleRowId: hotspot.rows[0]?.id,
+        };
+      })
       .sort((a, b) => {
         if (b.pressureCount !== a.pressureCount) return b.pressureCount - a.pressureCount;
         if (b.blockedCount !== a.blockedCount) return b.blockedCount - a.blockedCount;
@@ -287,19 +330,19 @@ export function useOverviewTriageViewModel() {
       })
       .slice(0, 5);
 
-    const trend: OverviewDashboardTrendSnapshot = {
+    const commitments: OverviewDashboardCommitments = {
       overdue: queue.filter((row) => row.queueFlags.overdue).length,
       dueToday: queue.filter((row) => row.queueFlags.dueToday || row.queueFlags.needsTouchToday).length,
       dueWithin7Days: queue.filter((row) => isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, now)).length,
       waitingTooLong: queue.filter((row) => row.queueFlags.waitingTooLong).length,
-      completedRelief: readyRows.length,
+      readyToClose: readyRows.length,
     };
 
-    const workload: OverviewDashboardWorkloadMix = {
-      tasks: queue.filter((row) => row.recordType === 'task').length,
-      followups: queue.filter((row) => row.recordType === 'followup').length,
+    const ownershipRisk: OverviewDashboardOwnershipRisk = {
       unassigned: queue.filter((row) => !(row.assignee?.trim() || row.owner?.trim())).length,
       noDate: queue.filter((row) => !row.dueDate && !row.promisedDate && !row.nextTouchDate).length,
+      cleanupRequired: queue.filter((row) => row.queueFlags.cleanupRequired).length,
+      orphanedTask: queue.filter((row) => row.queueFlags.orphanedTask).length,
     };
 
     const kpis: OverviewDashboardKpi[] = [
@@ -311,8 +354,8 @@ export function useOverviewTriageViewModel() {
     ];
 
     const laneHealth: OverviewDashboardLaneHealth[] = [
-      { key: 'tasks', label: 'Tasks lane', value: workload.tasks, helper: 'Task records in current queue.', lane: 'tasks', section: 'now' },
-      { key: 'followups', label: 'Follow Ups lane', value: workload.followups, helper: 'Follow-ups requiring movement.', lane: 'followups', section: 'triage' },
+      { key: 'tasks', label: 'Tasks lane', value: queue.filter((row) => row.recordType === 'task').length, helper: 'Task records in current queue.', lane: 'tasks', section: 'now' },
+      { key: 'followups', label: 'Follow Ups lane', value: queue.filter((row) => row.recordType === 'followup').length, helper: 'Follow-ups requiring movement.', lane: 'followups', section: 'triage' },
       { key: 'blocked', label: 'Blocked lane', value: blockedRows.length, helper: 'Route to unblock decisions.', lane: pickLaneForRows(blockedRows, 'tasks'), section: 'blocked', filterKey: 'blocked' },
       { key: 'waiting', label: 'Waiting lane', value: queue.filter((row) => row.queueFlags.waiting || row.queueFlags.waitingTooLong).length, helper: 'Dependencies waiting on response.', lane: 'followups', section: 'triage', filterKey: 'waiting' },
       { key: 'review', label: 'Review lane', value: needsReviewRows.length, helper: 'Cleanup and structural review pressure.', lane: pickLaneForRows(needsReviewRows, 'followups'), section: 'triage' },
@@ -324,8 +367,8 @@ export function useOverviewTriageViewModel() {
       nextUpRows,
       laneHealth,
       hotspots,
-      trend,
-      workload,
+      commitments,
+      ownershipRisk,
     };
   }, [queue]);
 

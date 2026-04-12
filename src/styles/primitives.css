@@ -499,12 +499,14 @@
 .sync-status-trigger:hover { border-color: var(--border-strong); color: var(--text-primary); }
 .sync-status-trigger-info { border-color: #bfdbfe; background: #eaf2ff; color: #1e3a8a; }
 .sync-status-trigger-warn { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
-.sync-status-trigger-stage-verified { border-color: #86efac; background: #ecfdf3; }
+.sync-status-trigger-stage-cloud-verified { border-color: #86efac; background: #ecfdf3; }
 .sync-status-trigger-stage-cloud-confirmed { border-color: #bfdbfe; background: #eef6ff; }
-.sync-status-trigger-stage-saved-local { border-color: #c7d2fe; background: #eef2ff; }
-.sync-status-trigger-stage-offline-pending { border-color: #fcd34d; background: #fff7ed; }
+.sync-status-trigger-stage-saved-locally { border-color: #c7d2fe; background: #eef2ff; }
+.sync-status-trigger-stage-queued-for-cloud { border-color: #fcd34d; background: #fff7ed; }
+.sync-status-trigger-stage-verification-stale { border-color: #fcd34d; background: #fff7ed; }
 .sync-status-trigger-stage-needs-attention { border-color: #fda4af; background: #fff1f2; }
-.sync-status-trigger-stage-unsaved { border-color: #fdba74; background: #fff7ed; }
+.sync-status-trigger-stage-editing { border-color: #fdba74; background: #fff7ed; }
+.sync-status-trigger-stage-saving { border-color: #bfdbfe; background: #eaf2ff; }
 
 .sync-status-panel {
   position: absolute;

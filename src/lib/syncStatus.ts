@@ -459,10 +459,10 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       stage: 'saved-locally',
       primaryState: 'saved',
       stateLabel: 'Saved on this device',
-      stateDescription: 'Changes are durably protected on this device profile.',
+      stateDescription: 'Local protection is complete. Cloud confirmation has not completed yet.',
       reassurance: 'Local protection complete.',
-      tone: 'default',
-      stateTone: 'success',
+      tone: 'info',
+      stateTone: 'info',
       showSpinner: false,
       ...modeDetails,
     };
@@ -477,8 +477,8 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
         ? 'Changes are protected locally and queued for cloud replay after reconnect.'
         : 'Changes are protected locally and queued until cloud commit confirmation catches up.',
       reassurance: 'Saved on this device; cloud work is queued.',
-      tone: 'info',
-      stateTone: 'info',
+      tone: 'warn',
+      stateTone: 'warn',
       showSpinner: false,
       ...modeDetails,
     };
@@ -503,10 +503,10 @@ export function getSyncStatusModel(meta: SyncMetaSnapshot): SyncStatusModel {
       stage: 'verification-stale',
       primaryState: 'saved',
       stateLabel: 'Verification stale',
-      stateDescription: 'A prior cloud verification exists, but newer revisions now require re-verification.',
+      stateDescription: 'Cloud commit is current, but newer edits made the last verification stale.',
       reassurance: 'Cloud commit is confirmed; verification is stale for the latest revision.',
-      tone: 'info',
-      stateTone: 'info',
+      tone: 'warn',
+      stateTone: 'warn',
       showSpinner: false,
       ...modeDetails,
     };

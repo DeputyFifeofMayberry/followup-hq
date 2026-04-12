@@ -16,6 +16,16 @@ function SyncStateIcon({ tone, spinning }: { tone: 'info' | 'success' | 'warn' |
   return <CheckCircle2 className="h-3.5 w-3.5" />;
 }
 
+function getTriggerSecondaryLine(stage: string, stateDescription: string): string {
+  if (stage === 'cloud-verified') return 'Current local state matches the latest cloud read.';
+  if (stage === 'cloud-confirmed') return 'Latest cloud batch committed; verification is separate.';
+  if (stage === 'saved-locally') return 'Protected locally; cloud confirmation has not completed yet.';
+  if (stage === 'queued-for-cloud') return stateDescription;
+  if (stage === 'verification-stale') return 'Newer edits made the previous verification stale.';
+  if (stage === 'needs-attention') return 'Cloud confirmation needs review before trust can be restored.';
+  return stateDescription;
+}
+
 export function SyncStatusControl() {
   const syncMeta = useAppStore(useShallow((s) => ({
     ...selectSyncMetaSnapshot(s),
@@ -83,6 +93,55 @@ export function SyncStatusControl() {
     : syncMeta.lastLocalWriteAt
       ? `Last saved locally: ${formatDateTime(syncMeta.lastLocalWriteAt)}`
       : 'No save timestamp recorded yet.';
+  const triggerSecondaryLine = getTriggerSecondaryLine(statusModel.stage, statusModel.stateDescription);
+  const protectionSummary = syncMeta.hasLocalUnsavedChanges
+    ? 'Latest edits are still being written; local durable protection is in progress.'
+    : syncMeta.lastLocalWriteAt
+      ? `Changes are durably saved on this device as of ${formatDateTime(syncMeta.lastLocalWriteAt)}.`
+      : 'No local save timestamp is recorded yet.';
+  const cloudStatusSummary = statusModel.stage === 'cloud-verified'
+    ? 'Cloud commit and read-back verification both cover the current revision.'
+    : statusModel.stage === 'cloud-confirmed'
+      ? 'Cloud commit receipt confirms the latest revision. Verification can run separately.'
+      : statusModel.stage === 'saved-locally'
+        ? 'Cloud commit has not been confirmed for this revision yet.'
+        : statusModel.stage === 'queued-for-cloud'
+          ? syncMeta.connectivityState === 'offline'
+            ? 'Cloud sync is waiting for connectivity. Local protection remains active.'
+            : 'Cloud sync is queued and will commit as soon as pending work clears.'
+          : statusModel.stage === 'needs-attention'
+            ? 'Cloud trust is degraded and needs review before cloud confirmation can be trusted.'
+            : 'Cloud confirmation is in progress.';
+  const verificationStatusSummary = statusModel.stage === 'cloud-verified'
+    ? 'Verified against current cloud state.'
+    : statusModel.stage === 'verification-stale'
+      ? 'Verification stale — newer local edits exist.'
+      : statusModel.stage === 'cloud-confirmed'
+        ? syncMeta.verificationState === 'running' || syncMeta.verificationState === 'pending'
+          ? 'Verification pending after latest cloud commit.'
+          : 'Verification available now for the latest committed revision.'
+        : statusModel.stage === 'queued-for-cloud' || statusModel.stage === 'saved-locally'
+          ? 'Verification unavailable because cloud confirmation has not completed.'
+          : statusModel.stage === 'needs-attention'
+            ? 'Verification blocked by a trust issue that needs review.'
+            : 'Verification has not run yet.';
+  const actionGuidance = retryBlocked
+    ? isBackendSetupIssue
+      ? 'Cloud setup is blocked. Retry will not resolve this until backend contract issues are repaired.'
+      : syncMeta.sessionDegradedReason === 'payload-invalid'
+        ? 'Repair invalid content first, then run save again to resume cloud confirmation.'
+        : 'Resolve the trust issue first, then retry cloud save.'
+    : statusModel.stage === 'queued-for-cloud'
+      ? syncMeta.connectivityState === 'offline'
+        ? 'Keep working normally. Changes are protected locally and will replay when back online.'
+        : 'No manual action is usually needed. Use Retry only if queueing does not clear.'
+      : statusModel.stage === 'verification-stale'
+        ? 'Run Verify now to refresh verification for the latest edits.'
+        : statusModel.stage === 'cloud-confirmed'
+          ? 'Run Verify now when you need read-back proof for the current revision.'
+          : statusModel.stage === 'needs-attention'
+            ? trustAction
+            : 'No action needed right now.';
 
   useEffect(() => {
     const previousStage = previousStageRef.current;
@@ -92,8 +151,8 @@ export function SyncStatusControl() {
     if (statusModel.stage === 'cloud-confirmed' && previousStage !== 'cloud-verified') {
       syncMeta.pushToast({
         tone: 'success',
-        title: 'Cloud save confirmed',
-        message: 'Your latest changes are now confirmed in cloud storage.',
+        title: 'Cloud save committed',
+        message: 'Latest batch is committed in cloud storage. Verification can run separately.',
         durationMs: 1800,
         source: 'sync.status.cloud_confirmed',
       });
@@ -103,8 +162,8 @@ export function SyncStatusControl() {
     if (statusModel.stage === 'cloud-verified') {
       syncMeta.pushToast({
         tone: 'success',
-        title: 'Save verified',
-        message: 'Current local state matches the latest cloud read.',
+        title: 'Cloud match verified',
+        message: 'Current local state matches the latest cloud read-back.',
         durationMs: 2000,
         source: 'sync.status.verified',
       });
@@ -133,7 +192,7 @@ export function SyncStatusControl() {
         <SyncStateIcon tone={statusModel.stateTone} spinning={statusModel.showSpinner} />
         <span className="sync-status-trigger-text">
           <strong>{statusModel.stateLabel}</strong>
-          <span>{statusModel.stateDescription}</span>
+          <span>{triggerSecondaryLine}</span>
         </span>
       </button>
 
@@ -151,6 +210,35 @@ export function SyncStatusControl() {
           </div>
 
           <div className="sync-status-row">
+            <span className="sync-status-row-label">What this means</span>
+            <div className="sync-status-row-detail">{statusModel.reassurance}</div>
+            <div className="sync-status-row-detail">{triggerSecondaryLine}</div>
+          </div>
+
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Protection summary</span>
+            <div className="sync-status-row-detail">{protectionSummary}</div>
+            <div className="sync-status-row-detail">
+              {syncMeta.persistenceMode === 'supabase' ? 'Cloud-backed workspace with local durable protection.' : 'Local mode only; cloud confirmation is unavailable in this mode.'}
+            </div>
+          </div>
+
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Cloud status</span>
+            <div className="sync-status-row-detail">{cloudStatusSummary}</div>
+            <div className="sync-status-row-detail">Connectivity: {syncMeta.connectivityState}</div>
+            {syncMeta.pendingOfflineChangeCount > 0 ? <div className="sync-status-row-detail">Queued offline changes: {syncMeta.pendingOfflineChangeCount}</div> : null}
+          </div>
+
+          <div className="sync-status-row">
+            <span className="sync-status-row-label">Verification status</span>
+            <div className="sync-status-row-detail">{verificationStatusSummary}</div>
+            <div className="sync-status-row-detail">
+              Last verification: {syncMeta.lastVerificationCompletedAt ? formatDateTime(syncMeta.lastVerificationCompletedAt) : 'No verification run yet.'}
+            </div>
+          </div>
+
+          <div className="sync-status-row">
             <span className="sync-status-row-label">Save mode</span>
             <div className="sync-status-row-value">
               {syncMeta.persistenceMode === 'supabase' ? <Cloud className="h-3.5 w-3.5" /> : <Database className="h-3.5 w-3.5" />}
@@ -163,18 +251,19 @@ export function SyncStatusControl() {
           </div>
 
           <div className="sync-status-row">
-            <span className="sync-status-row-label">Save timeline</span>
+            <span className="sync-status-row-label">Last timestamps</span>
             <div className="sync-status-row-detail">{lastSavedLabel}</div>
             {syncMeta.lastLocalWriteAt && syncMeta.lastCloudConfirmedAt !== syncMeta.lastLocalWriteAt ? (
               <div className="sync-status-row-detail">Last saved locally: {formatDateTime(syncMeta.lastLocalWriteAt)}</div>
             ) : null}
+            {syncMeta.lastConfirmedBatchCommittedAt ? (
+              <div className="sync-status-row-detail">Last cloud commit: {formatDateTime(syncMeta.lastConfirmedBatchCommittedAt)}</div>
+            ) : null}
           </div>
 
           <div className="sync-status-row">
-            <span className="sync-status-row-label">Summary</span>
-            <div className="sync-status-row-detail">{statusModel.reassurance}</div>
-            <div className="sync-status-row-detail">Connectivity: {syncMeta.connectivityState}</div>
-            {syncMeta.pendingOfflineChangeCount > 0 ? <div className="sync-status-row-detail">Queued offline changes: {syncMeta.pendingOfflineChangeCount}</div> : null}
+            <span className="sync-status-row-label">Action guidance</span>
+            <div className="sync-status-row-detail">{actionGuidance}</div>
             {syncMeta.offlineLoadState !== 'none' ? <div className="sync-status-row-detail">Startup mode: {syncMeta.offlineLoadState.replaceAll('-', ' ')}</div> : null}
             {statusModel.trustRecoveryMessage ? <div className="sync-status-row-detail">{statusModel.trustRecoveryMessage}</div> : null}
           </div>
@@ -385,7 +474,9 @@ export function SyncStatusControl() {
                   if (!syncMeta.latestVerificationResult) return;
                   const report = exportVerificationIncident({
                     verificationResult: syncMeta.latestVerificationResult,
-                    appVersion: typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_APP_VERSION : undefined,
+                    appVersion: typeof import.meta !== 'undefined'
+                      ? (import.meta.env as ImportMetaEnv | undefined)?.VITE_APP_VERSION
+                      : undefined,
                     lastConfirmedBatchId: syncMeta.lastConfirmedBatchId,
                     lastConfirmedCommittedAt: syncMeta.lastConfirmedBatchCommittedAt,
                     lastLocalWriteAt: syncMeta.lastLocalWriteAt,

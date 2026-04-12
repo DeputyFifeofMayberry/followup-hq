@@ -294,6 +294,21 @@ function testToastAnnouncementSuppressesWhenCommitNotCurrent(): void {
   assert(staleCommit === null, 'announcement should be suppressed when local state is not commit-current');
 }
 
+function testVerifiedToastSuppressedWhenVerificationProofNotCurrent(): void {
+  const staleVerifiedToast = getSyncStatusToastAnnouncement({
+    ...baseMeta(),
+    saveProof: {
+      ...baseMeta().saveProof,
+      latestVerifiedBatchId: 'batch-older',
+      latestVerifiedRevision: 1,
+    },
+  }, {
+    stage: 'cloud-verified',
+    previousStage: 'cloud-confirmed',
+  });
+  assert(staleVerifiedToast === null, 'cloud-verified toast should be suppressed when verification proof does not match current batch');
+}
+
 (function run() {
   testCloudCommittedLabeling();
   testCloudVerifiedIsDistinctFromCommitted();
@@ -306,4 +321,5 @@ function testToastAnnouncementSuppressesWhenCommitNotCurrent(): void {
   testSharedSnapshotSelectorConsistency();
   testToastAnnouncementKeysAreStablePerRevisionTransition();
   testToastAnnouncementSuppressesWhenCommitNotCurrent();
+  testVerifiedToastSuppressedWhenVerificationProofNotCurrent();
 })();

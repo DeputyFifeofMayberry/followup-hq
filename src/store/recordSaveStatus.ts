@@ -73,7 +73,7 @@ export function deriveRecordSaveStatusModel(
     };
   }
 
-  const isSaving = snapshot.isSyncSaving && (snapshot.isDirty || snapshot.hasLocalUnsavedChanges);
+  const isSaving = snapshot.isSyncSaving && snapshot.isDirty;
   if (isSaving) {
     return {
       stage: 'saving',

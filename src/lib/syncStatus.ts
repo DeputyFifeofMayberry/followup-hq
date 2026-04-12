@@ -559,6 +559,13 @@ export function getSyncStatusToastAnnouncement(
   }
 
   if (input.stage === 'cloud-verified') {
+    const verifiedRevisionCurrent = meta.saveProof?.latestVerifiedRevision === meta.localRevision;
+    const verifiedBatchCurrent = Boolean(
+      meta.saveProof?.latestVerifiedBatchId
+      && meta.lastConfirmedBatchId
+      && meta.saveProof.latestVerifiedBatchId === meta.lastConfirmedBatchId,
+    );
+    if (!verifiedRevisionCurrent || !verifiedBatchCurrent) return null;
     return {
       key: `cloud-verified:${meta.saveProof?.latestVerifiedBatchId ?? meta.lastConfirmedBatchId ?? 'none'}:${meta.saveProof?.latestVerifiedRevision ?? meta.localRevision}`,
       tone: 'success',

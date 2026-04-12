@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### Final save-trust hardening pass: rapid-edit correctness, record/global truth alignment, and stale-success suppression
+- Fixed a root save-queue correctness gap where edits made during an in-flight flush could be accidentally cleared from queue tracking and then mislabeled as saved/confirmed. The queue now snapshots exactly which dirty records each flush processed, clears only those records after success, and preserves newly queued edits for the required follow-up flush. (`src/store/persistenceQueue.ts`)
+- Hardened store post-save state transitions to consume the exact flushed record set: record ledgers are updated only for records actually saved in that batch, and dirty/pending/sync status now stays dirty/queued when newer edits still exist. This removes false “everything saved/cloud confirmed” transitions during rapid typing or overlap with manual/retry saves. (`src/store/useAppStore.ts`)
+- Tightened record-level trust honesty so a record no longer shows `Saving…` solely because some other record is saving; record badges now require record-specific dirty state, keeping row/inspector truth aligned with the actual affected record. (`src/store/recordSaveStatus.ts`)
+- Added defensive verified-toast gating so `Cloud match verified` announcements only emit when verification proof (batch + revision) still matches the current committed revision, preventing stale success toasts under fast transitions. (`src/lib/syncStatus.ts`)
+- Added focused regressions for the hardest trust edges: in-flight rapid-edit queue preservation, record-level non-target save-state correctness, and stale verified-toast suppression for non-current proof. (`src/store/__tests__/persistenceQueue.reset.test.ts`, `src/store/__tests__/recordSaveStatus.test.ts`, `src/lib/__tests__/syncStatusTrustModel.test.ts`)
+
 ### Record-level save status selector stabilization to stop React #185 nested update loops
 - Fixed the record-level save badge subscription architecture that could trigger `Maximum update depth exceeded` in React: `RecordSaveStatus` no longer subscribes to a freshly constructed derived object from Zustand on each render. The component now subscribes to a shallow-compared primitive snapshot and derives the display model with `useMemo`, which keeps selector snapshot identity stable while preserving the same trust-stage semantics. (`src/components/save/RecordSaveStatus.tsx`, `src/store/recordSaveStatus.ts`)
 - Refactored record save-status derivation into explicit snapshot + model helpers so both direct selectors and component-level derivation share one pure logic path without unstable subscription outputs. (`src/store/recordSaveStatus.ts`)

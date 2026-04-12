@@ -61,7 +61,42 @@ async function testReplayWaitsForInflightFlushWithoutDuplicateSends() {
   assert(savingReasons[0] === 'auto' && savingReasons[1] === 'replay', 'queue should preserve replay intent when rerunning after in-flight save');
 }
 
+async function testInflightEditPreservesNewDirtyRecordsForFollowupFlush() {
+  const saveDirtySnapshots: string[][] = [];
+  let releaseFirstSave: (() => void) | null = null;
+  const firstSaveGate = new Promise<void>((resolve) => { releaseFirstSave = resolve; });
+
+  const queue = createPersistenceQueue({
+    getPayload: () => ({ items: [], tasks: [], projects: [], contacts: [], companies: [], auxiliary: {} as any }),
+    onQueued: () => undefined,
+    onSaving: () => undefined,
+    onSaved: () => undefined,
+    onError: () => { throw new Error('unexpected error callback'); },
+  }, {
+    debounceMs: 5,
+    maxRetries: 0,
+    saveFn: async (_payload, options) => {
+      saveDirtySnapshots.push((options?.dirtyRecords ?? []).map((ref) => `${ref.type}:${ref.id}`));
+      if (saveDirtySnapshots.length === 1) {
+        await firstSaveGate;
+      }
+      return { mode: 'supabase', diagnostics: {} as any };
+    },
+  });
+
+  queue.enqueue({ dirtyRecords: [{ type: 'followup', id: 'a' }] });
+  await wait(15);
+  queue.enqueue({ dirtyRecords: [{ type: 'task', id: 'b' }] });
+  releaseFirstSave?.();
+  await wait(80);
+
+  assert(saveDirtySnapshots.length === 2, `expected two sequential saves, got ${saveDirtySnapshots.length}`);
+  assert(saveDirtySnapshots[0].join(',') === 'followup:a', `first save should flush initial record only, got ${saveDirtySnapshots[0].join(',')}`);
+  assert(saveDirtySnapshots[1].join(',') === 'task:b', `second save should flush edit queued during in-flight save, got ${saveDirtySnapshots[1].join(',')}`);
+}
+
 (async function run() {
   await testCancelAndResetPreventsCarryover();
   await testReplayWaitsForInflightFlushWithoutDuplicateSends();
+  await testInflightEditPreservesNewDirtyRecordsForFollowupFlush();
 })();

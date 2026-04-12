@@ -2,6 +2,13 @@
 
 ## 2026-04-12
 
+### SetPoint shell identity application pass: branded chrome, premium auth entry, and calmer trust/command surfaces
+- Re-authored the shell chrome so SetPoint identity now lives in the frame itself (not just the logo): the app canvas gained restrained brand-atmosphere gradients, the nav rail gained a clearer authored material treatment, and the desktop/mobile shell brand blocks now use SetPoint monogram + wordmark hierarchy with tighter spacing rhythm. (`src/App.tsx`, `src/styles/shell.css`)
+- Strengthened navigation as a product surface by improving brand-block structure, clarifying utility/footer hierarchy, and integrating command/build entry points into a dedicated nav utility zone with shortcut affordance so the rail reads as intentional product chrome instead of generic sidebar scaffolding. (`src/App.tsx`, `src/styles/shell.css`)
+- Upgraded command and trust-critical shell surfaces: command palette now carries a branded SetPoint command-center kicker and calmer shortcut footer treatment, while the sync trust trigger/panel now uses a more product-grade card system with improved hierarchy and reduced “debug widget” feel. (`src/App.tsx`, `src/styles/primitives.css`)
+- Refined workspace shell utility hierarchy and top-level control framing with a more premium utility-cluster container so mode/sync/settings controls feel integrated into one authored shell system rather than ad hoc pills. (`src/styles/workspaces.css`)
+- Elevated auth/login to a true branded entry experience with stronger SetPoint wordmark presence, refined dark-surface material balance, and tighter input/card polish so first impression now matches the in-app shell language across desktop and compact layouts. (`src/App.tsx`, `src/styles/workspaces.css`)
+
 ### Subtractive material hierarchy pass: fewer nested panels, clearer surface tiers, calmer operational density
 - Audited the shared material stack and tightened default surface roles so shell/data/command/muted/inspector cards no longer all render at similar intensity: base cards now use quieter borders/shadows while hero/modal/attention surfaces keep intentional emphasis, improving hierarchy selectivity across shell, workspace wrappers, summaries, and inspector contexts. (`src/styles/primitives.css`)
 - Reduced redundant border-inside-border patterns in execution workspaces by demoting inner toolbar/list wrappers and summary strips from full bordered panels to spacing-led groupings with typographic rhythm and separators, especially for queue-heavy Overview/Tasks flows. (`src/styles/workspaces.css`)

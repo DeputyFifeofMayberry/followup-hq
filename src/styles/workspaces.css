@@ -81,10 +81,11 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;
-  padding: 0.22rem;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 999px;
-  background: rgba(248, 250, 252, 0.85);
+  padding: 0.26rem;
+  border: 1px solid color-mix(in srgb, var(--sp-border-brand) 34%, transparent);
+  border-radius: 0.82rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(241, 246, 252, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 .workspace-utility-cluster-mode .segmented-control {
   box-shadow: none;
@@ -895,12 +896,15 @@
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: radial-gradient(circle at top left, color-mix(in srgb, var(--brand-crane-soft) 74%, transparent), transparent 34%), radial-gradient(circle at bottom right, color-mix(in srgb, var(--brand-accent) 22%, transparent), transparent 28%), linear-gradient(135deg, var(--text-primary) 0%, #111827 48%, #0f172a 100%);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand-crane-soft) 78%, transparent), transparent 34%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--brand-accent) 24%, transparent), transparent 30%),
+    linear-gradient(145deg, #081321 0%, #0f1f34 54%, #0f172a 100%);
   color: var(--border-subtle);
   padding: clamp(1rem, 2vw, 2rem);
 }
 .login-layout { position: relative; z-index: 1; width: min(1380px, 100%); min-height: calc(100vh - 2 * clamp(1rem, 2vw, 2rem)); margin: 0 auto; display: grid; gap: clamp(1rem, 1.7vw, 1.75rem); align-items: center; }
-.login-brand-panel, .login-card { border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.74); backdrop-filter: blur(18px); box-shadow: 0 24px 70px rgba(2, 6, 23, 0.35); }
+.login-brand-panel, .login-card { border: 1px solid rgba(148, 163, 184, 0.2); background: linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(8, 15, 28, 0.88)); backdrop-filter: blur(18px); box-shadow: 0 24px 70px rgba(2, 6, 23, 0.42); }
 .login-brand-panel { border-radius: 2rem; padding: clamp(1.25rem, 1.9vw, 2rem); display: grid; gap: 1.25rem; align-content: start; min-height: 100%; }
 .login-card { border-radius: 2rem; padding: clamp(1.25rem, 1.9vw, 2rem); width: min(100%, 480px); margin-left: auto; }
 .login-bg-grid {
@@ -928,6 +932,11 @@
 }
 .login-brand-copy h1 { margin: 0; color: #f8fafc; font-size: clamp(1.55rem, 2.4vw, 2.2rem); letter-spacing: -0.02em; }
 .login-brand-copy p { margin: 0.55rem 0 0; color: #cbd5e1; max-width: 62ch; line-height: 1.45; font-size: 0.92rem; }
+.login-brand-wordmark { margin-bottom: 0.35rem; }
+.login-brand-wordmark .setpoint-wordmark-line {
+  font-size: clamp(1.5rem, 4vw, 2.35rem);
+  letter-spacing: -0.026em;
+}
 .login-hero-panel { border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 1.3rem; background: rgba(2, 6, 23, 0.28); padding: 0.8rem; }
 .login-brand-points { display: grid; gap: 0.5rem; }
 .login-point-card {
@@ -962,7 +971,8 @@
 .login-field { display: grid; gap: 0.45rem; }
 .login-field-label { color: #dbe6f6; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .login-input-wrap { position: relative; }
-.login-input { width: 100%; min-height: 3.5rem; border-radius: 1.1rem; border: 1px solid rgba(148, 163, 184, 0.2); background: rgba(255, 255, 255, 0.06); color: var(--surface-secondary); padding: 0.95rem 1rem 0.95rem 3rem; outline: none; transition: 180ms ease; }
+.login-input { width: 100%; min-height: 3.5rem; border-radius: 1.1rem; border: 1px solid rgba(148, 163, 184, 0.26); background: rgba(255, 255, 255, 0.08); color: var(--surface-secondary); padding: 0.95rem 1rem 0.95rem 3rem; outline: none; transition: 180ms ease; }
+.login-input::placeholder { color: #9eb0c9; }
 .login-input:focus { border-color: color-mix(in srgb, var(--brand-crane) 70%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-crane-soft) 68%, transparent); }
 .login-input-icon { position: absolute; top: 50%; transform: translateY(-50%); left: 0.95rem; color: #9fb6d3; }
 .login-submit-btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; min-height: 3.5rem; border: none; border-radius: 1.1rem; background: linear-gradient(135deg, var(--brand-crane) 0%, var(--brand-accent) 100%); color: #ecfeff; font-weight: 800; font-size: 0.95rem; letter-spacing: 0.01em; box-shadow: 0 18px 36px color-mix(in srgb, var(--brand-accent) 30%, transparent); }

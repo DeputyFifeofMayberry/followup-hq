@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { buildCompanyDraft, useCompaniesDirectoryViewModel } from '../../domains/directory/hooks/useCompaniesDirectoryViewModel';
 import { CompanyCreateModal } from './CompanyCreateModal';
 import { CompanyProfilePanel } from './CompanyProfilePanel';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface CompaniesDirectoryPaneProps {
   vm: {
@@ -49,6 +50,7 @@ export function CompaniesDirectoryPane({ vm, onOpenDirectoryRecord, onOpenFollow
               </div>
               <div className="text-xs text-slate-600">{company.type} • {company.internalOwner || 'Unassigned owner'}</div>
               <div className="text-[11px] text-slate-500">{company.relationshipStatus || 'Active'} • Risk {company.riskTier || 'Low'} • {company.activeProjectCountCache ?? 0} active projects</div>
+              {companiesVm.selectedCompany?.id === company.id ? <div className="mt-1"><RecordSaveStatus record={{ type: 'company', id: company.id }} compact /></div> : null}
             </button>
           ))}
         </div>

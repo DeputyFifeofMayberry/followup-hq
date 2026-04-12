@@ -148,6 +148,7 @@ export const initialMetaState: AppMetaState = {
   unsavedChangeCount: 0,
   hasLocalUnsavedChanges: false,
   dirtyRecordRefs: [],
+  recordSaveLedger: {},
   lastCloudConfirmedAt: undefined,
   lastLocalWriteAt: undefined,
   lastFallbackRestoreAt: undefined,

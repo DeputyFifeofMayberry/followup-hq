@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { CompanyRecord } from '../../types';
 import type { CompanyDraft } from '../../domains/directory/hooks/useCompaniesDirectoryViewModel';
 import { COMPANY_RELATIONSHIP_STATUS_OPTIONS, COMPANY_RESPONSIVENESS_OPTIONS, COMPANY_RISK_TIER_OPTIONS, COMPANY_TYPE_OPTIONS } from '../../domains/directory/hooks/useCompaniesDirectoryViewModel';
+import { RecordSaveStatus } from '../save/RecordSaveStatus';
 
 interface CompanyProfilePanelProps {
   company: CompanyRecord | null;
@@ -58,6 +59,9 @@ export function CompanyProfilePanel({
           <div className="text-lg font-semibold text-slate-950">{company.name}</div>
           <div className="text-xs text-slate-600">{company.type} • Primary contact: {primaryContact?.name || 'Not assigned'}</div>
           <div className="mt-1 text-xs text-slate-500">Owner: {company.internalOwner || 'Unassigned'} • Status: {company.relationshipStatus || 'Active'} • Risk: {company.riskTier || 'Low'} • {company.active === false ? 'Archived' : 'Active'}</div>
+          <div className="mt-1">
+            <RecordSaveStatus record={{ type: 'company', id: company.id }} editing={editing} />
+          </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {!editing ? <button className="primary-btn" onClick={onBeginEdit}>Edit company</button> : null}

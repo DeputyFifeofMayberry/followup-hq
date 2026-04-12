@@ -3,6 +3,7 @@ import { evaluateForwardedImportSafety, evaluateIntakeImportSafety } from './int
 import type { ForwardedIntakeCandidate, ForwardedRoutingAuditEntry, IntakeAssetRecord, IntakeBatchRecord, IntakeReviewerFeedback, IntakeWorkCandidate } from '../types';
 import { buildIntakeTuningModel, type IntakeTuningModel } from './intakeTuningModel';
 import { evaluateIntakeDecisionPolicy, ruleIdsForForwardedCandidate, type IntakeDecisionPolicyResult } from './intakeDecisionPolicy';
+import { resolveCandidateAdmissionState, type IntakeAdmissionState } from './intakeAdmission';
 
 export type IntakeReviewBucket = 'auto_resolved' | 'ready_to_approve' | 'needs_correction' | 'link_duplicate_review' | 'reference_likely' | 'finalized_history';
 export type IntakeReviewSort = 'highest_confidence' | 'lowest_confidence' | 'most_missing_fields' | 'newest' | 'duplicate_risk_first';
@@ -25,6 +26,7 @@ export interface IntakeQueueItem {
   sourceType: string;
   parseStatus?: string;
   parseQuality?: 'strong' | 'partial' | 'weak' | 'failed';
+  admissionState: IntakeAdmissionState;
   duplicateRisk: boolean;
   missingCriticalFields: number;
   conflictingEvidence: boolean;
@@ -33,7 +35,7 @@ export interface IntakeQueueItem {
   batchExclusionReasons: string[];
   alerts: IntakeReviewerAlert[];
   sortDate: string;
-  readiness: 'ready_to_approve' | 'ready_after_correction' | 'needs_link_decision' | 'reference_likely' | 'unsafe_to_create';
+  readiness: 'ready_to_approve' | 'ready_after_correction' | 'needs_link_decision' | 'reference_likely' | 'unsafe_to_create' | 'manual_review_required';
   priorityScore: number;
   nextStepHint: string;
   decisionPolicy: IntakeDecisionPolicyResult;
@@ -64,6 +66,7 @@ const SCORE_BY_BUCKET: Record<IntakeReviewBucket, number> = {
 };
 
 function readinessToPriority(readiness: IntakeQueueItem['readiness']): number {
+  if (readiness === 'manual_review_required') return 115;
   if (readiness === 'unsafe_to_create') return 120;
   if (readiness === 'needs_link_decision') return 110;
   if (readiness === 'ready_after_correction') return 90;
@@ -80,6 +83,7 @@ function getNextStepHint(input: {
   tuningEscalation?: boolean;
 }): string {
   if (input.tuningEscalation) return 'Recent reviewer corrections are elevated here; review before approving.';
+  if (input.readiness === 'manual_review_required') return 'Interpret recovered source first; this intake is not action-ready yet.';
   if (input.readiness === 'needs_link_decision' || input.duplicateRisk) return 'Compare top match and link if same work.';
   if (input.likelyReference || input.readiness === 'reference_likely') return 'Save as reference unless actionable work is explicit.';
   if (input.conflictingEvidence) return 'Resolve conflicting field signals before approval.';
@@ -127,6 +131,7 @@ export function buildIntakeReviewQueue(
       || candidate.warnings.some((warning) => /conflict|ambiguous|mismatch|unclear/i.test(warning))
       || safety.criticalFieldAssessments.some((assessment) => assessment.strength === 'conflicting');
     const duplicateRisk = safety.duplicateRiskLevel !== 'low';
+    const admissionState = resolveCandidateAdmissionState(candidate);
     const likelyReference = candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only' || safety.recommendedDecision === 'save_reference';
     const status = candidate.approvalStatus === 'pending' ? 'pending' : 'finalized';
     const hasCriticalBlockers = safety.blockers.length > 0 || conflictingEvidence;
@@ -144,6 +149,7 @@ export function buildIntakeReviewQueue(
     if (duplicateRisk) alerts.push({ code: 'duplicate_risk', label: 'Duplicate risk', tone: 'danger' });
     if (likelyReference) alerts.push({ code: 'likely_reference_only', label: 'Likely reference only', tone: 'neutral' });
     if (asset?.parseQuality === 'weak' || asset?.parseQuality === 'failed') alerts.push({ code: 'weak_parse_quality', label: 'Weak parse quality', tone: 'warn' });
+    if (admissionState !== 'action_ready') alerts.push({ code: 'weak_parse_quality', label: 'Admission requires interpretation', tone: 'warn' });
     if (candidate.existingRecordMatches.length > 0) alerts.push({ code: 'needs_link_decision', label: 'Needs link decision', tone: 'blue' });
     if (tuneReviewPressure) alerts.push({ code: 'tuning_review_pressure', label: 'Source has elevated review pressure', tone: 'warn' });
     if (dueDateGuard) alerts.push({ code: 'tuning_due_date_guard', label: 'Due date evidence guard is active', tone: 'warn' });
@@ -162,6 +168,7 @@ export function buildIntakeReviewQueue(
     });
 
     const batchSafe = status === 'pending'
+      && admissionState === 'action_ready'
       && safety.safeToBatchApprove
       && !likelyReference
       && !conflictingEvidence
@@ -179,6 +186,8 @@ export function buildIntakeReviewQueue(
       ? 'ready_to_approve'
       : likelyReference
         ? 'reference_likely'
+        : admissionState !== 'action_ready'
+          ? 'manual_review_required'
         : hasCriticalBlockers
           ? 'unsafe_to_create'
           : !safety.safeToCreateNew
@@ -203,7 +212,7 @@ export function buildIntakeReviewQueue(
         ? 'reference_likely'
         : readiness === 'needs_link_decision'
           ? 'link_duplicate_review'
-          : readiness === 'ready_after_correction' || readiness === 'unsafe_to_create'
+          : readiness === 'ready_after_correction' || readiness === 'unsafe_to_create' || readiness === 'manual_review_required'
             ? 'needs_correction'
             : 'ready_to_approve';
 
@@ -220,6 +229,8 @@ export function buildIntakeReviewQueue(
       + Math.round((1 - candidate.confidence) * 10);
     const triageCategory: IntakeQueueItem['triageCategory'] = policy.decisionMode === 'auto_resolve'
       ? 'auto_resolved'
+      : admissionState !== 'action_ready'
+        ? 'manual_review'
       : policy.decisionMode === 'ready_now'
         ? 'ready_now'
         : policy.decisionMode === 'link_review_first'
@@ -241,6 +252,7 @@ export function buildIntakeReviewQueue(
       sourceType: asset?.kind ?? 'unknown',
       parseStatus: asset?.parseStatus,
       parseQuality: asset?.parseQuality,
+      admissionState,
       duplicateRisk,
       missingCriticalFields,
       conflictingEvidence,
@@ -379,6 +391,7 @@ export function buildForwardedReviewQueue(
       candidateType: candidate.suggestedType,
       sourceType: 'forwarded_email',
       parseQuality: candidate.parseQuality,
+      admissionState: 'action_ready',
       duplicateRisk,
       missingCriticalFields,
       conflictingEvidence,

@@ -1,4 +1,5 @@
 import type { ForwardedIntakeCandidate, IntakeExistingMatch, IntakeWorkCandidate } from '../types';
+import { resolveCandidateAdmissionState } from './intakeAdmission';
 
 export type DuplicateRiskLevel = 'low' | 'medium' | 'high';
 export type IntakeDecisionMode = 'create_new_task' | 'create_new_followup' | 'link_existing' | 'duplicate_update_review' | 'save_reference' | 'reject';
@@ -99,6 +100,7 @@ function classifyFieldStrength(candidate: IntakeWorkCandidate, key: CriticalFiel
 }
 
 export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): ImportSafetyResult {
+  const admissionState = resolveCandidateAdmissionState(candidate);
   const allMatches = [...candidate.duplicateMatches, ...candidate.existingRecordMatches].sort((a, b) => b.score - a.score);
   const { strongMatches, weakMatches } = splitMatchStrength(allMatches);
   const duplicateRiskLevel = classifyDuplicateRisk(allMatches, false);
@@ -126,6 +128,10 @@ export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): Impo
   }
 
   if (requiresLinkReview) warnings.push('Existing-record match found: link existing should be reviewed first.');
+  if (admissionState !== 'action_ready') {
+    blockers.push(`Candidate admission is ${admissionState.replace('_', ' ')}; strengthen evidence before create-new.`);
+    createNewBlockers.push('Admission gate blocks create-new until candidate is action-ready.');
+  }
   if (missingCore) {
     blockers.push('Critical create-new fields are weak or missing (type/title/project).');
     createNewBlockers.push('Type, title, and project must be medium+ confidence before create-new.');
@@ -152,6 +158,8 @@ export function evaluateIntakeImportSafety(candidate: IntakeWorkCandidate): Impo
 
   const recommendedDecision: IntakeDecisionMode = strongMatches.length > 0
     ? 'link_existing'
+    : admissionState !== 'action_ready'
+      ? 'save_reference'
     : duplicateRiskLevel !== 'low'
       ? 'duplicate_update_review'
       : candidate.candidateType === 'reference' || candidate.suggestedAction === 'reference_only'

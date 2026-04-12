@@ -466,6 +466,8 @@ export interface IntakeAssetRecord {
   contentHash: string;
   extractionConfidence?: number;
   extractionChunks?: IntakeExtractionChunk[];
+  admissionState?: 'extracted_only' | 'reviewable' | 'action_ready';
+  admissionReasons?: string[];
   parserStages?: string[];
   retrySource?: {
     encoding: 'base64';
@@ -522,6 +524,8 @@ export interface IntakeWorkCandidate {
   explanation: string[];
   evidence: IntakeEvidence[];
   fieldConfidence?: Record<string, number>;
+  admissionState?: 'extracted_only' | 'reviewable' | 'action_ready';
+  admissionReasons?: string[];
   warnings: string[];
   duplicateMatches: IntakeExistingMatch[];
   existingRecordMatches: IntakeExistingMatch[];

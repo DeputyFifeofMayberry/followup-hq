@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "tauri": "tauri",
-    "test": "npm run test:contracts && npm run test:trust && npm run typecheck",
+    "test": "npm run test:contracts && npm run test:trust && npm run test:intake && npm run typecheck",
     "test:watch": "tsc --noEmit --watch",
     "test:run": "npm run test",
     "test:contracts": "node scripts/ui-contract-check.mjs",
@@ -23,7 +23,8 @@
     "generate:build-meta": "node scripts/generate-build-meta.mjs",
     "predev": "npm run generate:build-meta",
     "prebuild": "npm run generate:build-meta",
-    "e2e:alignment": "playwright test e2e/alignment-screenshots.spec.ts --project=chromium --headed"
+    "e2e:alignment": "playwright test e2e/alignment-screenshots.spec.ts --project=chromium --headed",
+    "test:intake": "rm -rf .tmp-intake-tests && tsc --module es2022 --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck --jsx react-jsx --outDir .tmp-intake-tests src/lib/__tests__/fixtures/intakeGoldenCases.ts src/lib/__tests__/intakeGoldenWorkflowHarness.test.ts src/components/intake/__tests__/IntakeWeakSourcesPanel.render.test.tsx && node --loader ./scripts/esm-extension-loader.mjs .tmp-intake-tests/lib/__tests__/intakeGoldenWorkflowHarness.test.js && node --loader ./scripts/esm-extension-loader.mjs .tmp-intake-tests/components/intake/__tests__/IntakeWeakSourcesPanel.render.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",

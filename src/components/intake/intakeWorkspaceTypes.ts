@@ -3,7 +3,7 @@ import type { IntakeReviewPlan } from '../../lib/intakeReviewPlan';
 
 export type Tone = 'success' | 'error' | 'info';
 export type QueueLane = 'ready_to_create' | 'needs_correction' | 'link_duplicate_review' | 'reference_only';
-export type SourceTab = 'overview' | 'preview' | 'evidence' | 'metadata';
+export type SourceTab = 'overview' | 'receipt' | 'preview' | 'evidence' | 'metadata';
 export type IntakeReviewEditorTarget = 'title' | 'candidateType' | 'project' | 'owner' | 'dueDate' | 'nextStep' | 'duplicateReview';
 
 export interface ActionFeedback {

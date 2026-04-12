@@ -1437,6 +1437,10 @@
   background: #f8fbff;
   border-style: solid;
 }
+.intake-weak-sources-panel {
+  background: #fffaf0;
+  border-color: #fcd9a6;
+}
 .intake-tools-disclosure-list { display: grid; gap: 0.45rem; }
 .intake-tools-disclosure {
   border: 1px solid var(--border-subtle);

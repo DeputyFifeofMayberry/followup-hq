@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, BellRing, CheckCircle2, ClipboardList, Clock3, ListTodo } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
+import { AppShellCard } from './ui/AppPrimitives';
 import { buildTouchEvent, createId, formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
 
 interface QueueCard {
@@ -160,8 +161,8 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
   }, [items, tasks, queue]);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
+    <AppShellCard surface="deckInset" className="flex flex-col gap-0 overflow-hidden p-0 shadow-sm">
+      <div className="border-b border-[var(--border-default)] px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">Today execution queue</h2>
         <p className="mt-1 text-sm text-slate-500">Recommended next moves across follow-ups and tasks, ordered for fast daily execution.</p>
       </div>
@@ -245,11 +246,11 @@ export function WorkQueueBoard({ onOpenFollowUp, onOpenTask }: { onOpenFollowUp:
         {queue.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No items match this owner and time block.</div> : null}
       </div>
 
-      <div className="grid gap-3 border-t border-slate-200 p-4 md:grid-cols-3">
+      <div className="grid gap-3 border-t border-[var(--border-default)] p-4 md:grid-cols-3">
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ListTodo className="mb-2 h-4 w-4" />Today: close commitments first, then execution tasks.</div>
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700"><ClipboardList className="mb-2 h-4 w-4" />Check blocked handoffs before adding new work.</div>
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">{focused ? `Focused triage: ${focused.title}` : 'No focused item in triage.'}</div>
       </div>
-    </section>
+    </AppShellCard>
   );
 }

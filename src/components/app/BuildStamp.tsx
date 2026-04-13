@@ -12,52 +12,54 @@ export function BuildStamp() {
         <span className="build-stamp-line build-stamp-sha">{buildInfo.shortSha}</span>
       </summary>
 
-      <div className="build-stamp-detail" role="note" aria-label="Build metadata details">
-        <dl>
-          <div>
-            <dt>Version</dt>
-            <dd>v{buildInfo.version}</dd>
-          </div>
-          <div>
-            <dt>PR</dt>
-            <dd>
-              {buildInfo.prNumber ? `#${buildInfo.prNumber}` : 'PR unavailable'}
-              {buildInfo.prTitle ? <span className="build-stamp-pr-title"> — {buildInfo.prTitle}</span> : null}
-            </dd>
-          </div>
-          <div>
-            <dt>Commit</dt>
-            <dd>{buildInfo.shortSha}</dd>
-          </div>
-          <div>
-            <dt>Full SHA</dt>
-            <dd className="build-stamp-break">{buildInfo.commitSha ?? 'Unavailable'}</dd>
-          </div>
-          <div>
-            <dt>Built at</dt>
-            <dd>{buildInfo.buildTimestampLabel}</dd>
-          </div>
-          <div>
-            <dt>Branch</dt>
-            <dd>{buildInfo.branch}</dd>
-          </div>
-          <div>
-            <dt>Env</dt>
-            <dd>{buildInfo.environment}</dd>
-          </div>
-          <div>
-            <dt>Deploy URL</dt>
-            <dd className="build-stamp-break">
-              {buildInfo.deploymentUrl ? (
-                <a href={buildInfo.deploymentUrl} target="_blank" rel="noreferrer">
-                  {buildInfo.deploymentUrl}
-                </a>
-              ) : (
-                'Unavailable'
-              )}
-            </dd>
-          </div>
-        </dl>
+      <div className="build-stamp-body">
+        <div className="build-stamp-detail" role="note" aria-label="Build metadata details">
+          <dl>
+            <div>
+              <dt>Version</dt>
+              <dd>v{buildInfo.version}</dd>
+            </div>
+            <div>
+              <dt>PR</dt>
+              <dd>
+                {buildInfo.prNumber ? `#${buildInfo.prNumber}` : 'PR unavailable'}
+                {buildInfo.prTitle ? <span className="build-stamp-pr-title"> — {buildInfo.prTitle}</span> : null}
+              </dd>
+            </div>
+            <div>
+              <dt>Commit</dt>
+              <dd>{buildInfo.shortSha}</dd>
+            </div>
+            <div>
+              <dt>Full SHA</dt>
+              <dd className="build-stamp-break">{buildInfo.commitSha ?? 'Unavailable'}</dd>
+            </div>
+            <div>
+              <dt>Built at</dt>
+              <dd>{buildInfo.buildTimestampLabel}</dd>
+            </div>
+            <div>
+              <dt>Branch</dt>
+              <dd>{buildInfo.branch}</dd>
+            </div>
+            <div>
+              <dt>Env</dt>
+              <dd>{buildInfo.environment}</dd>
+            </div>
+            <div>
+              <dt>Deploy URL</dt>
+              <dd className="build-stamp-break">
+                {buildInfo.deploymentUrl ? (
+                  <a href={buildInfo.deploymentUrl} target="_blank" rel="noreferrer">
+                    {buildInfo.deploymentUrl}
+                  </a>
+                ) : (
+                  'Unavailable'
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </details>
   );

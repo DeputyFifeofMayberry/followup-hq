@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { WorkspaceKey } from '../../lib/appModeConfig';
 import { useShallow } from 'zustand/react/shallow';
 import { ExportWorkspace } from '../ExportWorkspace';
-import { AppShellCard, SectionHeader, WorkspacePage } from '../ui/AppPrimitives';
+import { AppShellCard, SectionHeader, WorkspaceContentFrame, WorkspacePage } from '../ui/AppPrimitives';
 import { reportDefinitions, reportSelectorItems, runReport } from '../../lib/reports/reportRegistry';
 import { buildReportingContext } from '../../lib/reports/reportContext';
 import { reportDraftEquals, toReportDraftState } from '../../lib/reports/savedDefinitions';
@@ -214,7 +214,8 @@ export function ReportsWorkspace({
 
 
   return (
-    <WorkspacePage className="space-y-4">
+    <WorkspacePage>
+      <WorkspaceContentFrame variant="deck" className="space-y-4">
       <AppShellCard className="workspace-summary-strip" surface="hero">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionHeader
@@ -422,6 +423,7 @@ export function ReportsWorkspace({
           }}
         />
       </section>
+      </WorkspaceContentFrame>
     </WorkspacePage>
   );
 }

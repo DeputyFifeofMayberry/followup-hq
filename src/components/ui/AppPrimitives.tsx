@@ -3,7 +3,34 @@ import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type Props
 import { createPortal } from 'react-dom';
 import type { AppToast } from '../../store/state/types';
 
-type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted' | 'warning' | 'modal' | 'row';
+type SurfaceType =
+  | 'shell'
+  | 'hero'
+  | 'command'
+  | 'data'
+  | 'inspector'
+  | 'muted'
+  | 'warning'
+  | 'modal'
+  | 'row'
+  | 'deck'
+  | 'deckPanel'
+  | 'deckInset';
+
+const APP_SHELL_SURFACE_CLASS: Record<SurfaceType, string> = {
+  shell: 'app-shell-card-shell',
+  hero: 'app-shell-card-hero',
+  command: 'app-shell-card-command',
+  data: 'app-shell-card-data',
+  inspector: 'app-shell-card-inspector',
+  muted: 'app-shell-card-muted',
+  warning: 'app-shell-card-warning',
+  modal: 'app-shell-card-modal',
+  row: 'app-shell-card-row',
+  deck: 'app-shell-card-deck',
+  deckPanel: 'app-shell-card-deck-panel',
+  deckInset: 'app-shell-card-deck-inset',
+};
 
 /**
  * Semantic surface roles:
@@ -13,9 +40,11 @@ type SurfaceType = 'shell' | 'hero' | 'command' | 'data' | 'inspector' | 'muted'
  * - warning: attention-required context
  * - modal: highest-elevation dialog surface
  * - row: repeatable list row baseline (hover/active handled in CSS)
+ * - deck/deckPanel/deckInset: command-deck canvas, dark panels, light dense islands
  */
 export function AppShellCard({ children, className = '', surface = 'shell' }: PropsWithChildren<{ className?: string; surface?: SurfaceType }>) {
-  return <section className={`app-shell-card app-shell-card-${surface} ${className}`.trim()}>{children}</section>;
+  const surfaceClass = APP_SHELL_SURFACE_CLASS[surface];
+  return <section className={`app-shell-card ${surfaceClass} ${className}`.trim()}>{children}</section>;
 }
 
 export function ElevatedPanel({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
@@ -76,8 +105,13 @@ export function WorkspacePage({ children, className = '' }: PropsWithChildren<{ 
   return <div className={`workspace-page workspace-page-contract ${className}`.trim()}>{children}</div>;
 }
 
-export function WorkspaceContentFrame({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <div className={`workspace-content-frame ${className}`.trim()}>{children}</div>;
+export function WorkspaceContentFrame({
+  children,
+  className = '',
+  variant = 'default',
+}: PropsWithChildren<{ className?: string; variant?: 'default' | 'deck' }>) {
+  const deckClass = variant === 'deck' ? 'app-command-deck' : '';
+  return <div className={`workspace-content-frame ${deckClass} ${className}`.trim()}>{children}</div>;
 }
 
 export function WorkspaceSummaryStrip({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
@@ -270,7 +304,9 @@ export function ExecutionLaneToolbar({ children, className = '' }: PropsWithChil
 }
 
 export function ExecutionToolbarSurface({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <div className={`workspace-control-stack execution-toolbar-surface ${className}`.trim()}>{children}</div>;
+  return (
+    <div className={`workspace-control-stack execution-toolbar-surface execution-toolbar-deck-surface ${className}`.trim()}>{children}</div>
+  );
 }
 
 export function ExecutionFilterChip({
@@ -353,11 +389,19 @@ export function ExecutionLaneHandoffStrip({
 }
 
 export function ExecutionLaneQueueCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <AppShellCard className={`workspace-list-panel execution-lane-queue-card ${className}`.trim()} surface="data">{children}</AppShellCard>;
+  return (
+    <AppShellCard className={`workspace-list-panel execution-lane-queue-card ${className}`.trim()} surface="deckInset">
+      {children}
+    </AppShellCard>
+  );
 }
 
 export function ExecutionLaneInspectorCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
-  return <AppShellCard className={`workspace-inspector-panel execution-lane-inspector-card ${className}`.trim()} surface="inspector">{children}</AppShellCard>;
+  return (
+    <AppShellCard className={`workspace-inspector-panel execution-lane-inspector-card ${className}`.trim()} surface="deckInset">
+      {children}
+    </AppShellCard>
+  );
 }
 
 export function ExecutionLaneSelectionStrip({

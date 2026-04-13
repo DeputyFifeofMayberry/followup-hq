@@ -147,6 +147,11 @@
   padding-top: 0.66rem;
   border-top: 1px solid var(--nav-utility-border);
 }
+
+/* Desktop: wrapper is layout-transparent so the rail grid is unchanged. Mobile drawer overrides this. */
+.app-nav-rail-scroll-body {
+  display: contents;
+}
 .nav-command-btn {
   width: 100%;
   justify-content: flex-start;
@@ -199,14 +204,31 @@
 
 .nav-system-panel {
   position: absolute;
-  left: 0;
+  /* Align to the nav utility column but allow width to grow: children (e.g. sync status row) use
+     min-width: min(280px, 34vw); pinning left+right to the shell forced a narrow box and visual overflow. */
+  left: auto;
   right: 0;
+  top: auto;
   bottom: calc(100% + 0.42rem);
   z-index: 70;
   border-radius: 0.88rem;
   padding: 0.5rem;
   display: grid;
   gap: 0.46rem;
+  box-sizing: border-box;
+  width: min(max(100%, min(280px, 34vw)), min(24rem, calc(100vw - 1.25rem)));
+  /* --nav-system-panel-max-h is set from layout (space above/below trigger) so the top is not clipped by the viewport. */
+  max-height: min(var(--nav-system-panel-max-h, min(78dvh, calc(100dvh - 2rem))), 92dvh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* When there is little room above the System control (mobile drawer, short viewport), open below instead. */
+.nav-system-panel--opens-down {
+  top: calc(100% + 0.42rem);
+  bottom: auto;
 }
 
 .nav-system-panel-heading {
@@ -220,6 +242,7 @@
 .nav-system-panel-section {
   display: grid;
   gap: 0.34rem;
+  min-width: 0;
 }
 
 .nav-system-panel-label {
@@ -229,14 +252,72 @@
 
 .nav-system-panel-section .segmented-control {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .nav-system-panel-section-controls {
   gap: 0.3rem;
+  position: relative;
+  min-width: 0;
+  /* Open save/settings dropdowns extend below this block; stay above context + build stamp in paint order. */
+  z-index: 10;
 }
 
+/* Nested save/sync and settings menus: match System card width (defaults are 390px / 440px) and keep scroll inside. */
+.nav-system-panel .sync-status-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.nav-system-panel .sync-status-trigger {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.nav-system-panel .sync-status-trigger-text span {
+  white-space: normal;
+}
+
+.nav-system-panel .sync-status-panel,
+.nav-system-panel .settings-drawer {
+  left: 0;
+  right: auto;
+  width: 100%;
+  max-width: 100%;
+  z-index: 5;
+  /* Opens below the trigger near the bottom of the screen; shorter cap keeps the scroll box inside the viewport. */
+  max-height: min(58dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 6.5rem));
+}
+
+.nav-system-panel-section-build {
+  min-width: 0;
+}
+
+/* Popover grows upward from the nav footer; open <details> + flex is a poor scrollport in WebKit.
+   Scroll lives on .build-stamp-body (block wrapper) so metadata stays inside the white inspector card. */
 .nav-system-panel-section-build .build-stamp {
   width: 100%;
+  box-sizing: border-box;
+}
+
+.nav-system-panel-section-build .build-stamp[open] {
+  overflow: hidden;
+}
+
+.nav-system-panel-section-build .build-stamp-body {
+  max-height: min(44dvh, 15rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-system-panel-section-build .build-stamp-detail dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .nav-system-context-row {
@@ -441,12 +522,32 @@
     top: 0.75rem;
     left: 0.7rem;
     width: min(320px, calc(100vw - 1.4rem));
-    max-height: calc(100vh - 1.5rem);
-    overflow-y: auto;
+    max-height: min(calc(100vh - 1.5rem), calc(100dvh - 1.5rem));
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.74rem;
+    overflow: visible;
     z-index: 60;
     transform: translateX(calc(-100% - 1rem));
     transition: transform 180ms ease;
     box-shadow: 0 30px 44px rgba(2, 6, 23, 0.62), inset 0 1px 0 rgba(148, 163, 184, 0.2);
+  }
+
+  /* Only the workspace list scrolls; footer (command + system popovers) stays out of this scrollport so
+     nested save/settings panels are not clipped at the drawer bottom. */
+  .app-nav-rail-scroll-body {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-utility-stack {
+    flex-shrink: 0;
   }
 
   .app-brand-block {
@@ -461,6 +562,7 @@
     padding: 0.08rem 0.08rem 0.56rem;
     border-bottom: 1px solid rgba(100, 116, 139, 0.45);
     margin-bottom: 0.16rem;
+    flex-shrink: 0;
   }
 
   .app-nav-drawer-label {

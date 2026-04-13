@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Edit3, MailPlus, PauseCircle } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../store/useAppStore';
+import { AppShellCard } from './ui/AppPrimitives';
 import { addDaysIso, buildTouchEvent, formatDate, isOverdue, needsNudge, todayIso } from '../lib/utils';
 
 type AgendaGroup = 'Now' | 'Waiting' | 'Blocked' | 'Later';
@@ -155,7 +156,7 @@ export function PersonalAgendaBoard() {
   };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <AppShellCard surface="deckInset" className="p-4 shadow-sm">
       <div className="mb-3">
         <h2 className="text-lg font-semibold text-slate-950">My overview</h2>
         <p className="text-sm text-slate-500">One place for follow-ups and tasks. Type stays in the background.</p>
@@ -226,6 +227,6 @@ export function PersonalAgendaBoard() {
           )}
         </aside>
       </div>
-    </section>
+    </AppShellCard>
   );
 }

@@ -4,7 +4,7 @@ import { DirectoryProjectsPane } from './DirectoryProjectsPane';
 import { PeopleDirectoryPane } from './PeopleDirectoryPane';
 import { ProjectCreateModal } from './ProjectCreateModal';
 import { ProjectDeleteModal } from './ProjectDeleteModal';
-import { AppShellCard, SectionHeader, SegmentedControl, WorkspacePage } from '../ui/AppPrimitives';
+import { AppShellCard, SectionHeader, SegmentedControl, WorkspaceContentFrame, WorkspacePage } from '../ui/AppPrimitives';
 
 interface DirectoryWorkspaceProps {
   onOpenFollowUp: (recordId: string) => void;
@@ -22,6 +22,7 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
 
   return (
     <WorkspacePage>
+      <WorkspaceContentFrame variant="deck">
       <AppShellCard className="workspace-summary-strip directory-summary-strip" surface="hero">
         <SectionHeader
           title="Directory"
@@ -43,6 +44,7 @@ export function DirectoryWorkspace({ onOpenFollowUp, onOpenTask, onOpenDirectory
           <p className="mt-1 text-xs text-slate-600">Keep master records clean and linked so execution queues stay trustworthy. Project health, contact ownership, and company context should support follow-up and task flow—not compete with it.</p>
         </aside>
       </div>
+      </WorkspaceContentFrame>
 
       <ProjectCreateModal
         open={vm.showCreateModal}

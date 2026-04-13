@@ -181,7 +181,7 @@ export function TaskWorkspace({ onOpenLinkedFollowUp, personalMode = false }: { 
 
   return (
     <WorkspacePage>
-      <WorkspaceContentFrame>
+      <WorkspaceContentFrame variant="deck">
         <WorkspacePrimaryLayout
           className="task-workspace-layout workspace-primary-layout-collapsed"
         >

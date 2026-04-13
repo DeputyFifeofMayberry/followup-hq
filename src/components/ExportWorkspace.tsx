@@ -19,7 +19,7 @@ import {
 } from '../lib/export';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
-import { AppShellCard, SectionHeader, WorkspacePage } from './ui/AppPrimitives';
+import { AppShellCard, SectionHeader, WorkspaceContentFrame, WorkspacePage } from './ui/AppPrimitives';
 import type { ReportTrustSummary } from '../lib/reports';
 
 const savedViewOptions: SavedViewKey[] = ['All', 'Closed', 'Today', 'Waiting', 'Needs nudge', 'At risk', 'Overdue', 'By project'];
@@ -477,5 +477,9 @@ export function ExportWorkspace({
   );
 
   if (embedded) return exportShell;
-  return <WorkspacePage>{exportShell}</WorkspacePage>;
+  return (
+    <WorkspacePage>
+      <WorkspaceContentFrame variant="deck">{exportShell}</WorkspaceContentFrame>
+    </WorkspacePage>
+  );
 }

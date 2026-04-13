@@ -85,6 +85,10 @@
   gap: var(--workspace-region-gap, 0.85rem);
 }
 .workspace-content-frame > * { min-width: 0; }
+
+.workspace-content-frame.app-command-deck {
+  gap: var(--workspace-region-gap, 0.85rem);
+}
 .workspace-top-stack { display: grid; gap: var(--workspace-region-gap, 0.85rem); }
 .workspace-summary-strip { padding: var(--workspace-surface-padding, 0.78rem); }
 .execution-lane-summary { display: grid; gap: 0.5rem; }
@@ -170,6 +174,48 @@
   padding: 0.06rem 0.04rem 0.18rem;
   gap: 0.4rem;
 }
+
+.execution-toolbar-surface.execution-toolbar-deck-surface {
+  border: 1px solid var(--sp-deck-panel-border);
+  background: var(--sp-deck-panel-bg);
+  color: var(--sp-text-inverse);
+  border-radius: 0.48rem;
+  padding: 0.48rem 0.52rem;
+  gap: 0.45rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--sp-text-inverse) 6%, transparent);
+}
+
+.execution-toolbar-deck-surface .task-sort-summary {
+  color: var(--sp-deck-text-inverse-soft);
+}
+
+.execution-toolbar-deck-surface .search-field-icon {
+  color: var(--sp-deck-text-inverse-muted);
+}
+
+.execution-toolbar-deck-surface .field-input,
+.execution-toolbar-deck-surface .search-field-input {
+  border-color: var(--sp-deck-control-border);
+  background: var(--sp-deck-control-bg);
+  color: var(--sp-text-inverse);
+}
+
+.execution-toolbar-deck-surface .field-input::placeholder,
+.execution-toolbar-deck-surface .search-field-input::placeholder {
+  color: var(--sp-deck-text-inverse-soft);
+}
+
+.execution-toolbar-deck-surface .field-label {
+  color: var(--sp-deck-text-inverse-soft);
+}
+
+.execution-toolbar-deck-surface .search-clear-btn {
+  color: var(--sp-deck-text-inverse-muted);
+}
+
+.execution-toolbar-deck-surface .search-clear-btn:hover {
+  color: var(--sp-text-inverse);
+}
 .execution-filter-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
 .execution-filter-chip-row-muted { min-height: 1.9rem; padding: 0.15rem 0; }
 .execution-filter-chip {
@@ -218,14 +264,11 @@
 .execution-summary-strip-unified .execution-summary-band-title { font-size: 0.96rem; letter-spacing: -0.012em; color: #12263d; }
 .execution-summary-strip-unified .execution-summary-band-supporting { font-size: 0.76rem; color: #3f5a77; }
 .execution-summary-strip-unified .execution-summary-stat-chip { min-height: 2rem; background: #ffffffd8; }
+/* Layout only; outer canvas is `.app-command-deck` on `WorkspaceContentFrame` (overview + lanes). */
 .overview-dashboard-shell {
-  border: 1px solid #aebfd4;
-  background: linear-gradient(180deg, #f8fbff 0%, #f3f8ff 100%);
-  border-radius: 0.6rem;
-  padding: 0.86rem;
   display: grid;
   gap: 0.62rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  min-width: 0;
 }
 
 .overview-dashboard-shell--command {
@@ -234,15 +277,10 @@
   --od-chart-3: #f0abfc;
   --od-chart-4: var(--sp-brand-steel-100);
   --od-chart-5: #86efac;
-  background: var(--sp-surface-brand-canvas);
-  border: 1px solid color-mix(in srgb, var(--sp-brand-teal-500) 38%, #1e293b);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--sp-brand-teal-300) 14%, transparent),
-    0 12px 36px rgba(4, 10, 22, 0.35);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-header {
-  border-bottom-color: color-mix(in srgb, var(--sp-brand-steel-100) 22%, transparent);
+  border-bottom-color: var(--sp-deck-header-rule);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-kicker {
@@ -254,7 +292,7 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-title-wrap > p {
-  color: color-mix(in srgb, var(--sp-text-inverse) 82%, transparent);
+  color: var(--sp-deck-text-inverse-strong);
 }
 
 .overview-dashboard-scope-line {
@@ -293,25 +331,7 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-filter-field > span {
-  color: color-mix(in srgb, var(--sp-text-inverse) 58%, transparent);
-}
-
-.overview-dashboard-select {
-  min-width: 8.2rem;
-  max-width: 14rem;
-  border-radius: 0.42rem;
-  border: 1px solid color-mix(in srgb, var(--sp-brand-steel-100) 35%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-800) 88%, #0f172a);
-  color: var(--sp-text-inverse);
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 0.32rem 0.44rem;
-  line-height: 1.3;
-}
-
-.overview-dashboard-select:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--sp-brand-teal-300) 55%, transparent);
-  outline-offset: 2px;
+  color: var(--sp-deck-text-inverse-soft);
 }
 
 .overview-dashboard-hero-kpi-row {
@@ -323,8 +343,8 @@
 .overview-dashboard-hero-kpi {
   text-align: left;
   border-radius: 0.48rem;
-  border: 1px solid color-mix(in srgb, var(--sp-brand-steel-100) 28%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-800) 55%, rgba(15, 23, 42, 0.92));
+  border: 1px solid var(--sp-deck-hero-kpi-border);
+  background: var(--sp-deck-hero-kpi-bg);
   padding: 0.52rem 0.56rem;
   display: grid;
   gap: 0.2rem;
@@ -334,8 +354,8 @@
 }
 
 .overview-dashboard-hero-kpi:hover {
-  border-color: color-mix(in srgb, var(--sp-brand-teal-300) 45%, transparent);
-  background: color-mix(in srgb, var(--sp-brand-night-800) 40%, rgba(15, 23, 42, 0.95));
+  border-color: var(--sp-deck-hero-kpi-border-hover);
+  background: var(--sp-deck-hero-kpi-bg-hover);
 }
 
 .overview-dashboard-hero-kpi-label {
@@ -343,7 +363,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--sp-text-inverse) 62%, transparent);
+  color: var(--sp-deck-text-inverse-muted);
 }
 
 .overview-dashboard-hero-kpi-pct {
@@ -356,13 +376,13 @@
 .overview-dashboard-hero-kpi-count {
   font-size: 0.68rem;
   font-weight: 650;
-  color: color-mix(in srgb, var(--sp-text-inverse) 78%, transparent);
+  color: var(--sp-deck-text-inverse-strong);
 }
 
 .overview-dashboard-hero-kpi-helper {
   font-size: 0.64rem;
   line-height: 1.35;
-  color: color-mix(in srgb, var(--sp-text-inverse) 68%, transparent);
+  color: var(--sp-deck-text-inverse-label);
 }
 
 .overview-dashboard-hero-kpi-bar {
@@ -418,9 +438,9 @@
 }
 
 .overview-dashboard-chart-card {
-  border: 1px solid color-mix(in srgb, var(--sp-brand-steel-100) 22%, #334155);
+  border: 1px solid var(--sp-deck-panel-border);
   border-radius: 0.48rem;
-  background: color-mix(in srgb, var(--sp-brand-night-800) 50%, rgba(15, 23, 42, 0.94));
+  background: var(--sp-deck-panel-bg);
   padding: 0.52rem 0.56rem;
   display: grid;
   gap: 0.42rem;
@@ -440,7 +460,7 @@
   margin: 0.12rem 0 0;
   font-size: 0.62rem;
   line-height: 1.35;
-  color: color-mix(in srgb, var(--sp-text-inverse) 62%, transparent);
+  color: var(--sp-deck-text-inverse-muted);
 }
 
 .overview-dashboard-chart-card-tall {
@@ -450,7 +470,7 @@
 .overview-chart-empty {
   margin: 0;
   font-size: 0.7rem;
-  color: color-mix(in srgb, var(--sp-text-inverse) 65%, transparent);
+  color: var(--sp-deck-text-inverse-muted);
   line-height: 1.4;
 }
 
@@ -458,7 +478,7 @@
   margin: 0;
   font-size: 0.58rem;
   line-height: 1.35;
-  color: color-mix(in srgb, var(--sp-text-inverse) 52%, transparent);
+  color: var(--sp-deck-text-inverse-subtle);
 }
 
 .overview-donut-wrap {
@@ -640,13 +660,13 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-panel {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 22%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-800) 48%, rgba(15, 23, 42, 0.94));
+  border-color: var(--sp-deck-panel-border);
+  background: var(--sp-deck-panel-bg-dense);
   color: var(--sp-text-inverse);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-panel header p {
-  color: color-mix(in srgb, var(--sp-text-inverse) 55%, transparent);
+  color: var(--sp-deck-text-inverse-kicker);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-panel header h3 {
@@ -654,8 +674,8 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-nextup-row {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 18%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-900) 35%, rgba(15, 23, 42, 0.88));
+  border-color: var(--sp-deck-panel-border-soft);
+  background: var(--sp-deck-row-bg);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-nextup-row strong {
@@ -664,29 +684,29 @@
 
 /* Do not target `.app-chip` — chips carry their own `color` from `chip-tone-*` and must stay high-contrast on pastel fills. */
 .overview-dashboard-shell--command .overview-dashboard-nextup-row span:not(.app-chip) {
-  color: color-mix(in srgb, var(--sp-text-inverse) 72%, transparent);
+  color: var(--sp-deck-text-inverse-body);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-nextup-cell {
-  color: color-mix(in srgb, var(--sp-text-inverse) 72%, transparent);
+  color: var(--sp-deck-text-inverse-body);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-nextup-head {
-  border-bottom-color: color-mix(in srgb, var(--sp-brand-steel-100) 22%, transparent);
+  border-bottom-color: var(--sp-deck-header-rule);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-nextup-head span {
-  color: color-mix(in srgb, var(--sp-text-inverse) 58%, transparent);
+  color: var(--sp-deck-text-inverse-soft);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-lane-card {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 18%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-900) 40%, rgba(15, 23, 42, 0.9));
+  border-color: var(--sp-deck-panel-border-soft);
+  background: var(--sp-deck-row-bg-raised);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-lane-card span,
 .overview-dashboard-shell--command .overview-dashboard-lane-card small {
-  color: color-mix(in srgb, var(--sp-text-inverse) 68%, transparent);
+  color: var(--sp-deck-text-inverse-label);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-lane-card strong {
@@ -694,8 +714,8 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-hotspot-row {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 18%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-900) 35%, rgba(15, 23, 42, 0.88));
+  border-color: var(--sp-deck-panel-border-soft);
+  background: var(--sp-deck-row-bg);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-hotspot-row strong {
@@ -703,16 +723,16 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-hotspot-row span {
-  color: color-mix(in srgb, var(--sp-text-inverse) 70%, transparent);
+  color: var(--sp-deck-text-inverse-label);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-trend-grid > button {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 18%, #334155);
-  background: color-mix(in srgb, var(--sp-brand-night-900) 38%, rgba(15, 23, 42, 0.9));
+  border-color: var(--sp-deck-panel-border-soft);
+  background: var(--sp-deck-row-bg-raised);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-trend-grid span {
-  color: color-mix(in srgb, var(--sp-text-inverse) 58%, transparent);
+  color: var(--sp-deck-text-inverse-soft);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-trend-grid strong {
@@ -720,21 +740,21 @@
 }
 
 .overview-dashboard-shell--command .overview-dashboard-empty {
-  border-color: color-mix(in srgb, var(--sp-brand-steel-100) 22%, transparent);
+  border-color: var(--sp-deck-header-rule);
   background: color-mix(in srgb, var(--sp-brand-night-900) 30%, transparent);
-  color: color-mix(in srgb, var(--sp-text-inverse) 72%, transparent);
+  color: var(--sp-deck-text-inverse-body);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-execution-bridge {
-  border-top-color: color-mix(in srgb, var(--sp-brand-steel-100) 22%, transparent);
+  border-top-color: var(--sp-deck-header-rule);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-execution-bridge p {
-  color: color-mix(in srgb, var(--sp-text-inverse) 55%, transparent);
+  color: var(--sp-deck-text-inverse-kicker);
 }
 
 .overview-dashboard-shell--command .overview-dashboard-execution-bridge h3 {
-  color: color-mix(in srgb, var(--sp-text-inverse) 88%, transparent);
+  color: var(--sp-deck-text-inverse-highlight);
 }
 
 .overview-dashboard-details-grid {
@@ -904,9 +924,8 @@
   gap: 0.62rem;
 }
 .execution-lane-queue-surface {
-  border-color: var(--border-strong);
-  background: linear-gradient(180deg, #fcfeff 0%, #f7fbff 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  border-color: var(--sp-deck-inset-border);
+  box-shadow: var(--sp-deck-inset-shadow);
 }
 .overview-toolbar-surface { gap: 0.52rem; }
 .overview-toolbar-scaffold { grid-template-columns: minmax(280px, 1fr) minmax(0, auto); }
@@ -920,9 +939,10 @@
   padding-top: 0.48rem;
 }
 .overview-dashboard-context-strip {
-  border: 1px solid #c4d6e9;
+  border: 1px solid var(--sp-deck-inset-border);
   border-radius: 0.56rem;
-  background: linear-gradient(180deg, #f9fcff 0%, #edf5ff 100%);
+  background: var(--sp-deck-inset-surface);
+  box-shadow: var(--sp-deck-inset-shadow);
   padding: 0.5rem 0.58rem;
   display: flex;
   align-items: flex-start;
@@ -1010,8 +1030,6 @@
 .overview-inspector-shell {
   display: grid;
   gap: 0.62rem;
-  border-color: var(--border-strong);
-  background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
 }
 .overview-inspector-kicker { letter-spacing: 0.035em; text-transform: uppercase; color: #526882; }
 .overview-route-inspector { display: grid; gap: 0.6rem; }
@@ -1044,10 +1062,8 @@
 .workspace-inspector-panel { display: grid; gap: 0.75rem; border-radius: 1rem; }
 .workspace-list-panel { padding: var(--workspace-surface-padding, 0.78rem); }
 .workspace-inspector-panel { padding: var(--workspace-inspector-padding, 0.88rem); }
-.workspace-list-panel { background: linear-gradient(180deg, #fcfeff 0%, #f7fbff 100%); border: 1px solid var(--border-subtle); }
-.workspace-inspector-panel { background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%); border: 1px solid var(--border-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8); }
-.execution-lane-queue-card { border-color: var(--border-default); }
-.execution-lane-inspector-card { border-color: var(--border-strong); }
+.execution-lane-queue-card { border-color: transparent; }
+.execution-lane-inspector-card { border-color: transparent; }
 .execution-lane-selection-strip {
   margin: 0.12rem 0 0.14rem;
   border: 1px solid var(--border-default);
@@ -1870,7 +1886,8 @@
     font-size: 0.76rem;
   }
   .execution-summary-band-head { flex-direction: column; }
-  .overview-dashboard-shell { padding: 0.72rem; gap: 0.54rem; }
+  .workspace-content-frame.app-command-deck { padding: 0.72rem; }
+  .overview-dashboard-shell { gap: 0.54rem; }
   .overview-dashboard-context-pills { width: 100%; }
   .overview-dashboard-context-pill { flex: 1 1 auto; justify-content: center; }
   .overview-dashboard-header-actions { width: 100%; }

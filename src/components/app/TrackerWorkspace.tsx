@@ -169,7 +169,7 @@ export function TrackerWorkspace({ personalMode }: { personalMode: boolean }) {
 
   return (
     <WorkspacePage>
-      <WorkspaceContentFrame>
+      <WorkspaceContentFrame variant="deck">
         <WorkspacePrimaryLayout className="workspace-primary-layout-collapsed">
           <div className="tracker-main-single">
             <ExecutionLaneQueueCard className="tracker-workspace-main execution-lane-queue-surface">

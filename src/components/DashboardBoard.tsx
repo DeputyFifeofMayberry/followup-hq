@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { buildOwnerSummary, buildProjectDashboard } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import type { SavedViewKey } from '../types';
-import { StatePanel } from './ui/AppPrimitives';
+import { AppShellCard, StatePanel } from './ui/AppPrimitives';
 
 type WorkspaceKey = 'overview' | 'tracker' | 'intake' | 'directory';
 
@@ -25,8 +25,8 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
   }, [items]);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
+    <AppShellCard surface="deckInset" className="flex flex-col gap-0 overflow-hidden p-0 shadow-sm">
+      <div className="border-b border-[var(--border-default)] px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-950">Operational dashboards</h2>
         <p className="mt-1 text-sm text-slate-500">Keep project exposure, owner load, and waiting-on accountability in one view.</p>
       </div>
@@ -74,6 +74,6 @@ export function DashboardBoard({ onOpenTrackerView, onOpenWorkspace }: { onOpenT
           </div>
         </div>
       </div>
-    </section>
+    </AppShellCard>
   );
 }

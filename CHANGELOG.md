@@ -2,6 +2,35 @@
 
 ## 2026-04-12
 
+### Command deck visuals across workspaces
+- Centralized Overview-style **command deck** styling in design tokens (`--sp-deck-*` in `src/styles/tokens.css`) and shared primitives: `.app-command-deck` (brand canvas shell), `.app-shell-card-deck` / `.app-shell-card-deck-panel` / `.app-shell-card-deck-inset`, plus `.app-command-select` shared with overview scope selects (`src/styles/primitives.css`).
+- `WorkspaceContentFrame` accepts `variant="deck"` so primary workspaces sit on the same night canvas as the Overview dashboard; applied to Overview, Tasks, Follow Ups (tracker), Intake, Directory, Reports (and standalone Export). (`src/components/ui/AppPrimitives.tsx`, workspace page components)
+- Execution lanes use **light deck-inset** queue/inspector cards for dense readability; toolbars use a **dark deck panel** with inverse-friendly search/field styling. (`ExecutionLaneQueueCard`, `ExecutionLaneInspectorCard`, `ExecutionToolbarSurface`, `src/styles/workspaces.css`)
+- Overview dashboard shell is layout-only; the outer canvas comes from the frame deck so the triage queue and dashboard share one continuous command surface. Overview context strip uses deck-inset border/surface tokens.
+- Home / operational surfaces (`DashboardBoard`, `PersonalAgendaBoard`, `WorkQueueBoard`, `StatsGrid`) use `deckInset` shells instead of ad-hoc white/slate cards.
+- Deck context: stronger `focus-visible` for links/buttons and adjusted `.action-btn` hover on dark panels. (`src/styles/primitives.css`, `src/styles/workspaces.css`)
+
+### System nav popover: stop content overlapping the card edge
+- The System menu was absolutely positioned with `left: 0; right: 0`, so its width matched only the narrow nav footer column while sync/settings rows still enforce `min(280px, 34vw)`, which caused horizontal overflow and overlapping UI. The popover now sizes from that minimum up to a viewport-safe max, right-aligned to the trigger shell, with grid sections allowed to shrink (`min-width: 0`). (`src/styles/shell.css`)
+
+### Mobile workspace drawer: scroll only the workspace list (fix System submenu clipping)
+- The drawer used `overflow-y: auto` on the full `<aside>`, so save/sync and settings panels that extend below the trigger were clipped at the drawer bottom and the inner panel’s scroll could not reveal the last rows. The rail is now a column flex on narrow viewports: only `.app-nav-rail-scroll-body` (workspace sections) scrolls, while the command + System footer stays outside that scrollport with `overflow: visible` on the drawer. (`src/App.tsx`, `src/styles/shell.css`)
+
+### Save/sync & settings popovers: viewport and safe-area when scrolling
+- Tuned `max-height` with safe-area inset, added extra scroll padding at the bottom of `.sync-status-panel`, and capped nested panel height inside the System card so the trust/settings sheet stays on-screen. (`src/styles/primitives.css`, `src/styles/shell.css`)
+
+### System popover: viewport-safe height and flip-down placement
+- The System menu is anchored above the nav footer; tall content could extend past the top of the viewport. The shell now sets `--nav-system-panel-max-h` from measured space above (or below) the trigger, the white card scrolls internally with contained overscroll, and when space above is tight the panel opens downward instead. (`src/App.tsx`, `src/styles/shell.css`)
+
+### System popover: build version details scroll in place
+- Opening build metadata in the System card no longer grows the popover upward until it clips; the expanded block is height-capped with the summary fixed and the detail list scrolling inside, plus contained overscroll. (`src/styles/shell.css`)
+- Replaced `display:flex` on `<details>` (unreliable scrollport in WebKit) with a `.build-stamp-body` wrapper that owns `max-height` + `overflow-y: auto`, so the dark build panel cannot paint below the white inspector card. (`src/components/app/BuildStamp.tsx`, `src/styles/shell.css`)
+
+### System popover: nested save/settings layout and scroll behavior
+- Save & sync and Settings detail panels used fixed widths (390px / 440px) inside the narrower System card, so they looked misaligned; under `.nav-system-panel` they now span the card width with triggers full-width and secondary text allowed to wrap. (`src/styles/shell.css`)
+- Save/sync (and other `sync-status-panel`) popovers are capped in height with `overflow-y: auto` and `overscroll-behavior: contain` so scrolling the trust center does not chain to the main workspace or the mobile nav drawer. (`src/styles/primitives.css`)
+- Raised stacking for the controls block so open dropdowns paint above the daily-focus/build sections. (`src/styles/shell.css`)
+
 ### Overview dashboard: legible priority chips in next-up table
 - Stopped the dark command-dashboard row rule from targeting all `span` elements so `.app-chip` / `chip-tone-*` label colors apply again; priority badges were inheriting near-white text on pastel backgrounds. (`src/styles/workspaces.css`)
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useShallow } from 'zustand/react/shallow';
@@ -246,6 +246,7 @@ function MainApp({ session }: { session: Session }) {
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [shellUtilitiesOpen, setShellUtilitiesOpen] = useState(false);
+  const [navSystemPanelLayout, setNavSystemPanelLayout] = useState<{ maxPx: number; opensDown: boolean } | null>(null);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutInProgress, setSignOutInProgress] = useState(false);
   const [saveAndSignOutInProgress, setSaveAndSignOutInProgress] = useState(false);
@@ -320,6 +321,49 @@ function MainApp({ session }: { session: Session }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileNavOpen, modeConfig.workspaceMeta, runPrimaryAction, shellUtilitiesOpen, showCommand, workspace]);
+
+  useLayoutEffect(() => {
+    if (!shellUtilitiesOpen) {
+      setNavSystemPanelLayout(null);
+      return;
+    }
+
+    const shell = shellUtilityRef.current;
+    if (!shell) return;
+
+    const visualViewport = window.visualViewport;
+
+    const update = () => {
+      const el = shellUtilityRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const margin = 10;
+      const vh = visualViewport?.height ?? window.innerHeight;
+      const spaceAbove = Math.max(0, rect.top - margin);
+      const spaceBelow = Math.max(0, vh - rect.bottom - margin);
+      const cap = vh * 0.9;
+      const preferDown = spaceAbove < 280 && spaceBelow > spaceAbove + 32;
+      const rawMax = preferDown ? spaceBelow : spaceAbove;
+      const maxPx = Math.min(cap, Math.max(96, rawMax));
+      setNavSystemPanelLayout({ maxPx, opensDown: preferDown });
+    };
+
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(shell);
+    const rail = document.getElementById('primary-workspace-nav');
+    if (rail) ro.observe(rail);
+    visualViewport?.addEventListener('resize', update);
+    visualViewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+
+    return () => {
+      ro.disconnect();
+      visualViewport?.removeEventListener('resize', update);
+      visualViewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [shellUtilitiesOpen, mobileNavOpen]);
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -531,47 +575,49 @@ function MainApp({ session }: { session: Session }) {
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="nav-section-stack">
-            {navSections.map((section) => (
-              <section
-                key={section.title}
-                className={section.tone === 'support' ? 'nav-section nav-section-support' : 'nav-section'}
-                aria-label={section.title}
-              >
-                <div className="nav-section-heading">{section.title}</div>
-                <div className="grid gap-2">
-                  {section.items.map(({ key, meta }) => {
-                    const Icon = workspaceIcons[key];
-                    const active = workspace === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                          setWorkspace(key);
-                          setMobileNavOpen(false);
-                        }}
-                        className={[
-                          'nav-card',
-                          active ? 'nav-card-active' : '',
-                          section.tone === 'support' ? 'nav-card-support' : 'nav-card-core',
-                          section.tone === 'support' ? 'nav-card-muted' : '',
-                          !active && section.tone === 'core' ? 'nav-card-primary-inactive' : '',
-                        ].filter(Boolean).join(' ')}
-                        aria-current={active ? 'page' : undefined}
-                      >
-                        <div className="nav-card-row">
-                          <span className="nav-label-cluster">
-                            <span className="nav-icon-shell"><Icon className="h-4 w-4 nav-label-icon" /></span>
-                            <span className="nav-label-primary">{meta.userLabel}</span>
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+          <div className="app-nav-rail-scroll-body">
+            <div className="nav-section-stack">
+              {navSections.map((section) => (
+                <section
+                  key={section.title}
+                  className={section.tone === 'support' ? 'nav-section nav-section-support' : 'nav-section'}
+                  aria-label={section.title}
+                >
+                  <div className="nav-section-heading">{section.title}</div>
+                  <div className="grid gap-2">
+                    {section.items.map(({ key, meta }) => {
+                      const Icon = workspaceIcons[key];
+                      const active = workspace === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setWorkspace(key);
+                            setMobileNavOpen(false);
+                          }}
+                          className={[
+                            'nav-card',
+                            active ? 'nav-card-active' : '',
+                            section.tone === 'support' ? 'nav-card-support' : 'nav-card-core',
+                            section.tone === 'support' ? 'nav-card-muted' : '',
+                            !active && section.tone === 'core' ? 'nav-card-primary-inactive' : '',
+                          ].filter(Boolean).join(' ')}
+                          aria-current={active ? 'page' : undefined}
+                        >
+                          <div className="nav-card-row">
+                            <span className="nav-label-cluster">
+                              <span className="nav-icon-shell"><Icon className="h-4 w-4 nav-label-icon" /></span>
+                              <span className="nav-label-primary">{meta.userLabel}</span>
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
           <div className="nav-utility-stack">
             <button ref={commandOpenTriggerRef} type="button" onClick={() => setShowCommand(true)} className="nav-command-btn" aria-haspopup="dialog" aria-expanded={showCommand}>
@@ -579,7 +625,15 @@ function MainApp({ session }: { session: Session }) {
               Open command
               <span className="nav-command-shortcut">⌘K</span>
             </button>
-            <div className="nav-system-shell" ref={shellUtilityRef}>
+            <div
+              className="nav-system-shell"
+              ref={shellUtilityRef}
+              style={
+                navSystemPanelLayout != null
+                  ? ({ '--nav-system-panel-max-h': `${navSystemPanelLayout.maxPx}px` } as React.CSSProperties)
+                  : undefined
+              }
+            >
               <button
                 type="button"
                 className="nav-system-trigger"
@@ -591,7 +645,16 @@ function MainApp({ session }: { session: Session }) {
                 <span>System</span>
               </button>
               {shellUtilitiesOpen ? (
-                <section className="nav-system-panel app-shell-card app-shell-card-inspector" role="dialog" aria-label="Shell utilities">
+                <section
+                  className={[
+                    'nav-system-panel app-shell-card app-shell-card-inspector',
+                    navSystemPanelLayout?.opensDown ? 'nav-system-panel--opens-down' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  role="dialog"
+                  aria-label="Shell utilities"
+                >
                   <div className="nav-system-panel-heading">System</div>
                   <div className="nav-system-panel-section">
                     <div className="nav-system-panel-label">Mode</div>

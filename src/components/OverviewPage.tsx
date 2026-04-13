@@ -284,7 +284,7 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
 
   return (
     <WorkspacePage>
-      <WorkspaceContentFrame>
+      <WorkspaceContentFrame variant="deck">
         <OverviewDashboard
           dashboard={dashboard}
           selectedFilter={selectedFilter}

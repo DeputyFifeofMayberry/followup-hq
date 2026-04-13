@@ -4,6 +4,7 @@ import { isOverdue, needsNudge } from '../lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { SavedViewKey } from '../types';
+import { AppShellCard } from './ui/AppPrimitives';
 
 type WorkspaceKey = 'overview' | 'tracker' | 'tasks' | 'intake' | 'directory';
 
@@ -37,13 +38,13 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTracke
     return (
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <AppShellCard key={index} surface="deckInset" className="p-5 shadow-sm">
             <div className="animate-pulse">
               <div className="h-4 w-28 rounded bg-slate-200" />
               <div className="mt-3 h-10 w-16 rounded bg-slate-200" />
               <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
             </div>
-          </div>
+          </AppShellCard>
         ))}
       </section>
     );
@@ -54,7 +55,12 @@ export function StatsGrid({ onOpenTrackerView, onOpenWorkspace }: { onOpenTracke
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <button key={stat.label} onClick={stat.action} className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
+          <button
+            key={stat.label}
+            type="button"
+            onClick={stat.action}
+            className="app-shell-card app-shell-card-deck-inset cursor-pointer p-5 text-left shadow-sm transition hover:border-[var(--border-strong)]"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-sm text-slate-500">{stat.label}</div>

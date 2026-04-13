@@ -16,9 +16,9 @@ export type RawBuildMeta = {
 
 export const rawBuildMeta: RawBuildMeta = {
   "version": "0.1.0",
-  "commitSha": "9989c2bb24a287b1648a6ff7e0a8daa48e7a482d",
-  "shortSha": "9989c2b",
-  "buildTimestamp": "2026-04-13T01:50:18.592Z",
+  "commitSha": "955cfad3ca829b5d58eb1da92c95ef9408cf5236",
+  "shortSha": "955cfad",
+  "buildTimestamp": "2026-04-13T02:30:38.436Z",
   "branch": "main",
   "environment": "local",
   "prNumber": null,

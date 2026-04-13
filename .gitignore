@@ -4,3 +4,5 @@ target/
 src-tauri/target/
 .vite/
 .env.local
+.vercel
+.env*.local

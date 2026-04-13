@@ -2,6 +2,18 @@
 
 ## 2026-04-12
 
+### Overview dashboard: legible priority chips in next-up table
+- Stopped the dark command-dashboard row rule from targeting all `span` elements so `.app-chip` / `chip-tone-*` label colors apply again; priority badges were inheriting near-white text on pastel backgrounds. (`src/styles/workspaces.css`)
+
+### Local Supabase env from Vercel
+- Added a committed [`.env.example`](.env.example) documenting `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Developers can copy it to `.env.local` or run `npx vercel link` and `npx vercel env pull .env.local` when the repo is linked to the Vercel project (`.env.local` remains gitignored).
+
+### Overview command dashboard: scoped filters, hero metrics, and chart snapshots
+- Rebuilt the top of Overview into a multi-row command dashboard on the brand night canvas: header scope controls (project, work slice, schedule window), three hero KPI cards with share-of-queue progress, a work-composition donut plus next-up table, and a bottom row of record-mix donut, project pressure bars, and a labeled commitment snapshot (current counts only, not historical trends). (`src/components/overview/OverviewDashboard.tsx`, `src/components/overview/OverviewDashboardHeader.tsx`, `src/components/overview/OverviewDashboardHeroKpis.tsx`, `src/components/overview/OverviewDashboardNextUp.tsx`, `src/components/overview/OverviewDonutChart.tsx`, `src/components/overview/OverviewDashboardBarCharts.tsx`, `src/styles/workspaces.css`)
+- Drive dashboard metrics, signal-card counts, triage list, and execution stats from one **scoped** unified-queue slice: optional project filter plus schedule window (any time / this week / this month, always including overdue and undated items so work does not silently disappear). (`src/domains/overview/hooks/useOverviewTriageViewModel.ts`, `src/components/OverviewPage.tsx`)
+- Kept lane health, hotspots, commitment tiles, ownership risk, and queue handoff below the chart row; KPI “Pressure now” focus now correctly narrows to due-now or blocked rows. (`src/components/overview/OverviewDashboardPanels.tsx`, `src/domains/overview/hooks/useOverviewTriageViewModel.ts`)
+- Fixed Playwright alignment rail anchoring for Overview by targeting `.overview-alignment-anchor` on the dashboard shell (replacing a stale missing selector). (`e2e/alignment-screenshots.spec.ts`)
+
 ### Shell utility de-emphasis: moved global controls into nav-rail footer system panel
 - Removed the full-width shell utility bar from above the workspace header so Overview and all workspace content now start directly with page-level chrome instead of global system controls. (`src/App.tsx`, `src/styles/shell.css`)
 - Relocated global shell utilities into a low-attention **System** entry point in the left-nav utility footer (and the same footer inside the mobile nav drawer), with a compact popover containing app mode, sync trust control, settings entry point, workspace health/daily focus context, and build metadata. (`src/App.tsx`, `src/styles/shell.css`)

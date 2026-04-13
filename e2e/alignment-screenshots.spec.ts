@@ -27,7 +27,7 @@ workflowTest('captures alignment screenshots for overview, follow ups, and tasks
   await bootSetPoint(page);
 
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
-  await expectSharedRails(page, '.overview-summary-strip-compact', 'Overview');
+  await expectSharedRails(page, '.overview-alignment-anchor', 'Overview');
   await page.locator('.app-main-pane').screenshot({ path: testInfo.outputPath('overview-alignment.png') });
 
   await page.getByRole('button', { name: /Follow Ups/ }).click();

@@ -39,6 +39,11 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
   const {
     hydrated,
     dashboard,
+    scopeProject,
+    setScopeProject,
+    scopeTimeWindow,
+    setScopeTimeWindow,
+    projectScopeOptions,
     selectedFilter,
     selectQueueFilter,
     selected,
@@ -283,6 +288,14 @@ export function OverviewPage({ onOpenWorkspace, personalMode = false, appMode = 
         <OverviewDashboard
           dashboard={dashboard}
           selectedFilter={selectedFilter}
+          scopeProject={scopeProject}
+          scopeTimeWindow={scopeTimeWindow}
+          projectOptions={projectScopeOptions}
+          onScopeProject={setScopeProject}
+          onScopeTimeWindow={setScopeTimeWindow}
+          onWorkSliceChange={(filterKey) => {
+            selectQueueFilter(filterKey);
+          }}
           onAction={handleDashboardAction}
         />
 

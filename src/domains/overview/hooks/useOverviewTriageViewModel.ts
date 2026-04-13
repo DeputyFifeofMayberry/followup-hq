@@ -10,6 +10,71 @@ const BASE_TRIAGE_LIMIT = 24;
 const TRIAGE_INCREMENT = 24;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export type OverviewTimeWindow = 'all' | 'week' | 'month';
+
+export interface OverviewChartSegment {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface OverviewProjectPressureBar {
+  project: string;
+  count: number;
+}
+
+function startOfLocalWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfLocalWeek(date: Date): Date {
+  const start = startOfLocalWeek(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+function startOfLocalMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function endOfLocalMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function rowPrimaryScheduleTime(row: UnifiedQueueItem): number | null {
+  const raw = row.dueDate ?? row.promisedDate ?? row.nextTouchDate;
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  return Number.isNaN(t) ? null : t;
+}
+
+function matchesOverviewTimeWindow(row: UnifiedQueueItem, window: OverviewTimeWindow, nowMs: number): boolean {
+  if (window === 'all') return true;
+  const t = rowPrimaryScheduleTime(row);
+  if (t === null) return true;
+  const now = new Date(nowMs);
+  if (window === 'week') {
+    const ws = startOfLocalWeek(now).getTime();
+    const we = endOfLocalWeek(now).getTime();
+    if (t < nowMs) return true;
+    return t >= ws && t <= we;
+  }
+  if (window === 'month') {
+    const ms = startOfLocalMonth(now).getTime();
+    const me = endOfLocalMonth(now).getTime();
+    if (t < nowMs) return true;
+    return t >= ms && t <= me;
+  }
+  return true;
+}
+
 type LaneTarget = Exclude<ExecutionRouteTarget, 'overview'>;
 type OverviewDashboardSection = Extract<ExecutionSectionKey, 'now' | 'triage' | 'blocked' | 'ready_to_close'>;
 
@@ -92,8 +157,37 @@ export interface OverviewDashboardOwnershipRisk {
   orphanedTask: OverviewDashboardMetric;
 }
 
+export type OverviewCommitmentSnapshotKey = keyof OverviewDashboardCommitments;
+
+export interface OverviewCommitmentSnapshotBar {
+  key: OverviewCommitmentSnapshotKey;
+  label: string;
+  count: number;
+}
+
+export interface OverviewDashboardHeroKpi {
+  key: 'pressure_now' | 'due_now' | 'blocked';
+  label: string;
+  value: number;
+  percentOfQueue: number;
+  helper: string;
+  tone: 'default' | 'warn' | 'danger' | 'info';
+  filterKey?: OverviewFilterKey;
+}
+
+export interface OverviewDashboardCharts {
+  /** Blocked, due now, waiting, ready to close, other (first match wins). */
+  workComposition: OverviewChartSegment[];
+  recordTypes: OverviewChartSegment[];
+  projectPressure: OverviewProjectPressureBar[];
+  commitmentSnapshot: OverviewCommitmentSnapshotBar[];
+  maxProjectPressure: number;
+}
+
 export interface OverviewDashboardModel {
   totalQueue: number;
+  heroKpis: OverviewDashboardHeroKpi[];
+  charts: OverviewDashboardCharts;
   kpis: OverviewDashboardKpi[];
   nextUpRows: OverviewDashboardNextUpRow[];
   laneHealth: OverviewDashboardLaneHealth[];
@@ -216,6 +310,14 @@ const isBlockedRow: RowPredicate = (row) => row.queueFlags.blocked || row.queueF
 const isNoDateRow: RowPredicate = (row) => !row.dueDate && !row.promisedDate && !row.nextTouchDate;
 const isUnassignedRow: RowPredicate = (row) => !(row.assignee?.trim() || row.owner?.trim());
 
+function overviewCompositionBucket(row: UnifiedQueueItem): 'blocked' | 'due_now' | 'ready_close' | 'waiting' | 'other' {
+  if (isBlockedRow(row)) return 'blocked';
+  if (isDueNowRow(row)) return 'due_now';
+  if (row.queueFlags.readyToCloseParent) return 'ready_close';
+  if (isWaitingRow(row)) return 'waiting';
+  return 'other';
+}
+
 export function useOverviewTriageViewModel() {
   const store = useAppStore(useShallow((s) => ({
     items: s.items,
@@ -243,8 +345,27 @@ export function useOverviewTriageViewModel() {
   const [visibleLimit, setVisibleLimit] = useState(BASE_TRIAGE_LIMIT);
   const [dashboardQueueContext, setDashboardQueueContext] = useState<OverviewDashboardQueueContext | null>(null);
   const [dashboardPredicate, setDashboardPredicate] = useState<RowPredicate | null>(null);
+  const [scopeProject, setScopeProject] = useState<string>('all');
+  const [scopeTimeWindow, setScopeTimeWindow] = useState<OverviewTimeWindow>('all');
 
-  const stats = useMemo(() => buildExecutionQueueStats(queue), [queue]);
+  const projectScopeOptions = useMemo(() => {
+    const names = new Set<string>();
+    queue.forEach((row) => {
+      names.add(row.project?.trim() || 'No project');
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [queue]);
+
+  const scopedQueue = useMemo(() => {
+    const nowMs = Date.now();
+    return queue.filter((row) => {
+      const projectName = row.project?.trim() || 'No project';
+      if (scopeProject !== 'all' && projectName !== scopeProject) return false;
+      return matchesOverviewTimeWindow(row, scopeTimeWindow, nowMs);
+    });
+  }, [queue, scopeProject, scopeTimeWindow]);
+
+  const stats = useMemo(() => buildExecutionQueueStats(scopedQueue), [scopedQueue]);
 
   const signalPredicates: Record<Exclude<OverviewFilterKey, 'all'>, RowPredicate> = useMemo(() => ({
     due_now: isDueNowRow,
@@ -259,10 +380,10 @@ export function useOverviewTriageViewModel() {
   };
 
   const filteredRows = useMemo(() => {
-    const baseRows = selectedFilter === 'all' ? queue : queue.filter((row) => signalPredicates[selectedFilter]?.(row));
+    const baseRows = selectedFilter === 'all' ? scopedQueue : scopedQueue.filter((row) => signalPredicates[selectedFilter]?.(row));
     if (!dashboardPredicate) return baseRows;
     return baseRows.filter((row) => dashboardPredicate(row));
-  }, [queue, selectedFilter, signalPredicates, dashboardPredicate]);
+  }, [scopedQueue, selectedFilter, signalPredicates, dashboardPredicate]);
 
   const normalizedQuery = useMemo(() => normalizeSearchValue(searchQuery), [searchQuery]);
   const searchedRows = useMemo(() => {
@@ -275,7 +396,13 @@ export function useOverviewTriageViewModel() {
 
   useEffect(() => {
     setVisibleLimit(BASE_TRIAGE_LIMIT);
-  }, [selectedFilter, normalizedQuery, dashboardQueueContext]);
+  }, [selectedFilter, normalizedQuery, dashboardQueueContext, scopeProject, scopeTimeWindow]);
+
+  useEffect(() => {
+    if (scopeProject !== 'all' && !projectScopeOptions.includes(scopeProject)) {
+      setScopeProject('all');
+    }
+  }, [projectScopeOptions, scopeProject]);
 
   useEffect(() => {
     const resolved = resolveExecutionLaneSelection({ selectedId: store.executionSelectedId, queueIds: searchedIds });
@@ -291,10 +418,10 @@ export function useOverviewTriageViewModel() {
   }, [store.executionSelectedId, searchedIds, searchedRows]);
 
   const signalCards = useMemo<OverviewSignalCard[]>(() => {
-    const dueNowRows = queue.filter(isDueNowRow);
-    const blockedRows = queue.filter(isBlockedRow);
-    const waitingRows = queue.filter(isWaitingRow);
-    const readyToCloseRows = queue.filter((row) => row.queueFlags.readyToCloseParent);
+    const dueNowRows = scopedQueue.filter(isDueNowRow);
+    const blockedRows = scopedQueue.filter(isBlockedRow);
+    const waitingRows = scopedQueue.filter(isWaitingRow);
+    const readyToCloseRows = scopedQueue.filter((row) => row.queueFlags.readyToCloseParent);
 
     return [
       {
@@ -334,17 +461,18 @@ export function useOverviewTriageViewModel() {
         intentLabel: 'close ready follow-ups',
       },
     ];
-  }, [queue]);
+  }, [scopedQueue]);
 
   const dashboard = useMemo<OverviewDashboardModel>(() => {
-    const pressureRows = queue.filter((row) => isDueNowRow(row) || isBlockedRow(row));
-    const dueNowRows = queue.filter(isDueNowRow);
-    const blockedRows = queue.filter(isBlockedRow);
-    const needsReviewRows = queue.filter(isReviewRow);
+    const q = scopedQueue;
+    const pressureRows = q.filter((row) => isDueNowRow(row) || isBlockedRow(row));
+    const dueNowRows = q.filter(isDueNowRow);
+    const blockedRows = q.filter(isBlockedRow);
+    const needsReviewRows = q.filter(isReviewRow);
     const dueWithin7DaysPredicate: RowPredicate = (row) => isDueWithinDays(row.dueDate ?? row.promisedDate ?? row.nextTouchDate, 7, Date.now());
-    const readyRows = queue.filter((row) => row.queueFlags.readyToCloseParent);
+    const readyRows = q.filter((row) => row.queueFlags.readyToCloseParent);
 
-    const sortedByScore = [...queue].sort((a, b) => b.score - a.score);
+    const sortedByScore = [...q].sort((a, b) => b.score - a.score);
     const nextUpRows = sortedByScore.slice(0, 8).map((row) => ({
       id: row.id,
       title: row.title,
@@ -411,43 +539,43 @@ export function useOverviewTriageViewModel() {
 
     const commitments: OverviewDashboardCommitments = {
       overdue: {
-        count: queue.filter((row) => row.queueFlags.overdue).length,
-        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.overdue),
+        count: q.filter((row) => row.queueFlags.overdue).length,
+        sampleRowId: findSampleRowId(q, (row) => row.queueFlags.overdue),
       },
       dueToday: {
-        count: queue.filter(isDueTodayRow).length,
-        sampleRowId: findSampleRowId(queue, isDueTodayRow),
+        count: q.filter(isDueTodayRow).length,
+        sampleRowId: findSampleRowId(q, isDueTodayRow),
       },
       dueWithin7Days: {
-        count: queue.filter(dueWithin7DaysPredicate).length,
-        sampleRowId: findSampleRowId(queue, dueWithin7DaysPredicate),
+        count: q.filter(dueWithin7DaysPredicate).length,
+        sampleRowId: findSampleRowId(q, dueWithin7DaysPredicate),
       },
       waitingTooLong: {
-        count: queue.filter((row) => row.queueFlags.waitingTooLong).length,
-        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.waitingTooLong),
+        count: q.filter((row) => row.queueFlags.waitingTooLong).length,
+        sampleRowId: findSampleRowId(q, (row) => row.queueFlags.waitingTooLong),
       },
       readyToClose: {
         count: readyRows.length,
-        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.readyToCloseParent),
+        sampleRowId: findSampleRowId(q, (row) => row.queueFlags.readyToCloseParent),
       },
     };
 
     const ownershipRisk: OverviewDashboardOwnershipRisk = {
       unassigned: {
-        count: queue.filter(isUnassignedRow).length,
-        sampleRowId: findSampleRowId(queue, isUnassignedRow),
+        count: q.filter(isUnassignedRow).length,
+        sampleRowId: findSampleRowId(q, isUnassignedRow),
       },
       noDate: {
-        count: queue.filter(isNoDateRow).length,
-        sampleRowId: findSampleRowId(queue, isNoDateRow),
+        count: q.filter(isNoDateRow).length,
+        sampleRowId: findSampleRowId(q, isNoDateRow),
       },
       cleanupRequired: {
-        count: queue.filter((row) => row.queueFlags.cleanupRequired).length,
-        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.cleanupRequired),
+        count: q.filter((row) => row.queueFlags.cleanupRequired).length,
+        sampleRowId: findSampleRowId(q, (row) => row.queueFlags.cleanupRequired),
       },
       orphanedTask: {
-        count: queue.filter((row) => row.queueFlags.orphanedTask).length,
-        sampleRowId: findSampleRowId(queue, (row) => row.queueFlags.orphanedTask),
+        count: q.filter((row) => row.queueFlags.orphanedTask).length,
+        sampleRowId: findSampleRowId(q, (row) => row.queueFlags.orphanedTask),
       },
     };
 
@@ -460,15 +588,90 @@ export function useOverviewTriageViewModel() {
     ];
 
     const laneHealth: OverviewDashboardLaneHealth[] = [
-      { key: 'tasks', label: 'Tasks lane', value: queue.filter((row) => row.recordType === 'task').length, helper: 'Task records in current queue.', lane: 'tasks', section: 'now' },
-      { key: 'followups', label: 'Follow Ups lane', value: queue.filter((row) => row.recordType === 'followup').length, helper: 'Follow-ups requiring movement.', lane: 'followups', section: 'triage' },
+      { key: 'tasks', label: 'Tasks lane', value: q.filter((row) => row.recordType === 'task').length, helper: 'Task records in current queue.', lane: 'tasks', section: 'now' },
+      { key: 'followups', label: 'Follow Ups lane', value: q.filter((row) => row.recordType === 'followup').length, helper: 'Follow-ups requiring movement.', lane: 'followups', section: 'triage' },
       { key: 'blocked', label: 'Blocked lane', value: blockedRows.length, helper: 'Route to unblock decisions.', lane: pickLaneForRows(blockedRows, 'tasks'), section: 'blocked', filterKey: 'blocked' },
-      { key: 'waiting', label: 'Waiting lane', value: queue.filter(isWaitingRow).length, helper: 'Dependencies waiting on response.', lane: 'followups', section: 'triage', filterKey: 'waiting' },
+      { key: 'waiting', label: 'Waiting lane', value: q.filter(isWaitingRow).length, helper: 'Dependencies waiting on response.', lane: 'followups', section: 'triage', filterKey: 'waiting' },
       { key: 'review', label: 'Review lane', value: needsReviewRows.length, helper: 'Cleanup and structural review pressure.', lane: pickLaneForRows(needsReviewRows, 'followups'), section: 'triage' },
     ];
 
+    const total = q.length;
+    const pctOfQueue = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+    const heroKpis: OverviewDashboardHeroKpi[] = [
+      {
+        key: 'pressure_now',
+        label: 'Pressure now',
+        value: pressureRows.length,
+        percentOfQueue: pctOfQueue(pressureRows.length),
+        helper: 'Due or blocked commitments needing attention.',
+        tone: pressureRows.length > 0 ? 'danger' : 'default',
+      },
+      {
+        key: 'due_now',
+        label: 'Due now',
+        value: dueNowRows.length,
+        percentOfQueue: pctOfQueue(dueNowRows.length),
+        helper: 'Overdue, due today, or touch due today.',
+        tone: dueNowRows.length > 0 ? 'warn' : 'default',
+        filterKey: 'due_now',
+      },
+      {
+        key: 'blocked',
+        label: 'Blocked',
+        value: blockedRows.length,
+        percentOfQueue: pctOfQueue(blockedRows.length),
+        helper: 'Execution blocked or parent at risk.',
+        tone: blockedRows.length > 0 ? 'warn' : 'default',
+        filterKey: 'blocked',
+      },
+    ];
+
+    const compositionAcc = { blocked: 0, due_now: 0, ready_close: 0, waiting: 0, other: 0 };
+    q.forEach((row) => {
+      const b = overviewCompositionBucket(row);
+      compositionAcc[b] += 1;
+    });
+    const workComposition: OverviewChartSegment[] = [
+      { key: 'blocked', label: 'Blocked', count: compositionAcc.blocked },
+      { key: 'due_now', label: 'Due now', count: compositionAcc.due_now },
+      { key: 'ready_close', label: 'Ready to close', count: compositionAcc.ready_close },
+      { key: 'waiting', label: 'Waiting', count: compositionAcc.waiting },
+      { key: 'other', label: 'Other', count: compositionAcc.other },
+    ].filter((seg) => seg.count > 0);
+
+    const taskCount = q.filter((row) => row.recordType === 'task').length;
+    const followUpCount = q.filter((row) => row.recordType === 'followup').length;
+    const recordTypes: OverviewChartSegment[] = [
+      { key: 'task', label: 'Tasks', count: taskCount },
+      { key: 'followup', label: 'Follow-ups', count: followUpCount },
+    ].filter((seg) => seg.count > 0);
+
+    const projectPressure: OverviewProjectPressureBar[] = hotspots.map((h) => ({
+      project: h.project,
+      count: h.pressureCount,
+    }));
+    const maxProjectPressure = projectPressure.reduce((max, p) => Math.max(max, p.count), 0);
+
+    const commitmentSnapshot: OverviewCommitmentSnapshotBar[] = [
+      { key: 'overdue', label: 'Overdue', count: commitments.overdue.count },
+      { key: 'dueToday', label: 'Due today', count: commitments.dueToday.count },
+      { key: 'dueWithin7Days', label: 'Due in 7 days', count: commitments.dueWithin7Days.count },
+      { key: 'waitingTooLong', label: 'Waiting too long', count: commitments.waitingTooLong.count },
+      { key: 'readyToClose', label: 'Ready to close', count: commitments.readyToClose.count },
+    ];
+
+    const charts: OverviewDashboardCharts = {
+      workComposition,
+      recordTypes,
+      projectPressure,
+      commitmentSnapshot,
+      maxProjectPressure,
+    };
+
     return {
-      totalQueue: queue.length,
+      totalQueue: total,
+      heroKpis,
+      charts,
       kpis,
       nextUpRows,
       laneHealth,
@@ -476,7 +679,7 @@ export function useOverviewTriageViewModel() {
       commitments,
       ownershipRisk,
     };
-  }, [queue]);
+  }, [scopedQueue]);
 
   const applyDashboardQueueIntent = (intent: OverviewDashboardQueueIntent) => {
     const filterKey = intent.filterKey ?? 'all';
@@ -495,7 +698,7 @@ export function useOverviewTriageViewModel() {
       secondaryRouteOut: intent.secondaryRouteOut,
     });
 
-    const focusedRows = queue.filter((row) => matchesFilter(row, filterKey) && predicate(row));
+    const focusedRows = scopedQueue.filter((row) => matchesFilter(row, filterKey) && predicate(row));
     const nextSelectedId = focusedRows.find((row) => row.id === intent.preferredRowId)?.id ?? focusedRows[0]?.id ?? null;
     store.setExecutionSelectedId(nextSelectedId);
   };
@@ -536,6 +739,15 @@ export function useOverviewTriageViewModel() {
       case 'focus_kpi': {
         const kpi = dashboard.kpis.find((entry) => entry.key === action.key);
         if (!kpi) return null;
+        if (kpi.key === 'pressure_now') {
+          return {
+            source: 'KPI',
+            label: kpi.label,
+            description: `Focused from KPI: ${kpi.helper}`,
+            filterKey: 'all',
+            predicate: (row) => isDueNowRow(row) || isBlockedRow(row),
+          };
+        }
         if (kpi.key === 'needs_review') {
           return {
             source: 'KPI',
@@ -714,6 +926,11 @@ export function useOverviewTriageViewModel() {
     hydrated: store.hydrated,
     stats,
     dashboard,
+    scopeProject,
+    setScopeProject,
+    scopeTimeWindow,
+    setScopeTimeWindow,
+    projectScopeOptions,
     selectedFilter,
     selectQueueFilter,
     searchQuery,
